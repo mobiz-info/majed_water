@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
+    <h4 class="fw-medium mb-0">Create Coupon</h4>
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-50">Coupon Management</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Coupon</li>
+    </ol>
+</div>
+<div class="main-content app-content">
+    <div class="container-fluid">
+        <!-- Start:: row-1 -->
+        <div class="row">
+            <div class="col-xl-12">
+                <div class="card custom-card">
+                    <div class="card-header">
+                        <div class="card-title mx-auto">
+                            Create Coupon
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form enctype="multipart/form-data" role="form" id="create-coupon-form" method="post" class="row g-3 needs-validation ajax redirect">
+                            {% csrf_token %}
+                            <!--row 1-->
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Book No</label>
+                                    {{ form.book_num }}
+                                    <span style="color: red;">{{ form.book_num.errors }}</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Coupon Type</label>
+                                    {{ form.coupon_type }}
+                                    <span style="color: red;">{{ form.coupon_type.errors }}</span>
+                                </div>
+                            </div>
+                            <!-- Generate Coupons Button -->
+                            <div class="col-12 text-end mt-5">
+                                <button id="generate-btn" class="btn btn-primary me-2 mb-2">Generate Coupon</button>
+                            </div>
+                        </form>
+                        
+                        <div id="error-message" style="color: red;"></div>
+                        
+                        <div class="row" id="leaflet-serial-numbers" style="display: none;">
+                            <div class="col-xl-12">
+                                <div class="card custom-card">
+                                    <h4>Generated Leaflets for Coupon: <span id="coupon-book-num"></span></h4>
+                                    <ul id="leaflet-list"></ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row my-3 me-1" id="back-button" style="display: none;">
+                            <div class="col-12 text-end">
+                                <a href="{% url 'new_coupon' %}">
+                                    {% comment %} <button class="btn btn-success me-md-2 " type="button"><i class="bi bi-backspace-fill pe-1"></i>Save </button> {% endcomment %}
+                                    <button class="btn btn-success me-md-2 " type="button"><i class="bi bi-save-fill pe-1"></i>Save</button>
+
+                                </a>
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block static %}
+<script>
+    $('#generate-btn').click(function(event) {
+        event.preventDefault();  // Prevent form submission
+    
+        // Serialize form data
+        var formData = $('#create-coupon-form').serialize();
+    
+        // Send AJAX request to create and generate coupons
+        $.ajax({
+            url: "{% url 'create_Newcoupon' %}",
+            method: 'POST',
+            data: formData,
+            dataType: 'json',
+            success: function(data) {
+                if (data.success) { // If response indicates success
+                    // Update DOM with generated coupon book number
+                    $('#coupon-book-num').text(data.book_num);
+    
+                    // Clear existing leaflets
+                    $('#leaflet-list').empty();
+    
+                    // Iterate through leaflets and display
+                    data.leaflets.forEach(function(leaflet) {
+                        var couponBookNum = data.book_num.replace(/\s+/g, ''); // Remove white spaces from book_num
+                        var leafletNum = leaflet.leaflet_number.padStart(2, '0'); // Pad leaflet number with '0' if necessary
+                        var listItem = $('<li>').text(couponBookNum + leafletNum); // Concatenate book number and leaflet number
+                        $('#leaflet-list').append(listItem); // Append to leaflet list
+                    });
+    
+                    // Show leaflet section and back button
+                    $('#leaflet-serial-numbers').show();
+                    $('#back-button').show();
+                } else {
+                    // If the response indicates failure, log the error message to the console
+                    console.error('Error:', data.message);
+                    // Optionally display the error message to the user
+                    $('#error-message').text(data.message);
+                }
+            },
+            error: function(xhr, status, error) {
+                // If there is an AJAX error, log it to the console
+                console.error('AJAX Error:', error);
+            }
+        });
+    });    
+</script>
+{% endblock static %}
+

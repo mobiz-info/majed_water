@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block title %} Customer Sales Report {% endblock %}
+{% block content %}
+{% load static %}
+
+<!-- Page Header -->
+<div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
+    <h4 class="fw-medium mb-0">Customer Sales Report</h4>
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-30">Sales Management</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Customer Sales Report</li>
+    </ol>
+</div>
+<div class="main-content app-content">
+    <div class="container-fluid">
+        <!-- Start:: row-2 -->
+        <div class="row">
+            <div class="col-xl-12">
+                <div class="card custom-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            Customer Sales Report
+                        </div>
+                    </div>
+                    <div class="mt">
+                        <form method="GET" action="{% url 'customerSales_report' %}">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col">
+                                        
+                                        <label for="start_date">From Date:</label>
+                                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
+                                    </div>
+                                    <div class="col">
+                                        <label for="end_date">To Date:</label>
+                                        <input type="date" class="form-control" id="end_date" name="end_date" value="{{ filter_data.end_date }}">
+                                    </div>
+                                    <div class="col">
+                                        <button type="submit" class="btn btn-primary me-2 mb-2 mt-3">Submit</button>
+                                    </div>
+                                    <div class="col d-flex align-items-center justify-content-end">
+                                        <a href="{% url 'customerSales_Excel_report' %}?start_date={{ filter_data.start_date }}&end_date={{ filter_data.end_date }}" class="btn btn-outline-success"><i class="fas fa-file-excel"></i>Excel</a>
+                                        <a href="{% url 'customerSales_Print_report' %}?start_date={{ filter_data.start_date }}&end_date={{ filter_data.end_date }}" class="btn btn-outline-success"><i class="fas fa-file-excel"></i>Print</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div id="table-container" style="overflow:scroll;">
+                        <div class="card-body">
+                            <table id="responsiveDataTable" class="table table-bordered text-nowrap" style="width:100%">
+                                <thead>
+                                    <tr>
+                                        <th style="text-align:center !important;" scope="col">Sl No</th>
+                                        <th style="text-align:center !important;" scope="col">Date</th>
+                                        <th style="text-align:center !important;" scope="col">Ref/Invoice No</th>
+                                        <th style="text-align:center !important;" scope="col">Customer Name</th>
+                                        <th style="text-align:center !important;" scope="col">Building Name/Room No/Floor No</th>
+                                        <th style="text-align:center !important;" scope="col">Customer Sales Type</th>
+                                        <th style="text-align:center !important;" scope="col">Route</th>
+                                        <th style="text-align:center !important;" scope="col">Salesman</th>
+                                        <th style="text-align:center !important;" scope="col">Amount</th>
+                                        <th style="text-align:center !important;" scope="col">Discount</th>
+                                        <th style="text-align:center !important;" scope="col">Net Taxable</th>
+                                        <th style="text-align:center !important;" scope="col">Vat Amount</th>
+                                        <th style="text-align:center !important;" scope="col">Grand Total</th>
+                                        <th style="text-align:center !important;" scope="col">Amount Collected</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% comment %} {% load el_pagination_tags %}
+                                    {% paginate 10 customersales %} {% endcomment %}
+                                    {% for data in customersales %}
+                                    <tr>
+                                        <td style="text-align:left;">{{ forloop.counter }}</td>
+                                        <td style="text-align:left;">{{ data.date|date:"d/m/Y" }}</td>
+                                        <td style="text-align:left;">{{ data.ref_invoice_no }}</td>
+                                        <td style="text-align:left;">{{ data.customer_name }}</td>
+                                        <td style="text-align:left;">{{ data.building_name }} {% if data.door_house_no %}/ {{ data.door_house_no }} {% endif %} {% if data.floor_no %}/ {{ data.floor_no }} {% endif %}</td>
+                                        <td style="text-align:left;">{{ data.sales_type }}</td>
+                                        <td style="text-align:left;">{{ data.route_name }}</td>
+                                        <td style="text-align:left;">{{ data.salesman }}</td>
+                                        <td style="text-align:right;">{{ data.amount }}</td>
+                                        <td style="text-align:right;">{{ data.discount }}</td>
+                                        <td style="text-align:right;">{{ data.net_taxable }}</td>
+                                        <td style="text-align:right;">{{ data.vat_amount }}</td>
+                                        <td style="text-align:right;">{{ data.grand_total }}</td>
+                                        <td style="text-align:right;">{{ data.amount_collected }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                              
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="8" style="text-align: right;">Total:</td>
+                                        <td style="text-align:right;">{{ total_amount }}</td>
+                                        <td style="text-align:right;">{{ total_discount }}</td>
+                                        <td style="text-align:right;">{{ total_net_payable }}</td>
+                                        <td style="text-align:right;">{{ total_vat }}</td>
+                                        <td style="text-align:right;">{{ total_grand_total }}</td>
+                                        <td style="text-align:right;">{{ total_amount_recieved }}</td>
+                                    </tr>
+                                </tfoot>
+                             
+                            </table>
+                        </div>
+                    </div>
+                    {% comment %} {% get_pages %}
+                    <div class="clearfix"></div>
+                    <div class="row pagi my-3">
+                        <div class="col-sm-6 col-xs-6 tot my-pagination">
+                            <div class="m-t-10 text-start">
+                                Showing {{title}} <span class="current_page_index">{{ pages.current_start_index }}</span> - <span class="current_end_status">{{ pages.current_end_index }}</span> of <span class="total_count">{{ pages.total_count }}</span>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-xs-6 pagination-btn-div">{% show_pages %}</div>
+                    </div> {% endcomment %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+
+
+{% endblock %}

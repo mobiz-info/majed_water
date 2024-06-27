@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %} Custody Report {% endblock %}
+{% block content %}
+{% load static %}
+
+<!-- Page Header -->
+<div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
+    <h4 class="fw-medium mb-0">Outstanding Report</h4>
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-30">Client Management</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Outstanding Rport</li>
+    </ol>
+</div>
+<div class="main-content app-content">
+    <div class="container-fluid">
+        <!-- Start:: row-2 -->
+        <div class="row">
+            <div class="col-xl-12">
+                <div class="card custom-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            Outstanding Items
+                        </div>
+                        
+                        <div class="ms-auto">
+                            <a href="{% url 'create_customer_outstanding' %}{% if customer_pk %}?customer_pk={{customer_pk}}{% endif %}">
+                                <button type="button" class="btn btn-success btn-wave text-end d-flex me-4 my-auto"><i class="bi bi-plus-circle me-1"></i>Create</button>
+                            </a>
+                        </div>
+                        <div style="float:right;padding:10px 10px">
+                            <form method="GET">
+                                <div class="input-group">
+                                    <select name="route_name" class="form-select">
+                                        <option value="">All Routes</option>
+                                        {% for route in route_li %}
+                                            <option value="{{ route.route_name }}">{{ route.route_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-search"></i> Search
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <div id="table-container">
+                        <div class="card-body">
+                            {% comment %} <div style="float:right;padding:10px 0px">
+                                <form method="GET">
+                                    <div class="input-group">
+                                        <input type="text" name="q" class="form-control" placeholder="Search ..." value="{{ filter_data.q }}" >
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-search"></i> Search
+                                        </button>
+                                    </div>
+                                </form>
+                            </div> {% endcomment %}
+                            
+                            <table  id="datatable-basic" class="table table-bordered text-wrap" style="width: 100%">
+                                <thead>
+                                    <tr>
+                                        <th>Sl No</th>
+                                        <th>Customer</th>
+                                        <th>Building No</th>
+                                        <th>Room No/Floor No</th>
+                                        <th>Route</th>
+                                        <th>Amount</th>
+                                        <th>Empty Can</th>
+                                        <th>Coupon</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in instances %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ item.customer.customer_name }}</td>
+                                        <td>{{ item.customer.building_name }}</td>
+                                        <td>{{ item.customer.door_house_no }}</td>
+                                        <td>{{ item.customer.routes.route_name}}</td>
+                                        <td>{{ item.amount }}</td>
+                                        <td>{{ item.empty_can }}</td>
+                                        <td>{{ item.coupons }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

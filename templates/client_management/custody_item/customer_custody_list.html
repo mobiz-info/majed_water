@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %} Customer Custody Details {% endblock %}
+{% block content %}
+{% load static %}
+        <!-- End::app-sidebar -->
+        <!-- Page Header -->
+        <div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
+            <h4 class="fw-medium mb-0">Customer Custody Details</h4>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-50">Client Management</a>
+                </li>
+                <li class="breadcrumb-item active" aria-current="page">Customer Custody Details</li>
+            </ol>
+        </div>
+        <!-- Page Header Close -->
+
+
+
+        <!-- Start::app-content -->
+        <div class="main-content app-content">
+            <div class="container-fluid">
+
+                
+                         <!-- Start:: row-2 -->
+                <div class="row">
+                    <div class="col-xl-12">
+                        <div class="card custom-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Customer Custody Details
+                                </div>
+
+                                <div class="ms-auto">
+                                    <a href="{% url 'customer_create' %}">
+                                    <button type="button" class="btn btn-success btn-wave text-end d-flex me-4 my-auto"><i class="bi bi-plus-circle me-1"></i>Create</button>
+                                </a>
+                                </div>
+                            </div>
+                            
+                            <div class="card-body">
+
+                                <div style="float:right;padding:10px 0px">
+                                    <form >
+                                        <div class="input-group">
+                                            <input type="text" name="q" class="form-control" placeholder="Search ...">
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="bi bi-search"></i> Search
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                                <table class="table table-bordered text-nowrap" style="width:100%">
+                                    <tr>
+                                            <th scope="col" class="text-center">Sl.No</th>
+                                            <th scope="col" class="text-center">Customer Name</th>
+                                            <th scope="col" class="text-left">Mobile No</th>
+                                            <th scope="col" class="text-left">Building Name</th>
+                                            <th scope="col" class="text-center">Route Name</th>
+                                            <th scope="col" class="text-center">Empty Bottles</th>
+                                            <th scope="col" class="text-center">Coolers</th>
+                                            <th scope="col" class="text-center">Dispenser</th>
+                                            <th scope="col" class="text-right"></th>
+                                            <th scope="col" class="text-right"></th>
+
+                                        </tr>
+                                    <tbody>
+                                        
+                                        {% load el_pagination_tags %}
+                                        {% paginate 20 user_li %}
+                                        {% for data in user_li %}
+                                        <tr>
+                                            <td style="text-align:center;">{{ forloop.counter }}</td>
+                                            <td style="text-align:center;">{{ data.custody_custom.customer.customer_name }}</td>
+                                            <td style="text-align:center;">{{ data.custody_custom.customer.mobile_no }}</td>
+                                            <td style="text-align:center;">{{ data.custody_custom.customer.building_name }}</td>
+                                            <td style="text-align:center;">{{ data.custody_custom.customer.routes }}</td> <!-- Assuming 'route_name' is a field in your 'Customer' model -->
+                                            <td style="text-align:center;">{{ five_gallon_count }}</td>
+                                            <td style="text-align:center;">{{ dispenser_count }}</td>
+                                            <td style="text-align:center;">{{ water_cooler_count }}</td>
+                                            
+                                            <td><a href="{% url 'add_custody_items' %}">Add</td>
+                                            <td><a href="">Pullout</td>
+                                                
+                                        </tr>
+                                  
+                                    {%endfor%}
+                                    </tbody>
+                                </table>
+                                {% get_pages %}
+                                <div class="clearfix"></div>
+                                <div class="row pagi my-3">
+                                    <div class="col-sm-6 col-xs-6 tot my-pagination">
+                                        <div class="m-t-10 text-start">
+                                            Showing {{title}}
+                                            <span class="current_page_index">{{ pages.current_start_index }}</span> - <span
+                                            class="current_end_status">{{ pages.current_end_index }}</span> of <span
+                                            class="total_count">{{ pages.total_count }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6 col-xs-6 text-end pagination-btn-div">{% show_pages %}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-2 -->
+
+                      
+
+            </div>
+        </div>
+        <!-- End::app-content -->
+        {% endblock %}
