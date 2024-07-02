@@ -191,3 +191,20 @@ class Notification(models.Model):
 
     class Meta:
         ordering = ('-created_on',)
+        
+class LocationUpdate(models.Model):
+    location_update_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    van = models.ForeignKey('van_management.Van', on_delete=models.CASCADE,null=True, blank=True,)
+    salesman = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True, blank=True, related_name='LocationUpdate_Salesman')
+    location = models.ForeignKey('master.LocationMaster', on_delete=models.CASCADE,null=True, blank=True, related_name='location_update')
+    latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    battery_percentage = models.DecimalField(max_digits=5, decimal_places=2)
+    created_date = models.DateTimeField(auto_now_add=True)
+    updated_date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-created_date',)
+
+    def __str__(self):
+        return f'{self.van} - {self.salesman} - {self.location}'

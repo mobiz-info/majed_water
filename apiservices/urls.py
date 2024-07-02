@@ -261,6 +261,9 @@ urlpatterns = [
     
     
     path('api_staffIssueOrdersCreate/<str:staff_order_details_id>/', StaffIssueOrdersAPIView.as_view(), name='api_staffIssueOrdersCreate'),
+    path('api_staffIssueOrdersCreate/create/<str:staff_order_details_id>/', StaffIssueOrdersAPIView.as_view(), name='api_staffIssueOrders_Create'),
     path('get_coupon_bookno/', GetCouponBookNoView.as_view(), name='get_coupon_bookno'),
-    path('api_issue_coupons_orders/', IssueCouponsOrdersAPIView.as_view(), name='api_issue_coupons_orders'),
+  
+    path('location_updates/', LocationUpdateAPIView.as_view(), name='location_updates'),
+  
 ]
