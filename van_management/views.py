@@ -1256,32 +1256,35 @@ def EditBottleAllocation(request, route_id=None):
 
     return render(request, 'van_management/edit_bottle_allocation.html', context)
 
-
 def VansRouteBottleCount(request):
     date = request.GET.get('date')
-    print(date,'date')
+    print(date, 'date')
     if date:
         date = datetime.strptime(date, '%Y-%m-%d').date()
     else:
         date = datetime.today().date()
+
     van_details = []
 
-    if date:
-        van_product_stocks = VanProductStock.objects.filter(created_date=date)
-        print("van_product_stocks",van_product_stocks)
-        for stock in van_product_stocks:
-            van = stock.van
-            route_name = van.get_van_route() if van else 'No route'
-            bottle_count = stock.stock
-            van_details.append({
-                'route': route_name,
-                'bottle_count': bottle_count,
-                'van_id': van.van_id
-            })
+    all_vans = Van.objects.all()
+    for van in all_vans:
+        # Get the van's route, default to 'No route' if none found
+        van_route = Van_Routes.objects.filter(van=van).first()
+        route_name = van_route.routes.route_name if van_route else 'No route'
+        
+        # Get the bottle count directly from the Van model
+        bottle_count = van.bottle_count
+
+        van_details.append({
+            'route': route_name,
+            'bottle_count': bottle_count,
+            'van_id': van.van_id
+        })
 
     context = {
         'van_details': van_details,
         'date': date,
+        # 'all_vans' :all_vans
     }
     return render(request, 'van_management/van_route_bottle_count.html', context)
 

@@ -187,6 +187,7 @@ class VanCouponStock(models.Model):
     requested_count = models.PositiveIntegerField(default=0)
     pending_count = models.PositiveIntegerField(default=0)
     sold_count = models.PositiveIntegerField(default=0)
+    used_leaf_count = models.PositiveIntegerField(default=0)
     stock = models.PositiveIntegerField(default=0)
     
     coupon = models.ForeignKey(NewCoupon, on_delete=models.CASCADE)
@@ -245,7 +246,8 @@ class OffloadReturnStocks(models.Model):
     product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
     scrap_count = models.PositiveIntegerField(default=0)
     washing_count = models.PositiveIntegerField(default=0)
-
+    other_quantity= models.PositiveIntegerField(default=0)
+    other_reason= models.CharField(max_length=300)
     def __str__(self):
         return f"{self.id}"
        
@@ -333,4 +335,59 @@ class EmptyCanStock(models.Model):
     
 
     def __str__(self):
-        return f"{self.id}"   
+        return f"{self.id}" 
+    
+      
+class OffloadRequest(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    van = models.ForeignKey(Van, on_delete=models.CASCADE,null=True, blank=True)
+    salesman = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE)
+    
+    created_by = models.CharField(max_length=20, blank=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    created_date = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ('created_date',)
+
+    def __str__(self):
+        return str(self.van)
+    
+class OffloadRequestItems(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    quantity = models.PositiveIntegerField(default=0)
+    offloaded_quantity = models.PositiveIntegerField(default=0)
+    stock_type = models.CharField(max_length=100)
+    
+    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE,null=True, blank=True)
+    offload_request = models.ForeignKey(OffloadRequest, on_delete=models.CASCADE,null=True, blank=True)
+    
+    class Meta:
+        ordering = ('offload_request__created_date',)
+
+    def __str__(self):
+        return str(self.product.product_name)
+    
+class OffloadRequestReturnStocks(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    other_reason= models.CharField(max_length=300)
+    scrap_count = models.PositiveIntegerField(default=0)
+    washing_count = models.PositiveIntegerField(default=0)
+    other_quantity= models.PositiveIntegerField(default=0)
+    
+    offload_request_item = models.ForeignKey(OffloadRequestItems, on_delete=models.CASCADE,null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.id}"
+    
+class OffloadCoupon(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    quantity = models.PositiveIntegerField(default=0)
+    stock_type = models.CharField(max_length=100,choices=STOCK_TYPES)
+    
+    coupon = models.ForeignKey(NewCoupon, on_delete=models.CASCADE)
+    offload_request = models.ForeignKey(OffloadRequest, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.id}"

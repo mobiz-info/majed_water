@@ -233,6 +233,7 @@ class CustomerCoupon(models.Model):
     balance = models.DecimalField(default=0, max_digits=10, decimal_places=2)
     reference_number = models.CharField(max_length=100)
     coupon_method = models.CharField(max_length=10,choices=COUPON_METHOD_CHOICES,default='manual')
+    invoice_no = models.CharField(max_length=100, null=True, blank=True)
     
     created_by = models.CharField(max_length=30, blank=True)
     created_date = models.DateTimeField(auto_now_add=True)
@@ -301,6 +302,8 @@ class CustomerOutstanding(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     customer = models.ForeignKey('accounts.Customers', on_delete=models.CASCADE, null=True, blank=True)
     product_type = models.CharField(max_length=200, choices=PRODUCT_TYPES)
+    invoice_no = models.CharField(max_length=100, null=True, blank=True)
+    
     created_by = models.CharField(max_length=30, blank=True)
     created_date = models.DateTimeField()
     modified_by = models.CharField(max_length=20, null=True, blank=True)
@@ -373,6 +376,7 @@ class CustomerSupply(models.Model):
         allocate_bottle_to_custody = models.PositiveIntegerField(default=0)
         allocate_bottle_to_paid = models.PositiveIntegerField(default=0)
         reference_number = models.CharField(max_length=100, null=True, blank=True)
+        invoice_no = models.CharField(max_length=100, null=True, blank=True)
         
         created_by = models.CharField(max_length=30, blank=True)
         created_date = models.DateTimeField(auto_now_add=True)

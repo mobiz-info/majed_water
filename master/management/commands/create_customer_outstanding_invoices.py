@@ -30,8 +30,11 @@ class Command(BaseCommand):
                     amout_total=out_amount.amount,
                     amout_recieved=0,
                     customer=out_amount.customer_outstanding.customer,
-                    reference_no="oustading added from backend"
+                    reference_no=f"oustading added from backend {out_amount.customer_outstanding.customer.customer_name}"
                 )
+                
+                outstanding.invoice_no = invoice.invoice_no
+                outstanding.save()
                 
                 if out_amount.customer_outstanding.customer.sales_type == "CREDIT":
                     invoice.invoice_type = "credit_invoive"

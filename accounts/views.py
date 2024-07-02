@@ -341,14 +341,46 @@ def load_locations(request):
     locations = LocationMaster.objects.filter(emirate__pk=emirate_id).all()
     return JsonResponse(list(locations.values('location_id', 'location_name')), safe=False)
 
+# class Customer_Details(View):
+#     template_name = 'accounts/customer_details.html'
+
+#     def get(self, request, pk, *args, **kwargs):
+#         user_det = Customers.objects.get(customer_id=pk)
+#         context = {'user_det': user_det}
+#         return render(request, self.template_name, context) 
+
 class Customer_Details(View):
     template_name = 'accounts/customer_details.html'
 
     def get(self, request, pk, *args, **kwargs):
         user_det = Customers.objects.get(customer_id=pk)
-        context = {'user_det': user_det}
-        return render(request, self.template_name, context) 
-    
+        visit_schedule = self.format_visit_schedule(user_det.visit_schedule)
+        context = {'user_det': user_det, 'visit_schedule': visit_schedule}
+        return render(request, self.template_name, context)
+
+    def format_visit_schedule(self, visit_schedule):
+        week_schedule = {}
+        no_week_days = []
+
+        for day, weeks in visit_schedule.items():
+            if weeks == ['']:
+                no_week_days.append(day)
+            else:
+                for week in weeks:
+                    if week not in week_schedule:
+                        week_schedule[week] = []
+                    week_schedule[week].append(day)
+        
+        formatted_schedule = []
+        
+        if no_week_days:
+            days = ', '.join(no_week_days)
+            formatted_schedule.append(f"General: {days}")
+        
+        for week in sorted(week_schedule.keys(), reverse=True):
+            days = ', '.join(week_schedule[week])
+            formatted_schedule.append(f"{week}: {days}")
+        return formatted_schedule
 
 def edit_customer(request,pk):
     branch = request.user.branch_id
@@ -578,7 +610,7 @@ def visit_days_assign(request, customer_id):
         visit_schedule_data = {day: [] for day in days_of_week}
 
         # Iterate over the days of the week and update the dictionary based on the POST data
-        for week_number in "1234":
+        for week_number in "12345":
             week_key = f"Week{week_number}[]"
             selected_days = request.POST.getlist(week_key)
             for day in selected_days:

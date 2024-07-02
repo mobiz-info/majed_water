@@ -35,7 +35,7 @@ def get_coupon_bookno(request):
         instance = instances.first()
         stock_instances = CouponStock.objects.filter(couponbook__coupon_type__coupon_type_name=instance.product_id.product_name,coupon_stock="company")
         serialized = couponStockSerializers(stock_instances, many=True)
-        print(serialized.data)
+        # print(serialized.data)
         status_code = 200
         response_data = {
             "status": "true",

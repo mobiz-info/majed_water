@@ -83,6 +83,7 @@ urlpatterns = [
     path('staff_punch_in_api/', PunchIn_Api.as_view(), name='staff_punch_in_api'),
     path('staff_punch_out_api/', PunchOut_Api.as_view(), name='staff_punch_out_api'),
     path('location_emirates/', location_based_on_emirates, name='location-based-on-emirates'),
+    path('emirates-based-locations/', emirates_based_locations, name='emirates_based_locations'),
     path('staff_assigned_routes/',Route_Assign_Staff_Api.as_view(), name='staff_assigned_routes'),
     path('create/customer/',Customer_API.as_view()),
     path('create/customer/<str:id>/',Customer_API.as_view()),
@@ -228,13 +229,38 @@ urlpatterns = [
     path('nonvisit_report/', NonVisitReportCreateAPIView.as_view(), name='nonvisit_report'),
     path('send_device_token/', Send_Device_API.as_view(),name='send_device_token'),
     path('customer_Wise_Coupon_sale/', CustomerWiseCouponSaleAPIView.as_view(),name='customer_Wise_Coupon_sale'),
-    path('total_coupon_consumed/', CouponConsumedAPIView.as_view(), name='total_coupon_consumed'),
+    path('total_coupon_consumed/', TotalCouponsConsumedView.as_view(), name='total_coupon_consumed'),
 
-    path('offloads/', OffloadAPIView.as_view(), name='offload-list'),
     path('edit-product/', EditProductAPIView.as_view(), name='edit-product'),
     path('offload-coupons/', GetVanCouponBookNoAPIView.as_view(), name='offload-coupon-list'),
     path('edit-coupon/<str:pk>/', EditCouponAPIView.as_view(), name='edit-coupon'),
     
+    # path('salsman-request/', SalesmanRequestAPIView.as_view(), name='salsman-request'),
+    
+
     path('coupons-products/', CouponsProductsAPIView.as_view(), name='coupons_products'),
     path('potential_buyers/', PotentialBuyersAPI.as_view(), name='potential_buyers'),
+
+    path('get_notification/',Get_Notification_APIView.as_view(), name='get_notification'),
+    
+    path('api_staff_issue_orders_list/', StaffIssueOrdersListAPIView.as_view(), name='api_staff_issue_orders_list'),
+    path('api_staff_issue_order_details/<str:staff_order_id>/', StaffIssueOrderDetailsAPIView.as_view(), name='api_staff_issue_order_details'),
+
+    path('van-list/', VanListAPIView.as_view(), name='van-list'),
+    path('van-item-list/<str:pk>/', VanProductStockListAPIView.as_view(), name='van-item-list'),
+    path('salesman_requesting/', SalesmanOffloadRequestAPIView.as_view(), name='salesman_requesting'),
+    path('offload-request-items/<str:pk>/', OffloadRequestItemsListAPIView.as_view(), name='offload-request-items'),
+    
+    # offload request apis start
+    path('offloads-requesting/', OffloadRequestingAPIView.as_view(), name='offload_request'),
+    
+    # offload request apis end
+    
+    #offload store app 
+    path('offload/', OffloadRequestListAPIView.as_view(), name='offload'),
+    
+    
+    path('api_staffIssueOrdersCreate/<str:staff_order_details_id>/', StaffIssueOrdersAPIView.as_view(), name='api_staffIssueOrdersCreate'),
+    path('get_coupon_bookno/', GetCouponBookNoView.as_view(), name='get_coupon_bookno'),
+    path('api_issue_coupons_orders/', IssueCouponsOrdersAPIView.as_view(), name='api_issue_coupons_orders'),
 ]

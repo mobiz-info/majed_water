@@ -52,6 +52,7 @@
                                                 <th style="text-align:center !important;" scope="col">Date</th>
                                                 <th style="text-align:center !important;" scope="col">Van</th>
                                                 <th style="text-align:center !important;" scope="col">Coupon Type</th>
+                                                <th style="text-align:center !important;" scope="col">Book No</th>
                                                 <th style="text-align:center !important;" scope="col">Opening Stock</th>
                                                 <th style="text-align:center !important;" scope="col">Requested Stock</th>
                                                 <th style="text-align:center !important;" scope="col">Issued</th>
@@ -69,6 +70,7 @@
                                                 <td style="text-align:center;">{{ forloop.counter }}</td>
                                                 <td style="text-align:left;">{{ van_data.created_date|date:"d/m/Y" }}</td>
                                                 <td style="text-align:left;">{{ van_data.van.van_make }} - {{ van_data.van.plate }}</td>
+                                                <td style="text-align:left;">{{ van_data.coupon.coupon_type.coupon_type_name }}</td>
                                                 <td style="text-align:left;">{{ van_data.coupon.book_num }}</td>
                                                 <td style="text-align:center;">{{ van_data.opening_count }}</td>
                                                 <td style="text-align:center;">{{ stock_details.requested_count }}</td>

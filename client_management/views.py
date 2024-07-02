@@ -811,33 +811,76 @@ def edit_customer_supply(request,pk):
 @login_required
 def delete_customer_supply(request, pk):
     """
-    customer_supply deletion, it only mark as is deleted field to true
+    customer_supply deletion, it only marks as is_deleted field to true
     :param request:
     :param pk:
     :return:
     """
-    customer_supply_instance = CustomerSupply.objects.get(pk=pk)
-    supply_items_instances = CustomerSupplyItems.objects.filter(customer_supply=customer_supply_instance)
-    five_gallon_qty = supply_items_instances.filter(product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+    try:
+        with transaction.atomic():
+            customer_supply_instance = get_object_or_404(CustomerSupply, pk=pk)
+            supply_items_instances = CustomerSupplyItems.objects.filter(customer_supply=customer_supply_instance)
+            five_gallon_qty = supply_items_instances.filter(product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity', output_field=DecimalField()))['total_quantity'] or 0
+            
+            DiffBottlesModel.objects.filter(
+                delivery_date__date=customer_supply_instance.created_date.date(),
+                assign_this_to=customer_supply_instance.salesman,
+                customer=customer_supply_instance.customer_id
+                ).update(status='pending')
+            
+            # Handle invoice related deletions
+            handle_invoice_deletion(customer_supply_instance)
+            
+            # Handle outstanding amount adjustments
+            handle_outstanding_amounts(customer_supply_instance, five_gallon_qty)
+            
+            # Handle coupon deletions and adjustments
+            handle_coupons(customer_supply_instance, five_gallon_qty)
+            
+            # Update van product stock and empty bottle counts
+            update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty)
+            
+            # Mark customer supply and items as deleted
+            customer_supply_instance.delete()
+            supply_items_instances.delete()
+            
+            response_data = {
+                "status": "true",
+                "title": "Successfully Deleted",
+                "message": "Customer supply successfully deleted.",
+                "reload": "true",
+            }
+            
+            return HttpResponse(json.dumps(response_data), content_type='application/javascript')
     
-    DiffBottlesModel.objects.filter(
-        delivery_date__date=customer_supply_instance.created_date.date(),
-        assign_this_to=customer_supply_instance.salesman,
-        customer=customer_supply_instance.customer_id
-        ).update(status='pending')
-    if Invoice.objects.filter(created_date__date=customer_supply_instance.created_date.date(),customer=customer_supply_instance.customer,reference_no=customer_supply_instance.reference_number).exists():
-        invoice_instance = Invoice.objects.get(created_date__date=customer_supply_instance.created_date.date(),customer=customer_supply_instance.customer,reference_no=customer_supply_instance.reference_number)
+    except Exception as e:
+        response_data = {
+            "status": "false",
+            "title": "Deletion Failed",
+            "message": str(e),
+        }
+        return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+
+
+def handle_invoice_deletion(customer_supply_instance):
+    if Invoice.objects.filter(created_date__date=customer_supply_instance.created_date.date(), customer=customer_supply_instance.customer, reference_no=customer_supply_instance.reference_number).exists():
+        invoice_instance = Invoice.objects.get(created_date__date=customer_supply_instance.created_date.date(), customer=customer_supply_instance.customer, reference_no=customer_supply_instance.reference_number)
         invoice_items_instances = InvoiceItems.objects.filter(invoice=invoice_instance)
+        
         InvoiceDailyCollection.objects.filter(
             invoice=invoice_instance,
             created_date__date=customer_supply_instance.created_date.date(),
             customer=customer_supply_instance.customer,
             salesman=customer_supply_instance.salesman
             ).delete()
+        
         invoice_items_instances.delete()
         invoice_instance.delete()
-        
+
+
+def handle_outstanding_amounts(customer_supply_instance, five_gallon_qty):
     balance_amount = customer_supply_instance.subtotal - customer_supply_instance.amount_recieved
+    
     if customer_supply_instance.amount_recieved < customer_supply_instance.subtotal:
         OutstandingAmount.objects.filter(
             customer_outstanding__product_type="amount",
@@ -847,7 +890,7 @@ def delete_customer_supply(request, pk):
             amount=balance_amount
         ).delete()
         
-        customer_outstanding_report_instance=CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer,product_type="amount")
+        customer_outstanding_report_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="amount")
         customer_outstanding_report_instance.value -= Decimal(balance_amount)
         customer_outstanding_report_instance.save()
         
@@ -860,17 +903,19 @@ def delete_customer_supply(request, pk):
             amount=balance_amount
         ).delete()
         
-        customer_outstanding_report_instance=CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer,product_type="amount")
+        customer_outstanding_report_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="amount")
         customer_outstanding_report_instance.value += Decimal(balance_amount)
         customer_outstanding_report_instance.save()
-        
-    if (digital_coupons_instances:=CustomerSupplyDigitalCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():
+
+
+def handle_coupons(customer_supply_instance, five_gallon_qty):
+    if (digital_coupons_instances := CustomerSupplyDigitalCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():
         digital_coupons_instance = digital_coupons_instances.first()
-        CustomerCouponStock.objects.get(
+        CustomerCouponStock.objects.filter(
             coupon_method="digital",
             customer=customer_supply_instance.customer,
             coupon_type_id__coupon_type_name="Other"
-            ).count += digital_coupons_instance.count
+        ).update(count=F('count') + digital_coupons_instance.count)
     
     elif (manual_coupon_instances := CustomerSupplyCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():
         manual_coupon_instance = manual_coupon_instances.first()
@@ -885,7 +930,6 @@ def delete_customer_supply(request, pk):
                     coupon_method="manual",
                     coupon_type_id=first_leaflet.coupon.coupon_type
                 ).exists():
-                # Update the CustomerCouponStock
                 customer_stock_instance = CustomerCouponStock.objects.get(
                     customer=customer_supply_instance.customer,
                     coupon_method="manual",
@@ -894,66 +938,59 @@ def delete_customer_supply(request, pk):
                 customer_stock_instance.count += Decimal(updated_count)
                 customer_stock_instance.save()
                 
-                if five_gallon_qty < Decimal(customer_supply_instance.collected_empty_bottle) :
-                    balance_empty_bottle = Decimal(customer_supply_instance.collected_empty_bottle) - five_gallon_qty
-                    if CustomerOutstandingReport.objects.filter(customer=customer_supply_instance.customer,product_type="emptycan").exists():
-                        outstanding_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer,product_type="emptycan")
-                        outstanding_instance.value += Decimal(balance_empty_bottle)
-                        outstanding_instance.save()
-                        
-                elif five_gallon_qty > Decimal(customer_supply_instance.collected_empty_bottle) :
-                    balance_empty_bottle = five_gallon_qty - Decimal(customer_supply_instance.collected_empty_bottle)
-                    
-                    outstanding_instance = CustomerOutstanding.objects.filter(
-                        product_type="emptycan",
-                        created_by=customer_supply_instance.salesman.pk,
-                        customer=customer_supply_instance.customer,
-                        created_date=customer_supply_instance.created_date,
-                    ).first()
-
-                    outstanding_product = OutstandingProduct.objects.filter(
-                        empty_bottle=balance_empty_bottle,
-                        customer_outstanding=outstanding_instance,
-                    )
-                    outstanding_instance = {}
-
-                    try:
-                        outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer,product_type="emptycan")
-                        outstanding_instance.value -= Decimal(outstanding_product.aggregate(total_empty_bottle=Sum('empty_bottle'))['total_empty_bottle'])
-                        outstanding_instance.save()
-                    except:
-                        pass
-                    outstanding_product.delete()
+                handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty)
+                
                 leaflets_to_update.update(used=False)
-                
+
+
+def handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty):
+    if five_gallon_qty < Decimal(customer_supply_instance.collected_empty_bottle):
+        balance_empty_bottle = Decimal(customer_supply_instance.collected_empty_bottle) - five_gallon_qty
+        if CustomerOutstandingReport.objects.filter(customer=customer_supply_instance.customer, product_type="emptycan").exists():
+            outstanding_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="emptycan")
+            outstanding_instance.value += Decimal(balance_empty_bottle)
+            outstanding_instance.save()
+            
+    elif five_gallon_qty > Decimal(customer_supply_instance.collected_empty_bottle):
+        balance_empty_bottle = five_gallon_qty - Decimal(customer_supply_instance.collected_empty_bottle)
+        
+        outstanding_instance = CustomerOutstanding.objects.filter(
+            product_type="emptycan",
+            created_by=customer_supply_instance.salesman.pk,
+            customer=customer_supply_instance.customer,
+            created_date=customer_supply_instance.created_date,
+        ).first()
+
+        outstanding_product = OutstandingProduct.objects.filter(
+            empty_bottle=balance_empty_bottle,
+            customer_outstanding=outstanding_instance,
+        )
+        outstanding_instance = {}
+
+        try:
+            outstanding_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="emptycan")
+            outstanding_instance.value -= Decimal(outstanding_product.aggregate(total_empty_bottle=Sum('empty_bottle'))['total_empty_bottle'])
+            outstanding_instance.save()
+        except:
+            pass
+        outstanding_product.delete()
+
+
+def update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty):
     for item_data in supply_items_instances:
-        if VanProductStock.objects.filter(created_date=customer_supply_instance.created_date.date(),product=item_data.product,van__salesman=customer_supply_instance.salesman).exists():
-            if item_data.product.product_name == "5 Gallon" :
-                # total_fivegallon_qty -= Decimal(five_gallon_qty)
-                if VanProductStock.objects.filter(created_date=customer_supply_instance.created_date.date(),product=item_data.product,van__salesman=customer_supply_instance.salesman).exists():
-                    empty_bottle = VanProductStock.objects.get(
-                        product=item_data.product,
-                        created_date=customer_supply_instance.created_date.date(),
-                        van__salesman=customer_supply_instance.salesman,
-                    )
-                    empty_bottle.empty_can_count -= customer_supply_instance.collected_empty_bottle
-                    empty_bottle.save()
-                
-            vanstock = VanProductStock.objects.get(created_date=customer_supply_instance.created_date.date(),product=item_data.product,van__salesman=customer_supply_instance.salesman)
+        if VanProductStock.objects.filter(created_date=customer_supply_instance.created_date.date(), product=item_data.product, van__salesman=customer_supply_instance.salesman).exists():
+            if item_data.product.product_name == "5 Gallon":
+                empty_bottle = VanProductStock.objects.get(
+                    product=item_data.product,
+                    created_date=customer_supply_instance.created_date.date(),
+                    van__salesman=customer_supply_instance.salesman,
+                )
+                empty_bottle.empty_can_count -= customer_supply_instance.collected_empty_bottle
+                empty_bottle.save()
+            
+            vanstock = VanProductStock.objects.get(created_date=customer_supply_instance.created_date.date(), product=item_data.product, van__salesman=customer_supply_instance.salesman)
             vanstock.stock += item_data.quantity
             vanstock.save()
-    
-    customer_supply_instance.delete()
-    supply_items_instances.delete()
-    
-    response_data = {
-        "status": "true",
-        "title": "Successfully Deleted",
-        "message": "customer supply Successfully Deleted.",
-        "reload": "true",
-    }
-    
-    return HttpResponse(json.dumps(response_data), content_type='application/javascript')
 
 
 #------------------------------REPORT----------------------------------------

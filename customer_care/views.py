@@ -28,6 +28,7 @@ from django.urls import reverse
 import calendar
 from datetime import date, timedelta
 from django.db.models import Max
+from apiservices.notification import *
 
 
 
@@ -609,7 +610,7 @@ class NewRequestHome(View):
             else:
                 initial_data['assign_this_to'] = None  # Default to None if no salesman is assigned
             form = self.form_class(initial=initial_data)
-            print("customer.sales_staff",customer.sales_staff)
+            print("customer.sales_staff", customer.sales_staff)
             form = self.form_class(initial=initial_data)
 
             context = {
@@ -631,6 +632,38 @@ class NewRequestHome(View):
             print(e)
             return render(request, self.template_name) 
 
+    # def post(self, request, customer_id, *args, **kwargs):
+    #     try:
+    #         customer = Customers.objects.get(customer_id=customer_id)
+
+    #         next_delivery_date = self.find_next_delivery_date(customer)
+
+    #         form = self.form_class(request.POST, request.FILES)
+    #         print(request.POST.get("request_type"))
+    #         if form.is_valid():
+    #             print(form)
+    #             data = form.save(commit=False)
+    #             data.customer = customer
+    #             data.created_by = str(request.user.id)
+    #             data.status = 'pending'
+        
+    #             data.save()
+
+    #             # Send notification to the sales staff if assigned
+    #             if customer.sales_staff:
+    #                 sales_man = customer.sales_staff
+    #                 print(sales_man,'sales_man')
+    #                 notification_customer(sales_man.pk, "New Request", "A new request has been created.", "Majedwatercustomer")
+
+    #             messages.success(request, 'Bottles Successfully Added.', 'alert-success')
+    #             return redirect('requestType')
+    #         else:
+    #             messages.error(request, 'Form data is not valid.', 'alert-danger')
+    #             context = {'form': form}
+    #             return render(request, self.template_name, context)
+    #     except Customers.DoesNotExist:
+    #         messages.error(request, 'Customer does not exist.', 'alert-danger')
+    #         return render(request, self.template_name)
     def post(self, request, customer_id, *args, **kwargs):
         try:
             customer = Customers.objects.get(customer_id=customer_id)
@@ -647,6 +680,21 @@ class NewRequestHome(View):
                 data.status = 'pending'
         
                 data.save()
+
+                # Send notification to the sales staff if assigned
+                if customer.sales_staff:
+                    sales_man = customer.sales_staff
+                    print(sales_man, 'sales_man')
+                    try:
+                        notification(sales_man.pk, "New Request", "A new request has been created.", "Majedwaterfcm")
+                    except CustomUser.DoesNotExist:
+                        messages.error(request, 'Salesman does not exist.', 'alert-danger')
+                    except Send_Notification.DoesNotExist:
+                        messages.error(request, 'No device token found for the salesman.', 'alert-danger')
+                    except Exception as e:
+                        messages.error(request, f'Error sending notification: {e}', 'alert-danger')
+                        print(f"Notification error: {e}")
+
                 messages.success(request, 'Bottles Successfully Added.', 'alert-success')
                 return redirect('requestType')
             else:

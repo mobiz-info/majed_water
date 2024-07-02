@@ -69,9 +69,6 @@ def get_next_visit_date(visit_schedule):
     # Get the current date
     current_date = datetime.date.today()
     
-    # Define a dictionary to store the next visit date for each day
-    next_visit_dates = {}
-    
     # Define a dictionary to map weekdays to their index
     weekday_indices = {
         "Monday": 0,
@@ -82,32 +79,50 @@ def get_next_visit_date(visit_schedule):
         "Saturday": 5,
         "Sunday": 6
     }
+
+    # Define a helper function to convert 'Week1', 'Week2', etc., to a numerical week index
+    def get_week_number(week_str):
+        if week_str.startswith("Week"):
+            try:
+                return int(week_str[4:])
+            except ValueError:
+                return None
+        return None
+
+    # Find the nearest next visit date
+    nearest_next_visit_date = None
     
     # Iterate over each day of the week
     for day, weeks in visit_schedule_data.items():
         # Check if there are any scheduled weeks for visiting
         if weeks and isinstance(weeks, list):
-            # Find the earliest scheduled week
-            earliest_week = min(weeks)
+            # Convert valid week strings to numerical values
+            valid_weeks = [get_week_number(week) for week in weeks if get_week_number(week) is not None]
             
-            # Check if earliest_week is not empty
-            if earliest_week:
+            if valid_weeks:
+                # Find the earliest scheduled week
+                earliest_week = min(valid_weeks)
+                
                 try:
-                    # Calculate the next visit date based on the current date and the earliest week
-                    days_until_next_visit = (int(earliest_week[-1]) - 1) * 7 + weekday_indices[day] - current_date.weekday()
-                    next_visit_date = current_date + datetime.timedelta(days=days_until_next_visit)
+                    # Calculate the first day of the earliest week in the current month
+                    first_day_of_month = current_date.replace(day=1)
+                    days_to_add = (earliest_week - 1) * 7 + weekday_indices[day]
                     
-                    # Store the next visit date for the current day
-                    next_visit_dates[day] = next_visit_date
+                    # Calculate the next visit date
+                    next_visit_date = first_day_of_month + datetime.timedelta(days=days_to_add)
+                    
+                    # If the next visit date is in the past, calculate for the next month
+                    if next_visit_date < current_date:
+                        first_day_of_next_month = (first_day_of_month + datetime.timedelta(days=32)).replace(day=1)
+                        next_visit_date = first_day_of_next_month + datetime.timedelta(days=days_to_add)
+                    
+                    # Find the nearest next visit date from today
+                    if nearest_next_visit_date is None or next_visit_date < nearest_next_visit_date:
+                        nearest_next_visit_date = next_visit_date
+                
                 except (ValueError, IndexError):
                     pass  # Ignore if there's an error in calculating the next visit date
     
-    # Find the nearest next visit date from today
-    nearest_next_visit_date = None
-    for day, visit_date in next_visit_dates.items():
-        if visit_date >= current_date:
-            nearest_next_visit_date = visit_date
-                
     if nearest_next_visit_date == current_date:
         nearest_next_visit_date = "Today"
         

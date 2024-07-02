@@ -4,6 +4,8 @@ import datetime
 from django.contrib import messages
 from django.shortcuts import render, redirect,HttpResponse
 from django.views import View
+
+from apiservices.notification import notification
 from .forms import *
 import uuid
 from accounts.models import *
@@ -32,6 +34,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 def home(request):
     template_name = 'master/dashboard.html'
     context = {}
+    # sales_man = CustomUser.objects.get(username="salesman_test")
+    # notification(sales_man.pk,"test","tets","Majedwaterfcm")
     return render(request, template_name,context)
 
 
