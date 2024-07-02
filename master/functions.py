@@ -37,7 +37,7 @@ def generate_form_errors(args,formset=False):
 
 def generate_serializer_errors(args):
     message = ""
-    print (args)
+    # print (args)
     for key, values in args.items():
         error_message = ""
         for value in values:
@@ -58,75 +58,85 @@ def get_custom_id(model):
         # pass
     return custom_id
 
+def get_dates_for_days(days_of_week,week_number):
+    # Get today's date
+    today = datetime.datetime.today()
+    # Get the current weekday (0 = Monday, 6 = Sunday)
+    current_weekday = week_number
+    # print("curent week day",current_weekday)
+
+    # Function to get the date for a specific weekday in the current week
+    def get_date_for_weekday(target_weekday):
+        days_difference = target_weekday - current_weekday
+        target_date = today + datetime.timedelta(days=days_difference)
+        return target_date
+
+    # Get the dates for the specified days
+    days_of_week_indices = {day: i for i, day in enumerate(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])}
+    visit_dates = {day: get_date_for_weekday(days_of_week_indices[day]).strftime('%Y-%m-%d') for day in days_of_week}
+
+    return visit_dates
+
+def get_dates_for_days(days_of_week, week_offset=0):
+    # Get today's date
+    today = datetime.datetime.today()
+    # Get the current weekday (0 = Monday, 6 = Sunday)
+    current_weekday = today.weekday()
+    
+    # Adjust for the week offset
+    today += datetime.timedelta(days=week_offset * 7)
+
+    # Function to get the date for a specific weekday in the current week
+    def get_date_for_weekday(target_weekday):
+        days_difference = target_weekday - current_weekday
+        target_date = today + datetime.timedelta(days=days_difference)
+        return target_date
+
+    # Get the dates for the specified days
+    days_of_week_indices = {day: i for i, day in enumerate(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])}
+    visit_dates = {day: get_date_for_weekday(days_of_week_indices[day]).strftime('%Y-%m-%d') for day in days_of_week}
+
+    return visit_dates
+
 def get_next_visit_date(visit_schedule):
-    # Check if visit_schedule is already a dictionary
-    if isinstance(visit_schedule, dict):
-        visit_schedule_data = visit_schedule
-    else:
-        # Parse visit_schedule JSON
-        visit_schedule_data = json.loads(visit_schedule)
-    
-    # Get the current date
-    current_date = datetime.date.today()
-    
-    # Define a dictionary to map weekdays to their index
-    weekday_indices = {
-        "Monday": 0,
-        "Tuesday": 1,
-        "Wednesday": 2,
-        "Thursday": 3,
-        "Friday": 4,
-        "Saturday": 5,
-        "Sunday": 6
-    }
-
-    # Define a helper function to convert 'Week1', 'Week2', etc., to a numerical week index
-    def get_week_number(week_str):
-        if week_str.startswith("Week"):
-            try:
-                return int(week_str[4:])
-            except ValueError:
-                return None
-        return None
-
-    # Find the nearest next visit date
-    nearest_next_visit_date = None
-    
-    # Iterate over each day of the week
-    for day, weeks in visit_schedule_data.items():
-        # Check if there are any scheduled weeks for visiting
-        if weeks and isinstance(weeks, list):
-            # Convert valid week strings to numerical values
-            valid_weeks = [get_week_number(week) for week in weeks if get_week_number(week) is not None]
-            
-            if valid_weeks:
-                # Find the earliest scheduled week
-                earliest_week = min(valid_weeks)
-                
-                try:
-                    # Calculate the first day of the earliest week in the current month
-                    first_day_of_month = current_date.replace(day=1)
-                    days_to_add = (earliest_week - 1) * 7 + weekday_indices[day]
-                    
-                    # Calculate the next visit date
-                    next_visit_date = first_day_of_month + datetime.timedelta(days=days_to_add)
-                    
-                    # If the next visit date is in the past, calculate for the next month
-                    if next_visit_date < current_date:
-                        first_day_of_next_month = (first_day_of_month + datetime.timedelta(days=32)).replace(day=1)
-                        next_visit_date = first_day_of_next_month + datetime.timedelta(days=days_to_add)
-                    
-                    # Find the nearest next visit date from today
-                    if nearest_next_visit_date is None or next_visit_date < nearest_next_visit_date:
-                        nearest_next_visit_date = next_visit_date
-                
-                except (ValueError, IndexError):
-                    pass  # Ignore if there's an error in calculating the next visit date
-    
-    if nearest_next_visit_date == current_date:
-        nearest_next_visit_date = "Today"
+    def find_next_visit(week_offset):
+        date = datetime.datetime.today() + datetime.timedelta(days=week_offset * 7)
+        week_num = (date.day - 1) // 7 + 1
+        week_number = f'Week{week_num}'
         
-    return nearest_next_visit_date
+        week_days = []
+
+        for day, weeks in visit_schedule.items():
+            if week_number in weeks:
+                week_days.append(day)
+        
+        visit_dates = get_dates_for_days(week_days, week_offset)
+        
+        # Convert string dates back to datetime objects
+        date_objects = [datetime.datetime.strptime(date, '%Y-%m-%d') for date in visit_dates.values()]
+        
+        # Filter out dates that are not greater than today
+        future_dates = [date for date in date_objects if date > datetime.datetime.today()]
+        
+        # Find the minimum date that is greater than today
+        if future_dates:
+            min_date = min(future_dates)
+            return min_date.strftime('%d-%m-%Y')
+        else:
+            return None
+
+    # Check the current week
+    next_visit = find_next_visit(0)
+    if next_visit:
+        return next_visit
+    
+    # If no visits in the current week, check the next week
+    next_visit = find_next_visit(1)
+    if next_visit:
+        return next_visit
+    
+    return "-"
+
 
 # # Example usage
 # visit_schedule = '{"Friday": ["Week2", "Week4", "Week1", "Week5"], "Monday": ["Week1", "Week5", "Week4", "Week2", "Week3"], "Sunday": ["Week4", "Week1"], "Tuesday": ["Week5", "Week4"], "Saturday": ["Week4", "Week5", "Week2"], "Thursday": ["Week5", "Week1"], "Wednesday": ["Week2", "Week3", "Week4"]}'

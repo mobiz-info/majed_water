@@ -663,6 +663,7 @@ def find_customers(request, def_date, route_id):
         week_num = (date.day - 1) // 7 + 1
         week_number = f'Week{week_num}'
     route = RouteMaster.objects.get(route_id=route_id)
+
     van_route = Van_Routes.objects.filter(routes=route).first()
     if van_route:
         van_capacity = van_route.van.capacity
@@ -671,11 +672,13 @@ def find_customers(request, def_date, route_id):
     todays_customers = []
 
     buildings = []
-    for customer in Customers.objects.filter(routes = route):
-        if customer.visit_schedule and day_of_week in customer.visit_schedule and week_number in customer.visit_schedule[day_of_week]:
-            todays_customers.append(customer)
-            if customer.building_name not in buildings:
-                buildings.append(customer.building_name)
+    for customer in Customers.objects.filter(routes=route):
+        if customer.visit_schedule:
+            for day, weeks in customer.visit_schedule.items():
+                if week_number in str(weeks):
+                    if str(day_of_week) in day:
+                        todays_customers.append(customer)
+                        buildings.append(customer.building_name)
 
     # Customers on vacation
     date = datetime.strptime(def_date, '%Y-%m-%d').date()
@@ -2976,53 +2979,53 @@ class create_customer_supply(APIView):
                         # elif Customers.objects.get(pk=customer_supply_data['customer']).sales_type == "CREDIT" :
                             # pass
                     
-                    if customer_supply.customer.sales_type == "CASH" or customer_supply.customer.sales_type == "CREDIT":
-                        invoice_generated = True
-                        
-                        random_part = str(random.randint(1000, 9999))
-                        invoice_number = f'WTR-{random_part}'
-                        
-                        # Create the invoice
-                        invoice = Invoice.objects.create(
-                            invoice_no=invoice_number,
-                            created_date=datetime.today(),
-                            net_taxable=customer_supply.net_payable,
-                            vat=customer_supply.vat,
-                            discount=customer_supply.discount,
-                            amout_total=customer_supply.subtotal,
-                            amout_recieved=customer_supply.amount_recieved,
-                            customer=customer_supply.customer,
-                            reference_no=reference_no
-                        )
-                        
-                        customer_supply.invoice_no == invoice.invoice_no
-                        customer_supply.save()
-                        
-                        if customer_supply.customer.sales_type == "CREDIT":
-                            invoice.invoice_type = "credit_invoive"
-                            invoice.save()
+                    # if customer_supply.customer.sales_type == "CASH" or customer_supply.customer.sales_type == "CREDIT":
+                    invoice_generated = True
+                    
+                    random_part = str(random.randint(1000, 9999))
+                    invoice_number = f'WTR-{random_part}'
+                    
+                    # Create the invoice
+                    invoice = Invoice.objects.create(
+                        invoice_no=invoice_number,
+                        created_date=datetime.today(),
+                        net_taxable=customer_supply.net_payable,
+                        vat=customer_supply.vat,
+                        discount=customer_supply.discount,
+                        amout_total=customer_supply.subtotal,
+                        amout_recieved=customer_supply.amount_recieved,
+                        customer=customer_supply.customer,
+                        reference_no=reference_no
+                    )
+                    
+                    customer_supply.invoice_no == invoice.invoice_no
+                    customer_supply.save()
+                    
+                    if customer_supply.customer.sales_type == "CREDIT":
+                        invoice.invoice_type = "credit_invoive"
+                        invoice.save()
 
-                        # Create invoice items
-                        for item_data in supply_items:
-                            item = CustomerSupplyItems.objects.get(pk=item_data.pk)
+                    # Create invoice items
+                    for item_data in supply_items:
+                        item = CustomerSupplyItems.objects.get(pk=item_data.pk)
+                        
+                        if item.product.product_name == "5 Gallon":
+                            if not VanProductStock.objects.filter(created_date=datetime.today().date(),product=item.product,van__salesman=request.user).exists():
+                                vanstock = VanProductStock.objects.create(created_date=datetime.today().date(),product=item.product,van=van)
+                            else:
+                                vanstock = VanProductStock.objects.get(created_date=datetime.today().date(),product=item.product,van=van)
                             
-                            if item.product.product_name == "5 Gallon":
-                                if not VanProductStock.objects.filter(created_date=datetime.today().date(),product=item.product,van__salesman=request.user).exists():
-                                    vanstock = VanProductStock.objects.create(created_date=datetime.today().date(),product=item.product,van=van)
-                                else:
-                                    vanstock = VanProductStock.objects.get(created_date=datetime.today().date(),product=item.product,van=van)
-                                
-                                vanstock.pending_count += item.customer_supply.allocate_bottle_to_pending
-                                vanstock.save()
-                            
-                            InvoiceItems.objects.create(
-                                category=item.product.category,
-                                product_items=item.product,
-                                qty=item.quantity,
-                                rate=item.amount,
-                                invoice=invoice,
-                                remarks='invoice genereted from supply items reference no : ' + invoice.reference_no
-                            )
+                            vanstock.pending_count += item.customer_supply.allocate_bottle_to_pending
+                            vanstock.save()
+                        
+                        InvoiceItems.objects.create(
+                            category=item.product.category,
+                            product_items=item.product,
+                            qty=item.quantity,
+                            rate=item.amount,
+                            invoice=invoice,
+                            remarks='invoice genereted from supply items reference no : ' + invoice.reference_no
+                        )
                         # print("invoice generate")
                         InvoiceDailyCollection.objects.create(
                             invoice=invoice,
@@ -6885,6 +6888,7 @@ class OffloadRequestListAPIView(APIView):
 
                     # Check if there is a pending offload request
                     offload_request_item = OffloadRequestItems.objects.filter(product__id=product_id).first()
+                    print("offload_request_item",offload_request_item)
                     if not offload_request_item or offload_request_item.quantity < count:
                         return Response({
                             "status": "false",
@@ -6969,6 +6973,19 @@ class OffloadRequestListAPIView(APIView):
                                 count -= item.stock
                                 item.stock = 0
                                 item.save()
+                    elif items.product.category.category_name == "Coupons":
+                        coupons = item.get('coupons', [])
+                        for coupon in coupons:
+                            couponid = coupon.get("coupon_id")
+                            coupon_instance = NewCoupon.objects.get(pk=couponid)
+                            
+                            OffloadCoupon.objects.create(
+                                coupon=coupon_instance,
+                                salesman=items[0].van.salesman,
+                                van=items[0].van,
+                                quantity=1,
+                                stock_type=stock_type
+                            )
 
                         product_stock = ProductStock.objects.get(branch=items[0].van.branch_id, product_name=items[0].product)
                         product_stock.quantity += count

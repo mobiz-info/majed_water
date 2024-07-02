@@ -134,6 +134,14 @@
                                 <!--                                <small class="form-text text-muted">Select Category.</small>-->
                             </div>
                         </div>
+                        <div class="col-md-6">
+                            <div class="form-group required">
+                                <label class='control-label'>Majedity</label>
+                                {{ form.nationality }}
+                                <span style="color: red;">{{ form.nationality.errors }}</span>
+                                <!--                                <small class="form-text text-muted">Select Category.</small>-->
+                            </div>
+                        </div>
                         <!---->
                         <div class="col-md-6">
                             <div class="form-group required">
@@ -189,6 +197,14 @@
                                 <label class='control-label'>Visa No.</label>
                                 {{ form.visa_no }}
                                 <span style="color: red;">{{ form.visa_no.errors }}</span>
+                                <!--                                <small class="form-text text-muted">Select Category.</small>-->
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group required">
+                                <label class='control-label'>Visa Type</label>
+                                {{ form.visa_type }}
+                                <span style="color: red;">{{ form.visa_type.errors }}</span>
                                 <!--                                <small class="form-text text-muted">Select Category.</small>-->
                             </div>
                         </div>
@@ -284,6 +300,30 @@
                                 <label class='control-label'>Insurance Expiry</label>
                                 {{ form.insurance_expiry }}
                                 <span style="color: red;">{{ form.insurance_expiry.errors }}</span>
+                                <!--                                <small class="form-text text-muted">Select Category.</small>-->
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group required">
+                                <label class='control-label'>Joining Date</label>
+                                {{ form.joining_date }}
+                                <span style="color: red;">{{ form.joining_date.errors }}</span>
+                                <!--                                <small class="form-text text-muted">Select Category.</small>-->
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group required">
+                                <label class='control-label'>Passport Number</label>
+                                {{ form.passport_number }}
+                                <span style="color: red;">{{ form.passport_number.errors }}</span>
+                                <!--                                <small class="form-text text-muted">Select Category.</small>-->
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group required">
+                                <label class='control-label'>Passport Expiry</label>
+                                {{ form.passport_expiry }}
+                                <span style="color: red;">{{ form.passport_expiry.errors }}</span>
                                 <!--                                <small class="form-text text-muted">Select Category.</small>-->
                             </div>
                         </div>

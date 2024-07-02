@@ -14,6 +14,7 @@ def get_next_visit_day(customer_pk):
     if not customer.visit_schedule is None:
         next_visit_date = get_next_visit_date(customer.visit_schedule)
         # customer.next_visit_date = next_visit_date
+        print(next_visit_date)
         return next_visit_date
     else:
       return None

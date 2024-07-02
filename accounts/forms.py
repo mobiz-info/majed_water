@@ -24,7 +24,7 @@ class User_Create_Form(forms.ModelForm):
     
     class Meta:
         model = CustomUser
-        fields = ['first_name', 'username', 'user_type', 'password', 'branch_id', 'staff_id', 'designation_id', 'blood_group', 'permanent_address', "present_address", 'phone', 'email', 'labour_card_no', 'labour_card_expiry', 'driving_licence_no', 'driving_licence_expiry', 'licence_issued_by', 'visa_issued_by', 'visa_no', 'visa_expiry', 'emirates_id_no', 'emirates_expiry', 'health_card_no', 'health_card_expiry', 'base_salary', 'wps_percentage', 'wps_ref_no', 'insurance_no', 'insurance_expiry', 'insurance_company']
+        fields = ['first_name', 'username', 'user_type', 'password', 'branch_id', 'staff_id', 'designation_id', 'blood_group', 'permanent_address', "present_address", 'phone', 'email', 'labour_card_no', 'labour_card_expiry', 'driving_licence_no', 'driving_licence_expiry', 'licence_issued_by', 'visa_issued_by', 'visa_no', 'visa_expiry', 'emirates_id_no', 'emirates_expiry', 'health_card_no', 'health_card_expiry', 'base_salary', 'wps_percentage', 'wps_ref_no', 'insurance_no', 'insurance_expiry', 'insurance_company','nationality','visa_type','passport_number','passport_expiry','joining_date']
         widgets = {
             'first_name':forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
             'username': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
@@ -56,6 +56,11 @@ class User_Create_Form(forms.ModelForm):
             'emirates_expiry': forms.DateInput(attrs={'class': 'form-control', 'type':'date','required': False}),
             'health_card_expiry': forms.DateInput(attrs={'class': 'form-control', 'type':'date', 'required': False}),
             'insurance_expiry': forms.DateInput(attrs={'class': 'form-control','type':'date', 'required': False}),
+            "nationality" :forms.TextInput(attrs={'class': 'form-control', 'required': False}),
+            'visa_type': forms.TextInput(attrs={'class': 'form-control', 'required': False}),
+            'passport_expiry': forms.DateInput(attrs={'class': 'form-control', 'type':'date','required': False}),
+            'passport_number': forms.TextInput(attrs={'class': 'form-control', 'required': False}),
+            'joining_date': forms.DateInput(attrs={'class': 'form-control', 'type':'date','required': False}),
         }
 
 
@@ -68,7 +73,7 @@ class User_Edit_Form(forms.ModelForm):
         self.fields['licence_issued_by'].queryset = EmirateMaster.objects.filter()
     class Meta:
         model = CustomUser
-        fields = ['first_name','username' ,'branch_id', 'staff_id', 'designation_id','blood_group','permanent_address',"present_address", 'phone','email','labour_card_no','labour_card_expiry','driving_licence_no','driving_licence_expiry','licence_issued_by','visa_issued_by','visa_no','visa_expiry','emirates_id_no','emirates_expiry','health_card_no','health_card_expiry','base_salary','wps_percentage','wps_ref_no','insurance_no','insurance_expiry','insurance_company']
+        fields = ['first_name','username' ,'branch_id', 'staff_id', 'designation_id','blood_group','permanent_address',"present_address", 'phone','email','labour_card_no','labour_card_expiry','driving_licence_no','driving_licence_expiry','licence_issued_by','visa_issued_by','visa_no','visa_expiry','emirates_id_no','emirates_expiry','health_card_no','health_card_expiry','base_salary','wps_percentage','wps_ref_no','insurance_no','insurance_expiry','insurance_company','nationality','visa_type','passport_number','passport_expiry','joining_date']
         widgets = {
             'first_name':forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
             'username': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
@@ -99,6 +104,11 @@ class User_Edit_Form(forms.ModelForm):
             'emirates_expiry': forms.DateInput(attrs={'class': 'form-control', 'type':'date','required': False}),
             'health_card_expiry': forms.DateInput(attrs={'class': 'form-control', 'type':'date', 'required': False}),
             'insurance_expiry': forms.DateInput(attrs={'class': 'form-control','type':'date', 'required': False}),
+            "nationality" :forms.TextInput(attrs={'class': 'form-control', 'required': False}),
+            'visa_type': forms.TextInput(attrs={'class': 'form-control', 'required': False}),
+            'passport_expiry': forms.DateInput(attrs={'class': 'form-control', 'type':'date','required': False}),
+            'passport_number': forms.TextInput(attrs={'class': 'form-control', 'required': False}),
+            'joining_date': forms.DateInput(attrs={'class': 'form-control', 'type':'date','required': False}),
         }
 
 class CustomercreateForm(forms.ModelForm):

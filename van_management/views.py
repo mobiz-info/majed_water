@@ -405,7 +405,30 @@ def schedule_by_route(request, def_date, route_id, trip):
         'totale_bottle':totale_bottle })
     
 
+# old code starting for find customers
+# def find_customers(request, def_date, route_id):
+    # date_str = def_date
+    # if date_str:
+    #     date = datetime.strptime(date_str, '%Y-%m-%d')
+    #     day_of_week = date.strftime('%A')
+    #     week_num = (date.day - 1) // 7 + 1
+    #     week_number = f'Week{week_num}'
+    # route = RouteMaster.objects.get(route_id=route_id)
 
+    # van_route = Van_Routes.objects.filter(routes=route).first()
+    # if van_route:
+    #     van_capacity = van_route.van.capacity
+    # else:
+    #     van_capacity = 200
+    # todays_customers = []
+
+    # buildings = []
+    # for customer in Customers.objects.filter(routes = route):
+    #     if customer.visit_schedule and day_of_week in customer.visit_schedule and week_number in customer.visit_schedule[day_of_week]:
+    #         todays_customers.append(customer)
+    #         if customer.building_name not in buildings:
+    #             buildings.append(customer.building_name)
+# new starting code for find customers
 def find_customers(request, def_date, route_id):
     date_str = def_date
     if date_str:
@@ -423,11 +446,13 @@ def find_customers(request, def_date, route_id):
     todays_customers = []
 
     buildings = []
-    for customer in Customers.objects.filter(routes = route):
-        if customer.visit_schedule and day_of_week in customer.visit_schedule and week_number in customer.visit_schedule[day_of_week]:
-            todays_customers.append(customer)
-            if customer.building_name not in buildings:
-                buildings.append(customer.building_name)
+    for customer in Customers.objects.filter(routes=route):
+        if customer.visit_schedule:
+            for day, weeks in customer.visit_schedule.items():
+                if week_number in str(weeks):
+                    if str(day_of_week) in day:
+                        todays_customers.append(customer)
+                        buildings.append(customer.building_name)
 
     # Customers on vacation
     date = datetime.strptime(def_date, '%Y-%m-%d').date()

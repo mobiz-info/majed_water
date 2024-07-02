@@ -8,7 +8,7 @@ from van_management.models import *
 from decimal import Decimal
 
 from django.views import View
-from django.db.models import Q, Sum, Count
+from django.db.models import Q, Sum, Count, DecimalField
 from django.urls import reverse
 from django.contrib import messages
 from django.db import transaction, IntegrityError
@@ -890,9 +890,10 @@ def handle_outstanding_amounts(customer_supply_instance, five_gallon_qty):
             amount=balance_amount
         ).delete()
         
-        customer_outstanding_report_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="amount")
-        customer_outstanding_report_instance.value -= Decimal(balance_amount)
-        customer_outstanding_report_instance.save()
+        if CustomerOutstandingReport.objects.filter(customer=customer_supply_instance.customer, product_type="amount").exists():
+            customer_outstanding_report_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="amount")
+            customer_outstanding_report_instance.value -= Decimal(balance_amount)
+            customer_outstanding_report_instance.save()
         
     elif customer_supply_instance.amount_recieved > customer_supply_instance.subtotal:
         OutstandingAmount.objects.filter(

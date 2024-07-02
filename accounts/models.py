@@ -51,6 +51,11 @@ class CustomUser(AbstractUser):
     van_management = models.BooleanField(default=True)
     coupon_management = models.BooleanField(default=True)
     client_management = models.BooleanField(default=True)
+    nationality = models.TextField(null=True,blank=True)
+    visa_type = models.CharField(max_length=50, null=True, blank=True)
+    joining_date = models.DateTimeField(null=True, blank=True)
+    passport_expiry = models.DateTimeField(null=True, blank=True)
+    passport_number = models.CharField(max_length=50, null=True, blank=True)
     #class Meta:
     #    ordering = ('username',)
 

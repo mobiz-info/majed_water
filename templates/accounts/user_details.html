@@ -52,6 +52,12 @@
                                 <td>{{user_det.present_address}}</td>
                               </tr>
                               <tr>
+                                <td class="text-secondary">Joining Date</td>
+                                <td>{{user_det.joining_date|date:"d-m-Y"}}</td>
+                                <td class="text-secondary">Majedity</td>
+                                <td>{{user_det.nationality}}</td>
+                              </tr>
+                              <tr>
                                 <td class="text-secondary">Labour Card Number</td>
                                 <td>{{user_det.labour_card_no}}</td>
                                 <td class="text-secondary">Labour Card Expiry</td>
@@ -117,6 +123,17 @@
                                 <td>{{user_det.insurance_expiry|date:"d-m-Y"}}</td>
                                 <td class="text-secondary">Insurance Company</td>
                                 <td>{{user_det.insurance_company}}</td>
+                              </tr>
+                              <tr>
+                                <td class="text-secondary">Passport Number</td>
+                                <td>{{user_det.passport_number}}</td>
+                                <td class="text-secondary">Passport Expiry</td>
+                                <td>{{user_det.passport_expiry|date:"d-m-Y"}}</td>
+                              </tr>
+                              <tr>
+                                <td class="text-secondary">Visa Type</td>
+                                <td>{{user_det.visa_type}}</td>
+                                
                               </tr>
                             </tbody>
                       
