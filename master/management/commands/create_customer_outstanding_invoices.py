@@ -2,7 +2,7 @@ import datetime
 import random
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from accounts.models import Customers
+from accounts.models import CustomUser, Customers
 from client_management.models import CustomerOutstanding, OutstandingAmount
 from invoice_management.models import Invoice, InvoiceItems
 from product.models import ProdutItemMaster
@@ -11,7 +11,8 @@ class Command(BaseCommand):
     help = 'Add custom ID for each customer based on created date'
 
     def handle(self, *args, **kwargs):
-        oustandings = CustomerOutstanding.objects.all()
+        user = CustomUser.objects.get(username="S-23")
+        oustandings = CustomerOutstanding.objects.filter(created_by=user.pk)
         
         for outstanding in oustandings:
             out_amounts = OutstandingAmount.objects.filter(customer_outstanding=outstanding)
@@ -30,7 +31,7 @@ class Command(BaseCommand):
                     amout_total=out_amount.amount,
                     amout_recieved=0,
                     customer=out_amount.customer_outstanding.customer,
-                    reference_no=f"oustading added from backend {out_amount.customer_outstanding.customer.custom_id}"
+                    reference_no=f"custom_id{out_amount.customer_outstanding.customer.custom_id}"
                 )
                 outstanding.invoice_no = invoice.invoice_no
                 outstanding.save()
@@ -50,6 +51,6 @@ class Command(BaseCommand):
                     remarks='invoice genereted from backend reference no : ' + invoice.reference_no
                 )
                 
-                oustandings.invoice_no = invoice.invoice_no
+            oustandings.update(invoice_no=invoice.invoice_no)
 
         self.stdout.write(self.style.SUCCESS('Successfully updated visit schedule for customers with visit_schedule="Saturday"'))

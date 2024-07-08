@@ -3263,7 +3263,7 @@ def dsr_summary(request):
         customer_coupons=CustomerCoupon.objects.filter(salesman=salesman,created_date__date=date)
         
         ### cash sales ####
-        cash_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__gt=0)
+        cash_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
         cash_total_net_taxable = cash_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
         cash_total_vat = cash_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
         cash_total_subtotal = cash_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
@@ -3281,7 +3281,7 @@ def dsr_summary(request):
         total_cash_sales_count = cash_sales.count() + recharge_cash_sales.count()
         
         ### credit sales ####
-        credit_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__lte=0).exclude(customer__sales_type="FOC")
+        credit_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
         credit_total_net_taxable = credit_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
         credit_total_vat = credit_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
         credit_total_subtotal = credit_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
@@ -3309,7 +3309,7 @@ def dsr_summary(request):
         
         
         ### expenses ####
-        expenses_instanses = Expense.objects.filter(expense_date=date,van__salesman=salesman)
+        expenses_instanses = Expense.objects.filter(expense_date=date,van=van_route.van)
         today_expense = expenses_instanses.aggregate(total_expense=Sum('amount'))['total_expense'] or 0
         
         ### suspense ###
@@ -3326,7 +3326,7 @@ def dsr_summary(request):
         dialy_collections = CollectionPayment.objects.filter(salesman_id=salesman,amount_received__gt=0)
         # credit outstanding
         # outstanding_credit_notes = Invoice.objects.filter(invoice_type="credit_invoive",customer__sales_staff=salesman).exclude(created_date__date__gt=date)
-        outstanding_credit_notes_total_amount = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__lte=date,customer_outstanding__product_type="amount").aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        outstanding_credit_notes_total_amount = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__lte=date,customer_outstanding__product_type="amount",customer_outstanding__customer__routes=van_route.routes).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
         outstanding_credit_notes_received_amount = dialy_collections.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         outstanding_credit_notes_balance = outstanding_credit_notes_total_amount - outstanding_credit_notes_received_amount
         # pending customers
@@ -3546,7 +3546,7 @@ def print_dsr_summary(request):
         customer_coupons=CustomerCoupon.objects.filter(salesman=salesman,created_date__date=date)
         
         ### cash sales ####
-        cash_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__gt=0)
+        cash_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
         cash_total_net_taxable = cash_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
         cash_total_vat = cash_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
         cash_total_subtotal = cash_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
@@ -3564,7 +3564,7 @@ def print_dsr_summary(request):
         total_cash_sales_count = cash_sales.count() + recharge_cash_sales.count()
         
         ### credit sales ####
-        credit_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__lte=0)
+        credit_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
         credit_total_net_taxable = credit_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
         credit_total_vat = credit_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
         credit_total_subtotal = credit_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
@@ -3592,7 +3592,7 @@ def print_dsr_summary(request):
         
         
         ### expenses ####
-        expenses_instanses = Expense.objects.filter(date_created=date,van__salesman=salesman)
+        expenses_instanses = Expense.objects.filter(expense_date=date,van__salesman=salesman)
         today_expense = expenses_instanses.aggregate(total_expense=Sum('amount'))['total_expense'] or 0
         
         ### suspense ###
@@ -3609,8 +3609,8 @@ def print_dsr_summary(request):
         dialy_collections = CollectionPayment.objects.filter(salesman_id=salesman,amount_received__gt=0)
         # credit outstanding
         # outstanding_credit_notes = Invoice.objects.filter(invoice_type="credit_invoive",customer__sales_staff=salesman).exclude(created_date__date__gt=date)
-        outstanding_credit_notes_total_amount = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__lte=date,customer_outstanding__product_type="amount").aggregate(total_amount=Sum('amount'))['total_amount'] or 0
-        outstanding_credit_notes_received_amount = dialy_collections.filter(created_date__date__lte=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        outstanding_credit_notes_total_amount = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__lte=date,customer_outstanding__product_type="amount",customer_outstanding__customer__routes=van_route.routes).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        outstanding_credit_notes_received_amount = dialy_collections.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         outstanding_credit_notes_balance = outstanding_credit_notes_total_amount - outstanding_credit_notes_received_amount
         # pending customers
         pending_bottle_customer_instances = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,allocate_bottle_to_pending__gt=0)
@@ -3708,11 +3708,13 @@ def print_dsr_summary(request):
         'total_sales_count': total_sales_count,
         'no_of_collected_cheque': no_of_collected_cheque,
         'collected_cheque_amount': collected_cheque_amount,
-        # FOC customer
-        'foc_customers':foc_customers,
         
         'balance_in_hand': balance_in_hand,
         'net_payble': net_payble,
+        
+        'filter_data': filter_data,
+        # FOC customer
+        'foc_customers':foc_customers,
         
         'filter_data': filter_data,
         'filter_date_formatted': date.strftime('%d-%m-%Y'),

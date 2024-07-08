@@ -441,7 +441,7 @@ def staffIssueOrdersCreate(request, staff_order_details_id):
                     quantity_issued = form.cleaned_data.get('quantity_issued')
                     
                     if issue.product_id.product_name == "5 Gallon":
-                        if int(quantity_issued) != 0 and int(quantity_issued) + vanstock_count <= van.bottle_count:
+                        if int(quantity_issued) != 0 and van.bottle_count > int(quantity_issued) + vanstock_count:
                             van_limit=True
                         else:
                             van_limit=False

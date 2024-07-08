@@ -11,7 +11,8 @@ admin.site.register(CustomerCoupon)
 admin.site.register(ChequeCouponPayment)
 
 class CustomerOutstandingAdmin(admin.ModelAdmin):
-    list_display = ('id','created_by','created_date','product_type','customer')
+    list_display = ('id','invoice_no','created_by','created_date','product_type','customer')
+    ordering = ("-created_date",)
 admin.site.register(CustomerOutstanding,CustomerOutstandingAdmin)
 admin.site.register(OutstandingProduct)
 admin.site.register(OutstandingAmount)

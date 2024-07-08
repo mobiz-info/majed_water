@@ -6,7 +6,7 @@ from accounts.models import CustomUser, Customers
 from client_management.models import CustomerOutstanding, OutstandingAmount, CustomerOutstandingReport
 
 # Read the Excel file
-file_path = '/home/ra/Downloads/outstanding_update_date_wise.xlsx'
+file_path = '/home/ra/Downloads/s-23latest (3).xlsx'
 data = pd.read_excel(file_path)
 print("File path:", file_path)
 print("DataFrame columns:", data.columns)
@@ -24,16 +24,20 @@ if 'amount' not in data.columns:
 
 @transaction.atomic
 def populate_models_from_excel(data):
-    user = CustomUser.objects.get(username="SW-40")
+    user = CustomUser.objects.get(username="S-23")
     for index, row in data.iterrows():
+        customer_id = row['customer_id']
         customer_name = row['customer_name']
         amount = Decimal(row['amount'])
         str_date = str(row['date'])
-        date = datetime.strptime(str_date, '%d-%m-%Y')
+        
+        if isinstance(str_date, str):
+            str_date = str_date.split()[0]  # Take only the date part if it includes time
+        date = datetime.strptime(str_date, '%Y-%m-%d')
         
         # Get or create customer
         try:
-            customer = Customers.objects.get(customer_name=customer_name)
+            customer = Customers.objects.get(custom_id=customer_id)
         except Customers.DoesNotExist:
             print(f"Customer {customer_name} does not exist.")
             continue

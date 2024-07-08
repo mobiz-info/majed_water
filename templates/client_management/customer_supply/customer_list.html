@@ -3,11 +3,11 @@
 {% block content %}
 
 <div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
-    <h4 class="fw-medium mb-0">Create Invoice</h4>
+    <h4 class="fw-medium mb-0">Create Supply</h4>
     <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-50">Invoice Management</a>
+        <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-50">Client Management</a>
         </li>
-        <li class="breadcrumb-item active" aria-current="page">Create Invoice</li>
+        <li class="breadcrumb-item active" aria-current="page">Create Supply Customers</li>
     </ol>
 </div>
 <div class="main-content app-content">
@@ -89,7 +89,7 @@
                                         {% for instance in instances %}
                                         <tr>
                                             <td>{{ forloop.counter }}</td>
-                                            <td>{{instance.customer_id}}</td>
+                                            <td>{{instance.custom_id}}</td>
                                             <td>{{instance.customer_name}}</td>
                                             <td>{{instance.mobile_no}}</td>
                                             <td>{{instance.building_name}}</td>
@@ -98,8 +98,7 @@
                                             <td></td>
                                             <td>
                                                 <div class="g-2">
-                                                    <a href="" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Customer info"><span class="ri-shield-user-fill fs-14"></span></a>
-                                                    <a href="{% url 'invoice:create_invoice' customer_pk=instance.pk %}" aria-label="anchor" class="btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Create invoice"><span class="ri-bill-fill fs-14"></span></a>
+                                                    <a href="{% url 'create_customer_supply' pk=instance.pk %}" aria-label="anchor" class="btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Create Supply"><span class="ri-bill-fill fs-14"></span></a>
                                                 </div>
                                             </td>
                                         </tr>

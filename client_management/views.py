@@ -8,7 +8,7 @@ from van_management.models import *
 from decimal import Decimal
 
 from django.views import View
-from django.db.models import Q, Sum, Count, DecimalField
+from django.db.models import Q, Sum, Count, DecimalField, F
 from django.urls import reverse
 from django.contrib import messages
 from django.db import transaction, IntegrityError
@@ -491,7 +491,7 @@ def customer_supply_info(request,pk):
     return render(request, 'client_management/customer_supply/info.html', context)
 
 @login_required
-def customer_supply_customers(request,pk):
+def customer_supply_customers(request):
     filter_data = {}
     
     instances = Customers.objects.all()
@@ -528,41 +528,310 @@ def customer_supply_customers(request,pk):
     
     return render(request,'client_management/customer_supply/customer_list.html',context)
 
-def create_customer_supply(request):
+def create_customer_supply(request,pk):
     
+    customer_instance = Customers.objects.get(pk=pk)
+    SupplyItemsFormset = formset_factory(CustomerSupplyItemsForm, extra=2)
     message = ''
+    
     if request.method == 'POST':
-        customer_supply_form = CustomerSupplyForm(request.POST)
-        customer_supply_items_form = CustomerSupplyItemsForm(request.POST)
+        supply_date_str = request.POST.get("adding_date")
+        supply_date = datetime.strptime(supply_date_str, '%Y-%m-%d')
+        supply_date = supply_date.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        if customer_supply_form.is_valid() and customer_supply_items_form.is_valid():
+        customer_supply_form = CustomerSupplyForm(request.POST)
+        customer_supply_items_formset = SupplyItemsFormset(request.POST, request.FILES,prefix='customer_supply_items_formset',form_kwargs={'empty_permitted': False})
+        
+        if customer_supply_form.is_valid() and customer_supply_items_formset.is_valid():
             try:
                 with transaction.atomic():
-                    customer_supply = customer_supply_form.save(commit=False)
-                    customer_supply.created_by = str(request.user.id)
-                    customer_supply.save()
+                    customer_suply_form_instance = customer_supply_form.save(commit=False)
+                    customer_suply_form_instance.customer = customer_instance
+                    customer_suply_form_instance.salesman = customer_instance.sales_staff
+                    customer_suply_form_instance.created_by = customer_instance.sales_staff.pk
+                    customer_suply_form_instance.created_date = supply_date
+                    customer_suply_form_instance.save()
                     
-                    data = customer_supply_items_form.save(commit=False)
-                    data.customer_supply = customer_supply
-                    data.save()
+                    total_fivegallon_qty = 0
+                    van = Van.objects.get(salesman=customer_suply_form_instance.customer.sales_staff)
                     
-                    if (update_customer_stock:=CustomerSupplyStock.objects.filter(customer=customer_supply.customer,product=data.product)).exists():
-                            stock = update_customer_stock.first()
-                            stock.stock_quantity += data.quantity
-                            stock.save()
-                    else:
-                        CustomerSupplyStock.objects.create(
-                            product=data.product,
-                            customer=customer_supply.customer,
-                            stock_quantity = data.quantity,
+                    for form in customer_supply_items_formset:
+                        item_data = form.save(commit=False)
+                        item_data.customer_supply = customer_suply_form_instance  # Associate with the customer supply instance
+                        item_data.save()
+                    
+                        vanstock = VanProductStock.objects.get(created_date=customer_suply_form_instance.created_date.date(), product=item_data.product, van=van)
+                        if vanstock.stock >= item_data.quantity:
+                            vanstock.stock -= item_data.quantity
+                            vanstock.sold_count += item_data.quantity
+                            vanstock.pending_count += item_data.customer_supply.allocate_bottle_to_pending
+                            if item_data.product.product_name == "5 Gallon":
+                                total_fivegallon_qty += Decimal(item_data.quantity)
+                                vanstock.empty_can_count += customer_suply_form_instance.collected_empty_bottle
+                            vanstock.save()
+                        else:
+                            response_data = {
+                                "status": "false",
+                                "title": "Failed",
+                                "message": f"No stock available in {item_data.product.product_name}, only {vanstock.stock} left",
+                            }
+                            return HttpResponse(json.dumps(response_data), content_type='application/javascript')    
+                        
+                    invoice_generated = False
+                    
+                    if customer_suply_form_instance.customer.sales_type != "FOC" :
+                        # empty bottle calculate
+                        if total_fivegallon_qty < Decimal(customer_suply_form_instance.collected_empty_bottle) :
+                            balance_empty_bottle = Decimal(customer_suply_form_instance.collected_empty_bottle) - total_fivegallon_qty
+                            if CustomerOutstandingReport.objects.filter(customer=customer_suply_form_instance.customer,product_type="emptycan").exists():
+                                outstanding_instance = CustomerOutstandingReport.objects.get(customer=customer_suply_form_instance.customer,product_type="emptycan")
+                                outstanding_instance.value -= Decimal(balance_empty_bottle)
+                                outstanding_instance.save()
+                        
+                        elif total_fivegallon_qty > Decimal(customer_suply_form_instance.collected_empty_bottle) :
+                            balance_empty_bottle = total_fivegallon_qty - Decimal(customer_suply_form_instance.collected_empty_bottle)
+                            customer_outstanding = CustomerOutstanding.objects.create(
+                                customer=customer_suply_form_instance.customer,
+                                product_type="emptycan",
+                                created_by=request.user.id,
+                                created_date=supply_date,
+                            )
+
+                            outstanding_product = OutstandingProduct.objects.create(
+                                empty_bottle=balance_empty_bottle,
+                                customer_outstanding=customer_outstanding,
+                            )
+                            outstanding_instance = {}
+
+                            try:
+                                outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_suply_form_instance.customer,product_type="emptycan")
+                                outstanding_instance.value += Decimal(outstanding_product.empty_bottle)
+                                outstanding_instance.save()
+                            except:
+                                outstanding_instance = CustomerOutstandingReport.objects.create(
+                                    product_type='emptycan',
+                                    value=outstanding_product.empty_bottle,
+                                    customer=outstanding_product.customer_outstanding.customer
+                                )
+                    
+                        supply_items = CustomerSupplyItems.objects.filter(customer_supply=customer_suply_form_instance) # supply items
+                        
+                        # Update CustomerSupplyStock
+                        for item_data in supply_items:
+                            customer_supply_stock, _ = CustomerSupplyStock.objects.get_or_create(
+                                customer=customer_suply_form_instance.customer,
+                                product=item_data.product,
+                            )
+                            
+                            customer_supply_stock.stock_quantity += item_data.quantity
+                            customer_supply_stock.save()
+                            
+                            if Customers.objects.get(pk=customer_suply_form_instance.customer.pk).sales_type == "CASH COUPON" :
+                                # print("cash coupon")
+                                total_coupon_collected = request.data.get('total_coupon_collected')
+                                
+                                if request.data.get('coupon_method') == "manual" :
+                                    collected_coupon_ids = request.data.get('collected_coupon_ids')
+                                    
+                                    for c_id in collected_coupon_ids:
+                                        customer_supply_coupon = CustomerSupplyCoupon.objects.create(
+                                            customer_supply=customer_suply_form_instance,
+                                        )
+                                        leaflet_instance = CouponLeaflet.objects.get(pk=c_id)
+                                        customer_supply_coupon.leaf.add(leaflet_instance)
+                                        leaflet_instance.used=True
+                                        leaflet_instance.save()
+                                        
+                                        if CustomerCouponStock.objects.filter(customer__pk=customer_suply_form_instance.customer,coupon_method="manual",coupon_type_id=leaflet_instance.coupon.coupon_type).exists() :
+                                            customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_suply_form_instance.customer,coupon_method="manual",coupon_type_id=leaflet_instance.coupon.coupon_type)
+                                            customer_stock.count -= 1
+                                            customer_stock.save()
+                                            
+                                    if total_fivegallon_qty < len(collected_coupon_ids):
+                                        # print("total_fivegallon_qty < len(collected_coupon_ids)", total_fivegallon_qty, "------------------------", len(collected_coupon_ids))
+                                        balance_coupon = Decimal(total_fivegallon_qty) - Decimal(len(collected_coupon_ids))
+                                        
+                                        customer_outstanding = CustomerOutstanding.objects.create(
+                                            customer=customer_suply_form_instance.customer,
+                                            product_type="coupons",
+                                            created_by=request.user.id,
+                                        )
+                                        
+                                        customer_coupon = CustomerCouponStock.objects.filter(customer__pk=customer_suply_form_instance.customer,coupon_method="manual").first()
+                                        outstanding_coupon = OutstandingCoupon.objects.create(
+                                            count=balance_coupon,
+                                            customer_outstanding=customer_outstanding,
+                                            coupon_type=customer_coupon.coupon_type_id
+                                        )
+                                        outstanding_instance = ""
+
+                                        try:
+                                            outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_suply_form_instance.customer,product_type="coupons")
+                                            outstanding_instance.value += Decimal(outstanding_coupon.count)
+                                            outstanding_instance.save()
+                                        except:
+                                            outstanding_instance = CustomerOutstandingReport.objects.create(
+                                                product_type='coupons',
+                                                value=outstanding_coupon.count,
+                                                customer=outstanding_coupon.customer_outstanding.customer
+                                            )
+                                    
+                                    elif total_fivegallon_qty > len(collected_coupon_ids) :
+                                        balance_coupon = total_fivegallon_qty - len(collected_coupon_ids)
+                                        try :
+                                            outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_suply_form_instance.customer,product_type="coupons")
+                                            outstanding_instance.value += Decimal(balance_coupon)
+                                            outstanding_instance.save()
+                                        except:
+                                            outstanding_instance=CustomerOutstandingReport.objects.create(
+                                                product_type="coupons",
+                                                value=balance_coupon,
+                                                customer=customer_suply_form_instance.customer,
+                                                )
+                                            
+                                elif request.data.get('coupon_method') == "digital" :
+                                    try : 
+                                        customer_coupon_digital = CustomerSupplyDigitalCoupon.objects.get(
+                                            customer_supply=customer_suply_form_instance,
+                                            )
+                                    except:
+                                        customer_coupon_digital = CustomerSupplyDigitalCoupon.objects.create(
+                                            customer_supply=customer_suply_form_instance,
+                                            count = 0,
+                                            )
+                                    customer_coupon_digital.count += total_coupon_collected
+                                    customer_coupon_digital.save()
+                                    
+                                    customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_suply_form_instance.customer.pk,coupon_method="digital",coupon_type_id__coupon_type_name="Other")
+                                    customer_stock.count -= Decimal(total_coupon_collected)
+                                    customer_stock.save()
+                                    
+                            elif Customers.objects.get(pk=customer_suply_form_instance.customer.pk).sales_type == "CREDIT COUPON" :
+                                pass
+                            elif Customers.objects.get(pk=customer_suply_form_instance.customer.pk).sales_type == "CASH" or Customers.objects.get(pk=customer_suply_form_instance.customer.pk).sales_type == "CREDIT" :
+                                if customer_suply_form_instance.amount_recieved < customer_suply_form_instance.subtotal:
+                                    balance_amount = customer_suply_form_instance.subtotal - customer_suply_form_instance.amount_recieved
+                                    
+                                    customer_outstanding = CustomerOutstanding.objects.create(
+                                        product_type="amount",
+                                        created_by=request.user.id,
+                                        customer=customer_suply_form_instance.customer,
+                                        created_date=datetime.today()
+                                    )
+
+                                    outstanding_amount = OutstandingAmount.objects.create(
+                                        amount=balance_amount,
+                                        customer_outstanding=customer_outstanding,
+                                    )
+                                    outstanding_instance = {}
+
+                                    try:
+                                        outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_suply_form_instance.customer,product_type="amount")
+                                        outstanding_instance.value += Decimal(outstanding_amount.amount)
+                                        outstanding_instance.save()
+                                    except:
+                                        outstanding_instance = CustomerOutstandingReport.objects.create(
+                                            product_type='amount',
+                                            value=outstanding_amount.amount,
+                                            customer=outstanding_amount.customer_outstanding.customer
+                                        )
+                                        
+                                elif customer_suply_form_instance.amount_recieved > customer_suply_form_instance.subtotal:
+                                    balance_amount = customer_suply_form_instance.amount_recieved - customer_suply_form_instance.subtotal
+                                    
+                                    customer_outstanding = CustomerOutstanding.objects.create(
+                                        product_type="amount",
+                                        created_by=request.user.id,
+                                        customer=customer_suply_form_instance.customer,
+                                    )
+
+                                    outstanding_amount = OutstandingAmount.objects.create(
+                                        amount=balance_amount,
+                                        customer_outstanding=customer_outstanding,
+                                    )
+                                    
+                                    outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_suply_form_instance.customer,product_type="amount")
+                                    outstanding_instance.value -= Decimal(balance_amount)
+                                    outstanding_instance.save()
+                                    
+                            # elif Customers.objects.get(pk=customer_suply_form_instance.customer).sales_type == "CREDIT" :
+                                # pass
+                        
+                        # if customer_suply_form_instance.customer.sales_type == "CASH" or customer_suply_form_instance.customer.sales_type == "CREDIT":
+                        invoice_generated = True
+                        
+                        random_part = str(random.randint(1000, 9999))
+                        invoice_number = f'WTR-{random_part}'
+                        
+                        if not customer_suply_form_instance.reference_number:
+                            reference_no = f"{customer_suply_form_instance.customer.custom_id}"
+                        else:
+                            reference_no = customer_suply_form_instance.reference_number
+                            
+                        # Create the invoice
+                        invoice = Invoice.objects.create(
+                            invoice_no=invoice_number,
+                            created_date=customer_suply_form_instance.created_date,
+                            net_taxable=customer_suply_form_instance.net_payable,
+                            vat=customer_suply_form_instance.vat,
+                            discount=customer_suply_form_instance.discount,
+                            amout_total=customer_suply_form_instance.subtotal,
+                            amout_recieved=customer_suply_form_instance.amount_recieved,
+                            customer=customer_suply_form_instance.customer,
+                            reference_no=reference_no
                         )
-                    
-                    response_data = {
-                        "status": "true",
-                        "title": "Successfully Created",
-                        "message": "Customer Supply created successfully.",
-                        'redirect': 'true',
-                        "redirect_url": reverse('customer_supply:customer_supply_list')
+                        
+                        customer_suply_form_instance.invoice_no == invoice.invoice_no
+                        customer_suply_form_instance.save()
+                        
+                        if customer_suply_form_instance.customer.sales_type == "CREDIT":
+                            invoice.invoice_type = "credit_invoive"
+                            invoice.save()
+
+                        # Create invoice items
+                        for item_data in supply_items:
+                            item = CustomerSupplyItems.objects.get(pk=item_data.pk)
+                            
+                            InvoiceItems.objects.create(
+                                category=item.product.category,
+                                product_items=item.product,
+                                qty=item.quantity,
+                                rate=item.amount,
+                                invoice=invoice,
+                                remarks='invoice genereted from supply items reference no : ' + invoice.reference_no
+                            )
+                            # print("invoice generate")
+                            InvoiceDailyCollection.objects.create(
+                                invoice=invoice,
+                                created_date=supply_date,
+                                customer=invoice.customer,
+                                salesman=request.user,
+                                amount=invoice.amout_recieved,
+                            )
+
+                        DiffBottlesModel.objects.filter(
+                            delivery_date__date=supply_date,
+                            assign_this_to=customer_suply_form_instance.salesman,
+                            customer=customer_suply_form_instance.customer
+                            ).update(status='supplied')
+
+                    if invoice_generated:
+                        response_data = {
+                            "status": "true",
+                            "title": "Successfully Created",
+                            "message": "Customer Supply created successfully and Invoice generated.",
+                            'redirect': 'true',
+                            "redirect_url": reverse('customer_supply_list'),
+                            "return": True,
+                        }
+                    else:
+                        response_data = {
+                            "status": "true",
+                            "title": "Successfully Created",
+                            "message": "customer supply Created Successfully.",
+                            'redirect': 'true',
+                            "redirect_url": reverse('customer_supply_list'),
+                            "return": True,
                     }
                     
             except IntegrityError as e:
@@ -580,8 +849,9 @@ def create_customer_supply(request):
                     "title": "Failed",
                     "message": str(e),
                 }
+        else:
             message = generate_form_errors(customer_supply_form,formset=False)
-            message += generate_form_errors(customer_supply_items_form,formset=False)
+            # message += generate_form_errors(SupplyItemsFormset,formset=True)
             
             response_data = {
                 "status": "false",
@@ -593,11 +863,12 @@ def create_customer_supply(request):
     
     else:
         customer_supply_form = CustomerSupplyForm()
-        customer_supply_items_form = CustomerSupplyItemsForm()
+        customer_supply_items_formset = SupplyItemsFormset(prefix='customer_supply_items_formset',form_kwargs={'empty_permitted': False})
         
         context = {
+            'customer_instance': customer_instance,
             'customer_supply_form': customer_supply_form,
-            'customer_supply_items_form': customer_supply_items_form,
+            'customer_supply_items_formset': customer_supply_items_formset,
             
             'page_title': 'Create customer supply',
             'customer_supply_page': True,
@@ -608,7 +879,7 @@ def create_customer_supply(request):
 
 
 @login_required
-def edit_customer_supply(request,pk):
+def edit_customer_supply(request, pk):
     """
     edit operation of customer_supply
     :param request:
@@ -616,6 +887,10 @@ def edit_customer_supply(request,pk):
     :return:
     """
     message = ''
+    
+    customer_instance = CustomerSupply.objects.get(pk=pk).customer
+    salesman_instance = CustomerSupply.objects.get(pk=pk).salesman
+    created_date = CustomerSupply.objects.get(pk=pk).created_date
     customer_supply_instance = CustomerSupply.objects.get(pk=pk)
     supply_items_instances = CustomerSupplyItems.objects.filter(customer_supply=customer_supply_instance)
     
@@ -632,154 +907,355 @@ def edit_customer_supply(request,pk):
     )
     
     if request.method == 'POST':
-        customer_supply_form = CustomerSupplyForm(request.POST,instance=customer_supply_instance)
-        customer_supply_items_formset = SupplyItemsFormset(request.POST,request.FILES,
-                                            instance=customer_supply_instance,
-                                            prefix='customer_supply_items_formset',
-                                            form_kwargs={'empty_permitted': False}) 
+        customer_supply_form = EditCustomerSupplyForm(request.POST)
+        customer_supply_items_formset = SupplyItemsFormset(
+            request.POST, request.FILES,
+            instance=customer_supply_instance,
+            prefix='customer_supply_items_formset',
+            form_kwargs={'empty_permitted': False}
+        )
         
-        if customer_supply_form.is_valid() and  customer_supply_items_formset.is_valid() :
-            
-            # #create
-            five_gallon_qty = supply_items_instances.filter(product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
-            DiffBottlesModel.objects.filter(
-                delivery_date__date=customer_supply_instance.created_date.date(),
-                assign_this_to=customer_supply_instance.salesman,
-                customer=customer_supply_instance.customer_id
-                ).update(status='pending')
-            
-            invoice_instance = Invoice.objects.get(created_date__date=customer_supply_instance.created_date.date(),customer=customer_supply_instance.customer,reference_no=customer_supply_instance.reference_number)
-            invoice_items_instances = InvoiceItems.objects.filter(invoice=invoice_instance)
-            InvoiceDailyCollection.objects.filter(
-                invoice=invoice_instance,
-                created_date__date=customer_supply_instance.created_date.date(),
-                customer=customer_supply_instance.customer,
-                salesman=customer_supply_instance.salesman
-                ).delete()
-            invoice_items_instances.delete()
-            invoice_instance.delete()
-            
-            balance_amount = customer_supply_instance.subtotal - customer_supply_instance.amount_recieved
-            if customer_supply_instance.amount_recieved < customer_supply_instance.subtotal:
-                OutstandingAmount.objects.filter(
-                    customer_outstanding__product_type="amount",
-                    customer_outstanding__customer=customer_supply_instance.customer,
-                    customer_outstanding__created_by=customer_supply_instance.salesman.pk,
-                    customer_outstanding__created_date=customer_supply_instance.created_date,
-                    amount=balance_amount
-                ).delete()
-                
-                customer_outstanding_report_instance=CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer,product_type="amount")
-                customer_outstanding_report_instance.value -= Decimal(balance_amount)
-                customer_outstanding_report_instance.save()
-                
-            elif customer_supply_instance.amount_recieved > customer_supply_instance.subtotal:
-                OutstandingAmount.objects.filter(
-                    customer_outstanding__product_type="amount",
-                    customer_outstanding__customer=customer_supply_instance.customer,
-                    customer_outstanding__created_by=customer_supply_instance.salesman.pk,
-                    customer_outstanding__created_date=customer_supply_instance.created_date,
-                    amount=balance_amount
-                ).delete()
-                
-                customer_outstanding_report_instance=CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer,product_type="amount")
-                customer_outstanding_report_instance.value += Decimal(balance_amount)
-                customer_outstanding_report_instance.save()
-                
-            if (digital_coupons_instances:=CustomerSupplyDigitalCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():
-                digital_coupons_instance = digital_coupons_instances.first()
-                CustomerCouponStock.objects.get(
-                    coupon_method="digital",
-                    customer=customer_supply_instance.customer,
-                    coupon_type_id__coupon_type_name="Other"
-                    ).count += digital_coupons_instance.count
-            
-            elif (manual_coupon_instances := CustomerSupplyCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():
-                manual_coupon_instance = manual_coupon_instances.first()
-                leaflets_to_update = manual_coupon_instance.leaf.filter(used=True)
-                updated_count = leaflets_to_update.count()
-
-                if updated_count > 0:
-                    first_leaflet = leaflets_to_update.first()
-
-                    if first_leaflet and CustomerCouponStock.objects.filter(
-                            customer=customer_supply_instance.customer,
-                            coupon_method="manual",
-                            coupon_type_id=first_leaflet.coupon.coupon_type
-                        ).exists():
-                        # Update the CustomerCouponStock
-                        customer_stock_instance = CustomerCouponStock.objects.get(
-                            customer=customer_supply_instance.customer,
-                            coupon_method="manual",
-                            coupon_type_id=first_leaflet.coupon.coupon_type
-                        )
-                        customer_stock_instance.count += Decimal(updated_count)
-                        customer_stock_instance.save()
+        if customer_supply_form.is_valid() and customer_supply_items_formset.is_valid():
+            try:
+                with transaction.atomic():
+                    # #create
+                    five_gallon_qty = supply_items_instances.filter(product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+                    customer_supply_instance = get_object_or_404(CustomerSupply, pk=pk)
+                    supply_items_instances = CustomerSupplyItems.objects.filter(customer_supply=customer_supply_instance)
+                    five_gallon_qty = supply_items_instances.filter(product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity', output_field=DecimalField()))['total_quantity'] or 0
+                    
+                    DiffBottlesModel.objects.filter(
+                        delivery_date__date=customer_supply_instance.created_date.date(),
+                        assign_this_to=customer_supply_instance.salesman,
+                        customer=customer_supply_instance.customer
+                    ).update(status='pending')
+                    
+                    # Handle invoice related deletions
+                    handle_invoice_deletion(customer_supply_instance)
+                    
+                    # Handle outstanding amount adjustments
+                    handle_outstanding_amounts(customer_supply_instance, five_gallon_qty)
+                    
+                    # Handle coupon deletions and adjustments
+                    handle_coupons(customer_supply_instance, five_gallon_qty)
+                    
+                    # Update van product stock and empty bottle counts
+                    update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty)
+                    
+                    # Mark customer supply and items as deleted
+                    customer_supply_instance.delete()
+                    supply_items_instances.delete()
+                    
+                    # create new supply
+                    customer_suply_form_instance = customer_supply_form.save(commit=False)
+                    customer_suply_form_instance.customer = customer_instance
+                    customer_suply_form_instance.salesman = customer_instance.sales_staff
+                    customer_suply_form_instance.created_by = customer_instance.sales_staff.pk
+                    customer_suply_form_instance.created_date = created_date
+                    customer_suply_form_instance.save()
+                    
+                    total_fivegallon_qty = 0
+                    van = Van.objects.get(salesman=customer_suply_form_instance.customer.sales_staff)
+                    
+                    for form in customer_supply_items_formset:
+                        item_data = form.save(commit=False)
+                        item_data.customer_supply = customer_suply_form_instance  # Associate with the customer supply instance
+                        item_data.save()
+                    
+                        vanstock = VanProductStock.objects.get(created_date=created_date.date(), product=item_data.product, van=van)
+                        if vanstock.stock >= item_data.quantity:
+                            vanstock.stock -= item_data.quantity
+                            vanstock.sold_count += item_data.quantity
+                            vanstock.pending_count += item_data.customer_supply.allocate_bottle_to_pending
+                            if item_data.product.product_name == "5 Gallon":
+                                total_fivegallon_qty += Decimal(item_data.quantity)
+                                vanstock.empty_can_count += customer_suply_form_instance.collected_empty_bottle
+                            vanstock.save()
+                        else:
+                            response_data = {
+                                "status": "false",
+                                "title": "Failed",
+                                "message": f"No stock available in {item_data.product.product_name}, only {vanstock.stock} left",
+                            }
+                            return HttpResponse(json.dumps(response_data), content_type='application/javascript')    
                         
-                        if five_gallon_qty < Decimal(customer_supply_instance.collected_empty_bottle) :
-                            balance_empty_bottle = Decimal(customer_supply_instance.collected_empty_bottle) - five_gallon_qty
-                            if CustomerOutstandingReport.objects.filter(customer=customer_supply_instance.customer,product_type="emptycan").exists():
-                                outstanding_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer,product_type="emptycan")
-                                outstanding_instance.value += Decimal(balance_empty_bottle)
+                    invoice_generated = False
+                    
+                    if customer_suply_form_instance.customer.sales_type != "FOC" :
+                        # empty bottle calculate
+                        if total_fivegallon_qty < Decimal(customer_suply_form_instance.collected_empty_bottle) :
+                            balance_empty_bottle = Decimal(customer_suply_form_instance.collected_empty_bottle) - total_fivegallon_qty
+                            if CustomerOutstandingReport.objects.filter(customer=customer_suply_form_instance.customer,product_type="emptycan").exists():
+                                outstanding_instance = CustomerOutstandingReport.objects.get(customer=customer_suply_form_instance.customer,product_type="emptycan")
+                                outstanding_instance.value -= Decimal(balance_empty_bottle)
                                 outstanding_instance.save()
-                                
-                        elif five_gallon_qty > Decimal(customer_supply_instance.collected_empty_bottle) :
-                            balance_empty_bottle = five_gallon_qty - Decimal(customer_supply_instance.collected_empty_bottle)
-                            
-                            outstanding_instance = CustomerOutstanding.objects.filter(
+                        
+                        elif total_fivegallon_qty > Decimal(customer_suply_form_instance.collected_empty_bottle) :
+                            balance_empty_bottle = total_fivegallon_qty - Decimal(customer_suply_form_instance.collected_empty_bottle)
+                            customer_outstanding = CustomerOutstanding.objects.create(
+                                customer=customer_suply_form_instance.customer,
                                 product_type="emptycan",
-                                created_by=customer_supply_instance.salesman.pk,
-                                customer=customer_supply_instance.customer,
-                                created_date=customer_supply_instance.created_date,
-                            ).first()
+                                created_by=request.user.id,
+                                created_date=created_date,
+                            )
 
-                            outstanding_product = OutstandingProduct.objects.filter(
+                            outstanding_product = OutstandingProduct.objects.create(
                                 empty_bottle=balance_empty_bottle,
-                                customer_outstanding=outstanding_instance,
+                                customer_outstanding=customer_outstanding,
                             )
                             outstanding_instance = {}
 
                             try:
-                                outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer,product_type="emptycan")
-                                outstanding_instance.value -= Decimal(outstanding_product.aggregate(total_empty_bottle=Sum('empty_bottle'))['total_empty_bottle'])
+                                outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_suply_form_instance.customer,product_type="emptycan")
+                                outstanding_instance.value += Decimal(outstanding_product.empty_bottle)
                                 outstanding_instance.save()
                             except:
-                                pass
-                        leaflets_to_update.update(used=False)
-                        outstanding_product.delete()
+                                outstanding_instance = CustomerOutstandingReport.objects.create(
+                                    product_type='emptycan',
+                                    value=outstanding_product.empty_bottle,
+                                    customer=outstanding_product.customer_outstanding.customer
+                                )
+                    
+                        supply_items = CustomerSupplyItems.objects.filter(customer_supply=customer_suply_form_instance) # supply items
                         
-            for item_data in supply_items_instances:
-                if VanProductStock.objects.filter(created_date=customer_supply_instance.created_date.date(),product=item_data.product,van__salesman=customer_supply_instance.salesman).exists():
-                    if item_data.product.product_name == "5 Gallon" :
-                        # total_fivegallon_qty -= Decimal(five_gallon_qty)
-                        if VanProductStock.objects.filter(created_date=customer_supply_instance.created_date.date(),product=item_data.product,van__salesman=customer_supply_instance.salesman).exists():
-                            empty_bottle = VanProductStock.objects.get(
+                        # Update CustomerSupplyStock
+                        for item_data in supply_items:
+                            customer_supply_stock, _ = CustomerSupplyStock.objects.get_or_create(
+                                customer=customer_suply_form_instance.customer,
                                 product=item_data.product,
-                                created_date=customer_supply_instance.created_date.date(),
-                                van__salesman=customer_supply_instance.salesman,
                             )
-                            empty_bottle.empty_can_count -= customer_supply_instance.collected_empty_bottle
-                            empty_bottle.save()
+                            
+                            customer_supply_stock.stock_quantity += item_data.quantity
+                            customer_supply_stock.save()
+                            
+                            if Customers.objects.get(pk=customer_suply_form_instance.customer.pk).sales_type == "CASH COUPON" :
+                                # print("cash coupon")
+                                total_coupon_collected = request.data.get('total_coupon_collected')
+                                
+                                if request.data.get('coupon_method') == "manual" :
+                                    collected_coupon_ids = request.data.get('collected_coupon_ids')
+                                    
+                                    for c_id in collected_coupon_ids:
+                                        customer_supply_coupon = CustomerSupplyCoupon.objects.create(
+                                            customer_supply=customer_suply_form_instance,
+                                        )
+                                        leaflet_instance = CouponLeaflet.objects.get(pk=c_id)
+                                        customer_supply_coupon.leaf.add(leaflet_instance)
+                                        leaflet_instance.used=True
+                                        leaflet_instance.save()
+                                        
+                                        if CustomerCouponStock.objects.filter(customer__pk=customer_suply_form_instance.customer,coupon_method="manual",coupon_type_id=leaflet_instance.coupon.coupon_type).exists() :
+                                            customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_suply_form_instance.customer,coupon_method="manual",coupon_type_id=leaflet_instance.coupon.coupon_type)
+                                            customer_stock.count -= 1
+                                            customer_stock.save()
+                                            
+                                    if total_fivegallon_qty < len(collected_coupon_ids):
+                                        # print("total_fivegallon_qty < len(collected_coupon_ids)", total_fivegallon_qty, "------------------------", len(collected_coupon_ids))
+                                        balance_coupon = Decimal(total_fivegallon_qty) - Decimal(len(collected_coupon_ids))
+                                        
+                                        customer_outstanding = CustomerOutstanding.objects.create(
+                                            customer=customer_suply_form_instance.customer,
+                                            product_type="coupons",
+                                            created_by=request.user.id,
+                                            created_date=created_date,
+                                        )
+                                        
+                                        customer_coupon = CustomerCouponStock.objects.filter(customer__pk=customer_suply_form_instance.customer,coupon_method="manual").first()
+                                        outstanding_coupon = OutstandingCoupon.objects.create(
+                                            count=balance_coupon,
+                                            customer_outstanding=customer_outstanding,
+                                            coupon_type=customer_coupon.coupon_type_id
+                                        )
+                                        outstanding_instance = ""
+
+                                        try:
+                                            outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_suply_form_instance.customer,product_type="coupons")
+                                            outstanding_instance.value += Decimal(outstanding_coupon.count)
+                                            outstanding_instance.save()
+                                        except:
+                                            outstanding_instance = CustomerOutstandingReport.objects.create(
+                                                product_type='coupons',
+                                                value=outstanding_coupon.count,
+                                                customer=outstanding_coupon.customer_outstanding.customer
+                                            )
+                                    
+                                    elif total_fivegallon_qty > len(collected_coupon_ids) :
+                                        balance_coupon = total_fivegallon_qty - len(collected_coupon_ids)
+                                        try :
+                                            outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_suply_form_instance.customer,product_type="coupons")
+                                            outstanding_instance.value += Decimal(balance_coupon)
+                                            outstanding_instance.save()
+                                        except:
+                                            outstanding_instance=CustomerOutstandingReport.objects.create(
+                                                product_type="coupons",
+                                                value=balance_coupon,
+                                                customer=customer_suply_form_instance.customer,
+                                                )
+                                            
+                                elif request.data.get('coupon_method') == "digital" :
+                                    try : 
+                                        customer_coupon_digital = CustomerSupplyDigitalCoupon.objects.get(
+                                            customer_supply=customer_suply_form_instance,
+                                            )
+                                    except:
+                                        customer_coupon_digital = CustomerSupplyDigitalCoupon.objects.create(
+                                            customer_supply=customer_suply_form_instance,
+                                            count = 0,
+                                            )
+                                    customer_coupon_digital.count += total_coupon_collected
+                                    customer_coupon_digital.save()
+                                    
+                                    customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_suply_form_instance.customer.pk,coupon_method="digital",coupon_type_id__coupon_type_name="Other")
+                                    customer_stock.count -= Decimal(total_coupon_collected)
+                                    customer_stock.save()
+                                    
+                            elif Customers.objects.get(pk=customer_suply_form_instance.customer.pk).sales_type == "CREDIT COUPON" :
+                                pass
+                            elif Customers.objects.get(pk=customer_suply_form_instance.customer.pk).sales_type == "CASH" or Customers.objects.get(pk=customer_suply_form_instance.customer.pk).sales_type == "CREDIT" :
+                                if customer_suply_form_instance.amount_recieved < customer_suply_form_instance.subtotal:
+                                    balance_amount = customer_suply_form_instance.subtotal - customer_suply_form_instance.amount_recieved
+                                    
+                                    customer_outstanding = CustomerOutstanding.objects.create(
+                                        product_type="amount",
+                                        created_by=request.user.id,
+                                        customer=customer_suply_form_instance.customer,
+                                        created_date=created_date
+                                    )
+
+                                    outstanding_amount = OutstandingAmount.objects.create(
+                                        amount=balance_amount,
+                                        customer_outstanding=customer_outstanding,
+                                    )
+                                    outstanding_instance = {}
+
+                                    try:
+                                        outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_suply_form_instance.customer,product_type="amount")
+                                        outstanding_instance.value += Decimal(outstanding_amount.amount)
+                                        outstanding_instance.save()
+                                    except:
+                                        outstanding_instance = CustomerOutstandingReport.objects.create(
+                                            product_type='amount',
+                                            value=outstanding_amount.amount,
+                                            customer=outstanding_amount.customer_outstanding.customer
+                                        )
+                                        
+                                elif customer_suply_form_instance.amount_recieved > customer_suply_form_instance.subtotal:
+                                    balance_amount = customer_suply_form_instance.amount_recieved - customer_suply_form_instance.subtotal
+                                    
+                                    customer_outstanding = CustomerOutstanding.objects.create(
+                                        product_type="amount",
+                                        created_by=request.user.id,
+                                        created_date=created_date,
+                                        customer=customer_suply_form_instance.customer,
+                                    )
+
+                                    outstanding_amount = OutstandingAmount.objects.create(
+                                        amount=balance_amount,
+                                        customer_outstanding=customer_outstanding,
+                                    )
+                                    
+                                    outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_suply_form_instance.customer,product_type="amount")
+                                    outstanding_instance.value -= Decimal(balance_amount)
+                                    outstanding_instance.save()
+                                    
+                            # elif Customers.objects.get(pk=customer_suply_form_instance.customer).sales_type == "CREDIT" :
+                                # pass
                         
-                    vanstock = VanProductStock.objects.get(created_date=customer_supply_instance.created_date.date(),product=item_data.product,van__salesman=customer_supply_instance.salesman)
-                    vanstock.stock += item_data.quantity
-                    vanstock.save()
-            
-            customer_supply_instance.delete()
-            supply_items_instances.delete()
-                
-            response_data = {
-                "status": "true",
-                "title": "Successfully Updated",
-                "message": "customer supply Updated Successfully.",
-                'redirect': 'true',
-                "redirect_url": reverse('customer_supply:customer_supply_list'),
-                "return" : True,
-            }
-    
+                        # if customer_suply_form_instance.customer.sales_type == "CASH" or customer_suply_form_instance.customer.sales_type == "CREDIT":
+                        invoice_generated = True
+                        
+                        random_part = str(random.randint(1000, 9999))
+                        invoice_number = f'WTR-{random_part}'
+                        
+                        if not customer_suply_form_instance.reference_number:
+                            reference_no = f"{customer_suply_form_instance.customer.custom_id}"
+                        else:
+                            reference_no = customer_suply_form_instance.reference_number
+                            
+                        # Create the invoice
+                        invoice = Invoice.objects.create(
+                            invoice_no=invoice_number,
+                            created_date=created_date,
+                            net_taxable=customer_suply_form_instance.net_payable,
+                            vat=customer_suply_form_instance.vat,
+                            discount=customer_suply_form_instance.discount,
+                            amout_total=customer_suply_form_instance.subtotal,
+                            amout_recieved=customer_suply_form_instance.amount_recieved,
+                            customer=customer_suply_form_instance.customer,
+                            reference_no=reference_no
+                        )
+                        
+                        customer_suply_form_instance.invoice_no == invoice.invoice_no
+                        customer_suply_form_instance.save()
+                        
+                        if customer_suply_form_instance.customer.sales_type == "CREDIT":
+                            invoice.invoice_type = "credit_invoive"
+                            invoice.save()
+
+                        # Create invoice items
+                        for item_data in supply_items:
+                            item = CustomerSupplyItems.objects.get(pk=item_data.pk)
+                            
+                            InvoiceItems.objects.create(
+                                category=item.product.category,
+                                product_items=item.product,
+                                qty=item.quantity,
+                                rate=item.amount,
+                                invoice=invoice,
+                                remarks='invoice genereted from supply items reference no : ' + invoice.reference_no
+                            )
+                            # print("invoice generate")
+                            InvoiceDailyCollection.objects.create(
+                                invoice=invoice,
+                                created_date=customer_suply_form_instance.created_date,
+                                customer=invoice.customer,
+                                salesman=request.user,
+                                amount=invoice.amout_recieved,
+                            )
+
+                        DiffBottlesModel.objects.filter(
+                            delivery_date__date=created_date.date(),
+                            assign_this_to=customer_suply_form_instance.salesman,
+                            customer=customer_suply_form_instance.customer
+                            ).update(status='supplied')
+
+                    if invoice_generated:
+                        response_data = {
+                            "status": "true",
+                            "title": "Successfully Updated",
+                            "message": "Customer Supply updated successfully and Invoice generated.",
+                            'redirect': 'true',
+                            "redirect_url": reverse('customer_supply_list'),
+                            "return": True,
+                        }
+                    else:
+                        response_data = {
+                            "status": "true",
+                            "title": "Successfully Updated",
+                            "message": "customer supply Updated Successfully.",
+                            'redirect': 'true',
+                            "redirect_url": reverse('customer_supply_list'),
+                            "return": True,
+                    }
+                        
+            except IntegrityError as e:
+                # Handle database integrity error
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": str(e),
+                }
+
+            except Exception as e:
+                # Handle other exceptions
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": str(e),
+                }
         else:
-            message = generate_form_errors(customer_supply_form,formset=False)
-            message += generate_form_errors(customer_supply_items_formset,formset=True)
+            message = generate_form_errors(customer_supply_form, formset=False)
+            message += generate_form_errors(customer_supply_items_formset, formset=True)
             
             response_data = {
                 "status": "false",
@@ -790,10 +1266,12 @@ def edit_customer_supply(request,pk):
         return HttpResponse(json.dumps(response_data), content_type='application/javascript')
                         
     else:
-        customer_supply_form = CustomerSupplyForm(instance=customer_supply_instance)
-        customer_supply_items_formset = SupplyItemsFormset(queryset=supply_items_instances,
-                                                    prefix='customer_supply_items_formset',
-                                                    instance=customer_supply_instance)
+        customer_supply_form = EditCustomerSupplyForm(instance=customer_supply_instance)
+        customer_supply_items_formset = SupplyItemsFormset(
+            queryset=supply_items_instances,
+            prefix='customer_supply_items_formset',
+            instance=customer_supply_instance
+        )
 
         context = {
             'customer_supply_form': customer_supply_form,
@@ -801,12 +1279,13 @@ def edit_customer_supply(request,pk):
             'customer_instance': customer_supply_instance.customer,
             
             'message': message,
-            'page_name' : 'edit customer supply',
+            'page_name': 'edit customer supply',
             'customer_supply_page': True,   
-            'is_edit' : True,        
+            'is_edit': True,        
         }
 
         return render(request, 'client_management/customer_supply/create.html', context)
+
     
 @login_required
 def delete_customer_supply(request, pk):
@@ -837,8 +1316,14 @@ def delete_customer_supply(request, pk):
             # Handle coupon deletions and adjustments
             handle_coupons(customer_supply_instance, five_gallon_qty)
             
+            handle_outstanding_coupon(customer_supply_instance, five_gallon_qty)
+            
+            handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty)
+            
             # Update van product stock and empty bottle counts
             update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty)
+            
+            CustomerOutstanding.objects.filter(invoice_no=customer_supply_instance.invoice_no).delete()
             
             # Mark customer supply and items as deleted
             customer_supply_instance.delete()
@@ -863,8 +1348,8 @@ def delete_customer_supply(request, pk):
 
 
 def handle_invoice_deletion(customer_supply_instance):
-    if Invoice.objects.filter(created_date__date=customer_supply_instance.created_date.date(), customer=customer_supply_instance.customer, reference_no=customer_supply_instance.reference_number).exists():
-        invoice_instance = Invoice.objects.get(created_date__date=customer_supply_instance.created_date.date(), customer=customer_supply_instance.customer, reference_no=customer_supply_instance.reference_number)
+    if Invoice.objects.filter(created_date__date=customer_supply_instance.created_date.date(), invoice_no=customer_supply_instance.invoice_no).exists():
+        invoice_instance = Invoice.objects.get(created_date__date=customer_supply_instance.created_date.date(), customer=customer_supply_instance.customer, invoice_no=customer_supply_instance.invoice_no)
         invoice_items_instances = InvoiceItems.objects.filter(invoice=invoice_instance)
         
         InvoiceDailyCollection.objects.filter(
@@ -877,71 +1362,81 @@ def handle_invoice_deletion(customer_supply_instance):
         invoice_items_instances.delete()
         invoice_instance.delete()
 
+def handle_outstanding_coupon(customer_supply_instance, five_gallon_qty):
+    if (customet_outstanding_instances:=CustomerOutstanding.objects.filter(invoice_no=customer_supply_instance.invoice_no,product_type="coupons")).exists():
+        outstanding_coupon_count = OutstandingCoupon.objects.filter(customer_outstanding__in=customet_outstanding_instances).aggregate(total_count=Sum('count'))['total_count']
+        outstanding_report = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer,product_type="coupons")
+        outstanding_report.value -= outstanding_coupon_count
+        outstanding_report.save()
+        
+        customet_outstanding_instances.delete()
 
 def handle_outstanding_amounts(customer_supply_instance, five_gallon_qty):
     balance_amount = customer_supply_instance.subtotal - customer_supply_instance.amount_recieved
-    
-    if customer_supply_instance.amount_recieved < customer_supply_instance.subtotal:
-        OutstandingAmount.objects.filter(
-            customer_outstanding__product_type="amount",
-            customer_outstanding__customer=customer_supply_instance.customer,
-            customer_outstanding__created_by=customer_supply_instance.salesman.pk,
-            customer_outstanding__created_date=customer_supply_instance.created_date,
-            amount=balance_amount
-        ).delete()
         
+    if customer_supply_instance.amount_recieved < customer_supply_instance.subtotal:
         if CustomerOutstandingReport.objects.filter(customer=customer_supply_instance.customer, product_type="amount").exists():
             customer_outstanding_report_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="amount")
             customer_outstanding_report_instance.value -= Decimal(balance_amount)
             customer_outstanding_report_instance.save()
-        
+            
     elif customer_supply_instance.amount_recieved > customer_supply_instance.subtotal:
-        OutstandingAmount.objects.filter(
-            customer_outstanding__product_type="amount",
-            customer_outstanding__customer=customer_supply_instance.customer,
-            customer_outstanding__created_by=customer_supply_instance.salesman.pk,
-            customer_outstanding__created_date=customer_supply_instance.created_date,
-            amount=balance_amount
-        ).delete()
-        
         customer_outstanding_report_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="amount")
         customer_outstanding_report_instance.value += Decimal(balance_amount)
         customer_outstanding_report_instance.save()
 
 
 def handle_coupons(customer_supply_instance, five_gallon_qty):
-    if (digital_coupons_instances := CustomerSupplyDigitalCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():
-        digital_coupons_instance = digital_coupons_instances.first()
-        CustomerCouponStock.objects.filter(
-            coupon_method="digital",
-            customer=customer_supply_instance.customer,
-            coupon_type_id__coupon_type_name="Other"
-        ).update(count=F('count') + digital_coupons_instance.count)
+    if (manual_coupons := CustomerSupplyCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():
+        for coupon in manual_coupons:
+            for l in coupon.leaf.all():
+                if CustomerCouponStock.objects.filter(customer=customer_supply_instance.customer,coupon_method="manual",coupon_type_id=l.coupon.coupon_type).exists() :
+                    customer_stock = CustomerCouponStock.objects.get(customer=customer_supply_instance.customer,coupon_method="manual",coupon_type_id=l.coupon.coupon_type)
+                    customer_stock.count += 1
+                    customer_stock.save()
+            coupon.leaf.update(used=False)
+        manual_coupons.delete()
+        
+    elif (digital_coupons := CustomerSupplyDigitalCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():
+        customer_coupon_digital = CustomerSupplyDigitalCoupon.objects.get(customer_supply=customer_supply_instance)
+                                
+        customer_stock = CustomerCouponStock.objects.get(customer=customer_supply_instance.customer,coupon_method="digital",coupon_type_id__coupon_type_name="Other")
+        customer_stock.count += Decimal(customer_coupon_digital.count)
+        customer_stock.save()
+        
+        customer_coupon_digital.delete()
+    # if (digital_coupons_instances := CustomerSupplyDigitalCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():
+    #     digital_coupons_instance = digital_coupons_instances.first()
+    #     CustomerCouponStock.objects.filter(
+    #         coupon_method="digital",
+    #         customer=customer_supply_instance.customer,
+    #         coupon_type_id__coupon_type_name="Other"
+    #     ).update(count=F('count') + digital_coupons_instance.count)
     
-    elif (manual_coupon_instances := CustomerSupplyCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():
-        manual_coupon_instance = manual_coupon_instances.first()
-        leaflets_to_update = manual_coupon_instance.leaf.filter(used=True)
-        updated_count = leaflets_to_update.count()
+    # elif (manual_coupon_instances := CustomerSupplyCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():
+    #     manual_coupon_instance = manual_coupon_instances.first()
+    #     leaflets_to_update = manual_coupon_instance.leaf.filter(used=True)
+    #     updated_count = leaflets_to_update.count()
 
-        if updated_count > 0:
-            first_leaflet = leaflets_to_update.first()
+    #     if updated_count > 0:
+    #         first_leaflet = leaflets_to_update.first()
 
-            if first_leaflet and CustomerCouponStock.objects.filter(
-                    customer=customer_supply_instance.customer,
-                    coupon_method="manual",
-                    coupon_type_id=first_leaflet.coupon.coupon_type
-                ).exists():
-                customer_stock_instance = CustomerCouponStock.objects.get(
-                    customer=customer_supply_instance.customer,
-                    coupon_method="manual",
-                    coupon_type_id=first_leaflet.coupon.coupon_type
-                )
-                customer_stock_instance.count += Decimal(updated_count)
-                customer_stock_instance.save()
+    #         if first_leaflet and CustomerCouponStock.objects.filter(
+    #                 customer=customer_supply_instance.customer,
+    #                 coupon_method="manual",
+    #                 coupon_type_id=first_leaflet.coupon.coupon_type
+    #             ).exists():
+    #             customer_stock_instance = CustomerCouponStock.objects.get(
+    #                 customer=customer_supply_instance.customer,
+    #                 coupon_method="manual",
+    #                 coupon_type_id=first_leaflet.coupon.coupon_type
+    #             )
+    #             customer_stock_instance.count += Decimal(updated_count)
+    #             customer_stock_instance.save()
                 
-                handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty)
+    #             handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty)
                 
-                leaflets_to_update.update(used=False)
+    #             leaflets_to_update.update(used=False)
 
 
 def handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty):
@@ -979,20 +1474,22 @@ def handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty):
 
 def update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty):
     for item_data in supply_items_instances:
-        if VanProductStock.objects.filter(created_date=customer_supply_instance.created_date.date(), product=item_data.product, van__salesman=customer_supply_instance.salesman).exists():
-            if item_data.product.product_name == "5 Gallon":
-                empty_bottle = VanProductStock.objects.get(
-                    product=item_data.product,
-                    created_date=customer_supply_instance.created_date.date(),
-                    van__salesman=customer_supply_instance.salesman,
-                )
-                empty_bottle.empty_can_count -= customer_supply_instance.collected_empty_bottle
-                empty_bottle.save()
+        # Check if there is a VanProductStock entry for the given date, product, and salesman
+        if VanProductStock.objects.filter(created_date=customer_supply_instance.created_date.date(),product=item_data.product,van__salesman=customer_supply_instance.salesman).exists():
             
-            vanstock = VanProductStock.objects.get(created_date=customer_supply_instance.created_date.date(), product=item_data.product, van__salesman=customer_supply_instance.salesman)
-            vanstock.stock += item_data.quantity
-            vanstock.save()
-
+            # Special handling for "5 Gallon" products
+            van_stock = VanProductStock.objects.get(product=item_data.product,created_date=customer_supply_instance.created_date.date(),van__salesman=customer_supply_instance.salesman)
+                
+            if item_data.product.product_name == "5 Gallon":
+                # Ensure empty_can_count does not go below zero
+                new_empty_can_count = van_stock.empty_can_count - customer_supply_instance.collected_empty_bottle
+                if new_empty_can_count < 0:
+                    new_empty_can_count = 0
+                if van_stock.created_date == datetime.today().date():
+                    van_stock.empty_can_count = new_empty_can_count
+                    van_stock.stock += item_data.quantity
+                    van_stock.sold_count -= item_data.quantity
+                van_stock.save()
 
 #------------------------------REPORT----------------------------------------
 

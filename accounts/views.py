@@ -392,10 +392,21 @@ def edit_customer(request,pk):
         if request.method == 'POST':
             form = CustomerEditForm(branch,instance = cust_Data,data = request.POST)
             context = {"form":form}
+            previous_rate =cust_Data.rate
+
             if form.is_valid():
+                print("previous_rate",previous_rate)
                 data = form.save(commit=False)
                 data.emirate = data.location.emirate
                 data.save()
+                
+                # Create CustomerRateHistory entry
+                CustomerRateHistory.objects.create(
+                    customer=cust_Data,
+                    previous_rate=previous_rate,
+                    new_rate=data.rate,
+                    created_by=request.user
+                    )
                 messages.success(request, 'Customer Details Updated successfully!')
                 return redirect('customers')
             else:
@@ -599,7 +610,7 @@ def visit_days_assign(request, customer_id):
         else:
             visit_schedule_data = {}  # Initialize an empty dictionary if it's None
             
-        print(visit_schedule_data)
+        # print(visit_schedule_data)
         
     except Customers.DoesNotExist:
         messages.error(request, 'Customer does not exist.')
@@ -616,14 +627,14 @@ def visit_days_assign(request, customer_id):
             for day in selected_days:
                 visit_schedule_data[day].append(f"Week{week_number}")
                 
-        # Convert lists to comma-separated strings and handle empty lists
+        # Split the week strings into lists and ensure all weeks are individual elements
         for day in days_of_week:
-            if visit_schedule_data[day]:
-                visit_schedule_data[day] = [",".join(visit_schedule_data[day])]
-            else:
-                visit_schedule_data[day] = [""]
-                
-        print(visit_schedule_data)
+            visit_schedule_data[day] = [
+                week for weeks in visit_schedule_data[day]
+                for week in weeks.split(',')
+            ]
+            
+        # print(visit_schedule_data)
 
         # Save the JSON data to the database field
         customer_data.visit_schedule = visit_schedule_data
@@ -639,3 +650,28 @@ def visit_days_assign(request, customer_id):
         "days_of_week": days_of_week
     }
     return render(request, template_name, context)
+
+
+class CustomerRateHistoryListView(View):
+    template_name = 'accounts/customer_rate_history.html'
+
+    def get(self, request, *args, **kwargs):
+        selected_route = request.GET.get('route_name')
+        
+        # Fetch all routes
+        routes = RouteMaster.objects.all()
+
+        # Fetch customer rate histories based on the selected route
+        if selected_route:
+            histories = CustomerRateHistory.objects.filter(customer__routes__route_name=selected_route).order_by('-created_date')
+        else:
+            histories = CustomerRateHistory.objects.all().order_by('-created_date')
+        
+        context = {
+            'histories': histories,
+            'routes': routes,
+            'filter_data': {
+                'selected_route': selected_route,
+            },
+        }
+        return render(request, self.template_name, context)

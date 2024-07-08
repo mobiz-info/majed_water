@@ -30,7 +30,7 @@ urlpatterns = [
         
         re_path(r'customer-supply-list/$', customer_supply_list, name='customer_supply_list'),
         re_path(r'supply-customers/$', customer_supply_customers, name='customer_supply_customers'),
-        re_path(r'create-customer-suppply/$', create_customer_supply, name='create_customer_supply'),
+        re_path(r'create-customer-suppply/(?P<pk>.*)/$', create_customer_supply, name='create_customer_supply'),
         re_path(r'^info-customer-suppply/(?P<pk>.*)/$', customer_supply_info, name='customer_supply_info'),
         re_path(r'^edit-customer-suppply/(?P<pk>.*)/$', edit_customer_supply, name='edit_customer_supply'),
         re_path(r'^delete-customer-suppply/(?P<pk>.*)/$', delete_customer_supply, name='delete_customer_supply'),

@@ -25,7 +25,7 @@
                         </div>
 
                         <div class="ms-auto">
-                            <a href="{% url 'create_customer_supply' %}">
+                            <a href="{% url 'customer_supply_customers' %}">
                             <button type="button" class="btn btn-success btn-wave text-end d-flex me-4 my-auto"><i class="bi bi-plus-circle me-1"></i>Create</button>
                         </a>
                         </div>
@@ -73,6 +73,7 @@
                                 <tr>
                                 <th scope="col" class="text-center">Sl.No</th>
                                 <th scope="col" class="text-center">Created Date</th>
+                                <th scope="col" class="text-center">Invoice Number</th>
                                 <th scope="col" class="text-left">Customer Name</th>
                                 <th scope="col" class="text-left">Salesman Name</th>
                                 <th scope="col" class="text-center">Grand Total</th>
@@ -89,12 +90,13 @@
                                 <tr>
                                     <td class="text-center">{{forloop.counter}}</td>
                                     <td class="text-left">{{instance.created_date|date}}</td>
+                                    <td class="text-center">{{instance.invoice_no}}</td>
                                     <td class="text-center">{{instance.customer.customer_name}}</td>
                                     <td class="text-center">{{instance.salesman.get_fullname}}</td>
                                     <td class="text-center">{{instance.grand_total}}</td>
                                     <td class="text-center">{{instance.discount}}</td>
-                                    <td class="text-center">{{instance.amount_recieved}}</td>
                                     <td class="text-center">{{instance.subtotal}}</td>
+                                    <td class="text-center">{{instance.amount_recieved}}</td>
                                     <td class="text-right">
                                         <div class="g-2">
                                             <a href="{% url 'customer_supply_info' pk=instance.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Info">
