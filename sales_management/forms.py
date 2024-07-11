@@ -5,6 +5,8 @@ from master.models import RouteMaster  # Assuming you have imported RouteMaster
 from accounts.models import Customers
 from invoice_management.models import SuspenseCollection
 from django.forms import TextInput
+from van_management.models import VanProductStock,BottleCount
+from accounts.models import *
 
 class SaleEntryFilterForm(forms.Form):
     route_name = forms.ModelChoiceField(
@@ -152,3 +154,54 @@ class SuspenseCollectionForm(forms.ModelForm):
             'amount_paid': TextInput(attrs={'class': 'form-control', 'required': 'true', 'placeholder': 'Amount to be Paid'}), 
             'reference_no': TextInput(attrs={'class': 'form-control', 'placeholder': 'Reference No'}), 
         }
+
+
+class VansRouteBottleCountAddForm(forms.ModelForm):
+    qty_added = forms.IntegerField(min_value=0, label='Qty Added', widget=forms.TextInput(attrs={'class': 'form-control'}))
+
+    class Meta:
+        model = BottleCount
+        fields = ['qty_added']
+        # widgets = {
+        #     'comment': forms.TextInput(attrs={'class': 'form-control'}),
+        # }
+    
+    # def save(self, commit=True, *args, **kwargs):
+    #     bottle_count = super().save(commit=False, *args, **kwargs)
+    #     bottle_count.created_by = self.request.user.username  # Assuming request.user is available
+    #     if commit:
+    #         bottle_count.save()
+
+    #         # Update VanProductStock if exists
+    #         van_product_stock = VanProductStock.objects.filter(van=bottle_count.van, created_date=bottle_count.created_date.date()).first()
+    #         if van_product_stock:
+    #             van_product_stock.stock += self.cleaned_data['qty_added']
+    #             van_product_stock.save()
+
+    #     return bottle_count
+
+
+
+class VansRouteBottleCountDeductForm(forms.ModelForm):
+    qty_deducted = forms.IntegerField(min_value=0, label='Qty Deducted', widget=forms.TextInput(attrs={'class': 'form-control'}))
+
+    class Meta:
+        model = BottleCount
+        fields = ['qty_deducted']
+        # widgets = {
+        #     'comment': forms.TextInput(attrs={'class': 'form-control'}),
+        # }
+
+    # def save(self, commit=True, *args, **kwargs):
+    #     bottle_count = super().save(commit=False, *args, **kwargs)
+    #     bottle_count.created_by = self.request.user.username  # Assuming request.user is available
+    #     if commit:
+    #         bottle_count.save()
+
+    #         # Update VanProductStock if exists
+    #         van_product_stock = VanProductStock.objects.filter(van=bottle_count.van, created_date=bottle_count.created_date.date()).first()
+    #         if van_product_stock:
+    #             van_product_stock.stock -= self.cleaned_data['qty_deducted']
+    #             van_product_stock.save()
+
+    #     return bottle_count

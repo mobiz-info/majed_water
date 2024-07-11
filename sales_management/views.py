@@ -32,7 +32,7 @@ from django.shortcuts import render, redirect
 from django.db.models import Sum
 from .models import  OutstandingLog, SaleEntryLog, SalesExtraModel, SalesTemp, Transaction
 from accounts.models import Customers
-from .forms import ProductForm  # Import the ProductForm we created earlier
+from .forms import ProductForm ,VansRouteBottleCountAddForm,VansRouteBottleCountDeductForm 
 from django.db.models import F, Value
 from django.db.models.functions import Coalesce
 from django.views.generic import ListView
@@ -3172,10 +3172,16 @@ def dsr_summary(request):
     cash_total_vat = 0
     cash_total_subtotal = 0
     cash_total_amount_recieved = 0
+    cash_sale_recharge_count=0
+    cash_total_quantity = 0
+    cash_total_qty = 0
     credit_total_net_taxable = 0
     credit_total_vat = 0
     credit_total_subtotal = 0
     credit_total_amount_recieved = 0
+    credit_total_qty = 0
+    credit_total_quantity = 0
+    credit_sale_recharge_count = 0
     in_hand_amount = 0
     today_expense = 0
     today_payable = 0
@@ -3184,6 +3190,7 @@ def dsr_summary(request):
     outstanding_credit_notes_total_amount = 0
     outstanding_credit_notes_received_amount = 0
     outstanding_credit_notes_balance = 0
+    outstanding_total_amount_collected = 0
     cash_sales_amount_collected = 0
     credit_sales_amount_collected = 0
     total_sales_amount_collected = 0
@@ -3198,6 +3205,7 @@ def dsr_summary(request):
     manual_coupon_total = 0
     digital_coupon_total = 0
     total_coupon_sales_count = 0
+    coupon_total_qty = 0
    
     van_instances = Van.objects.none
     van_route = Van_Routes.objects.none
@@ -3268,6 +3276,8 @@ def dsr_summary(request):
         cash_total_vat = cash_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
         cash_total_subtotal = cash_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
         cash_total_received = cash_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        cash_total_quantity = cash_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        
         recharge_cash_sales = CustomerCoupon.objects.filter(created_date__date=date,amount_recieved__gt=0)
         cash_sale_recharge_net_payeble = recharge_cash_sales.aggregate(total_net_amount=Sum('net_amount'))['total_net_amount'] or 0
         cash_sale_recharge_vat_total = 0
@@ -3280,15 +3290,22 @@ def dsr_summary(request):
         
         total_cash_sales_count = cash_sales.count() + recharge_cash_sales.count()
         
+        cash_sale_recharge_count = recharge_cash_sales.count()
+        cash_total_qty = cash_total_quantity + cash_sale_recharge_count
+        
         ### credit sales ####
         credit_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
+
         credit_total_net_taxable = credit_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
         credit_total_vat = credit_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
         credit_total_subtotal = credit_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
         credit_total_received = credit_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        credit_total_quantity = credit_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        
         recharge_credit_sales = CustomerCoupon.objects.filter(created_date__date=date,amount_recieved__lte=0)
         credit_sale_recharge_net_payeble = recharge_credit_sales.aggregate(total_net_amount=Sum('net_amount'))['total_net_amount'] or 0
         credit_sale_recharge_vat_total = 0
+        
         credit_sale_recharge_grand_total = recharge_credit_sales.aggregate(total_grand_total=Sum('grand_total'))['total_grand_total'] or 0
         credit_sale_recharge_amount_recieved = recharge_credit_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
         credit_total_net_taxable = credit_total_net_taxable + credit_sale_recharge_net_payeble 
@@ -3297,6 +3314,8 @@ def dsr_summary(request):
         credit_total_amount_recieved = credit_total_received + credit_sale_recharge_amount_recieved
         
         total_credit_sales_count = credit_sales.count() + recharge_credit_sales.count()
+        credit_sale_recharge_count = recharge_credit_sales.count()
+        credit_total_qty = credit_total_quantity + credit_sale_recharge_count
         
         # Coupon sales
         coupon_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,customer__sales_type="CASH COUPON")
@@ -3306,7 +3325,7 @@ def dsr_summary(request):
         total_coupon_sales_count = coupon_sales.count()
         
         total_sales_count = total_cash_sales_count + total_credit_sales_count + total_coupon_sales_count
-        
+        coupon_total_qty = coupon_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
         
         ### expenses ####
         expenses_instanses = Expense.objects.filter(expense_date=date,van=van_route.van)
@@ -3329,6 +3348,9 @@ def dsr_summary(request):
         outstanding_credit_notes_total_amount = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__lte=date,customer_outstanding__product_type="amount",customer_outstanding__customer__routes=van_route.routes).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
         outstanding_credit_notes_received_amount = dialy_collections.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         outstanding_credit_notes_balance = outstanding_credit_notes_total_amount - outstanding_credit_notes_received_amount
+        outstanding_total_amount_collected = dialy_collections.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+
+        
         # pending customers
         pending_bottle_customer_instances = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,allocate_bottle_to_pending__gt=0)
         # 5 gallon rate based
@@ -3389,6 +3411,7 @@ def dsr_summary(request):
         'cash_total_vat':cash_total_vat,
         'cash_total_subtotal': cash_total_subtotal,
         'cash_total_amount_recieved': cash_total_amount_recieved,
+        'cash_total_qty': cash_total_qty,
         # credit sales
         'credit_sales': credit_sales,
         'recharge_credit_sales': recharge_credit_sales,
@@ -3396,11 +3419,13 @@ def dsr_summary(request):
         'credit_total_vat':credit_total_vat,
         'credit_total_subtotal':credit_total_subtotal,
         'credit_total_amount_recieved': credit_total_amount_recieved,
+        'credit_total_qty': credit_total_qty,
         # coupon sales
         'coupon_sales': coupon_sales,
         'manual_coupon_total':manual_coupon_total,
         'digital_coupon_total':digital_coupon_total,
         'total_coupon_sales_count': total_coupon_sales_count,
+        'coupon_total_qty':coupon_total_qty,
         # expenses
         'expenses_instanses': expenses_instanses,
         # suspense
@@ -3412,6 +3437,7 @@ def dsr_summary(request):
         'outstanding_credit_notes_total_amount' : outstanding_credit_notes_total_amount,
         'outstanding_credit_notes_received_amount' : outstanding_credit_notes_received_amount,
         'outstanding_credit_notes_balance': outstanding_credit_notes_balance,
+        'outstanding_total_amount_collected':outstanding_total_amount_collected,
         # 5 gallon rate based
         'five_gallon_rates': unique_amounts,
         # dialy collections
@@ -3455,10 +3481,16 @@ def print_dsr_summary(request):
     cash_total_vat = 0
     cash_total_subtotal = 0
     cash_total_amount_recieved = 0
+    cash_sale_recharge_count=0
+    cash_total_quantity = 0
+    cash_total_qty = 0
     credit_total_net_taxable = 0
     credit_total_vat = 0
     credit_total_subtotal = 0
     credit_total_amount_recieved = 0
+    credit_total_qty = 0
+    credit_total_quantity = 0
+    credit_sale_recharge_count = 0
     in_hand_amount = 0
     today_expense = 0
     today_payable = 0
@@ -3467,6 +3499,7 @@ def print_dsr_summary(request):
     outstanding_credit_notes_total_amount = 0
     outstanding_credit_notes_received_amount = 0
     outstanding_credit_notes_balance = 0
+    outstanding_total_amount_collected = 0
     cash_sales_amount_collected = 0
     credit_sales_amount_collected = 0
     total_sales_amount_collected = 0
@@ -3481,6 +3514,7 @@ def print_dsr_summary(request):
     manual_coupon_total = 0
     digital_coupon_total = 0
     total_coupon_sales_count = 0
+    coupon_total_qty = 0
    
     van_instances = Van.objects.none
     van_route = Van_Routes.objects.none
@@ -3562,6 +3596,9 @@ def print_dsr_summary(request):
         cash_total_amount_recieved = cash_total_received + cash_sale_recharge_amount_recieved 
         
         total_cash_sales_count = cash_sales.count() + recharge_cash_sales.count()
+        cash_total_quantity = cash_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        cash_sale_recharge_count = recharge_cash_sales.count()
+        cash_total_qty = cash_total_quantity + cash_sale_recharge_count
         
         ### credit sales ####
         credit_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
@@ -3580,6 +3617,9 @@ def print_dsr_summary(request):
         credit_total_amount_recieved = credit_total_received + credit_sale_recharge_amount_recieved
         
         total_credit_sales_count = credit_sales.count() + recharge_credit_sales.count()
+        credit_total_quantity = credit_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        credit_sale_recharge_count = recharge_credit_sales.count()
+        credit_total_qty = credit_total_quantity + credit_sale_recharge_count
         
         # Coupon sales
         coupon_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,customer__sales_type="CASH COUPON")
@@ -3589,7 +3629,7 @@ def print_dsr_summary(request):
         total_coupon_sales_count = coupon_sales.count()
         
         total_sales_count = total_cash_sales_count + total_credit_sales_count + total_coupon_sales_count
-        
+        coupon_total_qty = coupon_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
         
         ### expenses ####
         expenses_instanses = Expense.objects.filter(expense_date=date,van__salesman=salesman)
@@ -3612,6 +3652,8 @@ def print_dsr_summary(request):
         outstanding_credit_notes_total_amount = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__lte=date,customer_outstanding__product_type="amount",customer_outstanding__customer__routes=van_route.routes).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
         outstanding_credit_notes_received_amount = dialy_collections.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         outstanding_credit_notes_balance = outstanding_credit_notes_total_amount - outstanding_credit_notes_received_amount
+        outstanding_total_amount_collected = dialy_collections.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+
         # pending customers
         pending_bottle_customer_instances = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,allocate_bottle_to_pending__gt=0)
         # 5 gallon rate based
@@ -3672,6 +3714,8 @@ def print_dsr_summary(request):
         'cash_total_vat':cash_total_vat,
         'cash_total_subtotal': cash_total_subtotal,
         'cash_total_amount_recieved': cash_total_amount_recieved,
+        'cash_total_qty': cash_total_qty,
+
         # credit sales
         'credit_sales': credit_sales,
         'recharge_credit_sales': recharge_credit_sales,
@@ -3679,11 +3723,13 @@ def print_dsr_summary(request):
         'credit_total_vat':credit_total_vat,
         'credit_total_subtotal':credit_total_subtotal,
         'credit_total_amount_recieved': credit_total_amount_recieved,
+        'credit_total_qty': credit_total_qty,
         # coupon sales
         'coupon_sales': coupon_sales,
         'manual_coupon_total':manual_coupon_total,
         'digital_coupon_total':digital_coupon_total,
         'total_coupon_sales_count': total_coupon_sales_count,
+        'coupon_total_qty':coupon_total_qty,
         # expenses
         'expenses_instanses': expenses_instanses,
         # suspense
@@ -3695,6 +3741,7 @@ def print_dsr_summary(request):
         'outstanding_credit_notes_total_amount' : outstanding_credit_notes_total_amount,
         'outstanding_credit_notes_received_amount' : outstanding_credit_notes_received_amount,
         'outstanding_credit_notes_balance': outstanding_credit_notes_balance,
+        'outstanding_total_amount_collected':outstanding_total_amount_collected,
         # 5 gallon rate based
         'five_gallon_rates': unique_amounts,
         # dialy collections
@@ -4140,3 +4187,100 @@ def bottle_transactions(request):
     }
 
     return render(request, template, context)
+
+#------------------------------Bottle Count-------------------------------------
+
+def van_route_bottle_count(request):
+    selected_route = request.GET.get('route_name', '')
+    date_str = request.GET.get("filter_date")
+    
+    if date_str:
+        try:
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            date = datetime.today().date()
+    else:
+        date = datetime.today().date()
+
+    if selected_route:
+        vans = Van.objects.filter(van_master__routes__route_name=selected_route)
+    else:
+        vans = Van.objects.all()
+
+    van_data = []
+
+    for van in vans:
+        route_name = van.get_vans_routes()  # Assuming this method exists and returns the route name
+        bottle_count = van.bottle_count  # Assuming this field exists
+        
+        if VanProductStock.objects.filter(created_date=date, van=van).exists():
+            van_product_stock = VanProductStock.objects.get(created_date=date, van=van)
+            opening_count = van_product_stock.opening_count if van_product_stock else 0
+            
+
+            van_data.append({
+                'date': date,
+                'van_id': van.van_id,
+                'van_make': van.van_make,
+                'route_name': route_name,
+                'bottle_count': bottle_count,
+                'opening_count': opening_count,
+                'qty_added': BottleCount.objects.filter(van=van, created_date__date=date).aggregate(Sum('qty_added'))['qty_added__sum'] or 0,
+                'qty_deducted': BottleCount.objects.filter(van=van, created_date__date=date).aggregate(Sum('qty_deducted'))['qty_deducted__sum'] or 0,
+            })
+
+    routes = RouteMaster.objects.all()
+
+    context = {
+        'van_data': van_data,
+        'routes': routes,
+        'filter_data': {
+            'selected_route': selected_route,
+            'selected_date': date_str if date_str else datetime.today().date(),
+        }
+    }
+
+    return render(request, 'sales_management/van_bottle_count.html', context)
+
+def VansRouteBottleCountAdd(request, van_id):
+    van = get_object_or_404(Van, van_id=van_id)
+
+    if request.method == 'POST':
+        form = VansRouteBottleCountAddForm(request.POST)
+        if form.is_valid():
+            bottle_count = form.save(commit=False)
+            bottle_count.van = van
+            bottle_count.created_by = request.user.username
+            bottle_count.save()
+
+            return redirect('van_route_bottle_count')
+    else:
+        form = VansRouteBottleCountAddForm()
+
+    context = {
+        'form': form,
+        'van': van,
+    }
+    return render(request, 'sales_management/van_route_bottle_count_add.html', context)
+
+def VansRouteBottleCountDeduct(request, van_id):
+    van = get_object_or_404(Van, van_id=van_id)
+
+    if request.method == 'POST':
+        form = VansRouteBottleCountDeductForm(request.POST)
+        if form.is_valid():
+            bottle_count = form.save(commit=False)
+            bottle_count.van = van
+            bottle_count.created_by = request.user.username
+            bottle_count.save()
+
+            return redirect('van_route_bottle_count')
+    else:
+        form = VansRouteBottleCountDeductForm()
+
+    context = {
+        'form': form,
+        'van': van,
+    }
+    return render(request, 'sales_management/van_route_bottle_count_deduct.html', context)
+

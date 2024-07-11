@@ -244,11 +244,6 @@ urlpatterns = [
     path('get_notification/',Get_Notification_APIView.as_view(), name='get_notification'),
     
 
-    path('van-list/', VanListAPIView.as_view(), name='van-list'),
-    path('van-item-list/<str:pk>/', VanProductStockListAPIView.as_view(), name='van-item-list'),
-    path('salesman_requesting/', SalesmanOffloadRequestAPIView.as_view(), name='salesman_requesting'),
-    path('offload-request-items/<str:pk>/', OffloadRequestItemsListAPIView.as_view(), name='offload-request-items'),
-    
     # offload request apis start
     path('offloads-requesting/', OffloadRequestingAPIView.as_view(), name='offload_request'),
     
@@ -269,7 +264,24 @@ urlpatterns = [
     path('api_staffIssueOrdersCreate/<uuid:staff_order_id>/', StaffIssueOrdersAPIView.as_view(), name='api_staffIssueOrdersCreate'),
     path('get_coupon_bookno/', GetCouponBookNoView.as_view(), name='get_coupon_bookno'),
     #------------------------------------Store Appp Orders Api Completes-----------------------------------------------------
+    #------------------------------------Location Api -----------------------------------------------------
 
     path('location_updates/', LocationUpdateAPIView.as_view(), name='location_updates'),
-  
+        #------------------------------------Van Stock Api -----------------------------------------------------
+
+    path('van_list/', VanListView.as_view(), name='van_list'),
+    path('van_detail/<uuid:van_id>/', VanDetailView.as_view(), name='van_detail'),
+
+
+    
+    #---------------------------store app product stock-------------- 
+    path('product-stocks/', ProductStockListAPIView.as_view(), name='product-stock-list'),
+    
+    
+    path('cash_sales_report/', CashSalesReportAPIView.as_view(), name='cash_sales_report'),
+    path('credit_sales_report/', CreditSalesReportAPIView.as_view(), name='credit_sales_report'),
+#---------------------------Bottle Count Store App Url ------------------------------------------------   
+    path('api_van_route_bottle_count/', VanRouteBottleCountView.as_view(), name='api_van_route_bottle_count'),
+    path('api_vans_route_bottle_count_add/<uuid:pk>/', VansRouteBottleCountAddAPIView.as_view(), name='api_vans_route_bottle_count_add'),
+    path('api_vans_route_bottle_count_deduct/<uuid:pk>/', VansRouteBottleCountDeductAPIView.as_view(), name='api_vans_route_bottle_count_deduct'),
 ]

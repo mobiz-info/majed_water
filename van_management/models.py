@@ -53,6 +53,12 @@ class Van(models.Model):
     def get_van_route(self):
         return Van_Routes.objects.filter(van=self).first().routes.route_name
     
+    def get_vans_routes(self):
+        van_route = Van_Routes.objects.filter(van=self).first()
+        if van_route and van_route.routes:
+            return van_route.routes.route_name
+        return "No Route Assigned"
+    
 class Van_Routes(models.Model):
     van_route_id= models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_by = models.CharField(max_length=20,  blank=True)
@@ -214,7 +220,7 @@ class Offload(models.Model):
     product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=0)
     stock_type = models.CharField(max_length=100,choices=STOCK_TYPES)
-
+    offloaded_date=models.DateField(blank=True, null=True)
     def __str__(self):
         return f"{self.id}"
     
@@ -312,17 +318,33 @@ STOCK= (
     
 class BottleCount(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    van = models.ForeignKey(Van,on_delete=models.CASCADE)
-    comment = models.CharField(max_length=100, blank=True)
-    stock = models.CharField(max_length=100,choices=STOCK)
-
     created_by = models.CharField(max_length=100, blank=True)
     created_date = models.DateTimeField(auto_now_add=True)
     modified_by = models.CharField(max_length=20, null=True, blank=True)
     modified_date = models.DateTimeField(auto_now=True ,blank=True, null=True)
     
+    opening_stock = models.PositiveIntegerField(default=0)
+    custody_issue = models.PositiveIntegerField(default=0)
+    custody_return = models.PositiveIntegerField(default=0)
+    qty_added = models.PositiveIntegerField(default=0)
+    qty_deducted = models.PositiveIntegerField(default=0)
+    closing_stock = models.PositiveIntegerField(default=0)
+    comment = models.TextField()
+    
+    van = models.ForeignKey(Van,on_delete=models.CASCADE)
+    
     class Meta:
-        ordering = ('-id',)
+        ordering = ('-created_date',)
+        
+    def save(self, *args, **kwargs):
+        self.closing_stock = (
+            self.opening_stock 
+            + self.qty_added 
+            + self.custody_return 
+            - self.qty_deducted 
+            - self.custody_issue
+        )
+        super(BottleCount, self).save(*args, **kwargs)
         
     def __str__(self):
         return str(self.id)
@@ -342,6 +364,7 @@ class OffloadRequest(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     van = models.ForeignKey(Van, on_delete=models.CASCADE,null=True, blank=True)
     salesman = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE)
+    date=models.DateField(blank=True, null=True)
     
     created_by = models.CharField(max_length=20, blank=True)
     modified_by = models.CharField(max_length=20, null=True, blank=True)

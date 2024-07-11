@@ -165,30 +165,3 @@ class BottleAllocationForm(forms.ModelForm):
             'reason': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         } 
 
-class VansRouteBottleCountAddForm(forms.ModelForm):
-    qty_issued = forms.IntegerField(min_value=0, label='Qty Issued', widget=forms.TextInput(attrs={'class': 'form-control'}))
-
-    class Meta:
-        model = BottleCount
-        fields = ['stock', 'comment', 'qty_issued']
-        widgets = {
-            'comment': forms.TextInput(attrs={'class': 'form-control'}),
-            'stock': forms.Select(attrs={'class': 'form-control'}),
-        }
-    
-
-
-class VansRouteBottleCountDeductForm(forms.ModelForm):
-    qty_deducted = forms.IntegerField(min_value=0, label='Qty Deducted', widget=forms.TextInput(attrs={'class': 'form-control'}))
-
-    class Meta:
-        model = BottleCount
-        fields = ['stock', 'comment', 'qty_deducted']
-        widgets = {
-            'comment': forms.TextInput(attrs={'class': 'form-control'}),
-            'stock': forms.Select(attrs={'class': 'form-control'}),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['stock'].initial = 'used'

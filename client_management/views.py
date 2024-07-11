@@ -1750,7 +1750,7 @@ def new_coupon_count(request,pk):
             coupon_type_id = CouponType.objects.get(pk=form.cleaned_data['coupon_type_id'].pk)
             
             coupon_method = "manual"
-            if coupon_type_id.coupon_type_name is "Other":
+            if coupon_type_id.coupon_type_name == "Other":
                 coupon_method = "digital"
             try:
                 data = CustomerCouponStock.objects.get(

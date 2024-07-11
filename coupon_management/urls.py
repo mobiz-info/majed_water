@@ -10,21 +10,6 @@ urlpatterns = [
     path('edit_CouponType/<uuid:coupon_type_id>/', edit_CouponType, name="edit_CouponType"),
     path('delete_couponType/<uuid:coupon_type_id>/', delete_couponType, name='delete_couponType'),
 
-
-    path('coupon',coupon, name='coupon'),
-    path('create_coupon/',create_coupon, name='create_coupon'),
-    path('view_coupon/<uuid:coupon_id>/', view_coupon, name="view_coupon"),
-    path('edit_Coupon/<uuid:coupon_id>/', edit_Coupon, name="edit_Coupon"),
-    path('delete_coupon/<uuid:coupon_id>/', delete_coupon, name='delete_coupon'),
-
-    path('couponrequest',couponrequest, name='couponrequest'),
-    path('create_couponRequest/',create_couponRequest, name='create_couponRequest'),
-    path('view_couponRequest/<uuid:coupon_request_id>/', view_couponRequest, name="view_couponRequest"),
-
-    path('assignStaffCoupon',assignStaffCoupon, name='assignStaffCoupon'),
-    path('assign_to_staff/<uuid:coupon_request_id>/',assign_to_staff, name='assign_to_staff'),
-    path('assign_to_customer/<uuid:assign_id>/',AssignToCustomerView.as_view(), name='assign_to_customer'),
-    path('coupons_details_view/',AssignStaffCouponDetailsListView.as_view(), name='coupons_details_view'),
 #----------------------------------New Coupon-------------------------------------------------------------------
 
     path('new_coupon',new_coupon, name='new_coupon'),

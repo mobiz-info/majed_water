@@ -29,7 +29,7 @@ class Command(BaseCommand):
                 VanProductStock.objects.create(
                     product=yesterday_stock.product,
                     van=yesterday_stock.van,
-                    created_date=timezone.now().date(),
+                    created_date=today,
                     opening_count=yesterday_stock.closing_count,
                     closing_count=yesterday_stock.closing_count, 
                     change_count=yesterday_stock.change_count,

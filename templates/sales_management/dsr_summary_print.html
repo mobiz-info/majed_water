@@ -377,7 +377,9 @@
                                     <!-- Table Footer -->
                                     <tfoot>
                                         <tr>
-                                            <td colspan="5" style="text-align: right;">Total:</td>
+                                            <td colspan="3" style="text-align: right;">Total:</td>
+                                            <td style="text-align:center;">{{ cash_total_qty }}</td>
+                                            <td style="text-align:center;">-</td>
                                             {% comment %} <td style="text-align:center;">{{ cash_total_vat }}</td> {% endcomment %}
                                             <td style="text-align:center;">{{ cash_total_subtotal }}</td>
                                             <td style="text-align:center;">{{ cash_total_net_taxable }}</td>
@@ -439,7 +441,9 @@
                                     <!-- Table Footer -->
                                     <tfoot>
                                         <tr>
-                                            <td colspan="5" style="text-align: right;">Total:</td>
+                                            <td colspan="3" style="text-align: right;">Total:</td>
+                                            <td style="text-align:center;">{{ credit_total_qty }}</td>
+                                            <td style="text-align:center;">-</td>
                                             {% comment %} <td style="text-align:center;">{{ credit_total_vat }}</td> {% endcomment %}
                                             <td style="text-align:center;">{{ credit_total_subtotal }}</td>
                                             <td style="text-align:center;">{{ credit_total_net_taxable }}</td>
@@ -484,7 +488,9 @@
                                     <!-- Table Footer -->
                                     <tfoot>
                                         <tr>
-                                            <td colspan="5" style="text-align: right;">Total:</td>
+                                            <td colspan="3" style="text-align: right;">Total:</td>
+                                            <td style="text-align:center;">{{ coupon_total_qty }}</td>
+                                            <td style="text-align:center;">-</td>
                                             <td style="text-align:center;">{{ manual_coupon_total }}</td>
                                             <td style="text-align:center;">{{ digital_coupon_total }}</td>
                                         </tr>
@@ -574,6 +580,14 @@
                                         </tr>
                                     {% endfor %} 
                                     </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="4" style="text-align: right;">Total:</td>
+                                            
+                                            <td style="text-align:center;">{{ outstanding_total_amount_collected }}</td>
+                                            <td style="text-align:center;"></td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
                         </div>

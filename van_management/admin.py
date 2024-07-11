@@ -12,6 +12,10 @@ class ExpenseAdmin(admin.ModelAdmin):
     list_display = ('date_created','expense_date','expence_type','amount')
 admin.site.register(Expense,ExpenseAdmin)
 
+class OffloadRequestAdmin(admin.ModelAdmin):
+    list_display = ('created_date','van','salesman')
+admin.site.register(OffloadRequest,OffloadRequestAdmin)
+
 class OffloadAdmin(admin.ModelAdmin):
     list_display = ('created_date','van','product','quantity','stock_type')
 admin.site.register(Offload,OffloadAdmin)
@@ -22,3 +26,7 @@ admin.site.register(VanProductStock,VanProductStockAdmin)
 class VanCouponStockAdmin(admin.ModelAdmin):
     list_display = ('van','coupon','created_date','opening_count','change_count','damage_count','stock','return_count','requested_count','sold_count','closing_count')
 admin.site.register(VanCouponStock,VanCouponStockAdmin)
+
+class BottleCountAdmin(admin.ModelAdmin):
+    list_display = ('created_date','van','opening_stock','custody_issue','custody_return','qty_added','qty_deducted','closing_stock')
+admin.site.register(BottleCount,BottleCountAdmin)

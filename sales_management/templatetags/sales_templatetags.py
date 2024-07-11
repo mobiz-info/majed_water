@@ -3,10 +3,10 @@ import datetime
 from django import template
 from django.db.models import Q, Sum
 
-from client_management.models import CustomerCoupon, CustomerCouponItems, CustomerSupply
+from client_management.models import CustomerCoupon, CustomerCouponItems, CustomerSupply, CustodyCustomItems, CustomerReturnItems
 from invoice_management.models import SuspenseCollection
 from sales_management.models import CollectionPayment
-from van_management.models import Expense
+from van_management.models import Expense, Van_Routes
 
 register = template.Library()
 
@@ -48,3 +48,25 @@ def get_customer_coupon_details(pk):
     return instances
 
 
+
+@register.simple_tag
+def get_total_issued_quantity(date, van):
+        total_return = 0
+        van_route = Van_Routes.objects.filter(van__pk=van).first()
+        if van_route:
+            total_return = CustodyCustomItems.objects.filter(
+               custody_custom__customer__routes=van_route.routes,
+               custody_custom__created_date__date=date
+            ).aggregate(total_return=Sum('quantity'))['total_return'] or 0
+        return total_return
+
+@register.simple_tag
+def get_total_returned_quantity(date, van):
+        total_return = 0
+        van_route = Van_Routes.objects.filter(van__pk=van).first()
+        if van_route:
+            total_return = CustomerReturnItems.objects.filter(
+               customer_return__customer__routes=van_route.routes,
+               customer_return__created_date__date=date
+            ).aggregate(total_return=Sum('quantity'))['total_return'] or 0
+        return total_return

@@ -91,4 +91,9 @@ urlpatterns = [
     path('dsr-summary/', dsr_summary, name='dsr_summary'),
     path('print-dsr-summary/', print_dsr_summary, name='print_dsr_summary'),
     # path('export-dsr-summary/', export_daily_summary_report, name='export_dsr_summary'),
+    
+    #------------------------------Bottle Count-------------------------------------
+    path('van-route-bottle-count/', van_route_bottle_count, name='van_route_bottle_count'),
+    path('vans_route_bottle_count_add/<uuid:pk>/',VansRouteBottleCountAdd, name='vans_route_bottle_count_add'),
+    path('vans_route_bottle_count_deduct/<uuid:pk>/',VansRouteBottleCountDeduct, name='vans_route_bottle_count_deduct'),
 ]

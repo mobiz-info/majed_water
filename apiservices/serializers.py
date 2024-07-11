@@ -779,7 +779,7 @@ class CollectionCustomerSerializer(serializers.ModelSerializer):
     def get_invoices(self, obj):
         invoice_list = []
         try:
-            invoices = Invoice.objects.filter(customer=obj,invoice_status="non_paid",is_deleted=False).exclude(amout_total__lt=1).order_by('-created_date')
+            invoices = Invoice.objects.filter(customer=obj,invoice_status="non_paid",is_deleted=False).exclude(amout_total=0).order_by('-created_date')
             for invoice in invoices:
                 invoice_data = {
                     'invoice_id': str(invoice.id),
@@ -1674,10 +1674,132 @@ class StaffOrdersDetailsSerializer(serializers.ModelSerializer):
         if obj.count == obj.issued_qty:
             status = True
         return status
+    #------------------------------------Location Api -----------------------------------------------------
 
 class LocationUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = LocationUpdate
         fields = '__all__'
         
+class ProductStockSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product_name.product_name', read_only=True) 
+    # branch_name = serializers.CharField(source='branch.name', read_only=True)    
+    class Meta:
+        model = ProductStock
+        fields = ['product_name','quantity']         
+#-------------------------------Van Stock List----------------------------------
+class VanListSerializer(serializers.ModelSerializer):
+    vans_id = serializers.UUIDField(source='van_id', read_only=True)
+    salesman_name = serializers.CharField(source='salesman.get_fullname', read_only=True)
+    route_name = serializers.SerializerMethodField()
+    date = serializers.SerializerMethodField()
+    van_make = serializers.CharField(read_only=True)
+    staff_id = serializers.CharField(source='salesman.staff_id', read_only=True)
+
+    class Meta:
+        model = Van
+        fields = ['vans_id','salesman_name', 'van_make', 'route_name', 'date', 'staff_id']
+
+    def get_route_name(self, obj):
+        van_route = obj.van_master.first()
+        return van_route.routes.route_name if van_route else "No Route Assigned"
+
+    def get_date(self, obj):
+        return obj.created_date.date()
+    
+    
+
+
+class VanListProductStockSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.product_name', read_only=True)
+
+    class Meta:
+        model = VanProductStock
+        fields = ['id', 'product_name', 'stock']
+
+class VanCouponListStockSerializer(serializers.ModelSerializer):
+    coupon_type_name = serializers.CharField(source='coupon.coupon_type.coupon_type_name', read_only=True)
+    product_name = serializers.CharField(source='coupon.coupon_type_name', read_only=True)
+
+    class Meta:
+        model = VanCouponStock
+        fields = ['id', 'product_name', 'coupon_type_name', 'stock']
+
+class VanDetailSerializer(serializers.ModelSerializer):
+    vans_id = serializers.UUIDField(source='van_id', read_only=True)
+    salesman_name = serializers.CharField(source='salesman.get_fullname', read_only=True)
+    route_name = serializers.SerializerMethodField()
+    date = serializers.SerializerMethodField()
+    van_make = serializers.CharField(read_only=True)
+    staff_id = serializers.CharField(source='salesman.staff_id', read_only=True)
+    product_stock = VanListProductStockSerializer(many=True, read_only=True, source='vanproductstock_set')
+    coupon_stock = VanCouponListStockSerializer(many=True, read_only=True, source='vancouponstock_set')
+
+    class Meta:
+        model = Van
+        fields = ['vans_id', 'salesman_name', 'van_make', 'route_name', 'date', 'staff_id', 'product_stock', 'coupon_stock']
+
+    def get_route_name(self, obj):
+        van_route = obj.van_master.first()
+        return van_route.routes.route_name if van_route else "No Route Assigned"
+
+    def get_date(self, obj):
+        return obj.created_date.date()
+
+
+
+class CustomersSupplySerializer(serializers.ModelSerializer):
+    total_qty = serializers.IntegerField(source='get_total_supply_qty')
+    customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
+    rate = serializers.CharField(source='customer.get_water_rate', read_only=True)
+
+    class Meta:
+        model = CustomerSupply
+        fields = ['reference_number', 'customer_name', 'net_payable', 'rate', 'subtotal', 'amount_recieved', 'total_qty']
+
+class CustomersCouponSerializer(serializers.ModelSerializer):
+    coupon_rates = serializers.CharField(source='display_coupon_rates')
+    customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
+    total_qty = serializers.SerializerMethodField()
+    class Meta:
+        model = CustomerCoupon
+        fields = ['reference_number', 'customer_name', 'net_amount', 'grand_total', 'amount_recieved', 'coupon_rates','total_qty']
+    
+    def get_total_qty(self, obj):
+        return 1
+    
+#---------------------------Bottle Count API Serializer------------------------------------------------  
+
+class BottleCountSerializer(serializers.ModelSerializer):
+    route_name = serializers.SerializerMethodField()
+    created_date = serializers.SerializerMethodField()
+
+
+    class Meta:
+        model = BottleCount
+        fields = [
+            'route_name', 'created_date', 'opening_stock', 'custody_issue',
+            'custody_return', 'qty_added', 'qty_deducted', 'closing_stock' 
+        ]
+    
+    def get_route_name(self, obj):
+        van_route = Van_Routes.objects.filter(van=obj.van).first()
+        if van_route:
+            return van_route.routes.route_name
+        return None
+    
+    def get_created_date(self, obj):
+        return obj.created_date.strftime('%Y-%m-%d')
+    
+class BottleCountAddSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BottleCount
+        fields = ['qty_added']
         
+class BottleCountDeductSerializer(serializers.ModelSerializer):
+    qty_deducted = serializers.IntegerField(min_value=0, required=True)
+
+    class Meta:
+        model = BottleCount
+        fields = ['qty_deducted']
+
