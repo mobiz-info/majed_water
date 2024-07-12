@@ -1,12 +1,15 @@
 from datetime import datetime
+import random
 import pandas as pd
 from decimal import Decimal
 from django.db import transaction
 from accounts.models import CustomUser, Customers
 from client_management.models import CustomerOutstanding, OutstandingAmount, CustomerOutstandingReport
+from invoice_management.models import Invoice, InvoiceItems
+from product.models import ProdutItemMaster
 
 # Read the Excel file
-file_path = '/home/ra/Downloads/s-23latest (3).xlsx'
+file_path = '/home/ra/Downloads/S-38-1.xlsx'
 data = pd.read_excel(file_path)
 print("File path:", file_path)
 print("DataFrame columns:", data.columns)
@@ -24,7 +27,7 @@ if 'amount' not in data.columns:
 
 @transaction.atomic
 def populate_models_from_excel(data):
-    user = CustomUser.objects.get(username="S-23")
+    user = CustomUser.objects.get(username="S-38")
     for index, row in data.iterrows():
         customer_id = row['customer_id']
         customer_name = row['customer_name']
@@ -64,6 +67,39 @@ def populate_models_from_excel(data):
 
         report.value += amount
         report.save()
+        
+        random_part = str(random.randint(1000, 9999))
+        invoice_number = f'WTR-{random_part}'
+        
+        # Create the invoice
+        invoice = Invoice.objects.create(
+            invoice_no=invoice_number,
+            created_date=outstanding_amount.customer_outstanding.created_date,
+            net_taxable=outstanding_amount.amount,
+            vat=0,
+            discount=0,
+            amout_total=outstanding_amount.amount,
+            amout_recieved=0,
+            customer=outstanding_amount.customer_outstanding.customer,
+            reference_no=f"custom_id{outstanding_amount.customer_outstanding.customer.custom_id}"
+        )
+        customer_outstanding.invoice_no = invoice.invoice_no
+        customer_outstanding.save()
+        
+        if outstanding_amount.customer_outstanding.customer.sales_type == "CREDIT":
+            invoice.invoice_type = "credit_invoive"
+            invoice.save()
+
+        # Create invoice items
+        item = ProdutItemMaster.objects.get(product_name="5 Gallon")
+        InvoiceItems.objects.create(
+            category=item.category,
+            product_items=item,
+            qty=0,
+            rate=outstanding_amount.customer_outstanding.customer.rate,
+            invoice=invoice,
+            remarks='invoice genereted from backend reference no : ' + invoice.reference_no
+        )
 
         print(f"Processed row {index + 1} for customer {customer_name}")
 

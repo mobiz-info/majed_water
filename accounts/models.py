@@ -15,6 +15,7 @@ class CustomUser(AbstractUser):
         ('Manager', 'Manager'),
         ('Customer Care', 'Customer Care'),
         ('Accounts', 'Accounts'),
+        ('store_keeper', 'Store Keeper'),
     )
     user_type = models.CharField(max_length=50, choices=USER_TYPE_CHOICES, null=True, blank=True)
     branch_id = models.ForeignKey('master.BranchMaster', on_delete=models.SET_NULL, null=True, blank=True,related_name='user_branch')

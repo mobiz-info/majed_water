@@ -5,6 +5,12 @@ from accounts.models import *
 from tax_settings.models import *
 
 # Create your models here.
+
+WASHED_TRANSFER_CHOICES = (
+        ('used','Used'),
+        ('scrap', 'Scrap'),
+    )
+
 class ProdutItemMaster(models.Model):
     id   = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_by = models.CharField(max_length=20,  blank=True)
@@ -183,6 +189,72 @@ class ScrapProductStock(models.Model):
         return str(self.product.product_name)
     
 class WashingProductStock(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE,null=True, blank=True)
+    quantity=models.PositiveIntegerField(default=0)
+    
+    created_by = models.CharField(max_length=20, blank=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    created_date = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ('created_date',)
+
+    def __str__(self):
+        return str(self.product.product_name)
+    
+class ScrapStock(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE,null=True, blank=True)
+    quantity=models.PositiveIntegerField(default=0)
+    
+    class Meta:
+        ordering = ('id',)
+
+    def __str__(self):
+        return str(self.product.product_name)
+    
+class WashingStock(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE,null=True, blank=True)
+    quantity=models.PositiveIntegerField(default=0)
+    
+    class Meta:
+        ordering = ('id',)
+
+    def __str__(self):
+        return str(self.product.product_name)
+    
+class WashedProductTransfer(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE,null=True, blank=True)
+    quantity=models.PositiveIntegerField(default=0)
+    status = models.CharField(max_length=20, choices=WASHED_TRANSFER_CHOICES, default='used')
+    
+    created_by = models.CharField(max_length=20, blank=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    created_date = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ('created_date',)
+
+    def __str__(self):
+        return str(self.product.product_name)
+    
+class WashedUsedProduct(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE,null=True, blank=True)
+    quantity=models.PositiveIntegerField(default=0)
+    
+    class Meta:
+        ordering = ('id',)
+
+    def __str__(self):
+        return str(self.product.product_name)
+    
+class ScrapcleanedStock(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE,null=True, blank=True)
     quantity=models.PositiveIntegerField(default=0)

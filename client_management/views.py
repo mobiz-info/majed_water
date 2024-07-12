@@ -1754,13 +1754,13 @@ def new_coupon_count(request,pk):
                 coupon_method = "digital"
             try:
                 data = CustomerCouponStock.objects.get(
-                    customer_id=Customers.objects.get(pk=pk),
+                    customer=Customers.objects.get(pk=pk),
                     coupon_type_id=coupon_type_id,
                     coupon_method=coupon_method
                 )
             except CustomerCouponStock.DoesNotExist:
                 data = CustomerCouponStock.objects.create(
-                    customer_id=Customers.objects.get(pk=pk),
+                    customer=Customers.objects.get(pk=pk),
                     coupon_type_id=coupon_type_id,
                     coupon_method=coupon_method,
                     count=0

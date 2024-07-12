@@ -12,6 +12,8 @@ urlpatterns = [
 
 #----------------------------------New Coupon-------------------------------------------------------------------
 
+    path('get_next_coupon_bookno',get_next_coupon_bookno, name='get_next_coupon_bookno'),
+    
     path('new_coupon',new_coupon, name='new_coupon'),
     path('create_Newcoupon/',create_Newcoupon, name='create_Newcoupon'),
     path('generate_leaflets/<uuid:coupon_id>/', generate_leaflets, name='generate_leaflets'),

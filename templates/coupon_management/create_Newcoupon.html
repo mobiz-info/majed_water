@@ -26,16 +26,16 @@
                             <!--row 1-->
                             <div class="col-md-6">
                                 <div class="form-group required">
-                                    <label class='control-label'>Book No</label>
-                                    {{ form.book_num }}
-                                    <span style="color: red;">{{ form.book_num.errors }}</span>
+                                    <label class='control-label'>Coupon Type</label>
+                                    {{ form.coupon_type }}
+                                    <span style="color: red;">{{ form.coupon_type.errors }}</span>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group required">
-                                    <label class='control-label'>Coupon Type</label>
-                                    {{ form.coupon_type }}
-                                    <span style="color: red;">{{ form.coupon_type.errors }}</span>
+                                    <label class='control-label'>Book No</label>
+                                    {{ form.book_num }}
+                                    <span style="color: red;">{{ form.book_num.errors }}</span>
                                 </div>
                             </div>
                             <!-- Generate Coupons Button -->
@@ -117,6 +117,20 @@
             }
         });
     });    
+</script>
+<script>
+    $('#id_coupon_type').change(function () {
+        var coupon_type = $(this).val();
+        var url = "{% url 'get_next_coupon_bookno' %}";
+        $.ajax({
+            url: url,
+            data: {'coupon_type': coupon_type},
+            dataType: 'json',
+            success: function (data) {
+                $('#id_book_num').val(data.next_coupon_bookno);
+            }
+        });
+    });
 </script>
 {% endblock static %}
 

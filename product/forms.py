@@ -90,3 +90,26 @@ class StaffIssue_CouponsOrdersForm(forms.ModelForm):
             # 'van_route_id': forms.Select(attrs={'class': 'form-control', 'required': 'true'}),
             'quantity_issued': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
         }
+        
+class StockTransferForm(forms.Form):
+    product_id = forms.ModelChoiceField(
+        queryset=ProdutItemMaster.objects.all(),
+        label="Product",
+        widget=forms.Select(attrs={'class': 'form-control', 'required': 'false'})
+    )
+    used_quantity = forms.IntegerField(
+        min_value=0,
+        required=False,
+        label="Used Quantity",
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'required': 'false'})
+    )
+    damage_quantity = forms.IntegerField(
+        min_value=0,
+        required=False,
+        label="Damage Quantity",
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'required': 'false'})
+    )
+    
+class ScrapStockForm(forms.Form):
+    product = forms.ModelChoiceField(queryset=ProdutItemMaster.objects.all(), label="Product")
+    cleared_quantity = forms.IntegerField(label="Cleared Quantity")

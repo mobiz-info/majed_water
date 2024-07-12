@@ -1778,7 +1778,8 @@ class BottleCountSerializer(serializers.ModelSerializer):
     class Meta:
         model = BottleCount
         fields = [
-            'route_name', 'created_date', 'opening_stock', 'custody_issue',
+               
+            'id','route_name', 'created_date', 'opening_stock', 'custody_issue',
             'custody_return', 'qty_added', 'qty_deducted', 'closing_stock' 
         ]
     
@@ -1803,3 +1804,13 @@ class BottleCountDeductSerializer(serializers.ModelSerializer):
         model = BottleCount
         fields = ['qty_deducted']
 
+
+class ScrapProductStockSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScrapProductStock
+        fields = ['product','quantity']
+
+class ScrapStockSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScrapStock
+        fields = ['product','quantity']

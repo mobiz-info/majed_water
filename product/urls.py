@@ -35,8 +35,9 @@ urlpatterns = [
     path('product_stock_report', product_stock_report, name='product_stock_report'),
     path('download_productstock_pdf', download_productstock_pdf, name='download_productstock_pdf'),
     path('product_stock_excel_download', product_stock_excel_download, name='product_stock_excel_download'),
+    path('stocktransfer/', stock_transfer_view, name='stocktransfer'),
+    path('scrap_stock_transfer_view/', scrap_stock_transfer_view, name='scrap_stock_transfer_view'),
 
 
    ]
 
-    # path('staff_issue_orders_create/<str:staff_order_details_id>', StaffIssueOrdersCreate.as_view(), name='staff_issue_orders_create'),

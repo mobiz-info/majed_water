@@ -1,3 +1,4 @@
+import re
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
@@ -23,8 +24,25 @@ from datetime import datetime
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse, HttpResponse
 
-
 # Create your views here.
+def get_next_coupon_bookno(request):
+    coupon_type = request.GET.get("coupon_type")
+    last_coupon = NewCoupon.objects.filter(coupon_type__pk=coupon_type).latest("created_date")
+    last_coupon_bookno = last_coupon.book_num
+
+    # Split the alphanumeric book number into alphabetic and numeric parts
+    match = re.match(r"([a-zA-Z]+)(\d+)", last_coupon_bookno)
+    if not match:
+        raise ValueError("Invalid book number format")
+
+    alphabetic_part, numeric_part = match.groups()
+    next_numeric_part = int(numeric_part) + 1
+    next_coupon_bookno = f"{alphabetic_part}{next_numeric_part}"
+
+    data = {'next_coupon_bookno': next_coupon_bookno}
+    return JsonResponse(data, safe=False)
+
+
 def get_coupon_bookno(request):
     request_id = request.GET.get("request_id")
     

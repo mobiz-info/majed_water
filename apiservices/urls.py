@@ -19,6 +19,9 @@ urlpatterns = [
     path('customer-next-visit-date/',NextVisitDateAPI.as_view()),
     path('customer-coupon-balance/',CustomerCouponBalanceAPI.as_view()),
     path('customer-outstanding-balance/',CustomerOutstandingAPI.as_view()),
+    
+    path('store-keeper-login/',StoreKeeperLoginApi.as_view()),
+    
     #################Master Url##############################
 
     path('route/<str:id>/',RouteMaster_API.as_view()),
@@ -227,7 +230,10 @@ urlpatterns = [
     
     path('complaints_create/', CustomerComplaintCreateView.as_view(), name='create-complaint'),
     path('nonvisit_report/', NonVisitReportCreateAPIView.as_view(), name='nonvisit_report'),
+    
     path('send_device_token/', Send_Device_API.as_view(),name='send_device_token'),
+    path('send_customer_device_token/', CustomerDeviceTokenAPI.as_view(),name='send_customer_device_token'),
+    
     path('customer_Wise_Coupon_sale/', CustomerWiseCouponSaleAPIView.as_view(),name='customer_Wise_Coupon_sale'),
     path('total_coupon_consumed/', TotalCouponsConsumedView.as_view(), name='total_coupon_consumed'),
 
@@ -277,11 +283,20 @@ urlpatterns = [
     #---------------------------store app product stock-------------- 
     path('product-stocks/', ProductStockListAPIView.as_view(), name='product-stock-list'),
     
-    
+    #---------------------------Salesman app report ------------------------------------------------   
+
     path('cash_sales_report/', CashSalesReportAPIView.as_view(), name='cash_sales_report'),
     path('credit_sales_report/', CreditSalesReportAPIView.as_view(), name='credit_sales_report'),
-#---------------------------Bottle Count Store App Url ------------------------------------------------   
+    #---------------------------Bottle Count Store App Url ------------------------------------------------   
     path('api_van_route_bottle_count/', VanRouteBottleCountView.as_view(), name='api_van_route_bottle_count'),
     path('api_vans_route_bottle_count_add/<uuid:pk>/', VansRouteBottleCountAddAPIView.as_view(), name='api_vans_route_bottle_count_add'),
     path('api_vans_route_bottle_count_deduct/<uuid:pk>/', VansRouteBottleCountDeductAPIView.as_view(), name='api_vans_route_bottle_count_deduct'),
+    
+    
+    #-------------Store app stock transfer-----------------------------------------
+    path('stock_transfer/', StockTransferAPIView.as_view(), name='stock_transfer'),
+    
+    path('scrap_stock/', ScrapStockAPIView.as_view(), name='scrap_stock'),
+
+    
 ]

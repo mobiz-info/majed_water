@@ -129,6 +129,36 @@ class Login_Api(APIView):
         except Exception as e:
             print(f'Something went wrong: {e}')
             return Response({'status': False, 'message': 'Something went wrong!'})
+        
+class StoreKeeperLoginApi(APIView):
+    def post(self, request, *args, **kwargs):
+        try:
+            username = request.data.get('username')
+            password = request.data.get('password')
+            if username and password:
+                user = authenticate(username=username, password=password, user_type="store_keeper")
+                if user is not None:
+                    if user.is_active:
+                        login(request, user)
+                        user_obj = CustomUser.objects.filter(username=username).first()
+                        token = generate_random_string(20)  # Adjust the token length as needed
+                        data = {
+                            'id': user_obj.id,
+                            'username': username,
+                            'user_type': user_obj.user_type,
+                            'token': token
+                        }
+                    else:
+                        return Response({'status': False, 'message': 'User Inactive!'})
+                    return Response({'status': True, 'data': data, 'message': 'Authenticated User!'})
+                else:
+                    return Response({'status': False, 'message': 'Unauthenticated User!'})
+            else:
+                return Response({'status': False, 'message': 'Unauthenticated User!'})
+        except CustomUser.DoesNotExist:
+            return Response({'status': False, 'message': 'User does not exist!'})
+        except Exception as e:
+            return Response({'status': False, 'message': 'Something went wrong!'})
 
 class RouteMaster_API(APIView):
     serializer_class = RouteMasterSerializers
@@ -699,7 +729,8 @@ def find_customers(request, def_date, route_id):
                     buildings.append(client.customer.building_name)
     
     # Calculate total bottle count
-    co = sum(cus.no_of_bottles_required for cus in todays_customers)
+    co = sum(cus.no_of_bottles_required or 0 for cus in todays_customers)
+
     # print(f"Total bottle count: {co}, Van capacity: {van_capacity}")
 
     if buildings:
@@ -707,7 +738,8 @@ def find_customers(request, def_date, route_id):
         for building in buildings:
             for customer in todays_customers:
                 if customer.building_name == building:
-                    building_count[building] = building_count.get(building, 0) + customer.no_of_bottles_required
+                    no_of_bottles = customer.no_of_bottles_required or 0  # Use 0 if no_of_bottles_required is None
+                    building_count[building] = building_count.get(building, 0) + no_of_bottles
 
         building_gps = []
         for building, bottle_count in building_count.items():
@@ -800,6 +832,7 @@ def find_customers(request, def_date, route_id):
 
                         trip_customers.append(trip_customer)
         return trip_customers
+
 
 
 class ScheduleView(APIView):
@@ -4187,9 +4220,9 @@ class CollectionAPI(APIView):
             }, status=status.HTTP_200_OK)
         else:
             return Response({
-                'status': False,
-                'message': 'No data found',
-            }, status=400)
+                'status': True,
+                'data': []
+            }, status=status.HTTP_200_OK)
 
 # class AddCollectionPayment(APIView):
 #     authentication_classes = [BasicAuthentication]
@@ -5962,6 +5995,22 @@ class Send_Device_API(APIView):
            
             Send_Notification.objects.create(user=CustomUser.objects.get(id=user_id),device_token=device_token)
         return Response({"status": True, 'data':[{"user_id":user_id,"device_token":device_token}], "message": "Succesfully !"})
+    
+class CustomerDeviceTokenAPI(APIView):
+    def post(self,request):
+        device_token = request.data['device_token']
+        customer_id = request.data['customer_id']
+        
+        customer_user_id = Customers.objects.get(pk=customer_id).user_id.pk
+        user_not = Send_Notification.objects.filter(user__pk=customer_user_id).exists()
+        
+        if user_not :
+           
+            Send_Notification.objects.filter(user__pk=customer_user_id).update(device_token=device_token)
+        else :
+           
+            Send_Notification.objects.create(user=CustomUser.objects.get(pk=customer_user_id),device_token=device_token)
+        return Response({"status": True, 'data':[{"user_id":customer_user_id,"device_token":device_token}], "message": "Succesfully !"})
 
 class MyCurrentStockView(APIView):
     authentication_classes = [BasicAuthentication]
@@ -7668,7 +7717,8 @@ class CreditSalesReportAPIView(APIView):
 #---------------------------Bottle Count API ------------------------------------------------   
 
 class VanRouteBottleCountView(APIView):
-    
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         filter_data = {}
         date_str = request.GET.get("filter_date")
@@ -7709,20 +7759,27 @@ class VanRouteBottleCountView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class VansRouteBottleCountAddAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, pk):
         instance = get_object_or_404(BottleCount, pk=pk)
-        serializer = BottleCountAddSerializer(instance, data=request.data)
+        serializer = BottleCountAddSerializer(instance, data=request.data, partial=True)
+        
         if serializer.is_valid():
-            bottle_count = serializer.save(commit=False)
+            bottle_count = serializer.save()
             bottle_count.van = instance.van  # Ensure van is correctly assigned
             bottle_count.created_by = request.user.username  # Assuming you have user authentication
             bottle_count.save()
             return Response({"message": "Bottle count updated successfully"}, status=status.HTTP_200_OK)
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
      
 class VansRouteBottleCountDeductAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
     def post(self, request, pk):
         instance = get_object_or_404(BottleCount, pk=pk)
         serializer = BottleCountDeductSerializer(instance, data=request.data)
@@ -7732,3 +7789,168 @@ class VansRouteBottleCountDeductAPIView(APIView):
             instance.save()
             return Response({"message": "Bottle count deducted successfully"}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class StockTransferAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        product_id = request.data.get('product_id')
+
+        if not product_id:
+            return Response({"error": "Product ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        bottle_count = WashingStock.objects.get(product__pk=product_id).quantity
+        
+        return Response({"bottle_count": bottle_count}, status=status.HTTP_200_OK)
+    
+    def post(self, request, *args, **kwargs):
+        product_id = request.data.get('product_id')
+        used_quantity = request.data.get('used_quantity')
+        damage_quantity = request.data.get('damage_quantity')
+
+        if not product_id:
+            return Response({"error": "Product ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            with transaction.atomic():
+                product_item = ProdutItemMaster.objects.get(pk=product_id)
+                
+                if used_quantity > 0 :
+                    WashedProductTransfer.objects.create(
+                        product=product_item,
+                        quantity=used_quantity,
+                        status="used",
+                        created_by=request.user.pk,
+                        created_date=datetime.today(),
+                    )
+                    
+                    used_product = WashedUsedProduct.objects.get_or_create(product = product_item)
+                    used_product.quantity += used_quantity
+                    used_product.save()
+                    
+                    washing_stock = WashingStock.objects.get(product = product_item)
+                    washing_stock.quantity -= used_quantity
+                    washing_stock.save()
+                    
+                if damage_quantity > 0 :
+                    WashedProductTransfer.objects.create(
+                        product=product_item,
+                        quantity=damage_quantity,
+                        status="scrap",
+                        created_by=request.user.pk,
+                        created_date=datetime.today(),
+                    )
+                    
+                    ScrapProductStock.objects.create(
+                        product=product_item,
+                        quantity=damage_quantity,
+                        created_by=request.user.pk,
+                        created_date=datetime.today(),
+                    )
+                    
+                    scrap_product = ScrapStock.objects.get_or_create(product = product_item)
+                    scrap_product.quantity += damage_quantity
+                    scrap_product.save()
+                    
+                    washing_stock = WashingStock.objects.get(product = product_item)
+                    washing_stock.quantity -= damage_quantity
+                    washing_stock.save()
+                    
+                    status_code = status.HTTP_200_OK
+                    response_data = {
+                        "status": "true",
+                        "title": "Success",
+                        "message": "Stock Transfer successfully Completed",
+                    }
+                    
+        except IntegrityError as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+
+        except Exception as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+        return Response(response_data, status=status_code)
+
+class ScrapStockAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        
+        if request.data.get('product_id'):
+            product_id = request.data.get('product_id')
+        else:
+            product_id = ProdutItemMaster.objects.get(product_name="5 Gallon").pk
+
+        if not product_id:
+            return Response({"error": "Product ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Use filter to get all matching objects
+        scrap_stocks = ScrapStock.objects.filter(product__pk=product_id)
+        
+        if not scrap_stocks.exists():
+            return Response({"error": "No ScrapStock found for the given product ID"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Aggregate the total quantity
+        total_quantity = scrap_stocks.aggregate(total_quantity=Sum('quantity'))['total_quantity']
+
+        return Response({"total_quantity": total_quantity}, status=status.HTTP_200_OK)
+    
+    def post(self, request, *args, **kwargs):
+        product_id = request.data.get('product_id')
+        cleared_quantity = request.data.get('cleared_quantity')
+
+        # if not product_id:
+        #     return Response({"error": "Product ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            with transaction.atomic():
+                if product_id:
+                    product_item = ProdutItemMaster.objects.get(pk=product_id)
+                else:
+                    product_item = ProdutItemMaster.objects.get(product_name="5 Gallon")
+                
+                ScrapcleanedStock.objects.create(
+                        product=product_item,
+                        quantity=cleared_quantity,
+                        created_by=request.user.pk,
+                        created_date=datetime.today(),
+                    )
+                
+                # Create or update ScrapStock
+                scrap_stock = ScrapStock.objects.get(product=product_item)
+                scrap_stock.quantity -= cleared_quantity
+                scrap_stock.save()
+                
+                status_code = status.HTTP_200_OK
+                response_data = {
+                    "status": "true",
+                    "title": "Success",
+                    "message": "Scrap Stock Transfer successfully Completed",
+                }
+        
+        except IntegrityError as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+        
+        except Exception as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+        
+        return Response(response_data, status=status_code)
