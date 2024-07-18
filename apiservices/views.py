@@ -2364,7 +2364,13 @@ class CustomerCouponRecharge(APIView):
                     salesman = CustomUser.objects.get(pk=coupon_data.pop("salesman"))
                     items_data = coupon_data.pop('items', [])
                     
-                    customer_coupon = CustomerCoupon.objects.create(customer=customer, salesman=salesman, **coupon_data)
+                    customer_coupon = CustomerCoupon.objects.create(
+                        customer=customer,
+                        salesman=salesman,
+                        created_date=datetime.today(),
+                        **coupon_data
+                        )
+                    
                     coupon_instances.append(customer_coupon)
                     
                     balance_amount = Decimal(coupon_data.pop("balance"))
@@ -2376,6 +2382,7 @@ class CustomerCouponRecharge(APIView):
                             customer=customer,
                             product_type="amount",
                             created_by=request.user.id,
+                            created_date=datetime.today(),
                         )
 
                         outstanding_amount = OutstandingAmount.objects.create(
