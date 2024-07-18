@@ -2711,7 +2711,7 @@ class CustodyCustomAPIView(APIView):
                 deposit_type=deposit_type,
                 reference_no=reference_no,
                 amount_collected=amount_collected,
-                created_by=user.pk,
+                created_by=request.user.pk,
                 created_date=datetime.today(),
             )
 
