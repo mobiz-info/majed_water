@@ -23,7 +23,7 @@ from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.hashers import make_password, check_password
 from django.db.models import Sum, Value, DecimalField, Min
 ######rest framwework section
-from client_management.views import handle_coupons, handle_invoice_deletion, handle_outstanding_amounts, update_van_product_stock
+
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -925,7 +925,14 @@ class ExpenseListAPI(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        expenses = Expense.objects.all()
+        date = request.GET.get('date')
+        if date:
+            date = datetime.strptime(date, '%Y-%m-%d').date()
+        else:
+            date = datetime.today().date()
+        
+        van_route = Van_Routes.objects.get(van__salesman=request.user,expense_date=date)
+        expenses = Expense.objects.filter(route=van_route.routes,van=van_route.van)
         serializer = ExpenseSerializer(expenses, many=True)
         return Response(serializer.data)
 
@@ -1164,7 +1171,7 @@ class Customer_API(APIView):
 
     def post(self, request):
         try:
-            serializer = CustomersSerializers(data=request.data)
+            serializer = CustomersCreateSerializers(data=request.data)
             if serializer.is_valid(raise_exception=True):
                 if request.data["mobile_no"] and Customers.objects.filter(mobile_no=request.data["mobile_no"]).exists():
                     return Response({'data': 'Customer with this mobile number already exists! Try another number'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1206,7 +1213,7 @@ class Customer_API(APIView):
     def put(self, request, id):
         try:
             customer = Customers.objects.get(customer_id=id)
-            serializer = CustomersSerializers(customer, data=request.data)
+            serializer = CustomersCreateSerializers(customer, data=request.data)
             if serializer.is_valid():
                 serializer.save(modified_by=request.user.id, modified_date=datetime.now())
                 return Response(serializer.data, status=status.HTTP_200_OK)
@@ -1245,7 +1252,7 @@ class CouponType_API(APIView):
         couponType_data = CouponType.objects.filter(coupon_type_id = request.data['coupon_type_id'])
         for i in couponType_data:
             coupontypedata=i.coupon_type_id
-        serializer=couponTypeserializers(data=request.data)
+        serializer=couponTypeCreateserializers(data=request.data)
         if serializer.is_valid():
             coupon_Typess = CouponType.objects.filter(coupon_type_id = coupontypedata).exists()
             if coupon_Typess:
@@ -1259,7 +1266,7 @@ class CouponType_API(APIView):
 
     def put(self, request, id):
             coupon_TYPE = CouponType.objects.get(coupon_type_id=id)
-            serializer = couponTypeserializers(coupon_TYPE, data=request.data)
+            serializer = couponTypeCreateserializers(coupon_TYPE, data=request.data)
             if serializer.is_valid():
                 serializer.save(modified_by=request.user.id,modified_date = datetime.now())
                 return Response(serializer.data,status=status.HTTP_200_OK)
@@ -1656,49 +1663,95 @@ class Get_Items_API(APIView):
 class Add_Customer_Custody_Item_API(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
-    customer_custody_item = CustomerCustodyItemSerializers
-    get_custody_item = CustodyItemSerializers
-
-    def post(self,request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         try:
             user = CustomUser.objects.get(username=request.user.username)
-            data_list = request.data.get('data_list', [])
-            custody_data = CustodyCustom.objects.create(
-                customer=Customers.objects.get(pk=request.data.get('customer_id')),
-                agreement_no=request.data.get('agreement_no'),
-                total_amount=request.data.get('total_amount'),
-                deposit_type=request.data.get('deposit_type'),
-                reference_no=request.data.get('reference_no'),
-                created_by=user.pk,
-                created_date=datetime.today(),
-            )
-            print(data_list)
-            serializer = CustomerCustodyItemSerializer(data=data_list, many=True)
-            if serializer.is_valid():
-                item_intances = serializer.save(custody_custom=custody_data)
-                if item_intances.product.product_name == "5 Gallon":
-                    if (bottle_count:=BottleCount.objects.filter(van__salesman=request.user,created_date__date=custody_data.created_date.date())).exists():
-                        bottle_count = bottle_count.first()
-                        bottle_count.custody_issue += item_intances.quantity
+            data = request.data.get('data_list', {})
+            customer_id = data.get('customer_id')
+            agreement_no = data.get('agreement_no')
+            total_amount = data.get('total_amount')
+            deposit_type = data.get('deposit_type')
+            reference_no = data.get('reference_no')
+            amount_collected = data.get('amount_collected')
+            product_id = data.get('product')
+            quantity = data.get('quantity')
+            serialnumber = data.get('serialnumber')
+            amount = data.get('amount')
+            can_deposite_chrge = data.get('can_deposite_chrge')
+            five_gallon_water_charge = data.get('five_gallon_water_charge')
+
+            with transaction.atomic():
+                # Create CustodyCustom instance
+                custody_data = CustodyCustom.objects.create(
+                    customer=Customers.objects.get(pk=customer_id),
+                    agreement_no=agreement_no,
+                    total_amount=total_amount,
+                    deposit_type=deposit_type,
+                    reference_no=reference_no,
+                    amount_collected=amount_collected,
+                    created_by=user.pk,
+                    created_date=datetime.today(),
+                )
+
+                # Create CustodyCustomItems instance
+                product_instance = ProdutItemMaster.objects.get(pk=product_id)
+                custody_item_data = {
+                    "custody_custom": custody_data,
+                    "product": product_instance,
+                    "quantity": quantity,
+                    "serialnumber": serialnumber,
+                    "amount": amount,
+                    "can_deposite_chrge": can_deposite_chrge,
+                    "five_gallon_water_charge": five_gallon_water_charge,
+                }
+                item_instance = CustodyCustomItems.objects.create(**custody_item_data)
+
+                # Update bottle count if necessary
+                if product_instance.product_name == "5 Gallon":
+                    bottle_count, created = BottleCount.objects.get_or_create(
+                        van__salesman=request.user,
+                        created_date__date=custody_data.created_date.date(),
+                        defaults={'custody_issue': quantity}
+                    )
+                    if not created:
+                        bottle_count.custody_issue += quantity
                         bottle_count.save()
-                    
-                return Response({'status': True,'message':'Customer Custody Item Succesfully Created'},status=status.HTTP_201_CREATED)
-            else :
-                return Response({'status': False,'message':serializer.errors},status=status.HTTP_400_BAD_REQUEST)
+
+                # Update or create CustomerCustodyStock
+                if CustomerCustodyStock.objects.filter(customer=custody_data.customer, product=product_instance).exists():
+                    stock_instance = CustomerCustodyStock.objects.get(customer=custody_data.customer, product=product_instance)
+                    stock_instance.quantity += quantity
+                    stock_instance.serialnumber = (stock_instance.serialnumber + ',' + serialnumber) if stock_instance.serialnumber else serialnumber
+                    stock_instance.agreement_no = (stock_instance.agreement_no + ',' + agreement_no) if stock_instance.agreement_no else agreement_no
+                    stock_instance.save()
+                else:
+                    CustomerCustodyStock.objects.create(
+                        customer=custody_data.customer,
+                        agreement_no=agreement_no,
+                        deposit_type=deposit_type,
+                        reference_no=reference_no,
+                        product=product_instance,
+                        quantity=quantity,
+                        serialnumber=serialnumber,
+                        amount=amount,
+                        can_deposite_chrge=can_deposite_chrge,
+                        five_gallon_water_charge=five_gallon_water_charge,
+                        amount_collected=amount_collected
+                    )
+
+                return Response({'status': True, 'message': 'Customer Custody Item Successfully Created'}, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            return Response({'status': False, 'message': str(e)})
+            return Response({'status': False, 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def get(self,request,id=None):
         try:
             customer_exists = Customers.objects.filter(customer_id=id).exists()
-            print("customer_exists")
             if customer_exists:
-                customer_exists = Customers.objects.get(customer_id=id)
-                custody_list = CustodyCustomItems.objects.filter(custody_custom__customer=customer_exists)
+                customer = Customers.objects.get(customer_id=id)
+                custody_list = CustomerCustodyStock.objects.filter(customer=customer)
                 if custody_list:
-                    serializer = CustodyItemSerializers(custody_list, many=True)
-                    print(serializer.data)
+                    serializer = CustomerCustodyStockProductsSerializer(custody_list, many=True)
                     return Response({'status': True,'data':serializer.data,'message':'data fetched successfully'},status=status.HTTP_200_OK)
                 else:
                     return Response({'status': True,'data':[],'message':'No custody items'},status=status.HTTP_200_OK)
@@ -2399,8 +2452,24 @@ class CustomerCouponRecharge(APIView):
                         customer_coupon_stock.count += digital_coupon_data.get("count")
                         customer_coupon_stock.save()
                     
-                    random_part = str(random.randint(1000, 9999))
-                    invoice_number = f'WTR-{random_part}'
+                    date_part = timezone.now().strftime('%Y%m%d')
+                    try:
+                        invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
+                        last_invoice_number = invoice_last_no.invoice_no
+
+                        # Validate the format of the last invoice number
+                        parts = last_invoice_number.split('-')
+                        if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
+                            prefix, old_date_part, number_part = parts
+                            new_number_part = int(number_part) + 1
+                            invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+                        else:
+                            # If the last invoice number is not in the expected format, generate a new one
+                            random_part = str(random.randint(1000, 9999))
+                            invoice_number = f'WTR-{date_part}-{random_part}'
+                    except Invoice.DoesNotExist:
+                        random_part = str(random.randint(1000, 9999))
+                        invoice_number = f'WTR-{date_part}-{random_part}'
 
                     # Create the invoice
                     invoice_instance = Invoice.objects.create(
@@ -2640,7 +2709,10 @@ class CustodyCustomAPIView(APIView):
                 agreement_no=agreement_no,
                 total_amount=total_amount,
                 deposit_type=deposit_type,
-                reference_no=reference_no
+                reference_no=reference_no,
+                amount_collected=amount_collected,
+                created_by=user.pk,
+                created_date=datetime.today(),
             )
 
             # Create CustodyCustomItems instance
@@ -2651,8 +2723,7 @@ class CustodyCustomAPIView(APIView):
                 serialnumber=serialnumber,
                 amount=total_amount,
                 can_deposite_chrge=can_deposite_chrge,
-                five_gallon_water_charge=five_gallon_water_charge,
-                amount_collected=amount_collected
+                five_gallon_water_charge=five_gallon_water_charge
             )
 
             try:
@@ -2678,8 +2749,24 @@ class CustodyCustomAPIView(APIView):
                 )
 
             if product.product_name.lower() == "5 gallon":
-                random_part = str(random.randint(1000, 9999))
-                invoice_number = f'WTR-{random_part}'
+                date_part = timezone.now().strftime('%Y%m%d')
+                try:
+                    invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
+                    last_invoice_number = invoice_last_no.invoice_no
+
+                    # Validate the format of the last invoice number
+                    parts = last_invoice_number.split('-')
+                    if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
+                        prefix, old_date_part, number_part = parts
+                        new_number_part = int(number_part) + 1
+                        invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+                    else:
+                        # If the last invoice number is not in the expected format, generate a new one
+                        random_part = str(random.randint(1000, 9999))
+                        invoice_number = f'WTR-{date_part}-{random_part}'
+                except Invoice.DoesNotExist:
+                    random_part = str(random.randint(1000, 9999))
+                    invoice_number = f'WTR-{date_part}-{random_part}'
 
                 net_taxable = total_amount
                 discount = 0  
@@ -2826,23 +2913,19 @@ class create_customer_supply(APIView):
                         vanstock = VanProductStock.objects.get(created_date=datetime.today().date(),product=suply_items.product,van=van)
                         
                     vanstock.stock -= suply_items.quantity
-                    vanstock.sold_count += suply_items.quantity
+                    if customer_supply.customer.sales_type != "FOC" :
+                        vanstock.sold_count += suply_items.quantity
+                    if customer_supply.customer.sales_type == "FOC" :
+                        vanstock.foc += suply_items.quantity
                     vanstock.save()
                     
                     if suply_items.product.product_name == "5 Gallon" :
                         total_fivegallon_qty += Decimal(suply_items.quantity)
-                        if not VanProductStock.objects.filter(created_date=datetime.today().date(),product=suply_items.product,van__salesman=request.user).exists():
-                            empty_bottle = VanProductStock.objects.create(
-                                created_date=datetime.today().date(),
-                                product=suply_items.product,
-                                van=van,
-                            )
-                        else:
-                            empty_bottle = VanProductStock.objects.get(
-                                created_date=datetime.today().date(),
-                                product=suply_items.product,
-                                van=van,
-                            )
+                        empty_bottle = VanProductStock.objects.get(
+                            created_date=datetime.today().date(),
+                            product=suply_items.product,
+                            van=van,
+                        )
                         empty_bottle.empty_can_count += collected_empty_bottle
                         empty_bottle.save()
                 
@@ -3071,8 +3154,24 @@ class create_customer_supply(APIView):
                     # if customer_supply.customer.sales_type == "CASH" or customer_supply.customer.sales_type == "CREDIT":
                     invoice_generated = True
                     
-                    random_part = str(random.randint(1000, 9999))
-                    invoice_number = f'WTR-{random_part}'
+                    date_part = timezone.now().strftime('%Y%m%d')
+                    try:
+                        invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
+                        last_invoice_number = invoice_last_no.invoice_no
+
+                        # Validate the format of the last invoice number
+                        parts = last_invoice_number.split('-')
+                        if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
+                            prefix, old_date_part, number_part = parts
+                            new_number_part = int(number_part) + 1
+                            invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+                        else:
+                            # If the last invoice number is not in the expected format, generate a new one
+                            random_part = str(random.randint(1000, 9999))
+                            invoice_number = f'WTR-{date_part}-{random_part}'
+                    except Invoice.DoesNotExist:
+                        random_part = str(random.randint(1000, 9999))
+                        invoice_number = f'WTR-{date_part}-{random_part}'
                     
                     # Create the invoice
                     invoice = Invoice.objects.create(
@@ -3094,7 +3193,7 @@ class create_customer_supply(APIView):
                         customer_outstanding_empty_can.invoice_no = invoice.invoice_no
                         customer_outstanding_empty_can.save()
                         
-                    print("customer_outstanding_coupon",customer_outstanding_coupon)
+                    # print("customer_outstanding_coupon",customer_outstanding_coupon)
 
                     if customer_outstanding_coupon:
                         customer_outstanding_coupon.invoice_no = invoice.invoice_no
@@ -3607,8 +3706,24 @@ class edit_customer_supply(APIView):
                 if customer_supply.customer.sales_type == "CASH" or customer_supply.customer.sales_type == "CREDIT":
                     invoice_generated = True
                     
-                    random_part = str(random.randint(1000, 9999))
-                    invoice_number = f'WTR-{random_part}'
+                    date_part = timezone.now().strftime('%Y%m%d')
+                    try:
+                        invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
+                        last_invoice_number = invoice_last_no.invoice_no
+
+                        # Validate the format of the last invoice number
+                        parts = last_invoice_number.split('-')
+                        if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
+                            prefix, old_date_part, number_part = parts
+                            new_number_part = int(number_part) + 1
+                            invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+                        else:
+                            # If the last invoice number is not in the expected format, generate a new one
+                            random_part = str(random.randint(1000, 9999))
+                            invoice_number = f'WTR-{date_part}-{random_part}'
+                    except Invoice.DoesNotExist:
+                        random_part = str(random.randint(1000, 9999))
+                        invoice_number = f'WTR-{date_part}-{random_part}'
                     
                     # Create the invoice
                     invoice = Invoice.objects.create(
@@ -3622,6 +3737,9 @@ class edit_customer_supply(APIView):
                         customer=customer_supply.customer,
                         reference_no=reference_no
                     )
+                    
+                    customer_supply.invoice_no = invoice.invoice_no
+                    customer_supply.save()
                     
                     if customer_supply.customer.sales_type == "CREDIT":
                         invoice.invoice_type = "credit_invoive"
@@ -3742,63 +3860,63 @@ class edit_customer_supply(APIView):
 #             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-class delete_customer_supply(APIView):
-    authentication_classes = [BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+# class delete_customer_supply(APIView):
+#     authentication_classes = [BasicAuthentication]
+#     permission_classes = [IsAuthenticated]
        
-    def get(self, request,pk, *args, **kwargs):
-        try:
-            with transaction.atomic():
-                customer_supply_instance = get_object_or_404(CustomerSupply, pk=pk)
-                supply_items_instances = CustomerSupplyItems.objects.filter(customer_supply=customer_supply_instance)
-                five_gallon_qty = supply_items_instances.filter(product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity', output_field=DecimalField()))['total_quantity'] or 0
+#     def get(self, request,pk, *args, **kwargs):
+#         try:
+#             with transaction.atomic():
+#                 customer_supply_instance = get_object_or_404(CustomerSupply, pk=pk)
+#                 supply_items_instances = CustomerSupplyItems.objects.filter(customer_supply=customer_supply_instance)
+#                 five_gallon_qty = supply_items_instances.filter(product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity', output_field=DecimalField()))['total_quantity'] or 0
                 
-                DiffBottlesModel.objects.filter(
-                    delivery_date__date=customer_supply_instance.created_date.date(),
-                    assign_this_to=customer_supply_instance.salesman,
-                    customer=customer_supply_instance.customer_id
-                    ).update(status='pending')
+#                 DiffBottlesModel.objects.filter(
+#                     delivery_date__date=customer_supply_instance.created_date.date(),
+#                     assign_this_to=customer_supply_instance.salesman,
+#                     customer=customer_supply_instance.customer_id
+#                     ).update(status='pending')
                 
-                # Handle invoice related deletions
-                handle_invoice_deletion(customer_supply_instance)
+#                 # Handle invoice related deletions
+#                 handle_invoice_deletion(customer_supply_instance)
                 
-                # Handle outstanding amount adjustments
-                handle_outstanding_amounts(customer_supply_instance, five_gallon_qty)
+#                 # Handle outstanding amount adjustments
+#                 handle_outstanding_amounts(customer_supply_instance, five_gallon_qty)
                 
-                # Handle coupon deletions and adjustments
-                handle_coupons(customer_supply_instance, five_gallon_qty)
+#                 # Handle coupon deletions and adjustments
+#                 handle_coupons(customer_supply_instance, five_gallon_qty)
                 
-                # Update van product stock and empty bottle counts
-                update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty)
+#                 # Update van product stock and empty bottle counts
+#                 update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty)
                 
-                # Mark customer supply and items as deleted
-                customer_supply_instance.delete()
-                supply_items_instances.delete()
+#                 # Mark customer supply and items as deleted
+#                 customer_supply_instance.delete()
+#                 supply_items_instances.delete()
                     
-                response_data = {
-                    "status": "true",
-                    "title": "success",
-                    "message": "successfuly deleted",
-                }
-                return Response(response_data,status=status.HTTP_200_OK)
+#                 response_data = {
+#                     "status": "true",
+#                     "title": "success",
+#                     "message": "successfuly deleted",
+#                 }
+#                 return Response(response_data,status=status.HTTP_200_OK)
             
-        except IntegrityError as e:
-            # Handle database integrity error
-            response_data = {
-                "status": "false",
-                "title": "Failed",
-                "message": str(e),
-            }
+#         except IntegrityError as e:
+#             # Handle database integrity error
+#             response_data = {
+#                 "status": "false",
+#                 "title": "Failed",
+#                 "message": str(e),
+#             }
 
-        except Exception as e:
-            # Handle other exceptions
-            response_data = {
-                "status": "false",
-                "title": "Failed",
-                "message": str(e),
-            }
+#         except Exception as e:
+#             # Handle other exceptions
+#             response_data = {
+#                 "status": "false",
+#                 "title": "Failed",
+#                 "message": str(e),
+#             }
             
-        return Response(response_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#         return Response(response_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # @api_view(['GET'])
 # def customer_coupon_stock(request):
@@ -3889,17 +4007,22 @@ class CustodyCustomItemListAPI(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
     
-    def get(self, request, *args, **kwargs):
+    def get(self,request,id=None):
         try:
-            user_id = request.user.id
-            print("user_id", user_id)
-            customer_objs = Customers.objects.filter(sales_staff=user_id)
-            serialized_data = CustomerCustodyStockSerializer(customer_objs,many=True).data
-            
-            return Response({'status': True, 'data': serialized_data, 'message': 'Customer products list passed!'})
-        
+            customer_exists = Customers.objects.filter(customer_id=id).exists()
+            if customer_exists:
+                customer = Customers.objects.get(customer_id=id)
+                custody_list = CustomerCustodyStock.objects.filter(customer=customer)
+                if custody_list:
+                    serializer = CustomerCustodyStockProductsSerializer(custody_list, many=True)
+                    return Response({'status': True,'data':serializer.data,'message':'data fetched successfully'},status=status.HTTP_200_OK)
+                else:
+                    return Response({'status': True,'data':[],'message':'No custody items'},status=status.HTTP_200_OK)
+            else :
+                return Response({'status': False,'message':'Customer not exists'},status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
-            return Response({'status': False, 'data': str(e), 'message': 'Something went wrong!'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'status': False, 'message': str(e)})
 
 
 class CustodyItemReturnAPI(APIView):
@@ -4397,9 +4520,24 @@ class AddCollectionPayment(APIView):
                         value=negatieve_remaining_amount,
                     )
                 
-                # Generate a unique invoice number
-                random_part = str(random.randint(1000, 9999))
-                invoice_number = f'WTR-{random_part}'
+                date_part = timezone.now().strftime('%Y%m%d')
+                try:
+                    invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
+                    last_invoice_number = invoice_last_no.invoice_no
+
+                    # Validate the format of the last invoice number
+                    parts = last_invoice_number.split('-')
+                    if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
+                        prefix, old_date_part, number_part = parts
+                        new_number_part = int(number_part) + 1
+                        invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+                    else:
+                        # If the last invoice number is not in the expected format, generate a new one
+                        random_part = str(random.randint(1000, 9999))
+                        invoice_number = f'WTR-{date_part}-{random_part}'
+                except Invoice.DoesNotExist:
+                    random_part = str(random.randint(1000, 9999))
+                    invoice_number = f'WTR-{date_part}-{random_part}'
                 
                 # Create the invoice for the refund amount
                 invoice = Invoice.objects.create(

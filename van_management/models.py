@@ -51,7 +51,10 @@ class Van(models.Model):
         return product_count + coupon_count
     
     def get_van_route(self):
-        return Van_Routes.objects.filter(van=self).first().routes.route_name
+        try:
+            return Van_Routes.objects.filter(van=self).first().routes.route_name
+        except:
+            return "No Route Assigned"
     
     def get_vans_routes(self):
         van_route = Van_Routes.objects.filter(van=self).first()
@@ -168,6 +171,7 @@ class VanProductStock(models.Model):
     pending_count = models.PositiveIntegerField(default=0)
     sold_count = models.PositiveIntegerField(default=0)
     stock = models.PositiveIntegerField(default=0)
+    foc = models.PositiveIntegerField(default=0)
     
     product = models.ForeignKey(ProdutItemMaster,on_delete=models.CASCADE)
     van = models.ForeignKey(Van, on_delete=models.CASCADE,null=True,blank=True)

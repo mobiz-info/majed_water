@@ -250,12 +250,13 @@ from .models import *
 class CustodyCustomForm(forms.ModelForm):
     class Meta:
         model = CustodyCustom
-        fields = ['agreement_no','total_amount','deposit_type']
+        fields = ['agreement_no','total_amount','deposit_type','amount_collected']
         
         widgets = {
             'agreement_no': forms.TextInput(attrs={'class': 'form-control'}),
             'total_amount': forms.TextInput(attrs={'class': 'form-control'}),
             'deposit_type': forms.RadioSelect(attrs={'class': 'form-check-input'}),
+            'amount_collected': forms.TextInput(attrs={'class': 'form-control'}),
         }
 
 class CustodyCustomItemForm(forms.ModelForm):

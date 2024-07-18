@@ -220,21 +220,37 @@
 </script>
 
 <script type="text/javascript">
-    $("#id_emirate").change(function() {
-        var url = "{% url 'load_locations' %}"; 
-        var emirateId = $(this).val(); 
-        $.ajax({
-            url: url,
-            data: {'emirate_id': emirateId},
-            success: function(data) {
-                $("#id_location").html('');
-                for (var i = 0; i < data.length; i++) {
-                    $("#id_location").append('<option value="' + data[i].id + '">' + data[i].location_name + '</option>');
+    $(document).ready(function() {
+        // Disable the #id_location element initially
+        $("#id_location").prop('disabled', true);
+
+        $("#id_emirate").change(function() {
+            var url = "{% url 'load_locations' %}"; 
+            var emirateId = $(this).val(); 
+            $.ajax({
+                url: url,
+                data: {'emirate_id': emirateId},
+                success: function(data) {
+                    // Clear the #id_location element
+                    $("#id_location").html('');
+
+                    // Check if data is empty
+                    if (data.length === 0) {
+                        // Disable the #id_location element if data is empty
+                        $("#id_location").prop('disabled', true);
+                    } else {
+                        // Enable the #id_location element and populate it with options
+                        $("#id_location").prop('disabled', false);
+                        for (var i = 0; i < data.length; i++) {
+                            $("#id_location").append('<option value="' + data[i].location_id + '">' + data[i].location_name + '</option>');
+                        }
+                    }
                 }
-            }
+            });
         });
     });
 </script>
+
 {% endblock static %}
 
 

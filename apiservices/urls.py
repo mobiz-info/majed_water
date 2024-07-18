@@ -100,7 +100,7 @@ urlpatterns = [
     re_path(r'^supply-product/', supply_product.as_view()),
     re_path(r'^create-customer-supply/$', create_customer_supply.as_view()),
     path('edit-customer-supply/<uuid:pk>/', edit_customer_supply.as_view()),
-    path('delete-customer-supply/<uuid:pk>/', delete_customer_supply.as_view()),
+    # path('delete-customer-supply/<uuid:pk>/', delete_customer_supply.as_view()),
     re_path(r'^customer-outstanding/$', customer_outstanding.as_view()),
    
     ################### COUPON MANAGEMENT URL ######################

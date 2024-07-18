@@ -60,13 +60,13 @@
                                 <thead>
                                     <tr>
                                         <th>Sl No</th>
+                                        <th>Created Date</th>
+                                        <th>Invoice No</th>
                                         <th>Customer</th>
                                         <th>Building No</th>
-                                        <th>Room No/Floor No</th>
                                         <th>Route</th>
-                                        <th>Amount</th>
-                                        <th>Empty Can</th>
-                                        <th>Coupon</th>
+                                        <th>Outstanding Type</th>
+                                        <th>Count</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
@@ -74,17 +74,17 @@
                                     {% for item in instances %}
                                     <tr>
                                         <td>{{ forloop.counter }}</td>
+                                        <td>{{ item.created_date }}</td>
+                                        <td>{{ item.invoice_no }}</td>
                                         <td>{{ item.customer.customer_name }}</td>
                                         <td>{{ item.customer.building_name }}</td>
-                                        <td>{{ item.customer.door_house_no }}</td>
                                         <td>{{ item.customer.routes.route_name}}</td>
-                                        <td>{{ item.amount }}</td>
-                                        <td>{{ item.empty_can }}</td>
-                                        <td>{{ item.coupons }}</td>
-                                        <td style="text-align:center;">
+                                        <td>{{ item.get_product_type_display }}</td>
+                                        <td>{{ item.get_outstanding_count }}</td>
+                                        <td>
                                             <div class="g-2">
-                                                <a href="{% url 'customer_outstanding_details' item.customer.pk %}" aria-label="anchor" class="btn  btn-warning-light btn-sm" data-bs-toggle="tooltip" data-bs-original-title="View">
-                                                    <span class="bi bi-eye fs-14"></span>
+                                                <a aria-label="anchor" class="action-button remove btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete"
+                                                    data-id="{{item.pk}}" data-text="{{confirm_delete_message}}" data-title="Are you sure?" href="{% url 'delete_outstanding' pk=item.pk %}"><span class="ri-delete-bin-7-line fs-14"></span>
                                                 </a>
                                             </div>
                                         </td>

@@ -18,8 +18,24 @@ class Command(BaseCommand):
             out_amounts = OutstandingAmount.objects.filter(customer_outstanding=outstanding)
             for out_amount in out_amounts:
             
-                random_part = str(random.randint(1000, 9999))
-                invoice_number = f'WTR-{random_part}'
+                date_part = timezone.now().strftime('%Y%m%d')
+                try:
+                    invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
+                    last_invoice_number = invoice_last_no.invoice_no
+
+                    # Validate the format of the last invoice number
+                    parts = last_invoice_number.split('-')
+                    if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
+                        prefix, old_date_part, number_part = parts
+                        new_number_part = int(number_part) + 1
+                        invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+                    else:
+                        # If the last invoice number is not in the expected format, generate a new one
+                        random_part = str(random.randint(1000, 9999))
+                        invoice_number = f'WTR-{date_part}-{random_part}'
+                except Invoice.DoesNotExist:
+                    random_part = str(random.randint(1000, 9999))
+                    invoice_number = f'WTR-{date_part}-{random_part}'
                 
                 # Create the invoice
                 invoice = Invoice.objects.create(

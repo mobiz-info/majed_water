@@ -568,9 +568,17 @@ class CustomerOutstandingSerializer(serializers.ModelSerializer):
         return obj.routes.route_name
 
 class CouponTypeSerializer(serializers.ModelSerializer):
+    rate = serializers.SerializerMethodField()
     class Meta:
         model = CouponType
-        fields = ['coupon_type_id','coupon_type_name','no_of_leaflets','valuable_leaflets','free_leaflets']
+        fields = ['coupon_type_id','coupon_type_name','no_of_leaflets','valuable_leaflets','free_leaflets','rate']
+        
+    def get_rate(self,obj):
+        try:
+            rate = ProdutItemMaster.objects.get(product_name=obj.coupon_type_name).rate
+        except:
+            rate = 0
+        return rate
         
 class RouteMasterSerializer(serializers.ModelSerializer):
     class Meta:

@@ -1,8 +1,23 @@
-from . models import *
 from rest_framework import serializers
+from . models import *
+from product.models import *
 
 
 class couponTypeserializers(serializers.ModelSerializer):
+    rate = serializers.SerializerMethodField()
+
+    class Meta :
+        model = CouponType
+        fields = ('coupon_type_id','coupon_type_name','no_of_leaflets','valuable_leaflets','free_leaflets','rate')
+    
+    def get_rate(self,obj):
+        try:
+            rate = ProdutItemMaster.objects.get(product_name=obj.coupon_type_name).rate
+        except:
+            rate = 0
+        return rate
+
+class couponTypeCreateserializers(serializers.ModelSerializer):
 
     class Meta :
         model = CouponType

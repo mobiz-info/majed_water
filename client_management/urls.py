@@ -54,6 +54,8 @@ urlpatterns = [
          #customer outstanding
         re_path(r'^customer-outstanding/$', customer_outstanding_list, name='customer_outstanding_list'),
         re_path(r'^create-customer-outstanding/$', create_customer_outstanding, name='create_customer_outstanding'),
+        re_path(r'^customer-outstanding-details/(?P<customer_pk>.*)/$', customer_outstanding_details, name='customer_outstanding_details'),
+        re_path(r'^delete-customer-outstanding/(?P<pk>.*)/$', delete_outstanding, name='delete_outstanding'),
 
         # Customer count
         path('customer_count', customer_count, name="customer_count"),

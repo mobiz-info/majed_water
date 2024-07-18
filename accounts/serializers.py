@@ -16,6 +16,11 @@ class CustomUserSerializers(serializers.ModelSerializer):
 
         return user
 
+class CustomersCreateSerializers(serializers.ModelSerializer):
+    class Meta :
+        model = Customers
+        fields = '__all__'
+
 class CustomersSerializers(serializers.ModelSerializer):
     location = serializers.SerializerMethodField()
     location_name = serializers.SerializerMethodField()

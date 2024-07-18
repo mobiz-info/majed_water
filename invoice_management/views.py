@@ -219,9 +219,16 @@ def create_invoice(request, customer_pk):
         
         if invoice_form.is_valid() and invoice_items_formset.is_valid():
             
-            date_part = timezone.now().strftime('%Y%m%d')
-            random_part = str(random.randint(1000, 9999))
-            invoice_number = f'WTR-{date_part}-{random_part}'
+            try:
+                invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
+                last_invoice_number = invoice_last_no.invoice_no
+                prefix, date_part, number_part = last_invoice_number.split('-')
+                new_number_part = int(number_part) + 1
+                invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+            except Invoice.DoesNotExist:
+                date_part = timezone.now().strftime('%Y%m%d')
+                random_part = str(random.randint(1000, 9999))
+                invoice_number = f'WTR-{date_part}-{random_part}'
             
             try:
                 with transaction.atomic():
