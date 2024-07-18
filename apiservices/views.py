@@ -4009,18 +4009,20 @@ class CustodyCustomItemListAPI(APIView):
     
     def get(self,request,id=None):
         try:
-            customer_exists = Customers.objects.filter(customer_id=id).exists()
-            if customer_exists:
-                customer = Customers.objects.get(customer_id=id)
-                custody_list = CustomerCustodyStock.objects.filter(customer=customer)
+            if id:
+                if (customers:=Customers.objects.filter(customer_id=id)).exists():
+                    customer_ids = customers.values_list("customer_id")
+                else:
+                    return Response({'status': False,'message':'Customer not exists'},status=status.HTTP_400_BAD_REQUEST)
+            else:
+                customer_ids =  Customers.objects.filter(sales_staff=request.user).values_list("customer_id")
+                
+                custody_list = CustomerCustodyStock.objects.filter(customer__pk__in=customer_ids)
                 if custody_list:
                     serializer = CustomerCustodyStockProductsSerializer(custody_list, many=True)
                     return Response({'status': True,'data':serializer.data,'message':'data fetched successfully'},status=status.HTTP_200_OK)
                 else:
                     return Response({'status': True,'data':[],'message':'No custody items'},status=status.HTTP_200_OK)
-            else :
-                return Response({'status': False,'message':'Customer not exists'},status=status.HTTP_400_BAD_REQUEST)
-
         except Exception as e:
             return Response({'status': False, 'message': str(e)})
 
