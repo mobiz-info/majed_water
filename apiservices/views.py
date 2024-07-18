@@ -4008,23 +4008,18 @@ class CustodyCustomItemListAPI(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self,request,id=None):
-        try:
-            if id:
-                if (customers:=Customers.objects.filter(customer_id=id)).exists():
-                    customer_ids = customers.values_list("customer_id")
-                else:
-                    return Response({'status': False,'message':'Customer not exists'},status=status.HTTP_400_BAD_REQUEST)
-            else:
-                customer_ids =  Customers.objects.filter(sales_staff=request.user).values_list("customer_id")
-                
-                custody_list = CustomerCustodyStock.objects.filter(customer__pk__in=customer_ids)
-                if custody_list:
-                    serializer = CustomerCustodyStockProductsSerializer(custody_list, many=True)
-                    return Response({'status': True,'data':serializer.data,'message':'data fetched successfully'},status=status.HTTP_200_OK)
-                else:
-                    return Response({'status': True,'data':[],'message':'No custody items'},status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'status': False, 'message': str(e)})
+        if not id:
+            custody_customer_ids = CustomerCustodyStock.objects.filter(customer__sales_staff=request.user).values_list("customer__customer_id")
+            customers =  Customers.objects.filter(pk__in=custody_customer_ids)
+        else:
+            custody_customer_ids = CustomerCustodyStock.objects.filter(customer__pk=id).values_list("customer__customer_id")
+            customers =  Customers.objects.filter(pk__in=custody_customer_ids)
+        
+        if customers:
+            serializer = CustomerCustodyStockSerializer(customers, many=True)
+            return Response({'status': True,'data':serializer.data,'message':'data fetched successfully'},status=status.HTTP_200_OK)
+        else:
+            return Response({'status': True,'data':[],'message':'No custody items'},status=status.HTTP_200_OK)
 
 
 class CustodyItemReturnAPI(APIView):
