@@ -4487,18 +4487,18 @@ class AddCollectionPayment(APIView):
                 negatieve_remaining_amount = -remaining_amount
                 
                 # Create a customer outstanding record for the refund amount
-                customer_outstanding = CustomerOutstanding.objects.create(
-                    product_type="amount",
-                    created_by=request.user.id,
-                    customer=customer,
-                    created_date=datetime.today()
-                )
+                # customer_outstanding = CustomerOutstanding.objects.create(
+                #     product_type="amount",
+                #     created_by=request.user.id,
+                #     customer=customer,
+                #     created_date=datetime.today()
+                # )
 
-                # Create an outstanding amount record for the refund amount
-                outstanding_amount = OutstandingAmount.objects.create(
-                    amount=negatieve_remaining_amount,
-                    customer_outstanding=customer_outstanding,
-                )
+                # # Create an outstanding amount record for the refund amount
+                # outstanding_amount = OutstandingAmount.objects.create(
+                #     amount=negatieve_remaining_amount,
+                #     customer_outstanding=customer_outstanding,
+                # )
 
                 # Update the CustomerOutstandingReport or create a new one if it doesn't exist
                 if CustomerOutstandingReport.objects.filter(customer=customer, product_type="amount").exists():
@@ -4534,19 +4534,19 @@ class AddCollectionPayment(APIView):
                 # Create the invoice for the refund amount
                 invoice = Invoice.objects.create(
                     invoice_no=invoice_number,
-                    created_date=outstanding_amount.customer_outstanding.created_date,
+                    created_date=datetime.today(),
                     net_taxable=negatieve_remaining_amount,
                     vat=0,
                     discount=0,
                     amout_total=negatieve_remaining_amount,
                     amout_recieved=0,
-                    customer=outstanding_amount.customer_outstanding.customer,
-                    reference_no=f"custom_id{outstanding_amount.customer_outstanding.customer.custom_id}"
+                    customer=customer,
+                    reference_no=f"custom_id{customer.custom_id}"
                 )
                 customer_outstanding.invoice_no = invoice.invoice_no
                 customer_outstanding.save()
                 
-                if outstanding_amount.customer_outstanding.customer.sales_type == "CREDIT":
+                if customer.sales_type == "CREDIT":
                     invoice.invoice_type = "credit_invoice"
                     invoice.save()
 
@@ -4556,7 +4556,7 @@ class AddCollectionPayment(APIView):
                     category=item.category,
                     product_items=item,
                     qty=0,
-                    rate=outstanding_amount.customer_outstanding.customer.rate,
+                    rate=customer.rate,
                     invoice=invoice,
                     remarks='invoice generated from collection: ' + invoice.reference_no
                 )
@@ -7930,9 +7930,14 @@ class StockTransferAPIView(APIView):
         if not product_id:
             return Response({"error": "Product ID is required"}, status=status.HTTP_400_BAD_REQUEST)
         
-        bottle_count = WashingStock.objects.get(product__pk=product_id).quantity
-        
+        try:
+            washing_stock = WashingStock.objects.get(product__pk=product_id)
+            bottle_count = washing_stock.quantity
+        except WashingStock.DoesNotExist:
+            bottle_count = 0
+
         return Response({"bottle_count": bottle_count}, status=status.HTTP_200_OK)
+    
     
     def post(self, request, *args, **kwargs):
         product_id = request.data.get('product_id')
@@ -8023,15 +8028,12 @@ class ScrapStockAPIView(APIView):
         if not product_id:
             return Response({"error": "Product ID is required"}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Use filter to get all matching objects
-        scrap_stocks = ScrapStock.objects.filter(product__pk=product_id)
+        try:
+            scrap_stocks = ScrapStock.objects.filter(product__pk=product_id)
+            total_quantity = scrap_stocks.aggregate(total_quantity=Sum('quantity'))['total_quantity']
+        except ScrapStock.DoesNotExist:
+            total_quantity = 0
         
-        if not scrap_stocks.exists():
-            return Response({"error": "No ScrapStock found for the given product ID"}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Aggregate the total quantity
-        total_quantity = scrap_stocks.aggregate(total_quantity=Sum('quantity'))['total_quantity']
-
         return Response({"total_quantity": total_quantity}, status=status.HTTP_200_OK)
     
     def post(self, request, *args, **kwargs):
