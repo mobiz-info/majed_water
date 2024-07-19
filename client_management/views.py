@@ -1900,6 +1900,20 @@ def customer_outstanding_details(request,customer_pk):
     instances = CustomerOutstanding.objects.filter(customer__pk=customer_pk)
     
     query = request.GET.get("q")
+    date = request.GET.get('date')
+    route_filter = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    if route_filter:
+            instances = instances.filter(customer__routes__route_name=route_filter)
+    route_li = RouteMaster.objects.all()
     
     if query:
 
@@ -1919,9 +1933,59 @@ def customer_outstanding_details(request,customer_pk):
         'is_customer_outstanding': True,
         'is_need_datetime_picker': True,
         'filter_data': filter_data,
+        'route_li':route_li,
     }
 
     return render(request, 'client_management/customer_outstanding/info_list.html', context)
+
+@login_required
+def outstanding_list(request):
+    """
+    Customer Outstanding  List
+    :param request:
+    :return: Customer Outstanding list view
+    """
+    filter_data = {}
+    instances = CustomerOutstanding.objects.all()
+    
+    query = request.GET.get("q")
+    date = request.GET.get('date')
+    route_filter = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    if route_filter:
+            instances = instances.filter(customer__routes__route_name=route_filter)
+    route_li = RouteMaster.objects.all()
+    
+    if query:
+
+        instances = instances.filter(
+            Q(product_type__icontains=query) |
+            Q(invoice_no__icontains=query) 
+        )
+        title = "Outstanding List - %s" % query
+        filter_data['q'] = query
+    
+    context = {
+        'instances': instances,
+        'page_name' : 'Customer Outstanding List',
+        'page_title' : 'Customer Outstanding List',
+        'customer_pk': request.GET.get("customer_pk"),
+        
+        'is_customer_outstanding': True,
+        'is_need_datetime_picker': True,
+        'filter_data': filter_data,
+        'route_li':route_li,
+    }
+
+    return render(request, 'client_management/customer_outstanding/outstanding_list.html', context)
 
 @login_required
 def create_customer_outstanding(request):

@@ -35,7 +35,7 @@ def home(request):
     template_name = 'master/dashboard.html'
     context = {}
     # sales_man = CustomUser.objects.get(username="salesman_test")
-    # notification(sales_man.pk,"test","tets","Majedwaterfcm")
+    # notification(sales_man.pk,"test","tets","Sanawaterfcm")
     return render(request, template_name,context)
 
 

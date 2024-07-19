@@ -102,7 +102,7 @@
                                     {% for item in instances %}
                                     <tr>
                                         <td>{{ forloop.counter }}</td>
-                                        <td>{{ item.created_date }}</td>
+                                        <td>{{ item.created_date|date:'d-m-Y' }}</td>
                                         <td>{{ item.invoice_no }}</td>
                                         <td>{{ item.customer.customer_name }}</td>
                                         <td>{{ item.customer.building_name }}</td>

@@ -102,9 +102,7 @@ class Login_Api(APIView):
             username = request.data.get('username')
             password = request.data.get('password')
             if username and password:
-                print("username and password", username, password)
                 user = authenticate(username=username, password=password)
-                print(user,"user")
                 if user is not None:
                     if user.is_active:
                         login(request, user)
@@ -123,7 +121,7 @@ class Login_Api(APIView):
                 else:
                     return Response({'status': False, 'message': 'Unauthenticated User!'})
             else:
-                return Response({'status': False, 'message': 'Unauthenticated User!'})
+                return Response({'status': False, 'message': 'Enter a Valid Username and Password!'})
         except CustomUser.DoesNotExist:
             return Response({'status': False, 'message': 'User does not exist!'})
         except Exception as e:
@@ -2914,27 +2912,30 @@ class create_customer_supply(APIView):
                         quantity=item_data['quantity'],
                         amount=item_data['amount']
                     )
-                    if not VanProductStock.objects.filter(created_date=datetime.today().date(),product=suply_items.product,van__salesman=request.user).exists():
-                        vanstock = VanProductStock.objects.create(created_date=datetime.today(),product=suply_items.product,van=van)
-                    else:
-                        vanstock = VanProductStock.objects.get(created_date=datetime.today().date(),product=suply_items.product,van=van)
-                        
-                    vanstock.stock -= suply_items.quantity
-                    if customer_supply.customer.sales_type != "FOC" :
-                        vanstock.sold_count += suply_items.quantity
-                    if customer_supply.customer.sales_type == "FOC" :
-                        vanstock.foc += suply_items.quantity
-                    vanstock.save()
                     
-                    if suply_items.product.product_name == "5 Gallon" :
-                        total_fivegallon_qty += Decimal(suply_items.quantity)
-                        empty_bottle = VanProductStock.objects.get(
-                            created_date=datetime.today().date(),
-                            product=suply_items.product,
-                            van=van,
-                        )
-                        empty_bottle.empty_can_count += collected_empty_bottle
-                        empty_bottle.save()
+                    vanstock = VanProductStock.objects.get(created_date=datetime.today().date(),product=suply_items.product,van=van)
+                    
+                    if vanstock.stock >= item_data['quantity']:
+                    
+                        vanstock.stock -= suply_items.quantity
+                        if customer_supply.customer.sales_type != "FOC" :
+                            vanstock.sold_count += suply_items.quantity
+                        if customer_supply.customer.sales_type == "FOC" :
+                            vanstock.foc += suply_items.quantity
+                        if suply_items.product.product_name == "5 Gallon" :
+                            total_fivegallon_qty += Decimal(suply_items.quantity)
+                            vanstock.empty_can_count += collected_empty_bottle
+                        vanstock.save()
+                        
+                    else:
+                        status_code = status.HTTP_400_BAD_REQUEST
+                        response_data = {
+                            "status": "false",
+                            "title": "Failed",
+                            "message": f"No stock available in {vanstock.product.product_name}, only {vanstock.stock} left",
+                        }
+                        return Response(response_data, status=status_code)
+                        
                 
                 if allocate_bottle_to_custody > 0 :
                     custody_instance = CustodyCustom.objects.create(
@@ -3282,12 +3283,6 @@ class create_customer_supply(APIView):
                 "title": "Failed",
                 "message": str(e),
             }
-        else:
-            response_data = {
-                "status": "false",
-                "title": "Error",
-                "message": "Failed to generate Invoice."
-            }
         return Response(response_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 class edit_customer_supply(APIView):
@@ -3339,6 +3334,8 @@ class edit_customer_supply(APIView):
     def post(self, request,pk, *args, **kwargs):
         try:
             with transaction.atomic():
+                old_supply_date = CustomerSupply.objects.get(pk=pk).created_date
+                
                 supply_instance = CustomerSupply.objects.get(pk=pk)
                 supply_items_instances = CustomerSupplyItems.objects.filter(customer_supply=supply_instance)
                 five_gallon_qty = supply_items_instances.filter(product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
@@ -3494,7 +3491,7 @@ class edit_customer_supply(APIView):
                     allocate_bottle_to_custody=allocate_bottle_to_custody,
                     allocate_bottle_to_paid=allocate_bottle_to_paid,
                     created_by=request.user.id,
-                    created_date=timezone.now()
+                    created_date=old_supply_date
                 )
 
                 # Create CustomerSupplyItems instances
@@ -3509,30 +3506,28 @@ class edit_customer_supply(APIView):
                         amount=item_data['amount']
                     )
                     
-                    if not VanProductStock.objects.filter(created_date=datetime.today().date(),product=suply_items.product,van__salesman=request.user).exists():
-                        vanstock = VanProductStock.objects.create(created_date=datetime.today().date(),product=suply_items.product,van=van)
-                    else:
-                        vanstock = VanProductStock.objects.get(created_date=datetime.today().date(),product=suply_items.product,van=van)
-                        
-                    vanstock.stock -= suply_items.quantity
-                    vanstock.save()
+                    vanstock = VanProductStock.objects.get(created_date=customer_supply.created_date.date(),product=suply_items.product,van=van)
                     
-                    if suply_items.product.product_name == "5 Gallon" :
-                        total_fivegallon_qty += Decimal(suply_items.quantity)
-                        if not VanProductStock.objects.filter(created_date=datetime.today().date(),product=suply_items.product,van__salesman=request.user).exists():
-                            empty_bottle = VanProductStock.objects.create(
-                                created_date=datetime.today().date(),
-                                product=suply_items.product,
-                                van=van,
-                            )
-                        else:
-                            empty_bottle = VanProductStock.objects.get(
-                                created_date=datetime.today().date(),
-                                product=suply_items.product,
-                                van=van,
-                            )
-                        empty_bottle.empty_can_count += collected_empty_bottle
-                        empty_bottle.save()
+                    if vanstock.stock >= item_data['quantity']:
+                    
+                        vanstock.stock -= suply_items.quantity
+                        if customer_supply.customer.sales_type != "FOC" :
+                            vanstock.sold_count += suply_items.quantity
+                        if customer_supply.customer.sales_type == "FOC" :
+                            vanstock.foc += suply_items.quantity
+                        if suply_items.product.product_name == "5 Gallon" :
+                            total_fivegallon_qty += Decimal(suply_items.quantity)
+                            vanstock.empty_can_count += collected_empty_bottle
+                        vanstock.save()
+                        
+                    else:
+                        status_code = status.HTTP_400_BAD_REQUEST
+                        response_data = {
+                            "status": "false",
+                            "title": "Failed",
+                            "message": f"No stock available in {vanstock.product.product_name}, only {vanstock.stock} left",
+                        }
+                        return Response(response_data, status=status_code)
                 
                 # empty bottle calculate
                 if total_fivegallon_qty < Decimal(customer_supply.collected_empty_bottle) :
@@ -3713,7 +3708,7 @@ class edit_customer_supply(APIView):
                 if customer_supply.customer.sales_type == "CASH" or customer_supply.customer.sales_type == "CREDIT":
                     invoice_generated = True
                     
-                    date_part = timezone.now().strftime('%Y%m%d')
+                    date_part = old_supply_date.strftime('%Y%m%d')
                     try:
                         invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
                         last_invoice_number = invoice_last_no.invoice_no
@@ -3735,7 +3730,7 @@ class edit_customer_supply(APIView):
                     # Create the invoice
                     invoice = Invoice.objects.create(
                         invoice_no=invoice_number,
-                        created_date=datetime.today(),
+                        created_date=old_supply_date,
                         net_taxable=customer_supply.net_payable,
                         vat=customer_supply.vat,
                         discount=customer_supply.discount,
@@ -3766,14 +3761,14 @@ class edit_customer_supply(APIView):
                     # print("invoice generate")
                     InvoiceDailyCollection.objects.create(
                         invoice=invoice,
-                        created_date=datetime.today(),
+                        created_date=old_supply_date,
                         customer=invoice.customer,
                         salesman=request.user,
                         amount=invoice.amout_recieved,
                     )
 
                 DiffBottlesModel.objects.filter(
-                    delivery_date__date=date.today(),
+                    delivery_date__date=old_supply_date.date(),
                     assign_this_to=customer_supply.salesman_id,
                     customer=customer_supply.customer_id
                     ).update(status='supplied')
@@ -4040,7 +4035,6 @@ class CustodyItemReturnAPI(APIView):
             customer = Customers.objects.get(customer_id=request.data['customer_id'])
             custody_stock_id = request.data['custody_stock_id']
             agreement_no = request.data['agreement_no']
-            print(agreement_no,'agreement_no')
             total_amount = int(request.data['total_amount'])
             deposit_type = request.data['deposit_type']
             reference_no = request.data['reference_no']
@@ -4048,17 +4042,12 @@ class CustodyItemReturnAPI(APIView):
             quantity =  int(request.data['quantity'])
             serialnumber =  request.data['serialnumber']
 
-            # stock_instance = CustomerReturnStock.objects.get(id=custody_stock_id).quantity
-
-
             custody_return_instance = CustomerReturn.objects.create(
                 customer=customer,
                 agreement_no=agreement_no,
-                # total_amount=total_amount,
                 deposit_type=deposit_type,
                 reference_no=reference_no
             )
-            print(custody_return_instance.agreement_no,'ascSDCdsv')
 
             # Create CustodyCustomItems instances
             # for item_data in items_data:
@@ -4078,7 +4067,6 @@ class CustodyItemReturnAPI(APIView):
                 stock_instance.save()
             except CustomerReturnStock.DoesNotExist:
                 CustomerReturnStock.objects.create(
-                    customer=customer,
                     id=custody_stock_id,
                     agreement_no=agreement_no,
                     deposit_type=deposit_type,

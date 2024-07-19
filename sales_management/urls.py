@@ -94,6 +94,6 @@ urlpatterns = [
     
     #------------------------------Bottle Count-------------------------------------
     path('van-route-bottle-count/', van_route_bottle_count, name='van_route_bottle_count'),
-    path('vans_route_bottle_count_add/<uuid:pk>/',VansRouteBottleCountAdd, name='vans_route_bottle_count_add'),
-    path('vans_route_bottle_count_deduct/<uuid:pk>/',VansRouteBottleCountDeduct, name='vans_route_bottle_count_deduct'),
+    path('vans-route-bottle-count-add/<uuid:pk>/',VansRouteBottleCountAdd, name='bottle_count_add'),
+    path('vans-route-bottle-count-deduct/<uuid:pk>/',VansRouteBottleCountDeduct, name='bottle_count_deduct'),
 ]

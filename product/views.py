@@ -496,7 +496,11 @@ def staffIssueOrdersCreate(request, staff_order_details_id):
                                     )
                                 
                             if issue.product_id.product_name == "5 Gallon":
-                                if (bottle_count:=BottleCount.objects.filter(van=van_product_stock.van,created_date__date=van_product_stock.created_date)).exists():
+                                if (bottle_count:=BottleCount.objects.filter(
+                                    van=van_product_stock.van,
+                                    created_date__date=van_product_stock.created_date
+                                    )).exists():
+                                    
                                     bottle_count = bottle_count.first()
                                 else:
                                     bottle_count = BottleCount.objects.create(van=van_product_stock.van,created_date=van_product_stock.created_date)
