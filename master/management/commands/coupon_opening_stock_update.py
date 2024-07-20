@@ -22,7 +22,7 @@ class Command(BaseCommand):
                 created_date=today,  # Ensure created_date is set to today
                 defaults={
                     'opening_count': yesterday_stock.closing_count,
-                    'stock': yesterday_stock.closing_count,
+                    'stock': yesterday_stock.stock,
                 }
             )
             

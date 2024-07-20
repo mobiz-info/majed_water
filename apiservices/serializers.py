@@ -859,7 +859,7 @@ class CustomerCustodyStockProductsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomerCustodyStock
-        fields = ['agreement_no','deposit_type','product','product_name','quantity','serialnumber','amount','deposit_form_number']
+        fields = ['id','agreement_no','deposit_type','product','product_name','quantity','serialnumber','amount','deposit_form_number']
         
     def get_product_name(self,obj):
         return obj.product.product_name

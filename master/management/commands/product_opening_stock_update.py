@@ -10,7 +10,7 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         today = timezone.now().date()
         yesterday = today - timedelta(days=1)
-
+        
         yesterday_stocks = VanProductStock.objects.filter(created_date=yesterday)
         for yesterday_stock in yesterday_stocks:
             # Separate the lookup and creation logic
@@ -22,7 +22,7 @@ class Command(BaseCommand):
 
             if today_stock:
                 today_stock.opening_count = yesterday_stock.closing_count
-                today_stock.stock += yesterday_stock.closing_count
+                today_stock.stock = yesterday_stock.stock
                 today_stock.save()
                 self.stdout.write(self.style.SUCCESS(f'Updated opening count for {today_stock.id}'))
             else:
@@ -31,12 +31,11 @@ class Command(BaseCommand):
                     van=yesterday_stock.van,
                     created_date=today,
                     opening_count=yesterday_stock.closing_count,
-                    closing_count=yesterday_stock.closing_count, 
                     change_count=yesterday_stock.change_count,
                     damage_count=yesterday_stock.damage_count,
                     empty_can_count=yesterday_stock.empty_can_count,
                     return_count=yesterday_stock.return_count,
-                    stock=yesterday_stock.closing_count
+                    stock=yesterday_stock.stock
                 )
                 self.stdout.write(self.style.SUCCESS(f'Created new stock entry for product {yesterday_stock.product.pk} in van {yesterday_stock.van.pk}'))
 

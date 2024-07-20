@@ -2775,7 +2775,7 @@ class CustodyCustomAPIView(APIView):
 
                 net_taxable = total_amount
                 discount = 0  
-                amount_total = total_amount + can_deposite_chrge + five_gallon_water_charge
+                amount_total = total_amount
                 amount_received = amount_collected
 
                 invoice_instance = Invoice.objects.create(
@@ -3220,13 +3220,19 @@ class create_customer_supply(APIView):
                         item = CustomerSupplyItems.objects.get(pk=item_data.pk)
                         
                         if item.product.product_name == "5 Gallon":
-                            if not VanProductStock.objects.filter(created_date=datetime.today().date(),product=item.product,van__salesman=request.user).exists():
-                                vanstock = VanProductStock.objects.create(created_date=datetime.today().date(),product=item.product,van=van)
-                            else:
+                            if VanProductStock.objects.filter(created_date=datetime.today().date(),product=item.product,van__salesman=request.user).exists():
                                 vanstock = VanProductStock.objects.get(created_date=datetime.today().date(),product=item.product,van=van)
+                                vanstock.pending_count += item.customer_supply.allocate_bottle_to_pending
+                                vanstock.save()
+                            else:
+                                status_code = status.HTTP_400_BAD_REQUEST
+                                response_data = {
+                                    "status": "false",
+                                    "title": "Failed",
+                                    "message": f"No stock available in this van",
+                                }
+                                return Response(response_data, status=status_code)
                             
-                            vanstock.pending_count += item.customer_supply.allocate_bottle_to_pending
-                            vanstock.save()
                         
                         InvoiceItems.objects.create(
                             category=item.product.category,
@@ -4028,7 +4034,39 @@ class CustodyItemReturnAPI(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = CustodyCustomReturnSerializer
-
+    
+    def get(self,request):
+        stock_id = request.GET.get("stock_id")
+        if stock_id:
+            custody_stock_instance = CustomerCustodyStock.objects.get(pk=stock_id)
+            # Split the concatenated fields into lists
+            serialnumber_list = custody_stock_instance.serialnumber.split(', ')
+            agreement_no_list = custody_stock_instance.agreement_no.split(', ')
+            
+            return Response(
+                {
+                    'status': True,
+                    'product_id': custody_stock_instance.product.pk,
+                    'product_name': custody_stock_instance.product.product_name,
+                    'quantity': custody_stock_instance.quantity,
+                    'amount': custody_stock_instance.amount,
+                    'serialnumber': serialnumber_list,
+                    'agreement_no': agreement_no_list,
+                    'deposit_type': custody_stock_instance.deposit_type,
+                    'can_deposite_chrge': custody_stock_instance.can_deposite_chrge,
+                    'five_gallon_water_charge': custody_stock_instance.five_gallon_water_charge,
+                    'amount_collected': custody_stock_instance.amount_collected,
+                    'message': 'Success'
+                }
+            )
+        else:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "status": status_code,
+                "message": "pass stock_id",
+            }
+            return Response(response_data, status_code)
+            
     def post(self, request, *args, **kwargs):
         
         try:
@@ -4062,8 +4100,8 @@ class CustodyItemReturnAPI(APIView):
                 stock_instance = CustomerReturnStock.objects.get(customer=customer, product=product)
                 stock_instance.agreement_no += ', ' + agreement_no
                 stock_instance.serialnumber += ', ' + serialnumber
-                stock_instance.amount -= total_amount
-                stock_instance.quantity -= quantity
+                stock_instance.quantity += quantity
+                stock_instance.amount += total_amount
                 stock_instance.save()
             except CustomerReturnStock.DoesNotExist:
                 CustomerReturnStock.objects.create(
@@ -4076,6 +4114,65 @@ class CustodyItemReturnAPI(APIView):
                     serialnumber=serialnumber,
                     amount=total_amount
                 )
+                
+            custody_stock_instance = CustomerCustodyStock.objects.get(customer=customer, product=product)
+            custody_stock_instance.amount_collected -= total_amount
+            custody_stock_instance.quantity -= quantity
+            custody_stock_instance.save()
+            
+            # date_part = datetime.today().strftime('%Y%m%d')
+            # try:
+            #     invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
+            #     last_invoice_number = invoice_last_no.invoice_no
+
+            #     # Validate the format of the last invoice number
+            #     parts = last_invoice_number.split('-')
+            #     if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
+            #         prefix, old_date_part, number_part = parts
+            #         new_number_part = int(number_part) + 1
+            #         invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+            #     else:
+            #         # If the last invoice number is not in the expected format, generate a new one
+            #         random_part = str(random.randint(1000, 9999))
+            #         invoice_number = f'WTR-{date_part}-{random_part}'
+            # except Invoice.DoesNotExist:
+            #     random_part = str(random.randint(1000, 9999))
+            #     invoice_number = f'WTR-{date_part}-{random_part}'
+            
+            # # Create the invoice
+            # invoice = Invoice.objects.create(
+            #     invoice_no=invoice_number,
+            #     created_date=datetime.today(),
+            #     net_taxable=total_amount,
+            #     vat=0,
+            #     discount=0,
+            #     amout_total=total_amount,
+            #     amout_recieved=total_amount,
+            #     customer=customer,
+            #     reference_no=stock_instance.reference_no
+            # )
+            
+            # if customer.sales_type == "CREDIT":
+            #     invoice.invoice_type = "credit_invoive"
+            #     invoice.save()
+
+            # # Create invoice items
+            # InvoiceItems.objects.create(
+            #     category=product.category,
+            #     product_items=product,
+            #     qty=quantity,
+            #     rate=total_amount,
+            #     invoice=invoice,
+            #     remarks='invoice genereted from supply items reference no : ' + invoice.reference_no
+            # )
+            # # print("invoice generate")
+            # InvoiceDailyCollection.objects.create(
+            #     invoice=invoice,
+            #     created_date=datetime.today(),
+            #     customer=invoice.customer,
+            #     salesman=request.user,
+            #     amount=invoice.amout_recieved,
+            # )
                 
             if item_intances.product.product_name == "5 Gallon":
                 if (bottle_count:=BottleCount.objects.filter(van__salesman=request.user,created_date__date=custody_return_instance.created_date.date())).exists():
