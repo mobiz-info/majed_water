@@ -4543,8 +4543,8 @@ class AddCollectionPayment(APIView):
                     customer=customer,
                     reference_no=f"custom_id{customer.custom_id}"
                 )
-                customer_outstanding.invoice_no = invoice.invoice_no
-                customer_outstanding.save()
+                # customer_outstanding.invoice_no = invoice.invoice_no
+                # customer_outstanding.save()
                 
                 if customer.sales_type == "CREDIT":
                     invoice.invoice_type = "credit_invoice"
