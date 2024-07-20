@@ -4179,11 +4179,15 @@ class CustodyItemReturnAPI(APIView):
                     bottle_count = bottle_count.first()
                     bottle_count.custody_issue += item_intances.quantity
                     bottle_count.save()
-
-            return Response({'status': True, 'message': 'Created Successfully'})
+                    
+            return Response({'status': True,'message': 'Created Successfully'},status=status.HTTP_200_OK)
         except Exception as e:
-            print(e)
-            return Response({'status': False, 'data': str(e), 'message': 'Something went wrong!'})
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "status": False,
+                "message": str(e),
+            }
+            return Response(response_data, status_code)
 
 
 class OutstandingAmountAPI(APIView):
