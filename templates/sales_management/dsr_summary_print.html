@@ -111,11 +111,12 @@
                                             <th scope="col" style="text-align:center;">Opening Stock</th>
                                             <th scope="col" style="text-align:center;">Requested Stock</th>
                                             <th scope="col" style="text-align:center;">Issued</th>
-                                            <th scope="col" style="text-align:center;">Empty Bottle</th>
                                             <th scope="col" style="text-align:center;">Sold</th>
+                                            <th scope="col" style="text-align:center;">FOC</th>
                                             <th scope="col" style="text-align:center;">Returned</th>
                                             <th scope="col" style="text-align:center;">Offload</th>
-                                            <th scope="col" style="text-align:center;">Total Stock</th>
+                                            <th scope="col" style="text-align:center;">Empty Bottle</th>
+                                            <th scope="col" style="text-align:center;">Fresh Stock</th>
                                             <th scope="col" style="text-align:center;">Closing</th>
                                         </tr>
                                     </thead>
@@ -127,10 +128,11 @@
                                             <td style="text-align:center;">{{van_data.opening_count}}</td>
                                             <td style="text-align:center;">{{stock_details.requested_count}}</td>
                                             <td style="text-align:center;">{{stock_details.issued_count}}</td>
-                                            <td style="text-align:center;">{{van_data.empty_can_count}}</td>
                                             <td style="text-align:center;">{{van_data.sold_count }}</td>
+                                            <td style="text-align:center;">{{van_data.foc }}</td>
                                             <td style="text-align:center;">{{van_data.return_count}}</td>
                                             <td style="text-align:center;">{{stock_details.offload_count}}</td>
+                                            <td style="text-align:center;">{{van_data.empty_can_count}}</td>
                                             <td style="text-align:center;">{{stock_report_total}}</td>
                                             <td style="text-align:center;">{{van_data.closing_count}}</td>
                                         </tr>
@@ -317,7 +319,7 @@
                                    <tbody>
                                         {% for foc in foc_customers %}
                                         <tr>
-                                            <td>{{ forloop.counter }}</td>
+                                            <td style="text-align:center;">{{ forloop.counter }}</td>
                                             <td>{{ foc.customer.customer_name }}</td>
                                             <td style="text-align:center;">{{ foc.customer.routes.route_name }}</td>                                      
                                             <td style="text-align:center;">{{ foc.get_total_supply_qty }}</td>
@@ -380,7 +382,6 @@
                                             <td colspan="3" style="text-align: right;">Total:</td>
                                             <td style="text-align:center;">{{ cash_total_qty }}</td>
                                             <td style="text-align:center;">-</td>
-                                            {% comment %} <td style="text-align:center;">{{ cash_total_vat }}</td> {% endcomment %}
                                             <td style="text-align:center;">{{ cash_total_subtotal }}</td>
                                             <td style="text-align:center;">{{ cash_total_net_taxable }}</td>
                                             <td style="text-align:center;">{{ cash_total_amount_recieved }}</td>
@@ -612,7 +613,7 @@
                                             <td>{{ expense.expence_type.name }}</td>
                                             <td style="text-align:center;">{{ expense.amount }}</td>
                                         </tr>
-                                    {% endfor %} 
+                                        {% endfor %} 
                                     </tbody>
                                 </table>
                             </div>
