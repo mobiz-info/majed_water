@@ -908,7 +908,7 @@ def excel_download(request, route_id, def_date, trip):
 
         # Merge cells and write other information with borders
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 16, 'border': 1})
-        worksheet.merge_range('A1:N2', f'National Water', merge_format)
+        worksheet.merge_range('A1:N2', f'Majed Water', merge_format)
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
         worksheet.merge_range('A3:D3', f'Route:    {route.route_name}    {trip}', merge_format)
         worksheet.merge_range('E3:I3', f'Date: {def_date}', merge_format)
