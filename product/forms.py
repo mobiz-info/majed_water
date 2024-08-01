@@ -17,13 +17,14 @@ class Products_Create_Form(forms.ModelForm):
 class Product_Item_Create_Form(forms.ModelForm):
     class Meta:
         model = ProdutItemMaster
-        fields = ['product_name','category','unit','rate','tax']
+        fields = ['product_name','category','unit','rate','tax','image']
         widgets = {
             'product_name': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
             'category': forms.Select(attrs={'class': 'form-control', 'required': 'true'}),
             'unit': forms.Select(attrs={'class': 'form-control', 'required': 'true'}),
             'rate': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
             'tax' : forms.Select(attrs={'class': 'form-control', 'required': 'true'}),
+            'image': forms.FileInput(attrs={'class': 'form-control'}),
         }
 
 class Products_Edit_Form(forms.ModelForm):

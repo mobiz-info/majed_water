@@ -60,26 +60,37 @@ urlpatterns = [
     path('suspense_report_print',suspense_report_print, name='suspense_report_print'),
 #------------------DSR Cash Sales Report-------------------------------------
     path('cashsales_report',cashsales_report, name='cashsales_report'),
-    path('cashsales_report_excel',cashsales_report_excel, name='cashsales_report_excel'),
     path('cashsales_report_print',cashsales_report_print, name='cashsales_report_print'),
     
 #------------------DSR Credit Sales Report-------------------------------------
     path('creditsales_report',creditsales_report, name='creditsales_report'),
-    path('creditsales_report_excel',creditsales_report_excel, name='creditsales_report_excel'),
     path('creditsales_report_print',creditsales_report_print, name='creditsales_report_print'),
-    
-#-------------------DSR coupon Book Sales-------------------------
+#-------------------DSR coupon Book  Sales-------------------------
+    path('dsr_coupon_sales',dsr_coupon_sales, name='dsr_coupon_sales'),
+    path('dsr_coupons_sales_print',dsr_coupons_sales_print, name='dsr_coupons_sales_print'),
+        
+#-------------------DSR coupon Book  Sales-------------------------
     path('dsr_coupon_book_sales',dsr_coupon_book_sales, name='dsr_coupon_book_sales'),
-    path('dsr_coupon_book_sales_excel',dsr_coupon_book_sales_excel, name='dsr_coupon_book_sales_excel'),
     path('dsr_coupon_book_sales_print',dsr_coupon_book_sales_print, name='dsr_coupon_book_sales_print'),
     
-    
+#-------------------DSR FOC Customers-------------------------
+    path('dsr_foc_customers',dsr_foc_customers, name='dsr_foc_customers'),   
+    path('dsr_foc_customers_print',dsr_foc_customers_print, name='dsr_foc_customers_print'),   
+
+     
 #------------------DSR Stock Report-------------------------------------
     path('dsr_stock_report',dsr_stock_report, name='dsr_stock_report'),
-
+    path('dsr_stock_report_print',dsr_stock_report_print, name='dsr_stock_report_print'),
+#------------------dsr_expense----------------
+    path('dsr_expense',dsr_expense, name='dsr_expense'),
+    path('dsr_expense_print',dsr_expense_print, name='dsr_expense_print'),
+    path('dsr_five_gallon_rates',dsr_five_gallon_rates, name='dsr_five_gallon_rates'),
+    path('dsr_five_gallon_rates_print',dsr_five_gallon_rates_print, name='dsr_five_gallon_rates_print'),
+    path('dsr_credit_outstanding',dsr_credit_outstanding, name='dsr_credit_outstanding'),
+    path('dsr_credit_outstanding_print',dsr_credit_outstanding_print, name='dsr_credit_outstanding_print'),
+    
 #------------------DSR Visit Statistics Report-------------------------------------
     path('visitstatistics_report',visitstatistics_report, name='visitstatistics_report'),
-    path('visitstatistics_report_excel',visitstatistics_report_excel, name='visitstatistics_report_excel'),
     path('visitstatistics_print',visitstatistics_report_print, name='visitstatistics_report_print'),
     
     #------------------DSR Five Gallon Related Report-------------------------------------
@@ -96,4 +107,9 @@ urlpatterns = [
     path('van-route-bottle-count/', van_route_bottle_count, name='van_route_bottle_count'),
     path('vans-route-bottle-count-add/<uuid:pk>/',VansRouteBottleCountAdd, name='bottle_count_add'),
     path('vans-route-bottle-count-deduct/<uuid:pk>/',VansRouteBottleCountDeduct, name='bottle_count_deduct'),
+    
+    
+    #------------------DSR Outstanding Amount Collected Report-------------------------------------
+    path('outstanding_amount_collected',outstanding_amount_collected, name='outstanding_amount_collected'),
+
 ]

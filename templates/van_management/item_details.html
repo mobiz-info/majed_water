@@ -109,7 +109,7 @@
                                     <td style="text-align:center;">{{van_coupon_count}}</td>
                                     <td style="text-align:center;">
                                         <div class="g-2">
-                                            <button class="btn btn-primary-light btn-sm" data-product_name="{{data.product_name}}" data-href="{% url 'issue_coupons_orders' %}" onclick="handleButtonClick(this)"><span class="bi bi-plus-circle fs-14"></span> Offload</button>
+                                            <button class="btn btn-primary-light btn-sm" data-product_name="{{data.product_name}}" data-van_id="{{van_pk}}" data-href="{% url 'issue_coupons_orders' %}" onclick="handleButtonClick(this)"><span class="bi bi-plus-circle fs-14"></span> Offload</button>
                                         </div>
                                         {% comment %} <form method="post" action="{% url 'edit_coupon_count' data.pk %}">
                                             {% csrf_token %}
@@ -175,13 +175,16 @@
 <script>
     function handleButtonClick(button) {
         var productName = $(button).data("product_name");
+        var vanId = $(button).data("van_id");
+
         $("#modalRequestId").val(productName);
         
         $.ajax({
             url: "{% url 'get_van_coupon_bookno' %}",
             method: "GET",
             data: {
-                productName: productName
+                vanId: vanId,
+                productName: productName,
             },
             success: function(response) {
                 if (response.data.length > 0) {

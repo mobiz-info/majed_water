@@ -38,8 +38,10 @@ from django.db.models import Max
 
 
 def get_van_coupon_bookno(request):
+    van_id = request.GET.get("vanId")
     coupon_type = request.GET.get("productName")
-    if (instances := VanCouponStock.objects.filter(coupon__coupon_type__coupon_type_name=coupon_type,stock__gt=0)).exists():
+    
+    if (instances := VanCouponStock.objects.filter(van__pk=van_id,coupon__coupon_type__coupon_type_name=coupon_type,stock__gt=0)).exists():
         instance = instances.values_list('coupon__pk')
         stock_instances = CouponStock.objects.filter(couponbook__pk__in=instance)
         serialized = couponStockSerializers(stock_instances, many=True)
@@ -906,7 +908,7 @@ def excel_download(request, route_id, def_date, trip):
 
         # Merge cells and write other information with borders
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 16, 'border': 1})
-        worksheet.merge_range('A1:N2', f'Majed Water', merge_format)
+        worksheet.merge_range('A1:N2', f'National Water', merge_format)
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
         worksheet.merge_range('A3:D3', f'Route:    {route.route_name}    {trip}', merge_format)
         worksheet.merge_range('E3:I3', f'Date: {def_date}', merge_format)
@@ -1329,13 +1331,22 @@ class EditProductView(View):
         
 class EditCouponView(View):
     def post(self, request, van_pk):
+        filter_data = {}
+        date = request.GET.get('date')
         book_numbers = request.POST.getlist("coupon_book_no")
+        
+        if date:
+            date = datetime.strptime(date, '%Y-%m-%d').date()
+            filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+        else:
+            date = datetime.today().date()
+            filter_data['filter_date'] = date.strftime('%Y-%m-%d')
         
         for book_number in book_numbers:
             coupon_instance = NewCoupon.objects.get(book_num=book_number)
             
-            van_coupon_stock = VanCouponStock.objects.get(van__pk=van_pk,coupon=coupon_instance)
-            van_coupon_stock.stock -= 1
+            van_coupon_stock = VanCouponStock.objects.get(van__pk=van_pk,coupon=coupon_instance,created_date=date)
+            van_coupon_stock.stock = 0
             van_coupon_stock.save()
             
             product_stock = ProductStock.objects.get(branch=van_coupon_stock.van.branch_id,product_name__product_name=coupon_instance.coupon_type.coupon_type_name)
@@ -1458,3 +1469,88 @@ class VanCouponStockList(View):
             'filter_data': filter_data,
         }
         return render(request, 'van_management/van_coupon_stock.html', context)
+
+
+# List view
+def excess_bottle_count_list(request):
+    excess_bottles = ExcessBottleCount.objects.all()
+    return render(request, 'van_management/excess_bottle_count_list.html', {'excess_bottles': excess_bottles})
+
+# Create view
+def excess_bottle_count_create(request):
+    if request.method == 'POST':
+        form = ExcessBottleCountForm(request.POST)
+        if form.is_valid():
+            excess_bottle_count = form.save(commit=False)
+            excess_bottle_count.created_by = request.user  # Set the created_by field
+            excess_bottle_count.save()
+
+            # Update or create VanProductStock
+            van_product_stock, created = VanProductStock.objects.get_or_create(
+                van=excess_bottle_count.van,
+                created_date=excess_bottle_count.created_date.date(),
+                defaults={'excess_bottle': excess_bottle_count.bottle_count}
+            )
+            if not created:
+                van_product_stock.excess_bottle += excess_bottle_count.bottle_count
+                van_product_stock.save()
+
+            return redirect('excess_bottle_count_list')
+    else:
+        form = ExcessBottleCountForm()
+    return render(request, 'van_management/excess_bottle_count_create.html', {'form': form})
+
+# Update view
+def excess_bottle_count_update(request, pk):
+    # Retrieve the existing ExcessBottleCount instance
+    excess_bottle_count = get_object_or_404(ExcessBottleCount, pk=pk)
+    
+    # Store the old bottle count for adjustment
+    old_bottle_count = excess_bottle_count.bottle_count
+    
+    if request.method == 'POST':
+        # Initialize the form with POST data and the existing instance
+        form = ExcessBottleCountForm(request.POST, instance=excess_bottle_count)
+        
+        if form.is_valid():
+            # Save the form without committing to the database
+            excess_bottle_count = form.save(commit=False)
+            excess_bottle_count.created_by = request.user  # Update the created_by field
+            excess_bottle_count.save()
+
+            # Update the related VanProductStock instance
+            van_product_stock = VanProductStock.objects.filter(
+                van=excess_bottle_count.van,
+                created_date=excess_bottle_count.created_date.date()
+            ).first()
+            
+            if van_product_stock:
+                # Adjust the excess_bottle count in VanProductStock
+                van_product_stock.excess_bottle += excess_bottle_count.bottle_count - old_bottle_count
+                van_product_stock.save()
+
+            # Redirect to the list view after saving
+            return redirect('excess_bottle_count_list')
+    else:
+        # Initialize the form with the existing instance
+        form = ExcessBottleCountForm(instance=excess_bottle_count)
+
+    # Render the update template with the form
+    return render(request, 'van_management/excess_bottle_count_edit.html', {'form': form})
+
+# Delete view
+def excess_bottle_count_delete(request, pk):
+    excess_bottle_count = get_object_or_404(ExcessBottleCount, pk=pk)
+    if request.method == 'POST':
+        # Update VanProductStock
+        van_product_stock = VanProductStock.objects.filter(
+            van=excess_bottle_count.van,
+            created_date=excess_bottle_count.created_date.date()
+        ).first()
+        if van_product_stock:
+            van_product_stock.excess_bottle -= excess_bottle_count.bottle_count
+            van_product_stock.save()
+        
+        excess_bottle_count.delete()
+        return redirect('excess_bottle_count_list')
+    return render(request, 'van_management/excess_bottle_count_confirm_delete.html', {'object': excess_bottle_count})

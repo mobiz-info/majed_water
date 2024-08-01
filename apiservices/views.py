@@ -1,3 +1,4 @@
+import re
 import uuid
 import base64
 import datetime
@@ -1863,15 +1864,14 @@ class Staff_New_Order(APIView):
         try:
             with transaction.atomic():
                 data_list = request.data.get('data_list', [])
-                uid = uuid.uuid4()
-                uid = str(uid)[:2]
-                dtm = date.today().month
-                dty = date.today().year
-                dty = str(dty)[2:]
-                num = str(uid) + str(dtm) + str(dty)
-                # request.data["order_num"] = num
-                # print(num.upper())
-                
+                last_order = Staff_Orders.objects.all().latest("created_date")
+                if last_order:
+                    last_order_number = last_order.order_number
+                    new_order_number = int(last_order_number) + 1
+                else:
+                    new_order_number = 1
+
+                order_number = f"{new_order_number}"
                 order_date = request.GET.get('order_date')
             
                 if order_date:
@@ -1883,7 +1883,7 @@ class Staff_New_Order(APIView):
                 if serializer_1.is_valid(raise_exception=True):
                     order_data = serializer_1.save(
                         created_by=request.user.id,
-                        order_number=num.upper(),
+                        order_number=order_number.upper(),
                         order_date=order_date
                     )
                     staff_order = order_data.staff_order_id
@@ -1923,7 +1923,6 @@ class Staff_New_Order(APIView):
             # Handle other exceptions
             response_data = {"status": "false","title": "Failed","message": str(e),}
         return Response(response_data)
-
 
 
 class Customer_Create(APIView):
@@ -2941,7 +2940,7 @@ class create_customer_supply(APIView):
                     custody_instance = CustodyCustom.objects.create(
                         customer=customer_supply.customer,
                         created_by=request.user.id,
-                        created_date=timezone.now(),
+                        created_date=datetime.today(),
                         deposit_type="non_deposit",
                         reference_no=f"supply {customer_supply.customer.custom_id} - {customer_supply.created_date}"
                     )
@@ -7220,7 +7219,7 @@ class OffloadRequestListAPIView(APIView):
                 
                 if item.product.category.category_name == 'Coupons':
                     coupon_type = item.product.product_name
-                    coupons = OffloadCoupon.objects.filter(offload_request=offload_request, coupon__coupon_type__coupon_type_name=coupon_type)
+                    coupons = OffloadRequestCoupon.objects.filter(offload_request=offload_request, coupon__coupon_type__coupon_type_name=coupon_type)
                     coupon_ids = list(coupons.values_list('coupon_id', flat=True))
                     coupon_book_nums = list(coupons.values_list('coupon__book_num', flat=True))
                     vans_data[van.van_id][(product_name, date)]['coupon_numbers'].update(coupon_ids)
@@ -7394,19 +7393,16 @@ class OffloadRequestListAPIView(APIView):
                                 coupon.coupon_stock = "company"
                                 coupon.save()
                                 
+                                offload_item = OffloadRequestItems.objects.get(offload_request=offload_request_instance,product=product_item_instance,stock_type=stock_type)
+                                offload_item.offloaded_quantity = len(coupons)
+                                offload_item.save()
+                                
                                 OffloadCoupon.objects.create(
-                                    created_by=request.user.id,
-                                    created_date=datetime.now(),
-                                    salesman=van_coupon_stock.van.salesman,
-                                    van=van_coupon_stock.van,
                                     coupon=van_coupon_stock.coupon,
                                     quantity = 1,
-                                    stock_type="stock"
+                                    stock_type="stock",
+                                    offload_request=offload_request_instance
                                 )
-                                
-                            offload_item = OffloadRequestItems.objects.get(offload_request=offload_request_instance,product=product_item_instance,stock_type=stock_type)
-                            offload_item.offloaded_quantity = len(coupons)
-                            offload_item.save()
                         
                 response_data = {
                     "status": "true",
@@ -8187,3 +8183,36 @@ class ScrapStockAPIView(APIView):
             }
         
         return Response(response_data, status=status_code)
+
+class PrivacyPolicyAPIView(APIView):
+    def get(self, request):
+        try:
+            privacy_policy = PrivacyPolicy.objects.last()
+            serializer = PrivacyPolicySerializer(privacy_policy)
+            return Response(serializer.data)
+        except PrivacyPolicy.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+    def post(self, request):
+        serializer = PrivacyPolicySerializer(data=request.data)
+        if serializer.is_valid():
+            privacy_policy, created = PrivacyPolicy.objects.update_or_create(
+                defaults={'content': serializer.validated_data['content']}
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class TermsAndConditionsAPIView(APIView):
+    def get(self, request):
+        """
+        Retrieve all TermsAndConditions instances.
+        """
+        terms_and_conditions = TermsAndConditions.objects.all().latest("created_date")
+        serializer = TermsAndConditionsSerializer(terms_and_conditions, many=False)
+        return Response({
+            "status": "success",
+            "message": "Terms and conditions retrieved successfully.",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+
+    

@@ -257,7 +257,6 @@ class Customer_List(View):
 
         # Start with all customers
         user_li = Customers.objects.all()
-        
             
         # Apply filters if they exist
         if query:
@@ -265,7 +264,6 @@ class Customer_List(View):
                 Q(custom_id__icontains=query) |
                 Q(customer_name__icontains=query) |
                 Q(mobile_no__icontains=query) |
-                Q(routes__route_name__icontains=query) |
                 Q(location__location_name__icontains=query) |
                 Q(building_name__icontains=query)
             )
@@ -287,7 +285,92 @@ class Customer_List(View):
 
         return render(request, self.template_name, context)
     
+class Latest_Customer_List(View):
+    template_name = 'accounts/latest_customer_list.html'
 
+    def get(self, request, *args, **kwargs):
+        filter_data = {}
+        query = request.GET.get("q")
+        
+        route_filter = request.GET.get('route_name')
+
+        ten_days_ago = datetime.now() - timedelta(days=10)
+        user_li = Customers.objects.filter(created_date__gte=ten_days_ago)
+        if request.GET.get('start_date'):
+            start_date = request.GET.get('start_date')
+        else:
+            start_date = datetime.today().date()
+            
+        if request.GET.get('end_date'):
+            end_date = request.GET.get('end_date')
+        else:
+            end_date = datetime.today().date()
+        
+        start_date = datetime.strptime(str(start_date), '%Y-%m-%d').date()   
+        end_date = datetime.strptime(str(end_date), '%Y-%m-%d').date()
+        
+        filter_data["start_date"] = start_date.strftime('%Y-%m-%d') if start_date else None
+        filter_data["end_date"] = end_date.strftime('%Y-%m-%d') if end_date else None
+        
+        user_li = Customers.objects.filter(Q(created_date__date__range=[start_date, end_date]))
+
+        if route_filter:
+            user_li = user_li.filter(routes__route_name=route_filter)
+
+        if query and query != "None":
+            user_li = user_li.filter(
+                Q(custom_id__icontains=query) |
+                Q(customer_name__icontains=query) |
+                Q(mobile_no__icontains=query) |
+                Q(location__location_name__icontains=query) |
+                Q(building_name__icontains=query)
+            )
+            filter_data['q'] = query
+
+        route_li = RouteMaster.objects.all()
+        
+        context = {
+            'user_li': user_li.order_by("-created_date"),
+            'route_li': route_li,
+            'route_filter': route_filter,
+            'q': query,
+        }
+
+        return render(request, self.template_name, context)
+
+class Inactive_Customer_List(View):
+    template_name = 'accounts/inactive_customer_list.html'
+
+    def get(self, request, *args, **kwargs):
+        query = request.GET.get("q")
+        route_filter = request.GET.get('route_name')
+
+        user_li = Customers.objects.all()
+
+        if route_filter:
+            user_li = user_li.filter(routes__route_name=route_filter)
+
+        if query and query != "None":
+            user_li = user_li.filter(
+                Q(custom_id__icontains=query) |
+                Q(customer_name__icontains=query) |
+                Q(mobile_no__icontains=query) |
+                Q(routes__route_name__icontains=query) |
+                Q(location__location_name__icontains=query) |
+                Q(building_name__icontains=query)
+            )
+
+        route_li = RouteMaster.objects.all()
+
+        context = {
+            'user_li': user_li.order_by("-created_date"),
+            'route_li': route_li,
+            'route_filter': route_filter,
+            'q': query,
+        }
+
+        return render(request, self.template_name, context)
+        
 class CustomerComplaintView(View):
     template_name = 'accounts/customer_complaint.html'
 
@@ -510,7 +593,7 @@ def customer_list_excel(request):
         table_border_format = workbook.add_format({'border':1})
         worksheet.conditional_format(4, 0, len(df.index)+4, len(df.columns) - 1, {'type':'cell', 'criteria': '>', 'value':0, 'format':table_border_format})
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 16, 'border': 1})
-        worksheet.merge_range('A1:K2', f'Majed Water', merge_format)
+        worksheet.merge_range('A1:K2', f'National Water', merge_format)
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
         worksheet.merge_range('A3:K3', f'    Customer List   ', merge_format)
         # worksheet.merge_range('E3:H3', f'Date: {def_date}', merge_format)
@@ -675,3 +758,13 @@ class CustomerRateHistoryListView(View):
             },
         }
         return render(request, self.template_name, context)
+    
+def terms_and_conditions_list(request):
+    """
+    View to list all TermsAndConditions instances.
+    """
+    instances = TermsAndConditions.objects.all()
+    context = {
+        'instances': instances
+    }
+    return render(request, 'accounts/terms_and_conditions_list.html', context)

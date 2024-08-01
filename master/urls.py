@@ -40,7 +40,10 @@ urlpatterns = [
     path('category_create',Category_Create.as_view(), name='category_create'),
     path('category_edit/<str:pk>', Category_Edit.as_view(), name='category_edit'),
     path('category_details/<str:pk>', Category_Details.as_view(), name='category_details'),
-    
+
+    path('privacy-policy/', privacy_policy_view, name='privacy'),
+    path('terms_and_conditions_list/', terms_and_conditions_list, name='terms_and_conditions_list'),
+    path('terms-and-conditions/create/', terms_and_conditions_create, name='terms_and_conditions_create'),
     
    ]
 

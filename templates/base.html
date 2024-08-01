@@ -8,10 +8,10 @@
     <meta charset="UTF-8">
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Majed Water</title>
-    <meta name="Description" content="Majed water admin dashboard">
+    <title>National Water</title>
+    <meta name="Description" content="National water admin dashboard">
     <meta name="Author" content="Mobiz Technologies">
-	<meta name="keywords" cSanant="Majed water admin dashboard">
+	<meta name="keywords" cSanant="National water admin dashboard">
 
     <!-- Favicon -->
     <link rel="icon" href="{%static 'images/brand-logos/desktop-logos.png'%}" type="image/x-icon">
@@ -1083,20 +1083,20 @@
                                 <li class="slide side-menu__label1">
                                     <a href="javascript:void(0)"></a>
                                 </li>
-                                {% comment %} <li class="slide">
+                                <li class="slide">
                                     <a href="{%url 'visitstatistics_report'%}" class="side-menu__item">DSR Visit statistics</a>
                                 </li>
                                 <li class="slide">
                                     <a href="{% url 'dsr_stock_report' %}" class="side-menu__item">DSR Stock</a>
                                 </li>
                                 <li class="slide">
-                                    <a href="{% url 'fivegallonrelated_report' %}" class="side-menu__item">DSR 5Gallon Related</a>
+                                    <a href="{% url 'dsr_five_gallon_rates' %}" class="side-menu__item">DSR 5 Gallon Supplied Retes</a>
                                 </li>
                                 <li class="slide">
-                                    <a href="{% url 'bottlecount_report' %}" class="side-menu__item">DSR Bottle Count 5Gallon empty + fresh</a>
+                                    <a href="{% url 'dsr_credit_outstanding' %}" class="side-menu__item">DSR Credit Outstanding</a>
                                 </li>
                                 <li class="slide">
-                                    <a href="{% url 'dsr_coupon_book_sales' %}" class="side-menu__item">DSR Coupon Book Sale</a>
+                                    <a href="{% url 'dsr_coupon_book_sales' %}" class="side-menu__item">DSR Coupon Book Sales</a>
                                 </li>
                                 <li class="slide">
                                     <a href="{% url 'cashsales_report' %}" class="side-menu__item">DSR Cash Sales</a>
@@ -1105,8 +1105,17 @@
                                     <a href="{% url 'creditsales_report' %}" class="side-menu__item">DSR Credit Sales</a>
                                 </li>
                                 <li class="slide">
-                                    <a href="" class="side-menu__item">DSR Expence</a>
-                                </li> {% endcomment %}
+                                    <a href="{% url 'dsr_coupon_sales' %}" class="side-menu__item">DSR Coupon Sales</a>
+                                </li>
+                                <li class="slide">
+                                    <a href="{% url 'outstanding_amount_collected' %}" class="side-menu__item">DSR Outstanding Amount Collected</a>
+                                </li> 
+                                <li class="slide">
+                                    <a href="{% url 'dsr_foc_customers' %}" class="side-menu__item">DSR FOC Customers</a>
+                                </li>
+                                <li class="slide">
+                                    <a href="{% url 'dsr_expense' %}" class="side-menu__item">DSR Expense</a>
+                                </li> 
                                  <li class="slide">
                                     <a href="{% url 'suspense_report' %}" class="side-menu__item">DSR Suspence</a>
                                 </li>
@@ -1167,7 +1176,10 @@
                                 </li>
                                 <li class="slide">
                                     <a href="{% url 'order_change_reason' %}" class="side-menu__item">Order Change Reason</a>
-                                </li>                                                             
+                                </li>
+                                <li class="slide">
+                                    <a href="{% url 'excess_bottle_count_list' %}" class="side-menu__item">Excess Bottle Count</a>
+                                </li>  
                             </ul>
                         </li>
                         <li class="slide__category"><span class="category-name">Product Management</span></li>
@@ -1229,7 +1241,13 @@
                                 <li class="slide">
                                     <a href="{% url 'customers' %}" class="side-menu__item">Customer</a>
                                 </li>
-				<li class="slide">
+                                <li class="slide">
+                                    <a href="{% url 'latest_customers' %}" class="side-menu__item">New Customer</a>
+                                </li>
+                                <li class="slide">
+                                    <a href="{% url 'inactive_customers' %}" class="side-menu__item">Inactive Customer</a>
+                                </li>
+				                <li class="slide">
                                     <a href="{% url 'customer_count' %}" class="side-menu__item">Customer Count</a>
                                 </li>
                                 
@@ -1424,6 +1442,18 @@
                         </span>
                         <span class="side-menu__label">Credit Note</span>
                     </a>
+                    <a href="{% url 'privacy' %}" class="side-menu__item">
+                        <span class=" side-menu__icon">
+                            <i class='bx bx-desktop'></i>
+                        </span>
+                        <span class="side-menu__label">Privacy</span>
+                    </a>
+                    <a href="{% url 'terms_and_conditions_list' %}" class="side-menu__item">
+                        <span class=" side-menu__icon">
+                            <i class='bx bx-desktop'></i>
+                        </span>
+                        <span class="side-menu__label">Terms and Conditions</span>
+                    </a>
                     <div class="slide-right" id="slide-right"><svg xmlns="http://www.w3.org/2000/svg" fill="#7b8191" width="24" height="24" viewBox="0 0 24 24"> <path d="M10.707 17.707 16.414 12l-5.707-5.707-1.414 1.414L13.586 12l-4.293 4.293z"></path> </svg></div>
                 </nav>
                 <!-- End::nav -->
@@ -1504,7 +1534,7 @@
        <footer class="footer mt-auto py-3 bg-white text-center">
            <div class="container">
                <span class="text-muted"> Copyright © <span id="year"></span> <a
-                       href="javascript:void(0);" class="text-dark fSanamibold">Majed Waters</a>.
+                       href="javascript:void(0);" class="text-dark fSanamibold">National Waters</a>.
                    powered by <a href="https://www.mobiztechnologies.com/">
                        <span class="fw-semibold text-primary text-decoration-underline">Mobiz Technologies</span>
                    </a> All
@@ -1998,6 +2028,9 @@
   <script src="{%static 'js/jquery.formset.js' %}"></script>
   <script src="{%static 'sweet/actions.js' %}"></script>
   <script src="{%static 'sweet/sweetalert2.js' %}"></script>
+
+  <script src="{% static 'ckeditor/ckeditor-init.js' %}"></script>
+  <script src="{% static 'ckeditor/ckeditor/ckeditor.js' %}"></script>
 
   {% block static %}
     {% endblock %}

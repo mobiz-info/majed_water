@@ -27,6 +27,7 @@ class ProdutItemMaster(models.Model):
     unit = models.CharField(max_length=50, choices=unit_choices, null=True, blank=True)
     tax = models.ForeignKey('tax_settings.Tax', on_delete=models.CASCADE, null=True, blank=True)
     rate = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    image = models.ImageField(upload_to='product_images/', null=True, blank=True)
     
     class Meta:
         ordering = ('product_name',)

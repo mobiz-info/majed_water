@@ -155,7 +155,9 @@ def invoice_list(request):
         )
         title = "Invoice List - %s" % query
         filter_data['q'] = query
-    
+    for instance in instances:
+        instance.can_edit = (timezone.now().date() - instance.created_date.date()).days <= 3
+
     context = {
         'instances': instances,
         'page_name' : 'Invoice List',

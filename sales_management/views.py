@@ -1186,7 +1186,7 @@ def download_salesreport_excel(request):
 #         table_border_format = workbook.add_format({'border':1})
 #         worksheet.conditional_format(4, 0, len(df.index)+4, len(df.columns) - 1, {'type':'cell', 'criteria': '>', 'value':0, 'format':table_border_format})
 #         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 16, 'border': 1})
-#         worksheet.merge_range('A1:J2', f'Majed Water', merge_format)
+#         worksheet.merge_range('A1:J2', f'National Water', merge_format)
 #         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
 #         worksheet.merge_range('A3:J3', f'    Collection Report   ', merge_format)
 #         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
@@ -2220,7 +2220,7 @@ def collection_report_excel(request):
         table_border_format = workbook.add_format({'border':1})
         worksheet.conditional_format(4, 0, len(df.index)+4, len(df.columns) - 1, {'type':'cell', 'criteria': '>', 'value':0, 'format':table_border_format})
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 16, 'border': 1})
-        worksheet.merge_range('A1Sana, Majed Water', merge_format)
+        worksheet.merge_range('A1Sana, National Water', merge_format)
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
         worksheet.merge_range('A3:J3', f'    Collection Report   ', merge_format)
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
@@ -2445,640 +2445,1266 @@ def suspense_report_print(request):
 #-----------------DSR cash sales Report--------------------------
 
 def cashsales_report(request):
-    start_date = request.GET.get('start_date')
     filter_data = {}
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    data_filter = False
+    cash_total_net_taxable = 0
+    cash_total_vat = 0
+    cash_total_subtotal = 0
+    cash_total_amount_recieved = 0
+    cash_sale_recharge_count=0
+    cash_total_quantity = 0
+    cash_total_qty = 0
+    stock_report_total = 0
+   
+    van_instances = Van.objects.none
+    van_route = Van_Routes.objects.none
+    salesman_id =  ""
+    cash_sales = CustomerSupply.objects.none
+    recharge_cash_sales = CustomerCoupon.objects.none
+    products = ProdutItemMaster.objects.none
+    routes_instances = RouteMaster.objects.all()
+    van_product_stock = VanProductStock.objects.none
+    
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     else:
-        start_date = datetime.today().date()
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
-    filter_data['start_date'] = start_date.strftime('%Y-%m-%d')
     
-    invoices = Invoice.objects.filter(created_date__date=start_date, invoice_type="cash_invoice")
-    
-    total_net_taxable = invoices.aggregate(total_net_taxable=Sum('net_taxable'))['total_net_taxable'] or 0
-    total_vat = invoices.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
-    total_amout_total = invoices.aggregate(total_amout_total=Sum('amout_total'))['total_amout_total'] or 0
-
-    context = {
-        'invoices': invoices,
-        'filter_data': filter_data,
+    if route_name:
+        data_filter = True
         
-        'total_net_taxable':total_net_taxable,
-        'total_vat':total_vat,
-        'total_amout_total':total_amout_total,
-
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        filter_data['route_name'] = route_name
+        
+        ##### stock report #### 
+        products = ProdutItemMaster.objects.filter()
+        van_instances = Van.objects.get(salesman=salesman)
+        van_product_stock = VanProductStock.objects.filter(created_date=date,van=van_instances,product__product_name="5 Gallon")
+        stock_report_total = van_product_stock.aggregate(total_stock=Sum('stock'))['total_stock'] or 0
+     
+        ### cash sales ####
+        cash_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
+        cash_total_net_taxable = cash_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
+        cash_total_vat = cash_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
+        cash_total_subtotal = cash_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
+        cash_total_received = cash_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        cash_total_quantity = cash_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        
+        recharge_cash_sales = CustomerCoupon.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__gt=0)
+        cash_sale_recharge_net_payeble = recharge_cash_sales.aggregate(total_net_amount=Sum('net_amount'))['total_net_amount'] or 0
+        cash_sale_recharge_vat_total = 0
+        cash_sale_recharge_grand_total = recharge_cash_sales.aggregate(total_grand_total=Sum('grand_total'))['total_grand_total'] or 0
+        cash_sale_recharge_amount_recieved = recharge_cash_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        cash_total_net_taxable = cash_total_net_taxable + cash_sale_recharge_net_payeble 
+        cash_total_vat = cash_total_vat + cash_sale_recharge_vat_total 
+        cash_total_subtotal = cash_total_subtotal + cash_sale_recharge_grand_total 
+        cash_total_amount_recieved = cash_total_received + cash_sale_recharge_amount_recieved 
+        
+        total_cash_sales_count = cash_sales.count() + recharge_cash_sales.count()
+        
+        cash_sale_recharge_count = recharge_cash_sales.count()
+        cash_total_qty = cash_total_quantity + cash_sale_recharge_count
+        
+       
+      
+        
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        
+        'routes_instances': routes_instances,
+        # stock report
+        'products': products,
+        'van_instances': van_instances,
+        'van_product_stock': van_product_stock,
+        'stock_report_total': stock_report_total,
+        
+        #cash sales
+        'cash_sales': cash_sales,
+        'recharge_cash_sales': recharge_cash_sales,
+        'cash_total_net_taxable':cash_total_net_taxable,
+        'cash_total_vat':cash_total_vat,
+        'cash_total_subtotal': cash_total_subtotal,
+        'cash_total_amount_recieved': cash_total_amount_recieved,
+        'cash_total_qty': cash_total_qty,
+        'filter_data': filter_data,
     }
+    
     return render(request, 'sales_management/dsr_cash_sales_report.html', context)
-
-def cashsales_report_excel(request):
-    start_date = request.GET.get('start_date')
-    
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-    else:
-        start_date = datetime.today().date()
-    
-    invoices = Invoice.objects.filter(created_date__date=start_date, invoice_type="cash_invoice")
-
-    # Calculate total values for Opening Suspense, Paid, and Closing Suspense
-    total_net_taxable = sum(invoice.net_taxable for invoice in invoices)
-    total_vat = sum(invoice.vat for invoice in invoices)
-    total_amout_total = sum(invoice.amout_total for invoice in invoices)
-
-    # Create a BytesIO object to save workbook data
-    buffer = BytesIO()
-
-    # Create a new Excel workbook and add a worksheet
-    workbook = xlsxwriter.Workbook(buffer)
-    worksheet = workbook.add_worksheet()
-    worksheet.title = "Cash Sales Report"
-
-    # Write headers
-    headers = ["Sl No", "Reference No", "Customer Name", "Building Name", "Net taxable", "Vat","Grand Total"]
-    worksheet.write_row(0, 0, headers)
-
-    # Write data rows
-    for index, invoice in enumerate(invoices, start=1):
-        worksheet.write_row(index, 0, [
-            index,
-            invoice.reference_no,
-            invoice.customer.customer_name,
-            invoice.customer.building_name,
-            invoice.net_taxable,
-            invoice.vat,
-            invoice.amout_total
-        ])
-
-    # Write footer data
-    footer_row = len(invoices) + 1
-    worksheet.write(footer_row, 3, "Total")
-    worksheet.write(footer_row, 4, total_net_taxable)
-    worksheet.write(footer_row, 5, total_vat)
-    worksheet.write(footer_row, 6, total_amout_total)
-
-    # Close the workbook
-    workbook.close()
-
-    # Create HttpResponse object to return the Excel file as a response
-    response = HttpResponse(buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename=Cash_Sales_Report.xlsx'
-    return response
 
 
 def cashsales_report_print(request):
-    start_date = request.GET.get('start_date')
+    filter_data = {}
+    data_filter = False
+    cash_total_net_taxable = 0
+    cash_total_vat = 0
+    cash_total_subtotal = 0
+    cash_total_amount_recieved = 0
+    cash_sale_recharge_count=0
+    cash_total_quantity = 0
+    cash_total_qty = 0
+    stock_report_total = 0
+   
+    van_instances = Van.objects.none
+    van_route = Van_Routes.objects.none
+    salesman_id =  ""
+    cash_sales = CustomerSupply.objects.none
+    recharge_cash_sales = CustomerCoupon.objects.none
+    products = ProdutItemMaster.objects.none
+    routes_instances = RouteMaster.objects.all()
+    van_product_stock = VanProductStock.objects.none
     
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     else:
-        start_date = datetime.today().date()
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
-    invoices = Invoice.objects.filter(created_date__date=start_date, invoice_type="cash_invoice")
-
-    total_net_taxable = sum(invoice.net_taxable for invoice in invoices)
-    total_vat = sum(invoice.vat for invoice in invoices)
-    total_amout_total = sum(invoice.amout_total for invoice in invoices)
-
-    # Create a BytesIO object to save PDF data
-    buffer = BytesIO()
-
-    # Create a new PDF document
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
     
-    # Define table data
-    data = [
-        ["Sl No", "Reference No", "Customer Name", "Building Name", "Net taxable", "Vat","Grand Total"]
-    ]
+    if route_name:
+        data_filter = True
+        
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        filter_data['route_name'] = route_name
+        
+        ##### stock report #### 
+        products = ProdutItemMaster.objects.filter()
+        van_instances = Van.objects.get(salesman=salesman)
+        van_product_stock = VanProductStock.objects.filter(created_date=date,van=van_instances,product__product_name="5 Gallon")
+        stock_report_total = van_product_stock.aggregate(total_stock=Sum('stock'))['total_stock'] or 0
+     
+        ### cash sales ####
+        cash_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
+        cash_total_net_taxable = cash_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
+        cash_total_vat = cash_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
+        cash_total_subtotal = cash_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
+        cash_total_received = cash_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        cash_total_quantity = cash_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        
+        recharge_cash_sales = CustomerCoupon.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__gt=0)
+        cash_sale_recharge_net_payeble = recharge_cash_sales.aggregate(total_net_amount=Sum('net_amount'))['total_net_amount'] or 0
+        cash_sale_recharge_vat_total = 0
+        cash_sale_recharge_grand_total = recharge_cash_sales.aggregate(total_grand_total=Sum('grand_total'))['total_grand_total'] or 0
+        cash_sale_recharge_amount_recieved = recharge_cash_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        cash_total_net_taxable = cash_total_net_taxable + cash_sale_recharge_net_payeble 
+        cash_total_vat = cash_total_vat + cash_sale_recharge_vat_total 
+        cash_total_subtotal = cash_total_subtotal + cash_sale_recharge_grand_total 
+        cash_total_amount_recieved = cash_total_received + cash_sale_recharge_amount_recieved 
+        
+        total_cash_sales_count = cash_sales.count() + recharge_cash_sales.count()
+        
+        cash_sale_recharge_count = recharge_cash_sales.count()
+        cash_total_qty = cash_total_quantity + cash_sale_recharge_count
+        
+       
+      
+        
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        
+        'routes_instances': routes_instances,
+        # stock report
+        'products': products,
+        'van_instances': van_instances,
+        'van_product_stock': van_product_stock,
+        'stock_report_total': stock_report_total,
+        
+        #cash sales
+        'cash_sales': cash_sales,
+        'recharge_cash_sales': recharge_cash_sales,
+        'cash_total_net_taxable':cash_total_net_taxable,
+        'cash_total_vat':cash_total_vat,
+        'cash_total_subtotal': cash_total_subtotal,
+        'cash_total_amount_recieved': cash_total_amount_recieved,
+        'cash_total_qty': cash_total_qty,
+        'filter_data': filter_data,
+        'filter_date_formatted': date.strftime('%d-%m-%Y'),
+    }
     
-    # Populate table data
-    for index, invoice in enumerate(invoices, start=1):
-        data.append([
-            str(index),
-            str(invoice.reference_no),
-            str(invoice.customer.customer_name),
-            str(invoice.customer.building_name),
-            str(invoice.net_taxable),
-            str(invoice.vat),
-            str(invoice.amout_total)
-        ])
-    
-    # Add footer data
-    data.append([
-        "", "","", "Total", str(total_net_taxable), str(total_vat), str(total_amout_total)
-    ])
-
-    # Create a table
-    table = Table(data)
-
-    # Add style to the table
-    style = TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.gray),
-                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-                        ])
-    table.setStyle(style)
-
-    # Add table to the document
-    doc.build([table])
-
-    # Create HttpResponse object to return the PDF file as a response
-    response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename=Cash_Sales_Report.pdf'
-    return response
+    return render(request, 'sales_management/dsr_cash_sales_print.html', context)
 
 
 
 #-----------------DSR credit sales Report--------------------------
 
 def creditsales_report(request):
-    start_date = request.GET.get('start_date')
     filter_data = {}
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    data_filter = False
+    credit_total_net_taxable = 0
+    credit_total_vat = 0
+    credit_total_subtotal = 0
+    credit_total_amount_recieved = 0
+    credit_total_qty = 0
+    credit_total_quantity = 0
+    credit_sale_recharge_count = 0
+    stock_report_total = 0
+   
+    van_instances = Van.objects.none
+    van_route = Van_Routes.objects.none
+    salesman_id =  ""
+    credit_sales = CustomerSupply.objects.none
+    recharge_credit_sales = CustomerCoupon.objects.none
+    products = ProdutItemMaster.objects.none
+    routes_instances = RouteMaster.objects.all()
+    van_product_stock = VanProductStock.objects.none
+    
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     else:
-        start_date = datetime.today().date()
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
-    filter_data['start_date'] = start_date.strftime('%Y-%m-%d')
     
-    invoices = Invoice.objects.filter(created_date__date=start_date, invoice_type="credit_invoive")
-    
-    total_net_taxable = invoices.aggregate(total_net_taxable=Sum('net_taxable'))['total_net_taxable'] or 0
-    total_vat = invoices.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
-    total_amout_total = invoices.aggregate(total_amout_total=Sum('amout_total'))['total_amout_total'] or 0
-
-    context = {
-        'invoices': invoices,
-        'filter_data': filter_data,
+    if route_name:
+        data_filter = True
         
-        'total_net_taxable':total_net_taxable,
-        'total_vat':total_vat,
-        'total_amout_total':total_amout_total,
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        filter_data['route_name'] = route_name
+     
+        ##### stock report #### 
+        products = ProdutItemMaster.objects.filter()
+        van_instances = Van.objects.get(salesman=salesman)
+       
+        ### credit sales ####
+        credit_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
 
+        credit_total_net_taxable = credit_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
+        credit_total_vat = credit_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
+        credit_total_subtotal = credit_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
+        credit_total_received = credit_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        credit_total_quantity = credit_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        
+        recharge_credit_sales = CustomerCoupon.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__lte=0)
+        credit_sale_recharge_net_payeble = recharge_credit_sales.aggregate(total_net_amount=Sum('net_amount'))['total_net_amount'] or 0
+        credit_sale_recharge_vat_total = 0
+        
+        credit_sale_recharge_grand_total = recharge_credit_sales.aggregate(total_grand_total=Sum('grand_total'))['total_grand_total'] or 0
+        credit_sale_recharge_amount_recieved = recharge_credit_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        credit_total_net_taxable = credit_total_net_taxable + credit_sale_recharge_net_payeble 
+        credit_total_vat = credit_total_vat + credit_sale_recharge_vat_total 
+        credit_total_subtotal = credit_total_subtotal + credit_sale_recharge_grand_total
+        credit_total_amount_recieved = credit_total_received + credit_sale_recharge_amount_recieved
+        
+        total_credit_sales_count = credit_sales.count() + recharge_credit_sales.count()
+        credit_sale_recharge_count = recharge_credit_sales.count()
+        credit_total_qty = credit_total_quantity + credit_sale_recharge_count
+        
+      
+        
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        
+        'routes_instances': routes_instances,
+        # stock report
+        'products': products,
+        'van_instances': van_instances,
+        'van_product_stock': van_product_stock,
+        'stock_report_total': stock_report_total,
+        
+        
+        # credit sales
+        'credit_sales': credit_sales,
+        'recharge_credit_sales': recharge_credit_sales,
+        'credit_total_net_taxable':credit_total_net_taxable,
+        'credit_total_vat':credit_total_vat,
+        'credit_total_subtotal':credit_total_subtotal,
+        'credit_total_amount_recieved': credit_total_amount_recieved,
+        'credit_total_qty': credit_total_qty,
+       
     }
+    
     return render(request, 'sales_management/dsr_credit_sales_report.html', context)
-
-def creditsales_report_excel(request):
-    start_date = request.GET.get('start_date')
-    
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-    else:
-        start_date = datetime.today().date()
-    
-    invoices = Invoice.objects.filter(created_date__date=start_date, invoice_type="credit_invoice")
-
-    # Calculate total values for Opening Suspense, Paid, and Closing Suspense
-    total_net_taxable = sum(invoice.net_taxable for invoice in invoices)
-    total_vat = sum(invoice.vat for invoice in invoices)
-    total_amout_total = sum(invoice.amout_total for invoice in invoices)
-
-    # Create a BytesIO object to save workbook data
-    buffer = BytesIO()
-
-    # Create a new Excel workbook and add a worksheet
-    workbook = xlsxwriter.Workbook(buffer)
-    worksheet = workbook.add_worksheet()
-    worksheet.title = "Credit Sales Report"
-
-    # Write headers
-    headers = ["Sl No", "Reference No", "Customer Name", "Building Name", "Net taxable", "Vat","Grand Total"]
-    worksheet.write_row(0, 0, headers)
-
-    # Write data rows
-    for index, invoice in enumerate(invoices, start=1):
-        worksheet.write_row(index, 0, [
-            index,
-            invoice.reference_no,
-            invoice.customer.customer_name,
-            invoice.customer.building_name,
-            invoice.net_taxable,
-            invoice.vat,
-            invoice.amout_total
-        ])
-
-    # Write footer data
-    footer_row = len(invoices) + 1
-    worksheet.write(footer_row, 3, "Total")
-    worksheet.write(footer_row, 4, total_net_taxable)
-    worksheet.write(footer_row, 5, total_vat)
-    worksheet.write(footer_row, 6, total_amout_total)
-
-    # Close the workbook
-    workbook.close()
-
-    # Create HttpResponse object to return the Excel file as a response
-    response = HttpResponse(buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename=Credit_Sales_Report.xlsx'
-    return response
 
 
 def creditsales_report_print(request):
-    start_date = request.GET.get('start_date')
+    filter_data = {}
+    data_filter = False
+    credit_total_net_taxable = 0
+    credit_total_vat = 0
+    credit_total_subtotal = 0
+    credit_total_amount_recieved = 0
+    credit_total_qty = 0
+    credit_total_quantity = 0
+    credit_sale_recharge_count = 0
+    stock_report_total = 0
+   
+    van_instances = Van.objects.none
+    van_route = Van_Routes.objects.none
+    salesman_id =  ""
+    credit_sales = CustomerSupply.objects.none
+    recharge_credit_sales = CustomerCoupon.objects.none
+    products = ProdutItemMaster.objects.none
+    routes_instances = RouteMaster.objects.all()
+    van_product_stock = VanProductStock.objects.none
     
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     else:
-        start_date = datetime.today().date()
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
-    invoices = Invoice.objects.filter(created_date__date=start_date, invoice_type="credit_invoice")
-
-    total_net_taxable = sum(invoice.net_taxable for invoice in invoices)
-    total_vat = sum(invoice.vat for invoice in invoices)
-    total_amout_total = sum(invoice.amout_total for invoice in invoices)
-
-    # Create a BytesIO object to save PDF data
-    buffer = BytesIO()
-
-    # Create a new PDF document
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
     
-    # Define table data
-    data = [
-        ["Sl No", "Reference No", "Customer Name", "Building Name", "Net taxable", "Vat","Grand Total"]
-    ]
+    if route_name:
+        data_filter = True
+        
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        filter_data['route_name'] = route_name
+     
+        ##### stock report #### 
+        products = ProdutItemMaster.objects.filter()
+        van_instances = Van.objects.get(salesman=salesman)
+       
+        ### credit sales ####
+        credit_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
+
+        credit_total_net_taxable = credit_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
+        credit_total_vat = credit_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
+        credit_total_subtotal = credit_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
+        credit_total_received = credit_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        credit_total_quantity = credit_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        
+        recharge_credit_sales = CustomerCoupon.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__lte=0)
+        credit_sale_recharge_net_payeble = recharge_credit_sales.aggregate(total_net_amount=Sum('net_amount'))['total_net_amount'] or 0
+        credit_sale_recharge_vat_total = 0
+        
+        credit_sale_recharge_grand_total = recharge_credit_sales.aggregate(total_grand_total=Sum('grand_total'))['total_grand_total'] or 0
+        credit_sale_recharge_amount_recieved = recharge_credit_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        credit_total_net_taxable = credit_total_net_taxable + credit_sale_recharge_net_payeble 
+        credit_total_vat = credit_total_vat + credit_sale_recharge_vat_total 
+        credit_total_subtotal = credit_total_subtotal + credit_sale_recharge_grand_total
+        credit_total_amount_recieved = credit_total_received + credit_sale_recharge_amount_recieved
+        
+        total_credit_sales_count = credit_sales.count() + recharge_credit_sales.count()
+        credit_sale_recharge_count = recharge_credit_sales.count()
+        credit_total_qty = credit_total_quantity + credit_sale_recharge_count
+        
+      
+        
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        
+        'routes_instances': routes_instances,
+        # stock report
+        'products': products,
+        'van_instances': van_instances,
+        'van_product_stock': van_product_stock,
+        'stock_report_total': stock_report_total,
+        
+        
+        # credit sales
+        'credit_sales': credit_sales,
+        'recharge_credit_sales': recharge_credit_sales,
+        'credit_total_net_taxable':credit_total_net_taxable,
+        'credit_total_vat':credit_total_vat,
+        'credit_total_subtotal':credit_total_subtotal,
+        'credit_total_amount_recieved': credit_total_amount_recieved,
+        'credit_total_qty': credit_total_qty,
+        'filter_date_formatted': date.strftime('%d-%m-%Y'),
+    }
     
-    # Populate table data
-    for index, invoice in enumerate(invoices, start=1):
-        data.append([
-            str(index),
-            str(invoice.reference_no),
-            str(invoice.customer.customer_name),
-            str(invoice.customer.building_name),
-            str(invoice.net_taxable),
-            str(invoice.vat),
-            str(invoice.amout_total)
-        ])
+    return render(request, 'sales_management/dsr_credit_sales_print.html', context)
+def dsr_coupon_sales(request):
+    filter_data = {}
+    data_filter = False
+    total_cash_sales_count = 0
+    total_credit_sales_count = 0
+    manual_coupon_total = 0
+    digital_coupon_total = 0
+    total_coupon_sales_count = 0
+    coupon_total_qty = 0
+   
+    van_route = Van_Routes.objects.none
+    salesman_id =  ""
+    coupon_sales = CustomerSupply.objects.none
+    routes_instances = RouteMaster.objects.all()
     
-    # Add footer data
-    data.append([
-        "", "","", "Total", str(total_net_taxable), str(total_vat), str(total_amout_total)
-    ])
-
-    # Create a table
-    table = Table(data)
-
-    # Add style to the table
-    style = TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.gray),
-                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-                        ])
-    table.setStyle(style)
-
-    # Add table to the document
-    doc.build([table])
-
-    # Create HttpResponse object to return the PDF file as a response
-    response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename=Credit_Sales_Report.pdf'
-    return response
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    
+    if route_name:
+        data_filter = True
+        
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        filter_data['route_name'] = route_name
+        
+        # Coupon sales
+        coupon_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,customer__sales_type="CASH COUPON")
+        manual_coupon_total = CustomerSupplyCoupon.objects.filter(customer_supply__in=coupon_sales).aggregate(Count('leaf'))['leaf__count']
+        digital_coupon_total = CustomerSupplyDigitalCoupon.objects.filter(customer_supply__in=coupon_sales).aggregate(total_count=Sum('count'))['total_count'] or 0
+        
+        total_coupon_sales_count = coupon_sales.count()
+        
+        total_sales_count = total_cash_sales_count + total_credit_sales_count + total_coupon_sales_count
+        coupon_total_qty = coupon_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        
+       
+        
+        
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'routes_instances': routes_instances,
+     
+        # coupon sales
+        'coupon_sales': coupon_sales,
+        'manual_coupon_total':manual_coupon_total,
+        'digital_coupon_total':digital_coupon_total,
+        'total_coupon_sales_count': total_coupon_sales_count,
+        'coupon_total_qty':coupon_total_qty,
+      
+        'filter_data': filter_data,
+    }
+    
+    return render(request, 'sales_management/dsr_coupons_sales.html', context)
+def dsr_coupons_sales_print(request):
+    filter_data = {}
+    data_filter = False
+    total_cash_sales_count = 0
+    total_credit_sales_count = 0
+    manual_coupon_total = 0
+    digital_coupon_total = 0
+    total_coupon_sales_count = 0
+    coupon_total_qty = 0
+   
+    van_route = Van_Routes.objects.none
+    salesman_id =  ""
+    coupon_sales = CustomerSupply.objects.none
+    routes_instances = RouteMaster.objects.all()
+    
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    
+    if route_name:
+        data_filter = True
+        
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        filter_data['route_name'] = route_name
+        
+        # Coupon sales
+        coupon_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,customer__sales_type="CASH COUPON")
+        manual_coupon_total = CustomerSupplyCoupon.objects.filter(customer_supply__in=coupon_sales).aggregate(Count('leaf'))['leaf__count']
+        digital_coupon_total = CustomerSupplyDigitalCoupon.objects.filter(customer_supply__in=coupon_sales).aggregate(total_count=Sum('count'))['total_count'] or 0
+        
+        total_coupon_sales_count = coupon_sales.count()
+        
+        total_sales_count = total_cash_sales_count + total_credit_sales_count + total_coupon_sales_count
+        coupon_total_qty = coupon_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        
+       
+        
+        
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'routes_instances': routes_instances,
+     
+        # coupon sales
+        'coupon_sales': coupon_sales,
+        'manual_coupon_total':manual_coupon_total,
+        'digital_coupon_total':digital_coupon_total,
+        'total_coupon_sales_count': total_coupon_sales_count,
+        'coupon_total_qty':coupon_total_qty,
+        'filter_data': filter_data,
+        'filter_date_formatted': date.strftime('%d-%m-%Y'),
+    }
+    
+    return render(request, 'sales_management/dsr_coupon_sales_print.html', context)
 
 #----------DSR Coupon Book Sales--------------
 
 def dsr_coupon_book_sales(request):
-
-    # Get start date from request parameters or default to today
-    start_date = request.GET.get('start_date')
-    print("start_date",start_date)
-    
+    # Initialize counts and variables
     filter_data = {}
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    data_filter = False
+    salesman_id = ""
+    van_route = None
+
+    # Retrieve all route instances
+    routes_instances = RouteMaster.objects.all()
+
+    # Get filter parameters from request
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+
+    # Set date and filter data
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     else:
-        start_date = datetime.today().date()
-    
-    filter_data['start_date'] = start_date.strftime('%Y-%m-%d')
-    customer_coupon_items=CustomerCouponItems.objects.filter(customer_coupon__created_date__gte=start_date).order_by("-customer_coupon__created_date")
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
 
-    context={'customer_coupon_items':customer_coupon_items,
-            'filter_data': filter_data,
-}
-    return render(request,'sales_management/dsr_coupon_book_sales.html',context)
-
-def dsr_coupon_book_sales_excel(request):
-    # Get start date from request parameters or default to today
-    start_date = request.GET.get('start_date')
-    print("start_date", start_date)
-    
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    if route_name:
+        data_filter = True
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        route_id = van_route.routes.pk if van_route else None
+        filter_data['route_name'] = route_name
     else:
-        start_date = datetime.today().date()
-    
-    # Query data
-    customer_coupon_items = CustomerCouponItems.objects.filter(customer_coupon__created_date__gte=start_date).order_by("-customer_coupon__created_date")
-    
-    # Create a BytesIO object to save workbook data
-    buffer = BytesIO()
+        route_id = None
 
-    # Create a new Excel workbook and add a worksheet
-    workbook = xlsxwriter.Workbook(buffer)
-    worksheet = workbook.add_worksheet()
+    # Ensure van_route is defined
+    if van_route:
+        # Retrieve salesman
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        customer_coupons = CustomerCoupon.objects.filter(salesman=salesman, created_date__date=date)
+    else:
+        customer_coupons = []
 
-    # Write headers
-    headers = ["Sl no","Reference Number", "Customer Name", "Building Name/no", "Book Number", "Coupon Type" , "Coupon Method","Rate"]
-    for col, header in enumerate(headers):
-        worksheet.write(0, col, header)
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'customer_coupons': customer_coupons,
+        'routes_instances': routes_instances,
+        'filter_data': filter_data,
+    }
 
-    # Write data to the worksheet
-    row = 1  # Start from row 1 after the header row
-    sl_no = 1  # Initialize Sl No
-    for item in customer_coupon_items:
-        building_info = f"{item.customer_coupon.customer.building_name} / {item.customer_coupon.customer.door_house_no} / {item.customer_coupon.customer.floor_no}"
-        worksheet.write(row, 0, sl_no)  
-        worksheet.write(row, 1, item.customer_coupon.reference_number)
-        worksheet.write(row, 2, item.customer_coupon.customer.customer_name)
-        worksheet.write(row, 3, building_info)
-        worksheet.write(row, 4, item.coupon.book_num)
-        worksheet.write(row, 5, item.coupon.coupon_type.coupon_type_name)
-        worksheet.write(row, 6, item.coupon.coupon_method)
-        worksheet.write(row, 7, item.rate)
-        row += 1
-        sl_no += 1  # Increment Sl No
+    return render(request, 'sales_management/dsr_coupon_book_sales.html', context)
 
-    # Close the workbook
-    workbook.close()
 
-    # Move the BytesIO pointer to the start of the buffer
-    buffer.seek(0)
-
-    # Create the HTTP response with the Excel file
-    response = HttpResponse(buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="dsr_coupon_book_sales.xlsx"'
-
-    return response
 
 def dsr_coupon_book_sales_print(request):
-    # Get start date from request parameters or default to today
-    start_date = request.GET.get('start_date')
-    print("start_date", start_date)
-    
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    filter_data = {}
+    data_filter = False
+    salesman_id = ""
+    van_route = None
+
+    routes_instances = RouteMaster.objects.all()
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     else:
-        start_date = datetime.today().date()
-    
-    # Query data
-    customer_coupon_items = CustomerCouponItems.objects.filter(customer_coupon__created_date__gte=start_date).order_by("-customer_coupon__created_date")
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
 
-    # Create data for PDF table
-    data = [
-        ["Reference Number", "Customer Name", "Building Name/no", "Book Number", "Coupon Type", "Coupon Method","Rate"]
-    ]
-    for item in customer_coupon_items:
-        building_info = f"{item.customer_coupon.customer.building_name} / {item.customer_coupon.customer.door_house_no} / {item.customer_coupon.customer.floor_no}"
-        data.append([
-            item.customer_coupon.reference_number,
-            item.customer_coupon.customer.customer_name,
-            building_info,
-            item.coupon.book_num,
-            item.coupon.coupon_type.coupon_type_name,
-            item.coupon.coupon_method,
-            item.rate
-        ])
+    if route_name:
+        data_filter = True
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        route_id = van_route.routes.pk if van_route else None
+        filter_data['route_name'] = route_name
+    else:
+        route_id = None
 
-    # Define custom page size (e.g., 8.5x5.5 inches)
-    custom_page_size = (13.5 * inch, 5.5 * inch)
+    if van_route:
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        customer_coupons = CustomerCoupon.objects.filter(salesman=salesman, created_date__date=date)
+    else:
+        customer_coupons = []
 
-    # Create a PDF document with custom page size
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(custom_page_size))
-    table = Table(data, colWidths=[100, 150, 200, 100, 150, 100])
-    table.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.gray),
-                               ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                               ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                               ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                               ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                               ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                               ('GRID', (0, 0), (-1, -1), 1, colors.black)]))
-    doc.build([table])
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'customer_coupons': customer_coupons,
+        'routes_instances': routes_instances,
+        'filter_data': filter_data,
+        'filter_date_formatted': date.strftime('%d-%m-%Y'),
+    }
 
-    # Create HTTP response with the PDF file
-    response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="dsr_coupon_book_sales.pdf"'
-    return response 
+    return render(request, 'sales_management/dsr_coupon_book_sales_print.html', context)
+#-----------------DSR FOC Customers--------------------------
+
+def dsr_foc_customers(request):
+    # Initialize counts and variables
+    filter_data = {}
+    data_filter = False
+    salesman_id = ""
+    van_route = None
+    foc_customers = CustomerSupply.objects.none
+
+
+    # Retrieve all route instances
+    routes_instances = RouteMaster.objects.all()
+
+    # Get filter parameters from request
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+
+    # Set date and filter data
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+
+    if route_name:
+        data_filter = True
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        route_id = van_route.routes.pk if van_route else None
+        filter_data['route_name'] = route_name
+    else:
+        route_id = None
+
+    # Ensure van_route is defined
+    if van_route:
+        # Retrieve salesman
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        foc_customers = CustomerSupply.objects.filter(created_date__date=date, customer__sales_type='FOC', salesman=salesman)
+    else:
+        foc_customers = []
+
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'foc_customers': foc_customers,
+        'routes_instances': routes_instances,
+        'filter_data': filter_data,
+    }
+
+    return render(request, 'sales_management/dsr_foc_customers.html', context)
+
+def dsr_foc_customers_print(request):
+        # Initialize counts and variables
+    filter_data = {}
+    data_filter = False
+    salesman_id = ""
+    van_route = None
+    foc_customers = CustomerSupply.objects.none
+
+
+    # Retrieve all route instances
+    routes_instances = RouteMaster.objects.all()
+
+    # Get filter parameters from request
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+
+    # Set date and filter data
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+
+    if route_name:
+        data_filter = True
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        route_id = van_route.routes.pk if van_route else None
+        filter_data['route_name'] = route_name
+    else:
+        route_id = None
+
+    # Ensure van_route is defined
+    if van_route:
+        # Retrieve salesman
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        foc_customers = CustomerSupply.objects.filter(created_date__date=date, customer__sales_type='FOC', salesman=salesman)
+    else:
+        foc_customers = []
+
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'foc_customers': foc_customers,
+        'routes_instances': routes_instances,
+        'filter_data': filter_data,
+        'filter_date_formatted': date.strftime('%d-%m-%Y'),
+
+    }
+
+    return render(request, 'sales_management/dsr_foc_customers_print.html', context)
+
 
 
 #-----------------DSR Stock Report--------------------------
 
 def dsr_stock_report(request):
-    start_date = request.GET.get('start_date')
     filter_data = {}
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    data_filter = False
+    stock_report_total = 0
+   
+    van_instances = Van.objects.none
+    van_route = Van_Routes.objects.none
+    salesman_id =  ""
+    products = ProdutItemMaster.objects.none
+    routes_instances = RouteMaster.objects.all()
+    van_product_stock = VanProductStock.objects.none
+    
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     else:
-        start_date = datetime.today().date()
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
-    filter_data['start_date'] = start_date.strftime('%Y-%m-%d')
-    salesman_id=request.user.id
-    products = ProdutItemMaster.objects.filter()
-    van_instances = Van.objects.filter(salesman=salesman_id,created_date__date=start_date)
-    van_product_stock = VanProductStock.objects.filter(created_date=start_date)
     
-
+    if route_name:
+        data_filter = True
+        
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        filter_data['route_name'] = route_name
+      
+        ##### stock report #### 
+        products = ProdutItemMaster.objects.filter()
+        van_instances = Van.objects.get(salesman=salesman)
+        van_product_stock = VanProductStock.objects.filter(created_date=date,van=van_instances,product__product_name="5 Gallon")
+        stock_report_total = van_product_stock.aggregate(total_stock=Sum('stock'))['total_stock'] or 0
+        
+        
+        
     context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+       
+        'routes_instances': routes_instances,
+        # stock report
         'products': products,
         'van_instances': van_instances,
         'van_product_stock': van_product_stock,
+        'stock_report_total': stock_report_total,
+        'filter_data': filter_data,
         
-
     }
+    
     return render(request, 'sales_management/dsr_stock_report.html', context)
 
-def visitstatistics_report(request):
-    user_id = request.user.id
-    start_date = request.GET.get('start_date')
+def dsr_stock_report_print(request):
     filter_data = {}
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-    else:
-        start_date = datetime.today().date()
-
-    filter_data['start_date'] = start_date.strftime('%Y-%m-%d')
-    #new customers created
-    salesman_customers_count = Customers.objects.filter(created_date__date=start_date,sales_staff_id=user_id).count()
-    #emergency supply
-    emergency_customers = DiffBottlesModel.objects.filter(created_date__date=start_date, assign_this_to_id=user_id).count()
-    print('emergency_customers',emergency_customers)
-    #actual visit
-    visited_customers_count = CustomerSupply.objects.filter(salesman_id=user_id, created_date__date=start_date).count()
-    print(visited_customers_count,'visited_customers_count')
+    data_filter = False
+    stock_report_total = 0
+   
+    van_instances = Van.objects.none
+    van_route = Van_Routes.objects.none
+    salesman_id =  ""
+    products = ProdutItemMaster.objects.none
+    routes_instances = RouteMaster.objects.all()
+    van_product_stock = VanProductStock.objects.none
     
-    planned_visits_count = Customers.objects.filter(visit_schedule__isnull=False, created_date__date=start_date).annotate(
-        planned_visit_count=Count('visit_schedule')
-    ).filter(planned_visit_count__gt=0).count()
-    print(planned_visits_count,'planned_visits_count')
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    
+    if route_name:
+        data_filter = True
+        
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        filter_data['route_name'] = route_name
+      
+        ##### stock report #### 
+        products = ProdutItemMaster.objects.filter()
+        van_instances = Van.objects.get(salesman=salesman)
+        van_product_stock = VanProductStock.objects.filter(created_date=date,van=van_instances,product__product_name="5 Gallon")
+        stock_report_total = van_product_stock.aggregate(total_stock=Sum('stock'))['total_stock'] or 0
+        
+        
+        
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+       
+        'routes_instances': routes_instances,
+        # stock report
+        'products': products,
+        'van_instances': van_instances,
+        'van_product_stock': van_product_stock,
+        'stock_report_total': stock_report_total,
+        'filter_data': filter_data,
+        'filter_date_formatted': date.strftime('%d-%m-%Y'),
+    }
+    
+    return render(request, 'sales_management/dsr_stock_report_print.html', context)
 
-    # non_visited_customers = CustomerSupply.objects.exclude(salesman_id=user_id, created_date__date=start_date).count()
-    non_visited_customers = planned_visits_count - visited_customers_count
+def dsr_expense(request):
+    filter_data = {}
+    data_filter = False
+    van_route = Van_Routes.objects.none
+    salesman_id =  ""
+    expenses_instanses = Expense.objects.none
+    routes_instances = RouteMaster.objects.all()
+    
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    
+    if route_name:
+        data_filter = True
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        filter_data['route_name'] = route_name
+        
+        ### expenses ####
+        expenses_instanses = Expense.objects.filter(expense_date=date,van=van_route.van)
+        
+       
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'routes_instances': routes_instances,
+        # expenses
+        'expenses_instanses': expenses_instanses,
+        
+        'filter_data': filter_data,
+    }
+    return render(request, 'sales_management/dsr_expense.html', context)
 
-    print(non_visited_customers,'non_visited_customers')
+def dsr_expense_print(request):
+    filter_data = {}
+    data_filter = False
+    van_route = Van_Routes.objects.none
+    salesman_id =  ""
+    expenses_instanses = Expense.objects.none
+    routes_instances = RouteMaster.objects.all()
+    
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    
+    if route_name:
+        data_filter = True
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        filter_data['route_name'] = route_name
+        
+        ### expenses ####
+        expenses_instanses = Expense.objects.filter(expense_date=date,van=van_route.van)
+        
+       
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'routes_instances': routes_instances,
+        # expenses
+        'expenses_instanses': expenses_instanses,
+        'filter_data': filter_data,
+        'filter_date_formatted': date.strftime('%d-%m-%Y'),
+
+    }
+    return render(request, 'sales_management/dsr_expense_print.html', context)
+def dsr_five_gallon_rates(request):
+    filter_data = {}
+    data_filter = False
+   
+    van_route = Van_Routes.objects.none
+    salesman_id =  ""
+    routes_instances = RouteMaster.objects.all()
+    unique_amounts = CustomerCouponItems.objects.none
+    
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    
+    if route_name:
+        data_filter = True
+        
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        filter_data['route_name'] = route_name
+        # 5 gallon rate based
+        unique_amounts = set(CustomerSupplyItems.objects.filter(customer_supply__created_date__date=date,customer_supply__salesman_id=salesman,product__product_name="5 Gallon").values_list('customer_supply__customer__rate', flat=True))
+      
+        
+        
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'routes_instances': routes_instances,
+        # 5 gallon rate based
+        'five_gallon_rates': unique_amounts,
+        'filter_data': filter_data,
+    }
+    
+    return render(request, 'sales_management/dsr_five_gallon_rates.html', context)
+def dsr_five_gallon_rates_print(request):
+    filter_data = {}
+    data_filter = False
+    van_route = Van_Routes.objects.none
+    salesman_id =  ""
+    routes_instances = RouteMaster.objects.all()
+    unique_amounts = CustomerCouponItems.objects.none
+    
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    
+    if route_name:
+        data_filter = True
+        
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        filter_data['route_name'] = route_name
+        # 5 gallon rate based
+        unique_amounts = set(CustomerSupplyItems.objects.filter(customer_supply__created_date__date=date,customer_supply__salesman_id=salesman,product__product_name="5 Gallon").values_list('customer_supply__customer__rate', flat=True))
+      
+        
+        
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'routes_instances': routes_instances,
+        # 5 gallon rate based
+        'five_gallon_rates': unique_amounts,
+        'filter_data': filter_data,
+        'filter_date_formatted': date.strftime('%d-%m-%Y'),
+    }
+    
+    return render(request, 'sales_management/dsr_five_gallon_rates_print.html', context)
+
+def dsr_credit_outstanding(request):
+    filter_data = {}
+    data_filter = False
+    outstanding_credit_notes_total_amount = 0
+    outstanding_credit_notes_received_amount = 0
+    outstanding_credit_notes_balance = 0
+    
+    van_route = Van_Routes.objects.none
+    salesman_id =  ""
+    routes_instances = RouteMaster.objects.all()
+    dialy_collections = InvoiceDailyCollection.objects.none
+    
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    
+    if route_name:
+        data_filter = True
+        
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        filter_data['route_name'] = route_name
+        # collection details
+        dialy_collections = CollectionPayment.objects.filter(salesman_id=salesman,amount_received__gt=0) 
+        # credit outstanding
+        # outstanding_credit_notes = Invoice.objects.filter(invoice_type="credit_invoive",customer__sales_staff=salesman).exclude(created_date__date__gt=date)
+        outstanding_credit_notes_total_amount = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__lte=date,customer_outstanding__product_type="amount",customer_outstanding__customer__routes=van_route.routes).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        total_amount_received_upto_today = dialy_collections.filter(created_date__date__lte=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        outstanding_credit_notes_total_amount = outstanding_credit_notes_total_amount - total_amount_received_upto_today
+
+        # outstanding_credit_notes_total_amount = outstanding_credit_notes_total_amount - dialy_collections.filter(created_date__date__lte=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        outstanding_credit_notes_received_amount = dialy_collections.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        outstanding_credit_notes_balance = outstanding_credit_notes_total_amount - outstanding_credit_notes_received_amount
+
+       
+        
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'routes_instances': routes_instances,
+        'outstanding_credit_notes_total_amount' : outstanding_credit_notes_total_amount,
+        'outstanding_credit_notes_received_amount' : outstanding_credit_notes_received_amount,
+        'outstanding_credit_notes_balance': outstanding_credit_notes_balance,
+        'filter_data': filter_data,
+    }
+    
+    return render(request, 'sales_management/dsr_credit_outstanding.html', context)
+
+def dsr_credit_outstanding_print(request):
+    filter_data = {}
+    data_filter = False
+    outstanding_credit_notes_total_amount = 0
+    outstanding_credit_notes_received_amount = 0
+    outstanding_credit_notes_balance = 0
+    
+    van_route = Van_Routes.objects.none
+    salesman_id =  ""
+    routes_instances = RouteMaster.objects.all()
+    dialy_collections = InvoiceDailyCollection.objects.none
+    
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    
+    if route_name:
+        data_filter = True
+        
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+        filter_data['route_name'] = route_name
+        # collection details
+        dialy_collections = CollectionPayment.objects.filter(salesman_id=salesman,amount_received__gt=0) 
+        # credit outstanding
+        # outstanding_credit_notes = Invoice.objects.filter(invoice_type="credit_invoive",customer__sales_staff=salesman).exclude(created_date__date__gt=date)
+        outstanding_credit_notes_total_amount = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__lte=date,customer_outstanding__product_type="amount",customer_outstanding__customer__routes=van_route.routes).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        total_amount_received_upto_today = dialy_collections.filter(created_date__date__lte=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        outstanding_credit_notes_total_amount = outstanding_credit_notes_total_amount - total_amount_received_upto_today
+
+        # outstanding_credit_notes_total_amount = outstanding_credit_notes_total_amount - dialy_collections.filter(created_date__date__lte=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        outstanding_credit_notes_received_amount = dialy_collections.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        outstanding_credit_notes_balance = outstanding_credit_notes_total_amount - outstanding_credit_notes_received_amount
+
+       
+        
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'routes_instances': routes_instances,
+        'outstanding_credit_notes_total_amount' : outstanding_credit_notes_total_amount,
+        'outstanding_credit_notes_received_amount' : outstanding_credit_notes_received_amount,
+        'outstanding_credit_notes_balance': outstanding_credit_notes_balance,
+        'filter_data': filter_data,
+        'filter_date_formatted': date.strftime('%d-%m-%Y'),
+    }
+    
+    return render(request, 'sales_management/dsr_credit_outstanding_print.html', context)
+
+def visitstatistics_report(request):
+    filter_data = {}
+    data_filter = False
+
+    # Initialize counts and variables
+    new_customers_count = 0
+    emergency_supply_count = 0
+    visited_customers_count = 0
+    non_visited_count = 0
+    planned_visit_count = 0
+    salesman_id = ""
+    van_route = None
+
+    # Retrieve all route instances
+    routes_instances = RouteMaster.objects.all()
+
+    # Get filter parameters from request
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+
+    # Set date and filter data
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    if route_name:
+        data_filter = True
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        route_id = van_route.routes.pk if van_route else None
+        filter_data['route_name'] = route_name
+    else:
+        route_id = None
+
+    # Ensure van_route is defined
+    if van_route:
+        # Retrieve salesman
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+
+        # Calculate statistics
+        new_customers_count = Customers.objects.filter(created_date__date=date, sales_staff_id=salesman).count()
+        emergency_supply_count = DiffBottlesModel.objects.filter(created_date__date=date, assign_this_to_id=salesman).count()
+        visited_customers_count = CustomerSupply.objects.filter(salesman_id=salesman, created_date__date=date).distinct().count()
+        todays_customers = find_customers(request, str(date), van_route.routes.pk)
+        planned_visit_count = len(todays_customers)
+        non_visited_count = planned_visit_count - visited_customers_count
 
     context = {
-        'salesman_customers_count': salesman_customers_count,
-        'emergency_customers': emergency_customers,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'new_customers_count': new_customers_count,
+        'planned_visit_count': planned_visit_count,
         'visited_customers_count': visited_customers_count,
-        'non_visited_customers': non_visited_customers,
-        'planned_visits_count': planned_visits_count
+        'non_visited_count': non_visited_count,
+        'emergency_supply_count': emergency_supply_count,
+        'filter_data': filter_data,
+        'data_filter': data_filter,
+        'routes_instances': routes_instances,
     }
+
     return render(request, 'sales_management/dsr_visit_statistics_report.html', context)
 
 
-def visitstatistics_report_excel(request):
-    user_id = request.user.id
-
-    start_date = request.GET.get('start_date')
-    
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-    else:
-        start_date = datetime.today().date()
-    
-    salesman_customers_count = Customers.objects.filter(created_date__date=start_date,sales_staff_id=user_id).count()
-    #emergency supply
-    emergency_customers = DiffBottlesModel.objects.filter(created_date__date=start_date, assign_this_to_id=user_id).count()
-    print('emergency_customers',emergency_customers)
-    #actual visit
-    visited_customers_count = CustomerSupply.objects.filter(salesman_id=user_id, created_date__date=start_date).count()
-    print(visited_customers_count,'visited_customers_count')
-    
-    planned_visits_count = Customers.objects.filter(visit_schedule__isnull=False, created_date__date=start_date).annotate(
-        planned_visit_count=Count('visit_schedule')
-    ).filter(planned_visit_count__gt=0).count()
-    print(planned_visits_count,'planned_visits_count')
-
-    # non_visited_customers = CustomerSupply.objects.exclude(salesman_id=user_id, created_date__date=start_date).count()
-    non_visited_customers = planned_visits_count - visited_customers_count
-
-   
-
-    # Create a BytesIO object to save workbook data
-    buffer = BytesIO()
-
-    # Create a new Excel workbook and add a worksheet
-    workbook = xlsxwriter.Workbook(buffer)
-    worksheet = workbook.add_worksheet()
-    worksheet.title = "Credit Sales Report"
-
-    # Write headers
-    headers = ["", "Reference No", "Customer Name", "Building Name", "Net taxable", "Vat","Grand Total"]
-    worksheet.write_row(0, 0, headers)
-
-    # Write data rows
-    for index, invoice in enumerate(invoices, start=1):
-        worksheet.write_row(index, 0, [
-            index,
-            invoice.reference_no,
-            invoice.customer.customer_name,
-            invoice.customer.building_name,
-            invoice.net_taxable,
-            invoice.vat,
-            invoice.amout_total
-        ])
-    #  'salesman_customers_count': salesman_customers_count,
-    #     'emergency_customers': emergency_customers,
-    #     'visited_customers_count': visited_customers_count,
-    #     'non_visited_customers': non_visited_customers,
-    #     'planned_visits_count': planned_visits_count
-
-    # # Write footer data
-    # footer_row = len(invoices) + 1
-    # worksheet.write(footer_row, 3, "Total")
-    # worksheet.write(footer_row, 4, total_net_taxable)
-    # worksheet.write(footer_row, 5, total_vat)
-    # worksheet.write(footer_row, 6, total_amout_total)
-
-    # Close the workbook
-    workbook.close()
-
-    # Create HttpResponse object to return the Excel file as a response
-    response = HttpResponse(buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename=Visit_Statistics_Report.xlsx'
-    return response
-
 
 def visitstatistics_report_print(request):
-    user_id = request.user.id
+    filter_data = {}
+    data_filter = False
 
-    start_date = request.GET.get('start_date')
-    
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    # Initialize counts and variables
+    new_customers_count = 0
+    emergency_supply_count = 0
+    visited_customers_count = 0
+    non_visited_count = 0
+    planned_visit_count = 0
+    salesman_id = ""
+    van_route = None
+
+    # Retrieve all route instances
+    routes_instances = RouteMaster.objects.all()
+
+    # Get filter parameters from request
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+
+    # Set date and filter data
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     else:
-        start_date = datetime.today().date()
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
-    salesman_customers_count = Customers.objects.filter(created_date__date=start_date,sales_staff_id=user_id).count()
-    #emergency supply
-    emergency_customers = DiffBottlesModel.objects.filter(created_date__date=start_date, assign_this_to_id=user_id).count()
-    print('emergency_customers',emergency_customers)
-    #actual visit
-    visited_customers_count = CustomerSupply.objects.filter(salesman_id=user_id, created_date__date=start_date).count()
-    print(visited_customers_count,'visited_customers_count')
-    
-    planned_visits_count = Customers.objects.filter(visit_schedule__isnull=False, created_date__date=start_date).annotate(
-        planned_visit_count=Count('visit_schedule')
-    ).filter(planned_visit_count__gt=0).count()
-    print(planned_visits_count,'planned_visits_count')
+    if route_name:
+        data_filter = True
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        route_id = van_route.routes.pk if van_route else None
+        filter_data['route_name'] = route_name
+    else:
+        route_id = None
 
-    # non_visited_customers = CustomerSupply.objects.exclude(salesman_id=user_id, created_date__date=start_date).count()
-    non_visited_customers = planned_visits_count - visited_customers_count
+    # Ensure van_route is defined
+    if van_route:
+        # Retrieve salesman
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
 
-   
+        # Calculate statistics
+        new_customers_count = Customers.objects.filter(created_date__date=date, sales_staff_id=salesman).count()
+        emergency_supply_count = DiffBottlesModel.objects.filter(created_date__date=date, assign_this_to_id=salesman).count()
+        visited_customers_count = CustomerSupply.objects.filter(salesman_id=salesman, created_date__date=date).distinct().count()
+        todays_customers = find_customers(request, str(date), van_route.routes.pk)
+        planned_visit_count = len(todays_customers)
+        non_visited_count = planned_visit_count - visited_customers_count
 
+    context = {
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'new_customers_count': new_customers_count,
+        'planned_visit_count': planned_visit_count,
+        'visited_customers_count': visited_customers_count,
+        'non_visited_count': non_visited_count,
+        'emergency_supply_count': emergency_supply_count,
+        'filter_data': filter_data,
+        'data_filter': data_filter,
+        'routes_instances': routes_instances,
+        'filter_date_formatted': date.strftime('%d-%m-%Y'),
 
-    # Create a BytesIO object to save PDF data
-    buffer = BytesIO()
+    }
 
-    # Create a new PDF document
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
-    
-    # Define table data
-    data = [
-        ["Sl No", "Reference No", "Customer Name", "Building Name", "Net taxable", "Vat","Grand Total"]
-    ]
-    
-    # Populate table data
-    for index, invoice in enumerate(invoices, start=1):
-        data.append([
-            str(index),
-            str(invoice.reference_no),
-            str(invoice.customer.customer_name),
-            str(invoice.customer.building_name),
-            str(invoice.net_taxable),
-            str(invoice.vat),
-            str(invoice.amout_total)
-        ])
-    
-   
-
-    # Create a table
-    table = Table(data)
-
-    # Add style to the table
-    style = TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.gray),
-                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-                        ])
-    table.setStyle(style)
-
-    # Add table to the document
-    doc.build([table])
-
-    # Create HttpResponse object to return the PDF file as a response
-    response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename=Visit_Statistics_Report.pdf'
-    return response
+    return render(request, 'sales_management/dsr_visit_statistics_report_print.html', context)
 
 
 def fivegallonrelated_report(request):
@@ -3342,11 +3968,12 @@ def dsr_summary(request):
         suspense_balance_amount = today_payable - suspense_paid_amount
         
         # collection details
-        dialy_collections = CollectionPayment.objects.filter(salesman_id=salesman,amount_received__gt=0)
+        dialy_collections = CollectionPayment.objects.filter(salesman_id=salesman)
         # credit outstanding
         # outstanding_credit_notes = Invoice.objects.filter(invoice_type="credit_invoive",customer__sales_staff=salesman).exclude(created_date__date__gt=date)
         outstanding_credit_notes_total_amount = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__lte=date,customer_outstanding__product_type="amount",customer_outstanding__customer__routes=van_route.routes).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
-        outstanding_credit_notes_total_amount = outstanding_credit_notes_total_amount - dialy_collections.filter(created_date__date__lte=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        dialy_colection_upto__yesterday = dialy_collections.filter(created_date__date__lt=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        outstanding_credit_notes_total_amount = outstanding_credit_notes_total_amount - dialy_colection_upto__yesterday
         outstanding_credit_notes_received_amount = dialy_collections.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         outstanding_credit_notes_balance = outstanding_credit_notes_total_amount - outstanding_credit_notes_received_amount
         outstanding_total_amount_collected = dialy_collections.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
@@ -3652,11 +4279,11 @@ def print_dsr_summary(request):
         suspense_balance_amount = today_payable - suspense_paid_amount
         
         # collection details
-        dialy_collections = CollectionPayment.objects.filter(salesman_id=salesman,amount_received__gt=0)
+        dialy_collections = CollectionPayment.objects.filter(salesman_id=salesman)
         # credit outstanding
         # outstanding_credit_notes = Invoice.objects.filter(invoice_type="credit_invoive",customer__sales_staff=salesman).exclude(created_date__date__gt=date)
         outstanding_credit_notes_total_amount = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__lte=date,customer_outstanding__product_type="amount",customer_outstanding__customer__routes=van_route.routes).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
-        outstanding_credit_notes_total_amount = outstanding_credit_notes_total_amount - dialy_collections.filter(created_date__date__lte=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        outstanding_credit_notes_total_amount = outstanding_credit_notes_total_amount - dialy_collections.filter(created_date__date__lt=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         outstanding_credit_notes_received_amount = dialy_collections.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         outstanding_credit_notes_balance = outstanding_credit_notes_total_amount - outstanding_credit_notes_received_amount
         outstanding_total_amount_collected = dialy_collections.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
@@ -4270,4 +4897,84 @@ def VansRouteBottleCountDeduct(request, van_id):
         'van': van,
     }
     return render(request, 'sales_management/van_route_bottle_count_deduct.html', context)
+
+#-----------------DSR Outstanding Amount Collected Customers--------------------------
+
+def outstanding_amount_collected(request):
+# Initialize counts and variables
+    filter_data = {}
+    data_filter = False
+    salesman_id = ""
+    van_route = None
+    dialy_collections = CollectionPayment.objects.none()
+    outstanding_total_amount_collected = 0
+    outstanding_credit_notes_balance = 0
+
+    # Retrieve all route instances
+    routes_instances = RouteMaster.objects.all()
+
+    # Get filter parameters from request
+    date = request.GET.get('date')
+    route_name = request.GET.get('route_name')
+
+    # Set date and filter data
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+
+    if route_name:
+        data_filter = True
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        route_id = van_route.routes.pk if van_route else None
+        filter_data['route_name'] = route_name
+    else:
+        route_id = None
+
+    # Ensure van_route is defined
+    if van_route:
+        # Retrieve salesman
+        salesman = van_route.van.salesman
+        salesman_id = salesman.pk
+
+        # Collection details
+        dialy_collections = CollectionPayment.objects.filter(salesman_id=salesman, amount_received__gt=0)
+
+        # Credit outstanding
+        outstanding_credit_notes_total_amount = OutstandingAmount.objects.filter(
+            customer_outstanding__created_date__date__lte=date,
+            customer_outstanding__product_type="amount",
+            customer_outstanding__customer__routes=van_route.routes
+        ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        
+        outstanding_credit_notes_total_amount -= dialy_collections.filter(
+            created_date__date__lte=date
+        ).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        
+        outstanding_credit_notes_received_amount = dialy_collections.filter(
+            created_date__date=date
+        ).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        
+        outstanding_credit_notes_balance = outstanding_credit_notes_total_amount - outstanding_credit_notes_received_amount
+        outstanding_total_amount_collected = dialy_collections.filter(
+            created_date__date=date
+        ).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+    else:
+        dialy_collections = []
+
+    context = {
+        'data_filter': data_filter,
+        'salesman_id': salesman_id,
+        'van_route': van_route,
+        'dialy_collections': dialy_collections,
+        'routes_instances': routes_instances,
+        'filter_data': filter_data,
+        'outstanding_total_amount_collected': outstanding_total_amount_collected,
+        'outstanding_credit_notes_balance': outstanding_credit_notes_balance,
+    }
+    
+    return render(request, 'sales_management/dsr_outstanding_amount_collected.html', context)
+
 

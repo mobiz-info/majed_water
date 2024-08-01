@@ -165,3 +165,8 @@ class BottleAllocationForm(forms.ModelForm):
             'reason': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         } 
 
+class ExcessBottleCountForm(forms.ModelForm):
+    class Meta:
+        model = ExcessBottleCount
+        fields = ['van', 'bottle_count', 'route']
+        

@@ -1,6 +1,8 @@
 from django import forms
 from django.forms import ModelForm
 from .models import *
+from accounts.models import TermsAndConditions
+from ckeditor.widgets import CKEditorWidget
 
 class Branch_Create_Form(forms.ModelForm):
     def __init__(self, *args, **kwargs):
@@ -141,4 +143,13 @@ class Category_Edit_Form(forms.ModelForm):
         fields = ['category_name']
         widgets = {
             'category_name': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
+        }
+        
+        
+class TermsAndConditionsForm(forms.ModelForm):
+    class Meta:
+        model = TermsAndConditions
+        fields = ['description']
+        widgets = {
+            'description': CKEditorWidget(),
         }

@@ -102,12 +102,15 @@
                                             <a href="{% url 'customer_supply_info' pk=instance.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Info">
                                                 <span class="ri-printer-fill fs-14"></span>
                                             </a>
+                                            {% if instance.can_edit %}
                                             <a href="{% url 'edit_customer_supply' pk=instance.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Edit">
                                                 <span class="ri-pencil-line fs-14"></span>
                                             </a>
+                                            
                                             <a aria-label="anchor" class="action-button remove btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete"
                                                 data-id="{{instance.pk}}" data-text="{{confirm_delete_message}}" data-title="Are you sure?" href="{% url 'delete_customer_supply' pk=instance.pk %}"><span class="ri-delete-bin-7-line fs-14"></span>
                                             </a>
+                                            {% endif %}
                                         </div>
                                     </td>
                                 </tr>

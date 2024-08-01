@@ -5,6 +5,7 @@ from django.db import models
 import uuid
 from datetime import datetime
 from accounts.models import *
+from ckeditor.fields import RichTextField
 
 class EmirateMaster(models.Model):
     emirate_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -97,3 +98,8 @@ class CategoryMaster(models.Model):
     def __str__(self):
         return str(self.category_name)
     
+class PrivacyPolicy(models.Model):
+    content = RichTextField()
+
+    def __str__(self):
+        return "Privacy Policy"

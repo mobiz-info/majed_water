@@ -62,6 +62,22 @@
                                         <span style="color: red;">{{ form.tax.errors }}</span>
                                     </div>
                                 </div>
+                                <div class="col-md-6">
+                                    <div class="form-group required">
+                                        <label class='control-label'>Image</label>
+                                        {{ form.image }}
+                                        <span style="color: red;">{{ form.image.errors }}</span>
+                                    </div>
+                                </div>
+                                {% if form.instance.image and form.instance.image.url %}
+                                    <div class="col-xl-4">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <img src="{{ form.instance.image.url }}" alt="Image preview" style="width: 100%; height: auto;">
+                                            </div><!-- end card-body -->
+                                        </div><!-- end card -->
+                                    </div><!-- end col -->
+                                {% endif %}
                                 <div class="col-12 text-end mt-5">
                                     <input type="submit" class="btn btn-primary me-2 mb-2" value="Submit">
                                     <button class="btn btn-success   me-md-2  mb-2" type="button" onClick="javascript:history.go(-1);">

@@ -475,3 +475,33 @@ class Category_Details(View):
 #     EmirateMaster.objects.create(created_by = "default",name = "RAK")
 #     EmirateMaster.objects.create(created_by = "default",name = "UAQ")
 # create_emirates()
+
+def privacy_policy_view(request):
+    privacy_policy = PrivacyPolicy.objects.last()
+    return render(request, 'accounts/privacy.html', {'privacy_policy': privacy_policy})
+
+def terms_and_conditions_list(request):
+    """
+    View to list all TermsAndConditions instances.
+    """
+    instances = TermsAndConditions.objects.all()
+    context = {
+        'instances': instances
+    }
+    return render(request, 'master/terms_and_conditions_list.html', context)
+
+def terms_and_conditions_create(request):
+    """
+    View to create a new TermsAndConditions instance.
+    """
+    if request.method == 'POST':
+        form = TermsAndConditionsForm(request.POST)
+        if form.is_valid():
+            terms_and_conditions = form.save(commit=False)
+            terms_and_conditions.created_by = request.user
+            terms_and_conditions.save()
+            return redirect('terms_and_conditions_list')
+    else:
+        form = TermsAndConditionsForm()
+
+    return render(request, 'master/terms_and_conditions_create.html', {'form': form})
