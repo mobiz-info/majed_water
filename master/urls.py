@@ -40,7 +40,7 @@ urlpatterns = [
     path('category_create',Category_Create.as_view(), name='category_create'),
     path('category_edit/<str:pk>', Category_Edit.as_view(), name='category_edit'),
     path('category_details/<str:pk>', Category_Details.as_view(), name='category_details'),
-    
+
     path('privacy/', privacy, name='privacy'),
     path('privacy_list/', privacy_list, name='privacy_list'),
     path('privacy/create/', privacy_create, name='privacy_create'),
@@ -52,6 +52,7 @@ urlpatterns = [
     path('terms-and-conditions/create/', terms_and_conditions_create, name='terms_and_conditions_create'),
     path('terms-and-conditions/edit/<uuid:pk>/', terms_and_conditions_edit, name='terms_and_conditions_edit'),
     path('terms-and-conditions/delete/<uuid:pk>/', terms_and_conditions_delete, name='terms_and_conditions_delete'),
+    
    ]
 
 

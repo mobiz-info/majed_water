@@ -275,33 +275,27 @@ urlpatterns = [
     #------------------------------------Location Api -----------------------------------------------------
 
     path('location_updates/', LocationUpdateAPIView.as_view(), name='location_updates'),
-        #------------------------------------Van Stock Api -----------------------------------------------------
-
+    #------------------------------------Van Stock Api -----------------------------------------------------
     path('van_list/', VanListView.as_view(), name='van_list'),
     path('van_detail/<uuid:van_id>/', VanDetailView.as_view(), name='van_detail'),
-
-
-    
     #---------------------------store app product stock-------------- 
     path('product-stocks/', ProductStockListAPIView.as_view(), name='product-stock-list'),
-    
     #---------------------------Salesman app report ------------------------------------------------   
-
     path('cash_sales_report/', CashSalesReportAPIView.as_view(), name='cash_sales_report'),
     path('credit_sales_report/', CreditSalesReportAPIView.as_view(), name='credit_sales_report'),
     #---------------------------Bottle Count Store App Url ------------------------------------------------   
     path('api_van_route_bottle_count/', VanRouteBottleCountView.as_view(), name='api_van_route_bottle_count'),
     path('api_vans_route_bottle_count_add/<uuid:pk>/', VansRouteBottleCountAddAPIView.as_view(), name='api_vans_route_bottle_count_add'),
     path('api_vans_route_bottle_count_deduct/<uuid:pk>/', VansRouteBottleCountDeductAPIView.as_view(), name='api_vans_route_bottle_count_deduct'),
-    
-    
     #-------------Store app stock transfer-----------------------------------------
     path('stock_transfer/', StockTransferAPIView.as_view(), name='stock_transfer'),
     
     path('scrap_stock/', ScrapStockAPIView.as_view(), name='scrap_stock'),
+    path('add-damage-bottle/', addDamageBottleAPIView.as_view(), name='add_damage_bottle'),
+    
+    path('excess-bottle-count/', ExcessBottleCount.as_view(), name='excess_bottle_count'),
 
     path('privacy-policy/', privacy),
     
     path('terms_and_conditions/', terms_and_conditions),
-    
 ]

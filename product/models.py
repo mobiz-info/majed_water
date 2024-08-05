@@ -27,6 +27,7 @@ class ProdutItemMaster(models.Model):
     unit = models.CharField(max_length=50, choices=unit_choices, null=True, blank=True)
     tax = models.ForeignKey('tax_settings.Tax', on_delete=models.CASCADE, null=True, blank=True)
     rate = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    image = models.ImageField(upload_to='product_images/', null=True, blank=True)
     
     class Meta:
         ordering = ('product_name',)
@@ -170,7 +171,22 @@ class ProductStock(models.Model):
 
     def __str__(self):
         return str(self.product_name.product_name)
+
+class DamageBottleStock(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE,null=True, blank=True)
+    quantity=models.PositiveIntegerField(default=0)
     
+    created_by = models.CharField(max_length=20, blank=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    created_date = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ('created_date',)
+
+    def __str__(self):
+        return str(self.product.product_name)
     
 class ScrapProductStock(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

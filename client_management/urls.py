@@ -71,6 +71,6 @@ urlpatterns = [
         path('create_nonvisitreason', create_nonvisitreason, name="create_nonvisitreason"),
         path('delete_nonvisitreason/<uuid:id>/', delete_nonvisitreason, name='delete_nonvisitreason'),
 
-        
+
 
 ]

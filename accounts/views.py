@@ -33,8 +33,7 @@ from client_management.models import *
 from django.db.models import Q, Sum, Count
 from customer_care.models import *
 from apiservices.views import find_customers
-from van_management.models import Van_Routes
-
+from van_management.models import Van_Routes,Van,VanProductStock
 
 # Create your views here.
 def user_login(request):
@@ -259,7 +258,6 @@ class Customer_List(View):
 
         # Start with all customers
         user_li = Customers.objects.all()
-        
             
         # Apply filters if they exist
         if query:
@@ -267,7 +265,6 @@ class Customer_List(View):
                 Q(custom_id__icontains=query) |
                 Q(customer_name__icontains=query) |
                 Q(mobile_no__icontains=query) |
-                Q(routes__route_name__icontains=query) |
                 Q(location__location_name__icontains=query) |
                 Q(building_name__icontains=query)
             )
@@ -293,25 +290,43 @@ class Latest_Customer_List(View):
     template_name = 'accounts/latest_customer_list.html'
 
     def get(self, request, *args, **kwargs):
+        filter_data = {}
         query = request.GET.get("q")
+        
         route_filter = request.GET.get('route_name')
 
         ten_days_ago = datetime.now() - timedelta(days=10)
-        
         user_li = Customers.objects.filter(created_date__gte=ten_days_ago)
+        if request.GET.get('start_date'):
+            start_date = request.GET.get('start_date')
+        else:
+            start_date = datetime.today().date()
+            
+        if request.GET.get('end_date'):
+            end_date = request.GET.get('end_date')
+        else:
+            end_date = datetime.today().date()
+        
+        start_date = datetime.strptime(str(start_date), '%Y-%m-%d').date()   
+        end_date = datetime.strptime(str(end_date), '%Y-%m-%d').date()
+        
+        filter_data["start_date"] = start_date.strftime('%Y-%m-%d') if start_date else None
+        filter_data["end_date"] = end_date.strftime('%Y-%m-%d') if end_date else None
+        
+        user_li = Customers.objects.filter(Q(created_date__date__range=[start_date, end_date]))
+
+        if route_filter:
+            user_li = user_li.filter(routes__route_name=route_filter)
 
         if query and query != "None":
             user_li = user_li.filter(
                 Q(custom_id__icontains=query) |
                 Q(customer_name__icontains=query) |
                 Q(mobile_no__icontains=query) |
-                Q(routes__route_name__icontains=query) |
                 Q(location__location_name__icontains=query) |
                 Q(building_name__icontains=query)
             )
-
-        if route_filter:
-            user_li = user_li.filter(routes__route_name=route_filter)
+            filter_data['q'] = query
 
         route_li = RouteMaster.objects.all()
         
@@ -323,7 +338,40 @@ class Latest_Customer_List(View):
         }
 
         return render(request, self.template_name, context)
-    
+
+class Inactive_Customer_List(View):
+    template_name = 'accounts/inactive_customer_list.html'
+
+    def get(self, request, *args, **kwargs):
+        query = request.GET.get("q")
+        route_filter = request.GET.get('route_name')
+
+        user_li = Customers.objects.all()
+
+        if route_filter:
+            user_li = user_li.filter(routes__route_name=route_filter)
+
+        if query and query != "None":
+            user_li = user_li.filter(
+                Q(custom_id__icontains=query) |
+                Q(customer_name__icontains=query) |
+                Q(mobile_no__icontains=query) |
+                Q(routes__route_name__icontains=query) |
+                Q(location__location_name__icontains=query) |
+                Q(building_name__icontains=query)
+            )
+
+        route_li = RouteMaster.objects.all()
+
+        context = {
+            'user_li': user_li.order_by("-created_date"),
+            'route_li': route_li,
+            'route_filter': route_filter,
+            'q': query,
+        }
+
+        return render(request, self.template_name, context)
+        
 class CustomerComplaintView(View):
     template_name = 'accounts/customer_complaint.html'
 
@@ -712,16 +760,6 @@ class CustomerRateHistoryListView(View):
         }
         return render(request, self.template_name, context)
     
-def terms_and_conditions_list(request):
-    """
-    View to list all TermsAndConditions instances.
-    """
-    instances = TermsAndConditions.objects.all()
-    context = {
-        'instances': instances
-    }
-    return render(request, 'accounts/terms_and_conditions_list.html', context)
-
 class NonVisitedCustomersView(View):
     template_name = 'accounts/non_visited_customers.html'
     paginate_by = 50  # Optional: For pagination, you can set this value

@@ -1,3 +1,4 @@
+import re
 import uuid
 import base64
 import datetime
@@ -1863,15 +1864,14 @@ class Staff_New_Order(APIView):
         try:
             with transaction.atomic():
                 data_list = request.data.get('data_list', [])
-                uid = uuid.uuid4()
-                uid = str(uid)[:2]
-                dtm = date.today().month
-                dty = date.today().year
-                dty = str(dty)[2:]
-                num = str(uid) + str(dtm) + str(dty)
-                # request.data["order_num"] = num
-                # print(num.upper())
-                
+                last_order = Staff_Orders.objects.all().latest("created_date")
+                if last_order:
+                    last_order_number = last_order.order_number
+                    new_order_number = int(last_order_number) + 1
+                else:
+                    new_order_number = 1
+
+                order_number = f"{new_order_number}"
                 order_date = request.GET.get('order_date')
             
                 if order_date:
@@ -1883,7 +1883,7 @@ class Staff_New_Order(APIView):
                 if serializer_1.is_valid(raise_exception=True):
                     order_data = serializer_1.save(
                         created_by=request.user.id,
-                        order_number=num.upper(),
+                        order_number=order_number.upper(),
                         order_date=order_date
                     )
                     staff_order = order_data.staff_order_id
@@ -2940,7 +2940,7 @@ class create_customer_supply(APIView):
                     custody_instance = CustodyCustom.objects.create(
                         customer=customer_supply.customer,
                         created_by=request.user.id,
-                        created_date=timezone.now(),
+                        created_date=datetime.today(),
                         deposit_type="non_deposit",
                         reference_no=f"supply {customer_supply.customer.custom_id} - {customer_supply.created_date}"
                     )
@@ -4290,7 +4290,6 @@ class VanStockAPI(APIView):
                 "coupon_stock": coupon_serialized_data,
                 "product_stock": product_serialized_data,
             })
-
 
 
 class CouponCountList(APIView):
@@ -7220,7 +7219,7 @@ class OffloadRequestListAPIView(APIView):
                 
                 if item.product.category.category_name == 'Coupons':
                     coupon_type = item.product.product_name
-                    coupons = OffloadCoupon.objects.filter(offload_request=offload_request, coupon__coupon_type__coupon_type_name=coupon_type)
+                    coupons = OffloadRequestCoupon.objects.filter(offload_request=offload_request, coupon__coupon_type__coupon_type_name=coupon_type)
                     coupon_ids = list(coupons.values_list('coupon_id', flat=True))
                     coupon_book_nums = list(coupons.values_list('coupon__book_num', flat=True))
                     vans_data[van.van_id][(product_name, date)]['coupon_numbers'].update(coupon_ids)
@@ -7394,19 +7393,16 @@ class OffloadRequestListAPIView(APIView):
                                 coupon.coupon_stock = "company"
                                 coupon.save()
                                 
+                                offload_item = OffloadRequestItems.objects.get(offload_request=offload_request_instance,product=product_item_instance,stock_type=stock_type)
+                                offload_item.offloaded_quantity = len(coupons)
+                                offload_item.save()
+                                
                                 OffloadCoupon.objects.create(
-                                    created_by=request.user.id,
-                                    created_date=datetime.now(),
-                                    salesman=van_coupon_stock.van.salesman,
-                                    van=van_coupon_stock.van,
                                     coupon=van_coupon_stock.coupon,
                                     quantity = 1,
-                                    stock_type="stock"
+                                    stock_type="stock",
+                                    offload_request=offload_request_instance
                                 )
-                                
-                            offload_item = OffloadRequestItems.objects.get(offload_request=offload_request_instance,product=product_item_instance,stock_type=stock_type)
-                            offload_item.offloaded_quantity = len(coupons)
-                            offload_item.save()
                         
                 response_data = {
                     "status": "true",
@@ -8189,17 +8185,108 @@ class ScrapStockAPIView(APIView):
         return Response(response_data, status=status_code)
     
     
-class TermsAndConditionsAPIView(APIView):
-    def get(self, request):
-        """
-        Retrieve all TermsAndConditions instances.
-        """
-        terms_and_conditions = TermsAndConditions.objects.all()
-        serializer = TermsAndConditionsSerializer(terms_and_conditions, many=True)
-        return Response({
-            "status": "success",
-            "message": "Terms and conditions retrieved successfully.",
-            "data": serializer.data
-        }, status=status.HTTP_200_OK)
-
+class addDamageBottleAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        product_id = request.data.get('product_id')
+        quantity = request.data.get('quantity')
+        try:
+            with transaction.atomic():
+                if product_id:
+                    product_item = ProdutItemMaster.objects.get(pk=product_id)
+                else:
+                    product_item = ProdutItemMaster.objects.get(product_name="5 Gallon")
+                
+                DamageBottleStock.objects.create(
+                        product=product_item,
+                        quantity=quantity,
+                        created_by=request.user.pk,
+                        created_date=datetime.today(),
+                    )
+                
+                # Create or update ScrapStock
+                scrap_stock = ScrapStock.objects.get(product=product_item)
+                scrap_stock.quantity += quantity
+                scrap_stock.save()
+                
+                status_code = status.HTTP_200_OK
+                response_data = {
+                    "status": "true",
+                    "title": "Success",
+                    "message": "Damage Stock successfully Added",
+                }
+        
+        except IntegrityError as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+        
+        except Exception as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+        
+        return Response(response_data, status=status_code)
+    
+    
+class ExcessBottleCount(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        product_id = request.data.get('product_id')
+        quantity = request.data.get('quantity')
+        try:
+            with transaction.atomic():
+                if product_id:
+                    product_item = ProdutItemMaster.objects.get(pk=product_id)
+                else:
+                    product_item = ProdutItemMaster.objects.get(product_name="5 Gallon")
+                
+                van_route = Van_Routes.objects.get(van__salesman=request.user)
+                ExcessBottleCount.objects.create(
+                        van=van_route.van,
+                        route=van_route,
+                        product=product_item,
+                        bottle_count=quantity,
+                        created_by=request.user.pk,
+                        created_date=datetime.today(),
+                    )
+                
+                van_product_stock = VanProductStock.objects.get(van=van_route.van,created_date=datetime.today().date())
+                van_product_stock.excess_bottle += quantity
+                van_product_stock.save()
+                
+                status_code = status.HTTP_200_OK
+                response_data = {
+                    "status": "true",
+                    "title": "Success",
+                    "message": "Excess Bottle Stock successfully Added",
+                }
+        
+        except IntegrityError as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+        
+        except Exception as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+        
+        return Response(response_data, status=status_code)
     

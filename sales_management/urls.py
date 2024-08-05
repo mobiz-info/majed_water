@@ -99,7 +99,6 @@ urlpatterns = [
     #------------------DSR Bottle Count 5gallon empty +fresh Report-------------------------------------
     path('bottlecount_report/', bottlecount_report, name='bottlecount_report'),
     
-    
     path('dsr-summary/', dsr_summary, name='dsr_summary'),
     path('print-dsr-summary/', print_dsr_summary, name='print_dsr_summary'),
     # path('export-dsr-summary/', export_daily_summary_report, name='export_dsr_summary'),
@@ -109,6 +108,8 @@ urlpatterns = [
     path('vans-route-bottle-count-add/<uuid:pk>/',VansRouteBottleCountAdd, name='bottle_count_add'),
     path('vans-route-bottle-count-deduct/<uuid:pk>/',VansRouteBottleCountDeduct, name='bottle_count_deduct'),
     
+    
     #------------------DSR Outstanding Amount Collected Report-------------------------------------
     path('outstanding_amount_collected',outstanding_amount_collected, name='outstanding_amount_collected'),
+
 ]

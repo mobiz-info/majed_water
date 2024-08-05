@@ -38,8 +38,10 @@ from django.db.models import Max
 
 
 def get_van_coupon_bookno(request):
+    van_id = request.GET.get("vanId")
     coupon_type = request.GET.get("productName")
-    if (instances := VanCouponStock.objects.filter(coupon__coupon_type__coupon_type_name=coupon_type,stock__gt=0)).exists():
+    
+    if (instances := VanCouponStock.objects.filter(van__pk=van_id,coupon__coupon_type__coupon_type_name=coupon_type,stock__gt=0)).exists():
         instance = instances.values_list('coupon__pk')
         stock_instances = CouponStock.objects.filter(couponbook__pk__in=instance)
         serialized = couponStockSerializers(stock_instances, many=True)
@@ -1329,13 +1331,22 @@ class EditProductView(View):
         
 class EditCouponView(View):
     def post(self, request, van_pk):
+        filter_data = {}
+        date = request.GET.get('date')
         book_numbers = request.POST.getlist("coupon_book_no")
+        
+        if date:
+            date = datetime.strptime(date, '%Y-%m-%d').date()
+            filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+        else:
+            date = datetime.today().date()
+            filter_data['filter_date'] = date.strftime('%Y-%m-%d')
         
         for book_number in book_numbers:
             coupon_instance = NewCoupon.objects.get(book_num=book_number)
             
-            van_coupon_stock = VanCouponStock.objects.get(van__pk=van_pk,coupon=coupon_instance)
-            van_coupon_stock.stock -= 1
+            van_coupon_stock = VanCouponStock.objects.get(van__pk=van_pk,coupon=coupon_instance,created_date=date)
+            van_coupon_stock.stock = 0
             van_coupon_stock.save()
             
             product_stock = ProductStock.objects.get(branch=van_coupon_stock.van.branch_id,product_name__product_name=coupon_instance.coupon_type.coupon_type_name)
@@ -1458,8 +1469,8 @@ class VanCouponStockList(View):
             'filter_data': filter_data,
         }
         return render(request, 'van_management/van_coupon_stock.html', context)
-    
-    
+
+
 # List view
 def excess_bottle_count_list(request):
     excess_bottles = ExcessBottleCount.objects.all()

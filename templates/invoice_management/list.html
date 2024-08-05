@@ -63,12 +63,14 @@
                                     <td class="text-center">{{instance.amout_recieved}}</td>
                                     <td class="text-right">
                                         <div class="g-2">
+                                            {% if instance.can_edit %}
                                             <a href="{% url 'invoice:edit_invoice' pk=instance.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Edit">
                                                 <span class="ri-pencil-line fs-14"></span>
                                             </a>
                                             <a aria-label="anchor" class="action-button remove btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete"
                                                 data-id="{{instance.pk}}" data-text="{{confirm_delete_message}}" data-title="Are you sure?" href="{% url 'invoice:delete_invoice' pk=instance.pk %}"><span class="ri-delete-bin-7-line fs-14"></span>
                                             </a>
+                                            {% endif %}
                                             <a href="{% url 'invoice:invoice' pk=instance.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Invoice Info">
                                                 <span class="ri-printer-fill fs-14"></span>
                                             </a>

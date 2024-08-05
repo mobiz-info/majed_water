@@ -433,7 +433,10 @@ def customer_supply_list(request):
     if route_name:
         instances = instances.filter(customer__routes__route_name=route_name)
         filter_data['route_name'] = route_name
-    
+        
+    for instance in instances:
+        instance.can_edit = (timezone.now().date() - instance.created_date.date()).days <= 3
+        
     context = {
         'instances': instances,
         'page_name' : 'Customer Supply List',
