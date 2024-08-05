@@ -1864,14 +1864,15 @@ class Staff_New_Order(APIView):
         try:
             with transaction.atomic():
                 data_list = request.data.get('data_list', [])
-                last_order = Staff_Orders.objects.all().latest("created_date")
-                if last_order:
-                    last_order_number = last_order.order_number
-                    new_order_number = int(last_order_number) + 1
-                else:
-                    new_order_number = 1
-
-                order_number = f"{new_order_number}"
+                uid = uuid.uuid4()
+                uid = str(uid)[:2]
+                dtm = date.today().month
+                dty = date.today().year
+                dty = str(dty)[2:]
+                num = str(uid) + str(dtm) + str(dty)
+                # request.data["order_num"] = num
+                # print(num.upper())
+                
                 order_date = request.GET.get('order_date')
             
                 if order_date:
@@ -1883,7 +1884,7 @@ class Staff_New_Order(APIView):
                 if serializer_1.is_valid(raise_exception=True):
                     order_data = serializer_1.save(
                         created_by=request.user.id,
-                        order_number=order_number.upper(),
+                        order_number=num.upper(),
                         order_date=order_date
                     )
                     staff_order = order_data.staff_order_id
