@@ -2,6 +2,8 @@ from django.conf import settings
 from django.urls import path,re_path
 from django.conf.urls.static import static
 
+from master.views import privacy, terms_and_conditions
+
 from . views import *
 from . import views
 
@@ -298,8 +300,8 @@ urlpatterns = [
     
     path('scrap_stock/', ScrapStockAPIView.as_view(), name='scrap_stock'),
 
-    path('privacy-policy/', PrivacyPolicyAPIView.as_view(), name='privacy-policy'),
+    path('privacy-policy/', privacy),
     
-    path('terms_and_conditions/', TermsAndConditionsAPIView.as_view(), name='terms_and_conditions'),
-
+    path('terms_and_conditions/', terms_and_conditions),
+    
 ]

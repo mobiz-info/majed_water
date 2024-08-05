@@ -120,7 +120,7 @@ class Customers(models.Model):
     def get_water_rate(self):
         from decimal import Decimal
 
-        if self.rate != None and Decimal(self.rate) > 0:
+        if Decimal(self.rate) > 0:
             rate = Decimal(self.rate)
         else:
             rate = Decimal(ProdutItemMaster.objects.get(product_name="5 Gallon").rate)
@@ -236,4 +236,4 @@ class TermsAndConditions(models.Model):
 
     def __str__(self):
         return f"Terms and Conditions - {self.created_date}"
-
+    

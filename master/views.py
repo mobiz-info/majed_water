@@ -475,10 +475,83 @@ class Category_Details(View):
 #     EmirateMaster.objects.create(created_by = "default",name = "RAK")
 #     EmirateMaster.objects.create(created_by = "default",name = "UAQ")
 # create_emirates()
+def privacy(request):
+    """
+    Privacy instance.
+    """
+    try:
+        instance = PrivacyPolicy.objects.all().latest("created_date")
+    except:
+        instance = PrivacyPolicy.objects.none
+    
+    context = {
+        'instance': instance
+    }
+    return render(request, 'master/privacy.html', context)
 
-def privacy_policy_view(request):
-    privacy_policy = PrivacyPolicy.objects.last()
-    return render(request, 'accounts/privacy.html', {'privacy_policy': privacy_policy})
+def privacy_list(request):
+    """
+    View to list all Privacy instances.
+    """
+    instances = PrivacyPolicy.objects.all()
+    context = {
+        'instances': instances
+    }
+    return render(request, 'master/privacy_list.html', context)
+
+def privacy_create(request):
+    """
+    View to create a new Privacy instance.
+    """
+    if request.method == 'POST':
+        form = PrivacyForm(request.POST)
+        if form.is_valid():
+            privacy = form.save(commit=False)
+            privacy.created_by = request.user
+            privacy.save()
+            return redirect('privacy_list')
+    else:
+        form = PrivacyForm()
+
+    return render(request, 'master/privacy_create.html', {'form': form})
+
+def privacy_edit(request, pk):
+    """
+    View to edit an existing privacy instance.
+    """
+    instance = get_object_or_404(PrivacyPolicy, pk=pk)
+    if request.method == 'POST':
+        form = PrivacyForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            return redirect('privacy_list')
+    else:
+        form = PrivacyForm(instance=instance)
+    return render(request, 'master/privacy_edit.html', {'form': form})
+
+def privacy_delete(request, pk):
+    """
+    View to delete an existing privacy instance.
+    """
+    instance = get_object_or_404(PrivacyPolicy, pk=pk)
+    if request.method == 'POST':
+        instance.delete()
+        return redirect('privacy_list')
+    return render(request, 'master/privacy_delete.html', {'instance': instance})
+
+def terms_and_conditions(request):
+    """
+    terms and conditions instance.
+    """
+    try:
+        instance = TermsAndConditions.objects.all().latest("created_date")
+    except:
+        instance = TermsAndConditions.objects.none
+    
+    context = {
+        'instance': instance
+    }
+    return render(request, 'master/terms_and_conditions.html', context)
 
 def terms_and_conditions_list(request):
     """
@@ -505,3 +578,27 @@ def terms_and_conditions_create(request):
         form = TermsAndConditionsForm()
 
     return render(request, 'master/terms_and_conditions_create.html', {'form': form})
+
+def terms_and_conditions_edit(request, pk):
+    """
+    View to edit an existing TermsAndConditions instance.
+    """
+    instance = get_object_or_404(TermsAndConditions, pk=pk)
+    if request.method == 'POST':
+        form = TermsAndConditionsForm(request.POST, instance=instance)
+        if form.is_valid():
+            form.save()
+            return redirect('terms_and_conditions_list')
+    else:
+        form = TermsAndConditionsForm(instance=instance)
+    return render(request, 'master/terms_and_conditions_edit.html', {'form': form})
+
+def terms_and_conditions_delete(request, pk):
+    """
+    View to delete an existing TermsAndConditions instance.
+    """
+    instance = get_object_or_404(TermsAndConditions, pk=pk)
+    if request.method == 'POST':
+        instance.delete()
+        return redirect('terms_and_conditions_list')
+    return render(request, 'master/terms_and_conditions_delete.html', {'instance': instance})

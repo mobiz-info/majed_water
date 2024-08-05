@@ -40,11 +40,18 @@ urlpatterns = [
     path('category_create',Category_Create.as_view(), name='category_create'),
     path('category_edit/<str:pk>', Category_Edit.as_view(), name='category_edit'),
     path('category_details/<str:pk>', Category_Details.as_view(), name='category_details'),
-
-    path('privacy-policy/', privacy_policy_view, name='privacy'),
+    
+    path('privacy/', privacy, name='privacy'),
+    path('privacy_list/', privacy_list, name='privacy_list'),
+    path('privacy/create/', privacy_create, name='privacy_create'),
+    path('privacy/edit/<uuid:pk>/', privacy_edit, name='privacy_edit'),
+    path('privacy/delete/<uuid:pk>/', privacy_delete, name='privacy_delete'),
+    
+    path('terms-and-conditions/', terms_and_conditions, name='terms_and_conditions'),
     path('terms_and_conditions_list/', terms_and_conditions_list, name='terms_and_conditions_list'),
     path('terms-and-conditions/create/', terms_and_conditions_create, name='terms_and_conditions_create'),
-    
+    path('terms-and-conditions/edit/<uuid:pk>/', terms_and_conditions_edit, name='terms_and_conditions_edit'),
+    path('terms-and-conditions/delete/<uuid:pk>/', terms_and_conditions_delete, name='terms_and_conditions_delete'),
    ]
 
 

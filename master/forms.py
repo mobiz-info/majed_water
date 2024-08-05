@@ -153,3 +153,11 @@ class TermsAndConditionsForm(forms.ModelForm):
         widgets = {
             'description': CKEditorWidget(),
         }
+
+class PrivacyForm(forms.ModelForm):
+    class Meta:
+        model = PrivacyPolicy
+        fields = ['content']
+        widgets = {
+            'content': CKEditorWidget(),
+        }

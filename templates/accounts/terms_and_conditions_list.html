@@ -2,7 +2,6 @@
 {% block title %} Terms and Conditions List {% endblock %}
 {% block content %}
 {% load static %}
-{% load el_pagination_tags %}
 
 <!-- Page Header -->
 <div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
@@ -25,13 +24,6 @@
                         <div class="card-title">
                             Terms and Conditions
                         </div>
-                        <div class="ms-auto">
-                            {% if not instances %}
-                            <a href="{% url 'terms_and_conditions_create' %}">
-                                <button type="button" class="btn btn-success btn-wave"><i class="bi bi-plus-circle me-1"></i>Create</button>
-                            </a>
-                            {% endif %}
-                        </div>
                     </div>
                     <div class="card-body">
                         <table id="responsiveDataTable" class="table table-bordered text-wrap" style="width:100%">
@@ -41,10 +33,10 @@
                                     <th style="text-align:center !important; width:30%;">Description</th>
                                     <th style="text-align:center !important; width:25%;">Created By</th>
                                     <th style="text-align:center !important; width:25%;">Created Date</th>
-                                    <th style="text-align:center !important; width:15%;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
+                                {% load el_pagination_tags %}
                                 {% paginate 50 instances %}
                                 {% for item in instances %}
                                 <tr>
@@ -52,19 +44,10 @@
                                     <td style="text-align:left;">{{ item.description|safe }}</td>
                                     <td style="text-align:left;">{{ item.created_by.username }}</td>
                                     <td style="text-align:left;">{{ item.created_date|date:"d-m-Y" }}</td>
-                                    <td style="text-align:center;">
-                                        <a href="{% url 'terms_and_conditions_edit' item.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Edit">
-                                            <span class="ri-pencil-line fs-14"></span>
-                                        </a>
-                                        <a href="{% url 'terms_and_conditions_delete' item.pk %}" aria-label="anchor" class="btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete">
-                                            <span class="ri-delete-bin-7-line fs-14"></span>
-                                        </a>
-                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
-                        {% show_pages %}
                     </div>
                 </div>
             </div>

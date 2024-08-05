@@ -390,6 +390,7 @@ class CustomerSupply(models.Model):
         created_date = models.DateTimeField()
         modified_by = models.CharField(max_length=20, null=True, blank=True)
         modified_date = models.DateTimeField(auto_now=True ,blank=True, null=True)
+        is_edited = models.BooleanField(default=False)
         class Meta:
             ordering = ('-created_date',)
         def __str__(self):

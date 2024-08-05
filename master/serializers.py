@@ -51,4 +51,3 @@ class EmiratesBasedLocationsSerializers(serializers.ModelSerializer):
         if branch_id:
             instances = instances.filter(branch_id__pk=branch_id)
         return LocationMasterSerializers(instances, many=True).data
-    

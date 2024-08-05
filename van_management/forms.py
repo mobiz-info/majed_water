@@ -169,4 +169,3 @@ class ExcessBottleCountForm(forms.ModelForm):
     class Meta:
         model = ExcessBottleCount
         fields = ['van', 'bottle_count', 'route']
-        

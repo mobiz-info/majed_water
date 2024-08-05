@@ -1245,8 +1245,11 @@
                                     <a href="{% url 'latest_customers' %}" class="side-menu__item">New Customer</a>
                                 </li>
                                 <li class="slide">
-                                    <a href="{% url 'inactive_customers' %}" class="side-menu__item">Inactive Customer</a>
+                                    <a href="{% url 'non_visited_customers' %}" class="side-menu__item">Non Visited Customer</a>
                                 </li>
+                                {% comment %} <li class="slide">
+                                    <a href="{% url 'inactive_customers' %}" class="side-menu__item">Inactive Customer</a>
+                                </li> {% endcomment %}
 				                <li class="slide">
                                     <a href="{% url 'customer_count' %}" class="side-menu__item">Customer Count</a>
                                 </li>
@@ -1442,11 +1445,11 @@
                         </span>
                         <span class="side-menu__label">Credit Note</span>
                     </a>
-                    <a href="{% url 'privacy' %}" class="side-menu__item">
+                    <a href="{% url 'privacy_list' %}" class="side-menu__item">
                         <span class=" side-menu__icon">
                             <i class='bx bx-desktop'></i>
                         </span>
-                        <span class="side-menu__label">Privacy</span>
+                        <span class="side-menu__label">Privacy Policy</span>
                     </a>
                     <a href="{% url 'terms_and_conditions_list' %}" class="side-menu__item">
                         <span class=" side-menu__icon">

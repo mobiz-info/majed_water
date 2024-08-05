@@ -1630,18 +1630,13 @@ class IssueCouponStockSerializer(serializers.ModelSerializer):
 class OffloadCouponSerializer(serializers.ModelSerializer):
     coupon_id = serializers.UUIDField(source='coupon.id')
     book_no = serializers.CharField(source='coupon.book_no')
+    quantity = serializers.IntegerField()
+    stock_type = serializers.CharField()
     
     class Meta:
         model = OffloadCoupon
         fields = ['coupon_id', 'book_no', 'quantity', 'stock_type']
         
-class OffloadRequestCouponSerializer(serializers.ModelSerializer):
-    coupon_id = serializers.UUIDField(source='coupon.id')
-    book_no = serializers.CharField(source='coupon.book_no')
-    
-    class Meta:
-        model = OffloadRequestCoupon
-        fields = ['coupon_id', 'book_no', 'quantity', 'stock_type']
    
 class OffloadsRequestItemsSerializer(serializers.ModelSerializer):
     product_name = serializers.SerializerMethodField()
@@ -1661,8 +1656,8 @@ class OffloadsRequestItemsSerializer(serializers.ModelSerializer):
 
     
     def get_coupons(self, obj):
-        coupons = OffloadRequestCoupon.objects.filter(offload_request=obj.offload_request)
-        return OffloadRequestCouponSerializer(coupons, many=True).data
+        coupons = OffloadCoupon.objects.filter(offload_request=obj.offload_request)
+        return OffloadCouponSerializer(coupons, many=True).data
 
 class OffloadsRequestSerializer(serializers.ModelSerializer):
     products = OffloadsRequestItemsSerializer(many=True, read_only=True, source='offloadrequestitems_set')
@@ -1827,11 +1822,6 @@ class ScrapStockSerializer(serializers.ModelSerializer):
     class Meta:
         model = ScrapStock
         fields = ['product','quantity']
-
-class PrivacyPolicySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PrivacyPolicy
-        fields = '__all__'
         
 class TermsAndConditionsSerializer(serializers.ModelSerializer):
     created_date = serializers.DateTimeField(format="%Y-%m-%d")

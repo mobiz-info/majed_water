@@ -125,12 +125,10 @@ class VanStock(models.Model):
     van = models.ForeignKey(Van, on_delete=models.CASCADE)
     stock_type = models.CharField(max_length=100,choices=STOCK_TYPES)
 
-
     def __str__(self):
         return f"{self.id}"
     
-
-       
+    
 class VanProductItems(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
@@ -177,8 +175,6 @@ class VanProductStock(models.Model):
     
     product = models.ForeignKey(ProdutItemMaster,on_delete=models.CASCADE)
     van = models.ForeignKey(Van, on_delete=models.CASCADE,null=True,blank=True)
-    excess_bottle = models.PositiveIntegerField(default=0)  # New field added
-
 
     def __str__(self):
         return f"{self.id}"
@@ -186,9 +182,8 @@ class VanProductStock(models.Model):
     def save(self, *args, **kwargs):
         # offload_count = Offload.objects.filter(van=self.van,product=self.product,created_date__date=self.created_date).aggregate(total_count=Sum('quantity'))['total_count'] or 0
         # if self.stock > 0:
-        # self.closing_count = self.stock + self.empty_can_count + self.return_count
         self.closing_count = self.stock 
-
+        
         super(VanProductStock, self).save(*args, **kwargs)
         
 class VanCouponStock(models.Model):
@@ -212,7 +207,7 @@ class VanCouponStock(models.Model):
         return f"{self.id}"
     
     def save(self, *args, **kwargs):
-        self.closing_count = self.stock
+        self.closing_count = self.stock + self.damage_count + self.return_count
         
         super(VanCouponStock, self).save(*args, **kwargs)
     
@@ -235,13 +230,13 @@ class Offload(models.Model):
     
 class OffloadCoupon(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    created_by = models.CharField(max_length=30, null=True,blank=True)
+    created_by = models.CharField(max_length=30, blank=True)
     created_date = models.DateTimeField(auto_now_add=True)
     modified_by = models.CharField(max_length=20, null=True, blank=True)
     modified_date = models.DateTimeField(auto_now=True ,blank=True, null=True)
     
-    salesman = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE,blank=True, null=True)
-    van = models.ForeignKey(Van, on_delete=models.CASCADE,blank=True, null=True)
+    salesman = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE)
+    van = models.ForeignKey(Van, on_delete=models.CASCADE)
     coupon = models.ForeignKey(NewCoupon, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=0)
     stock_type = models.CharField(max_length=100,choices=STOCK_TYPES)
@@ -413,7 +408,7 @@ class OffloadRequestReturnStocks(models.Model):
     def __str__(self):
         return f"{self.id}"
     
-class OffloadRequestCoupon(models.Model):
+class OffloadCoupon(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     quantity = models.PositiveIntegerField(default=0)
     stock_type = models.CharField(max_length=100,choices=STOCK_TYPES)
@@ -424,7 +419,6 @@ class OffloadRequestCoupon(models.Model):
     def __str__(self):
         return f"{self.id}"
     
-
 class ExcessBottleCount(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     van = models.ForeignKey(Van, on_delete=models.CASCADE)

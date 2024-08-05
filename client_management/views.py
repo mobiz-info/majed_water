@@ -433,10 +433,7 @@ def customer_supply_list(request):
     if route_name:
         instances = instances.filter(customer__routes__route_name=route_name)
         filter_data['route_name'] = route_name
-        
-    for instance in instances:
-        instance.can_edit = (timezone.now().date() - instance.created_date.date()).days <= 3
-        
+    
     context = {
         'instances': instances,
         'page_name' : 'Customer Supply List',
@@ -913,6 +910,7 @@ def edit_customer_supply(request, pk):
     salesman_instance = CustomerSupply.objects.get(pk=pk).salesman
     created_date = CustomerSupply.objects.get(pk=pk).created_date
     customer_supply_instance = CustomerSupply.objects.get(pk=pk)
+    old_invoice_number = CustomerSupply.objects.get(pk=pk).invoice_no
     supply_items_instances = CustomerSupplyItems.objects.filter(customer_supply=customer_supply_instance)
     
     if supply_items_instances.exists():
@@ -970,35 +968,37 @@ def edit_customer_supply(request, pk):
                     # create new supply
                     customer_suply_form_instance = customer_supply_form.save(commit=False)
                     customer_suply_form_instance.customer = customer_instance
-                    customer_suply_form_instance.salesman = customer_instance.sales_staff
+                    customer_suply_form_instance.salesman = salesman_instance
                     customer_suply_form_instance.created_by = customer_instance.sales_staff.pk
                     customer_suply_form_instance.created_date = created_date
+                    customer_suply_form_instance.is_edited = True
                     customer_suply_form_instance.save()
                     
                     total_fivegallon_qty = 0
-                    van = Van.objects.get(salesman=customer_suply_form_instance.customer.sales_staff)
+                    van = Van.objects.get(salesman=customer_suply_form_instance.salesman)
                     
                     for form in customer_supply_items_formset:
                         item_data = form.save(commit=False)
                         item_data.customer_supply = customer_suply_form_instance  # Associate with the customer supply instance
                         item_data.save()
-                    
-                        vanstock = VanProductStock.objects.get(created_date=created_date.date(), product=item_data.product, van=van)
-                        if vanstock.stock >= item_data.quantity:
-                            vanstock.stock -= item_data.quantity
-                            vanstock.sold_count += item_data.quantity
-                            vanstock.pending_count += item_data.customer_supply.allocate_bottle_to_pending
-                            if item_data.product.product_name == "5 Gallon":
-                                total_fivegallon_qty += Decimal(item_data.quantity)
-                                vanstock.empty_can_count += customer_suply_form_instance.collected_empty_bottle
-                            vanstock.save()
-                        else:
-                            response_data = {
-                                "status": "false",
-                                "title": "Failed",
-                                "message": f"No stock available in {item_data.product.product_name}, only {vanstock.stock} left",
-                            }
-                            return HttpResponse(json.dumps(response_data), content_type='application/javascript')    
+
+                        if created_date.date() == datetime.today().date():
+                            vanstock = VanProductStock.objects.get(created_date=created_date.date(), product=item_data.product, van=van)
+                            if vanstock.stock >= item_data.quantity:
+                                vanstock.stock -= item_data.quantity
+                                vanstock.sold_count += item_data.quantity
+                                vanstock.pending_count += item_data.customer_supply.allocate_bottle_to_pending
+                                if item_data.product.product_name == "5 Gallon":
+                                    total_fivegallon_qty += Decimal(item_data.quantity)
+                                    vanstock.empty_can_count += customer_suply_form_instance.collected_empty_bottle
+                                vanstock.save()
+                            else:
+                                response_data = {
+                                    "status": "false",
+                                    "title": "Failed",
+                                    "message": f"No stock available in {item_data.product.product_name}, only {vanstock.stock} left",
+                                }
+                                return HttpResponse(json.dumps(response_data), content_type='application/javascript')    
                         
                     invoice_generated = False
                     
@@ -1184,31 +1184,26 @@ def edit_customer_supply(request, pk):
                         
                         # if customer_suply_form_instance.customer.sales_type == "CASH" or customer_suply_form_instance.customer.sales_type == "CREDIT":
                         invoice_generated = True
-                        
-                        date_part = timezone.now().strftime('%Y%m%d')
-                        try:
-                            invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
-                            last_invoice_number = invoice_last_no.invoice_no
-
-                            # Validate the format of the last invoice number
-                            parts = last_invoice_number.split('-')
-                            if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
-                                prefix, old_date_part, number_part = parts
+                        # print(old_invoice_number)
+                        if not old_invoice_number == None :
+                            invoice_number = old_invoice_number
+                        else:
+                            try:
+                                invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
+                                last_invoice_number = invoice_last_no.invoice_no
+                                prefix, date_part, number_part = last_invoice_number.split('-')
                                 new_number_part = int(number_part) + 1
                                 invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
-                            else:
-                                # If the last invoice number is not in the expected format, generate a new one
+                            except Invoice.DoesNotExist:
+                                date_part = created_date.strftime('%Y%m%d')
                                 random_part = str(random.randint(1000, 9999))
                                 invoice_number = f'WTR-{date_part}-{random_part}'
-                        except Invoice.DoesNotExist:
-                            random_part = str(random.randint(1000, 9999))
-                            invoice_number = f'WTR-{date_part}-{random_part}'
                         
                         if not customer_suply_form_instance.reference_number:
                             reference_no = f"{customer_suply_form_instance.customer.custom_id}"
                         else:
                             reference_no = customer_suply_form_instance.reference_number
-                            
+                        # print("invoice")
                         # Create the invoice
                         invoice = Invoice.objects.create(
                             invoice_no=invoice_number,
@@ -1221,8 +1216,8 @@ def edit_customer_supply(request, pk):
                             customer=customer_suply_form_instance.customer,
                             reference_no=reference_no
                         )
-                        
-                        customer_suply_form_instance.invoice_no == invoice.invoice_no
+                        # print(invoice.invoice_no)
+                        customer_suply_form_instance.invoice_no = invoice.invoice_no
                         customer_suply_form_instance.save()
                         
                         if customer_suply_form_instance.customer.sales_type == "CREDIT":
