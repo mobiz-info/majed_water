@@ -1924,7 +1924,6 @@ class Staff_New_Order(APIView):
             response_data = {"status": "false","title": "Failed","message": str(e),}
         return Response(response_data)
 
-
 class Customer_Create(APIView):
     serializer_class = CustomersSerializers
 
@@ -4290,6 +4289,7 @@ class VanStockAPI(APIView):
                 "coupon_stock": coupon_serialized_data,
                 "product_stock": product_serialized_data,
             })
+
 
 
 class CouponCountList(APIView):
