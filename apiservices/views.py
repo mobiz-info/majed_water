@@ -1925,7 +1925,6 @@ class Staff_New_Order(APIView):
         return Response(response_data)
 
 
-
 class Customer_Create(APIView):
     serializer_class = CustomersSerializers
 
@@ -4291,6 +4290,7 @@ class VanStockAPI(APIView):
                 "coupon_stock": coupon_serialized_data,
                 "product_stock": product_serialized_data,
             })
+
 
 
 class CouponCountList(APIView):
@@ -8202,20 +8202,4 @@ class TermsAndConditionsAPIView(APIView):
             "data": serializer.data
         }, status=status.HTTP_200_OK)
 
-    def post(self, request):
-        """
-        Create a new TermsAndConditions instance.
-        """
-        serializer = TermsAndConditionsSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                "status": "success",
-                "message": "Terms and conditions created successfully.",
-                "data": serializer.data
-            }, status=status.HTTP_201_CREATED)
-        return Response({
-            "status": "error",
-            "message": "Failed to create terms and conditions.",
-            "errors": serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+    
