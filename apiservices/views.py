@@ -8237,7 +8237,7 @@ class addDamageBottleAPIView(APIView):
         return Response(response_data, status=status_code)
     
     
-class ExcessBottleCount(APIView):
+class ExcessBottleCountAPIView(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
     

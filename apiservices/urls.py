@@ -293,7 +293,7 @@ urlpatterns = [
     path('scrap_stock/', ScrapStockAPIView.as_view(), name='scrap_stock'),
     path('add-damage-bottle/', addDamageBottleAPIView.as_view(), name='add_damage_bottle'),
     
-    path('excess-bottle-count/', ExcessBottleCount.as_view(), name='excess_bottle_count'),
+    path('excess-bottle-count/', ExcessBottleCountAPIView.as_view(), name='excess_bottle_count'),
 
     path('privacy-policy/', privacy),
     
