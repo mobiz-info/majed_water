@@ -2167,6 +2167,7 @@ class ScheduleByRoute(APIView):
             customers = [
                 {
                     **customer,
+                    'emergency': 1 if DiffBottlesModel.objects.filter(customer__pk=customer["customer_id"], delivery_date__date=datetime.today().date()).exists() else 0,
                     'is_supplied': CustomerSupply.objects.filter(customer__pk=customer["customer_id"], created_date__date=datetime.today().date()).exists()
                 }
                 for customer in todays_customers 
