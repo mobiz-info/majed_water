@@ -309,7 +309,7 @@ class SupplyItemProductGetSerializer(serializers.ModelSerializer):
     def get_rate(self, obj):
         customer_id = self.context.get('customer_id')
         customer_rate = Customers.objects.get(pk=customer_id).rate
-        if int(customer_rate) > 0:
+        if Decimal(customer_rate) > 0:
            rate = customer_rate
         else:
             rate = obj.rate 
