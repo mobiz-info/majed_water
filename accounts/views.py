@@ -76,7 +76,7 @@ class Users_List(View):
     def get(self, request, *args, **kwargs):
         query = request.GET.get("q")
 
-        instances = CustomUser.objects.filter(user_type__in=['Driver','Salesman','Supervisor','Manager','Customer Care','Accounts'])
+        instances = CustomUser.objects.filter(user_type__in=['Driver','Salesman','Supervisor','Manager','Customer Care','Accounts','store_keeper'])
         if query:
             instances = instances.filter(
                 Q(first_name__icontains=query) |
