@@ -2416,7 +2416,7 @@ class CustomerCouponRecharge(APIView):
                             for coupon_instance in coupon_instances:
                                 coupon_method = coupon.coupon_method
                                 customer_id = customer
-                                coupon_type_id = CouponType.objects.get(pk=coupon.coupon_type_id)
+                                coupon_type_id = coupon.coupon_type
 
                                 try:
                                     customer_coupon_stock = CustomerCouponStock.objects.get(
