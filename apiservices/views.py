@@ -2287,9 +2287,10 @@ def fetch_coupon(request):
     van_stocks = VanCouponStock.objects.filter(created_date=date,coupon__coupon_type_id__coupon_type_name=coupon_type,coupon__book_num=book_no)
 
     if van_stocks.exists():
-        coupons = van_stocks.first().coupon.all()
+        van_stock_ids = van_stocks.values_list("coupon__pk", flat=True)
+        coupons = NewCoupon.objects.filter(pk__in=van_stock_ids)
 
-        serialized = VanCouponStockSerializer(coupons, many=True, context={"request": request})
+        serialized = VanCouponStockSerializer(van_stocks, many=True, context={"request": request})
 
         status_code = status.HTTP_200_OK
         response_data = {
