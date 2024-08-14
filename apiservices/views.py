@@ -3127,7 +3127,7 @@ class create_customer_supply(APIView):
                                     customer_outstanding=customer_outstanding_amount,
                                 )
                                 
-                                outstanding_instance=CustomerOutstandingReport.objects.get_or_create(customer=customer_supply.customer,product_type="amount")
+                                outstanding_instance, created=CustomerOutstandingReport.objects.get_or_create(customer=customer_supply.customer,product_type="amount")
                                 outstanding_instance.value += Decimal(outstanding_amount.amount)
                                 outstanding_instance.save()
                                 
