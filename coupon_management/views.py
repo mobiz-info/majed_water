@@ -130,57 +130,57 @@ def create_Newcoupon(request):
             coupon_type_id = request.POST.get('coupon_type')
             book_num = request.POST.get('book_num')
             
-            # Check if the coupon book already exists
-            if NewCoupon.objects.filter(book_num=book_num,coupon_type=coupon_type_id).exists():
-                # print("Exists")
-                messages.error(request, f'Coupon book {book_num} already exists.')
-                return redirect('new_coupon')
-            else:
-                selected_coupon_type = get_object_or_404(CouponType, coupon_type_id=coupon_type_id)
+            selected_coupon_type = get_object_or_404(CouponType, coupon_type_id=coupon_type_id)
 
-                data.coupon_type = selected_coupon_type
-                data.book_num = book_num
-                data.no_of_leaflets = selected_coupon_type.no_of_leaflets
-                data.valuable_leaflets = selected_coupon_type.valuable_leaflets
-                data.free_leaflets = selected_coupon_type.free_leaflets
-                data.created_by = str(request.user.id)
-                branch_id = request.user.branch_id.branch_id
-                branch = BranchMaster.objects.get(branch_id=branch_id)
-                data.branch_id = branch           
-                data.save()
-                print("DATA SAVED")
+            data.coupon_type = selected_coupon_type
+            data.book_num = book_num
+            data.no_of_leaflets = selected_coupon_type.no_of_leaflets
+            data.valuable_leaflets = selected_coupon_type.valuable_leaflets
+            data.free_leaflets = selected_coupon_type.free_leaflets
+            data.created_by = str(request.user.id)
+            
+            branch_id = request.user.branch_id.branch_id
+            branch = BranchMaster.objects.get(branch_id=branch_id)
+            data.branch_id = branch           
+            data.save()
 
-                # Generate leaflets for the coupon
-                leaflets = []
-                no_of_leaflets = int(selected_coupon_type.no_of_leaflets)
-                print("no_of_leaflets",no_of_leaflets)
-                for leaflet_num in range(1, no_of_leaflets + 1):
-                    if leaflet_num < 10:  # If leaflet number is less than 10, add a leading '0'
-                        leaflet_name = f"{book_num}0{leaflet_num}"
-                    else:
-                        leaflet_name = f"{book_num}{leaflet_num}"  # Otherwise, use leaflet_num directly
-                    print("leaflet_name", leaflet_name)
+            # Generate leaflets for the coupon
+            leaflets = []
+            no_of_leaflets = int(selected_coupon_type.no_of_leaflets)
 
-                    leaflet = CouponLeaflet(coupon=data, leaflet_number=str(leaflet_num),leaflet_name=leaflet_name)
-                    print("leaflet",leaflet)
-                    leaflet.save()
-                    leaflets.append({'leaflet_number': leaflet.leaflet_number})
-                # Create CouponStock instance
-                coupon_stock = CouponStock.objects.create(couponbook=data, coupon_stock='company', created_by=str(request.user.id))
-                # print("coupon_stock",coupon_stock)
+            # Find the last leaflet number for the given coupon type and book number
+            last_leaflet = CouponLeaflet.objects.filter(
+                coupon__coupon_type=selected_coupon_type,
+                coupon__book_num=book_num
+            ).order_by('-couponleaflet_id').last()
+            print("last_leaflet",last_leaflet)
 
-                response_data = {
-                    'success': True,
-                    'book_num': data.book_num,
-                    'leaflets': leaflets
-                }
-                return JsonResponse(response_data, status=200)
+            # Start numbering from the next number
+            start_number = int(last_leaflet.leaflet_number) + 1 if last_leaflet else 1
+            print("start_number",start_number)
+
+            for leaflet_num in range(start_number, start_number + no_of_leaflets):
+                leaflet_name = f"{book_num}{leaflet_num:02}"  # Use :02 to ensure two digits
+                leaflet = CouponLeaflet(coupon=data, leaflet_number=str(leaflet_num), leaflet_name=leaflet_name)
+                leaflet.save()
+                leaflets.append({'leaflet_number': leaflet.leaflet_number})
+            print("leaflets",leaflets)            
+            
+            # Create CouponStock instance
+            coupon_stock = CouponStock.objects.create(couponbook=data, coupon_stock='company', created_by=str(request.user.id))
+
+            response_data = {
+                'success': True,
+                'book_num': data.book_num,
+                'leaflets': leaflets
+            }
+            return JsonResponse(response_data, status=200)
         else:
-            message = generate_form_errors(form,formset=False)
+            message = generate_form_errors(form, formset=False)
             response_data = {
                 'success': False, 
                 'message': message,
-                }
+            }
             return JsonResponse(response_data, status=200)
     else:
         form = CreateNewCouponForm()
