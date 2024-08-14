@@ -3126,19 +3126,11 @@ class create_customer_supply(APIView):
                                     amount=balance_amount,
                                     customer_outstanding=customer_outstanding_amount,
                                 )
-                                outstanding_instance = {}
-
-                                try:
-                                    outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_supply.customer,product_type="amount")
-                                    outstanding_instance.value += Decimal(outstanding_amount.amount)
-                                    outstanding_instance.save()
-                                except:
-                                    outstanding_instance = CustomerOutstandingReport.objects.create(
-                                        product_type='amount',
-                                        value=outstanding_amount.amount,
-                                        customer=outstanding_amount.customer_outstanding.customer
-                                    )
-                                    
+                                
+                                outstanding_instance=CustomerOutstandingReport.objects.get_or_create(customer=customer_supply.customer,product_type="amount")
+                                outstanding_instance.value += Decimal(outstanding_amount.amount)
+                                outstanding_instance.save()
+                                
                             elif customer_supply.amount_recieved > customer_supply.subtotal:
                                 balance_amount = customer_supply.amount_recieved - customer_supply.subtotal
                                 
