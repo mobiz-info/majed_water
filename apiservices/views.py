@@ -7178,96 +7178,63 @@ class OffloadRequestListAPIView(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
  
-    def get(self, request, van_id):
-        
+    def get(self, request,van_id):
         date_str = request.GET.get("date_str", str(datetime.today().date()))
-        date = datetime.strptime(date_str, '%Y-%m-%d')
+        date = datetime.strptime(date_str, '%Y-%m-%d').date()
         
-        offload_requests = OffloadRequest.objects.filter(van__van_id=van_id, date=date).prefetch_related('offloadrequestitems_set')
-        
-        vans_data = defaultdict(lambda: defaultdict(lambda: {
-            'product_id': None,
-            'quantity': 0, 
-            'coupon_numbers': set(), 
-            'coupon_book_nums': set(), 
-            'washing_count': 0, 
-            'scrap_count': 0,
-            'request_ids': set()
-        }))
-        
-        for offload_request in offload_requests:
-            van = offload_request.van
-            offload_items = offload_request.offloadrequestitems_set.all()
-            
-            for item in offload_items:
-                product_name = item.product.product_name
-                product_id = item.product.id  # Fetch and assign product_id
-                
-                date = offload_request.date
-                
-                if item.stock_type == 'emptycan':
-                    product_name = f"{product_name} (Empty Can)"
-                elif item.stock_type == 'return':
-                    product_name = f"{product_name} (Return Can)"
-                
-                vans_data[van.van_id][(product_name, date)]['product_id'] = product_id
-                vans_data[van.van_id][(product_name, date)]['quantity'] += item.quantity
-                
-                vans_data[van.van_id][(product_name, date)]['request_ids'].add(str(offload_request.id))
-                
-                if item.product.category.category_name == 'Coupons':
-                    coupon_type = item.product.product_name
-                    coupons = OffloadRequestCoupon.objects.filter(offload_request=offload_request, coupon__coupon_type__coupon_type_name=coupon_type)
-                    coupon_ids = list(coupons.values_list('coupon_id', flat=True))
-                    coupon_book_nums = list(coupons.values_list('coupon__book_num', flat=True))
-                    vans_data[van.van_id][(product_name, date)]['coupon_numbers'].update(coupon_ids)
-                    vans_data[van.van_id][(product_name, date)]['coupon_book_nums'].update(coupon_book_nums)
-                
-                if item.stock_type == 'return':
-                    return_stocks = OffloadRequestReturnStocks.objects.filter(offload_request_item=item)
-                    for return_stock in return_stocks:
-                        vans_data[van.van_id][(product_name, date)]['washing_count'] += return_stock.washing_count
-                        vans_data[van.van_id][(product_name, date)]['scrap_count'] += return_stock.scrap_count
-        
+        offload_requests = OffloadRequest.objects.filter(van__van_id=van_id,date=date)
         response_data = {
-            "status": "true",
+            "status": True,
             "vans": []
         }
-        
-        for van, products_map in vans_data.items():
-            products_list = []
-            request_ids = set()
-            for (product_name, date), details in products_map.items():
-                request_ids.update(details['request_ids'])  
-                product_data = {
-                    "product_id": details['product_id'],  # Include product_id in the response
-                    "product_name": product_name,
-                    "quantity": details['quantity'],
-                    "stock_type": "emptycan" if "Empty Can" in product_name else ("return" if "Return Can" in product_name else "stock"),
-                }
-                
-                if details['coupon_numbers'] and details['coupon_book_nums']:
-                    coupons = [
-                        {"coupon_id": str(coupon_id), "book_num": book_num}
-                        for coupon_id, book_num in zip(details['coupon_numbers'], details['coupon_book_nums'])
-                    ]
-                    product_data['coupons'] = coupons
-                
-                if "Return Can" in product_name:
-                    product_data['washing_count'] = details['washing_count']
-                    product_data['scrap_count'] = details['scrap_count']
-                
-                products_list.append(product_data)
-            
+
+        for offload_request in offload_requests:
             van_data = {
-                "van": str(van),
-                "request_id": str(),
-                "request_id": list(request_ids),
-                "products": products_list
+                "van": str(offload_request.van),
+                "request_id": str(offload_request.id),
+                "products": []
             }
+
+            items = OffloadRequestItems.objects.filter(offload_request=offload_request)
+            for item in items:
+                product = item.product
+                product_name = product.product_name
+                if item.stock_type == 'emptycan':
+                    product_name = f"{product.product_name} (Empty Can)"
+                elif item.stock_type == 'return':
+                    product_name = f"{product.product_name} (Return Can)"
+                    
+                product_data = {
+                    "product_id": str(product.id),
+                    "product_name": product_name,
+                    "quantity": item.quantity,
+                    "stock_type": item.stock_type,
+                }
+
+                if item.stock_type == 'return':
+                    return_stocks = OffloadRequestReturnStocks.objects.filter(offload_request_item=item).first()
+                    if return_stocks:
+                        product_data.update({
+                            "scrap_count": return_stocks.scrap_count,
+                            "washing_count": return_stocks.washing_count,
+                            "other_reason": return_stocks.other_reason,
+                            "other_quantity": return_stocks.other_quantity,
+                        })
+                if item.stock_type == 'stock' and product.category.category_name.lower() == "coupons":
+                    coupons = OffloadRequestCoupon.objects.filter(offload_request=offload_request)
+                    product_data["coupons"] = [
+                        {
+                            "coupon_id": str(coupon.coupon.id),
+                            "book_num": coupon.coupon.book_num
+                        }
+                        for coupon in coupons
+                    ]
+
+                van_data["products"].append(product_data)
+
             response_data["vans"].append(van_data)
-        
-        return JsonResponse(response_data, status=status.HTTP_200_OK)
+
+        return Response(response_data, status=status.HTTP_200_OK)
         
     def post(self, request):
         try:
@@ -7277,7 +7244,9 @@ class OffloadRequestListAPIView(APIView):
             date_str=request.data.get('date_str')
             
             with transaction.atomic():
-                offload_request_instance = OffloadRequest.objects.get(pk=request_id,date=date_str)
+                offload_request_instance = OffloadRequest.objects.get(pk=request_id)
+                if van_id:
+                    van_id = offload_request_instance.van.pk
                 van_instance = Van.objects.get(pk=van_id)
                 
                 for product_data in products:
@@ -7291,16 +7260,22 @@ class OffloadRequestListAPIView(APIView):
                     if count > 0:
                         if product_item_instance.category.category_name != "Coupons":
                             if product_item_instance.product_name == "5 Gallon" and stock_type == "stock":
-                                print("stock")
+                                # print("stock")
                                 van_product_stock_instance.stock -= int(count)
                                 van_product_stock_instance.save()
                                 
-                                product_stock = ProductStock.objects.get(branch=van_instance.branch_id,product_name=product_item_instance)
-                                product_stock.quantity += int(count)
-                                product_stock.save()
-                                
+                                if (product_stock:=ProductStock.objects.filter(branch=van_instance.branch_id,product_name=product_item_instance)).exists():
+                                    product_stock = ProductStock.objects.get(branch=van_instance.branch_id,product_name=product_item_instance)
+                                    product_stock.quantity += int(count)
+                                    product_stock.save()
+                                else:
+                                    product_stock = ProductStock.objects.create(
+                                        branch=van_instance.branch_id,
+                                        product_name=product_item_instance,
+                                        quantity=int(count)
+                                    )
                             elif product_item_instance.product_name == "5 Gallon" and stock_type == "empty_can":
-                                print("empty")
+                                # print("empty")
                                 van_product_stock_instance.empty_can_count -= int(count)
                                 van_product_stock_instance.save()
                                 
@@ -7310,8 +7285,8 @@ class OffloadRequestListAPIView(APIView):
                                 )
                                 emptycan.save()
                                 
-                            elif product_item_instance.product_name == "5 Gallon" and stock_type == "return_count":
-                                print("return")
+                            elif product_item_instance.product_name == "5 Gallon" and stock_type == "return":
+                                # print("return")
                                 scrap_count = int(request.POST.get('scrap_count'))
                                 washing_count = int(request.POST.get('washing_count'))
                                 
@@ -7350,7 +7325,7 @@ class OffloadRequestListAPIView(APIView):
                                 van_product_stock_instance.save()
                                 
                             else : 
-                                print("else")
+                                # print("else")
                                 van_product_stock_instance.stock -= int(count)
                                 van_product_stock_instance.save()
                                 
@@ -7369,9 +7344,10 @@ class OffloadRequestListAPIView(APIView):
                                 offloaded_date=date_str,
                             )
                             
-                            offload_item = OffloadRequestItems.objects.get(offload_request=offload_request_instance,product=product_item_instance,stock_type=stock_type)
-                            offload_item.offloaded_quantity = count
-                            offload_item.save()
+                            offload_items = OffloadRequestItems.objects.filter(offload_request=offload_request_instance,product=product_item_instance,stock_type=stock_type)
+                            for offload_item in offload_items:
+                                offload_item.offloaded_quantity = count
+                                offload_item.save()
                             
                         elif product_item_instance.category.category_name == "Coupons":
                             coupons = product_data.get('coupons', [])
@@ -7383,9 +7359,16 @@ class OffloadRequestListAPIView(APIView):
                                 van_coupon_stock.stock -= 1
                                 van_coupon_stock.save()
                                 
-                                product_stock = ProductStock.objects.get(branch=van_coupon_stock.van.branch_id,product_name__product_name=coupon_instance.coupon_type.coupon_type_name)
-                                product_stock.quantity += 1
-                                product_stock.save()
+                                if (product_stock:=ProductStock.objects.filter(branch=van_instance.branch_id,product_name=product_item_instance)).exists():
+                                    product_stock = ProductStock.objects.get(branch=van_instance.branch_id,product_name=product_item_instance)
+                                    product_stock.quantity += 1
+                                    product_stock.save()
+                                else:
+                                    product_stock = ProductStock.objects.create(
+                                        branch=van_instance.branch_id,
+                                        product_name=product_item_instance,
+                                        quantity=1
+                                    )
                                 
                                 coupon = CouponStock.objects.get(couponbook=coupon_instance)
                                 coupon.coupon_stock = "company"
@@ -7425,9 +7408,6 @@ class OffloadRequestListAPIView(APIView):
                 "message": str(e),
             }
             return Response(response_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    
-   
 
     
 #------------------------------------Store Appp Orders Api-----------------------------------------------------
