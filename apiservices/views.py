@@ -4340,8 +4340,9 @@ class customer_outstanding(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
     def get(self, request, *args, **kwargs):
-        customers = Customers.objects.filter(sales_staff=request.user)
         route_id = request.GET.get("route_id")
+        
+        customers = Customers.objects.all()
         
         if route_id :
             customers = customers.filter(routes__pk=route_id)
