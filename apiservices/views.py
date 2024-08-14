@@ -4345,6 +4345,9 @@ class customer_outstanding(APIView):
         
         if route_id :
             customers = customers.filter(routes__pk=route_id)
+        else:
+            staff_route = Van_Routes.objects.get(van__salesman=request.user).routes
+            customers = customers.filter(routes=staff_route)
             
         serialized_data = CustomerOutstandingSerializer(customers, many=True)
         
