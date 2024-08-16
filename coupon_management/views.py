@@ -27,19 +27,71 @@ from django.http import JsonResponse, HttpResponse
 # Create your views here.
 def get_next_coupon_bookno(request):
     coupon_type = request.GET.get("coupon_type")
-    last_coupon = NewCoupon.objects.filter(coupon_type__pk=coupon_type).latest("created_date")
-    last_coupon_bookno = last_coupon.book_num
+    last_coupon = NewCoupon.objects.filter(coupon_type__pk=coupon_type)
+    if last_coupon.exists():
+        last_coupon = last_coupon.latest("created_date")
+        last_coupon_bookno = last_coupon.book_num
 
-    # Split the alphanumeric book number into alphabetic and numeric parts
-    match = re.match(r"([a-zA-Z]+)(\d+)", last_coupon_bookno)
-    if not match:
-        raise ValueError("Invalid book number format")
+        # Split the alphanumeric book number into alphabetic and numeric parts
+        match = re.match(r"([a-zA-Z]+)(\d+)", last_coupon_bookno)
+        if not match:
+            raise ValueError("Invalid book number format")
 
-    alphabetic_part, numeric_part = match.groups()
-    next_numeric_part = int(numeric_part) + 1
-    next_coupon_bookno = f"{alphabetic_part}{next_numeric_part}"
+        alphabetic_part, numeric_part = match.groups()
+        next_numeric_part = int(numeric_part) + 1
+        next_coupon_bookno = f"{alphabetic_part}{next_numeric_part}"
+        
+        if (leaflet:=CouponLeaflet.objects.filter(coupon=last_coupon)).exists():
+            last_leaf_name = leaflet.latest("created_date").leaflet_name
+            
+            # Split the alphanumeric leaflet number into alphabetic and numeric parts
+            match = re.match(r"([a-zA-Z]+)(\d+)", last_leaf_name)
+            if not match:
+                raise ValueError("Invalid leaf number format")
 
-    data = {'next_coupon_bookno': next_coupon_bookno}
+            leaf_alphabetic_part, leaf_name_part = match.groups()
+            leaf_next_numeric_part = int(leaf_name_part) + 1
+            leaf_last_numeric_part = leaf_next_numeric_part + int(last_coupon.valuable_leaflets)
+            
+            next_leaf_no = f"{leaf_alphabetic_part}{leaf_next_numeric_part}"
+            end_leaf_no = f"{leaf_alphabetic_part}{leaf_last_numeric_part}"
+            
+            if (freeleafs:=FreeLeaflet.objects.filter(coupon=last_coupon)).exists():
+                last_free_leaf_name = freeleafs.latest("created_date").leaflet_name
+                
+                # Split the alphanumeric leaflet number into alphabetic and numeric parts
+                match = re.match(r"([a-zA-Z]+)(\d+)", last_free_leaf_name)
+                if not match:
+                    raise ValueError("Invalid leaf number format")
+
+                free_leaf_alphabetic_part, free_leaf_name_part = match.groups()
+                free_leaf_next_numeric_part = int(free_leaf_name_part) + 1
+                if int(last_coupon.free_leaflets) > 1:
+                    free_leaf_last_numeric_part = free_leaf_next_numeric_part + int(last_coupon.free_leaflets)
+                else:
+                    free_leaf_last_numeric_part = free_leaf_next_numeric_part
+                
+                next_free_leaf_no = f"{free_leaf_alphabetic_part}{free_leaf_next_numeric_part}"
+                end_free_leaf_no = f"{free_leaf_alphabetic_part}{free_leaf_last_numeric_part}"
+        else: 
+            next_leaf_no = ""
+            end_leaf_no = ""
+            next_free_leaf_no = ""
+            end_free_leaf_no = ""
+    else:
+        next_coupon_bookno = ""
+        next_leaf_no = ""
+        end_leaf_no = ""
+        next_free_leaf_no = ""
+        end_free_leaf_no = ""
+
+    data = {
+        'next_coupon_bookno': next_coupon_bookno,
+        "next_leaf_no": next_leaf_no,
+        "end_leaf_no": end_leaf_no,
+        "next_free_leaf_no": next_free_leaf_no,
+        "end_free_leaf_no": end_free_leaf_no,
+        }
     return JsonResponse(data, safe=False)
 
 
@@ -153,18 +205,15 @@ def create_Newcoupon(request):
                 coupon__coupon_type=selected_coupon_type,
                 coupon__book_num=book_num
             ).order_by('-couponleaflet_id').last()
-            print("last_leaflet",last_leaflet)
 
             # Start numbering from the next number
             start_number = int(last_leaflet.leaflet_number) + 1 if last_leaflet else 1
-            print("start_number",start_number)
 
             for leaflet_num in range(start_number, start_number + no_of_leaflets):
                 leaflet_name = f"{book_num}{leaflet_num:02}"  # Use :02 to ensure two digits
                 leaflet = CouponLeaflet(coupon=data, leaflet_number=str(leaflet_num), leaflet_name=leaflet_name)
                 leaflet.save()
                 leaflets.append({'leaflet_number': leaflet.leaflet_number})
-            print("leaflets",leaflets)            
             
             # Create CouponStock instance
             coupon_stock = CouponStock.objects.create(couponbook=data, coupon_stock='company', created_by=str(request.user.id))
@@ -194,7 +243,6 @@ def generate_leaflets(request, coupon_id):
     no_of_leaflets = int(coupon.coupon_type.no_of_leaflets)
     for leaflet_num in range(1, no_of_leaflets + 1):
         leaflet = CouponLeaflet(coupon=coupon, leaflet_number=str(leaflet_num))
-        print("leaflet",leaflet)
         leaflets.append(leaflet)
         leaflet.save()
         
@@ -205,14 +253,11 @@ def generate_leaflets(request, coupon_id):
 def get_leaflet_serial_numbers(request):
     if request.method == 'GET':
         coupon_type_id = request.GET.get('coupon_type')
-        print("coupon_type_id",coupon_type_id)
 
         # Fetch leaflets based on the provided coupon type
         try:
             leaflets = CouponLeaflet.objects.filter(coupon__coupon_type_id=coupon_type_id)
-            print("leaflets",leaflets)
             leaflet_data = [{'leaflet_number': leaflet.leaflet_number, 'is_used': leaflet.used} for leaflet in leaflets]
-            print("leaflet_data",leaflet_data)
             return JsonResponse(leaflet_data, safe=False)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)

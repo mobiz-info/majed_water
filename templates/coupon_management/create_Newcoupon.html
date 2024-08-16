@@ -38,6 +38,34 @@
                                     <span style="color: red;">{{ form.book_num.errors }}</span>
                                 </div>
                             </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Starting Leaf</label>
+                                    <input type="text" value="" id="leaf_starting_no" class="form-control">
+                                    {% comment %} <span style="color: red;">{{ form.book_num.errors }}</span> {% endcomment %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Ending Leaf</label>
+                                    <input type="text" value="" id="leaf_ending_no" class="form-control">
+                                    {% comment %} <span style="color: red;">{{ form.book_num.errors }}</span> {% endcomment %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Free Leaf Starting</label>
+                                    <input type="text" value="" id="free_leaf_starting_no" class="form-control">
+                                    {% comment %} <span style="color: red;">{{ form.book_num.errors }}</span> {% endcomment %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Free Leaf Ending</label>
+                                    <input type="text" value="" id="free_leaf_ending_no" class="form-control">
+                                    {% comment %} <span style="color: red;">{{ form.book_num.errors }}</span> {% endcomment %}
+                                </div>
+                            </div>
                             <!-- Generate Coupons Button -->
                             <div class="col-12 text-end mt-5">
                                 <button id="generate-btn" class="btn btn-primary me-2 mb-2">Generate Coupon</button>
@@ -128,6 +156,10 @@
             dataType: 'json',
             success: function (data) {
                 $('#id_book_num').val(data.next_coupon_bookno);
+                $('#leaf_starting_no').val(data.next_leaf_no);
+                $('#leaf_ending_no').val(data.end_leaf_no);
+                $('#free_leaf_starting_no').val(data.next_free_leaf_no);
+                $('#free_leaf_ending_no').val(data.end_free_leaf_no);
             }
         });
     });

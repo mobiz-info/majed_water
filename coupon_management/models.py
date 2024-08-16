@@ -207,6 +207,24 @@ class CouponLeaflet(models.Model):
     # def save(self, *args, **kwargs):
     #     self.save_qr_code()
     #     super().save(*args, **kwargs)
+    
+class FreeLeaflet(models.Model):
+    couponleaflet_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    coupon = models.ForeignKey(NewCoupon, on_delete=models.CASCADE)
+    leaflet_number = models.CharField(max_length=10)
+    leaflet_name = models.CharField(max_length=20, null=True, blank=True)
+    used = models.BooleanField(default=False)
+    created_by = models.CharField(max_length=20, blank=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    created_date = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+    qr_code = models.ImageField(upload_to="leaflet_qr_codes",null=True, blank=True)
+
+    class Meta:
+        ordering = ('leaflet_number',)
+
+    def __str__(self):
+        return f"{self.coupon.book_num} - Leaflet {self.leaflet_number}"
 
 COUPON_STOCK_CHOICES = (
     ('company', 'Company'),
