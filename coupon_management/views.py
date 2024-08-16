@@ -1,4 +1,5 @@
 import re
+from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
@@ -27,6 +28,12 @@ from django.http import JsonResponse, HttpResponse
 # Create your views here.
 def get_next_coupon_bookno(request):
     coupon_type = request.GET.get("coupon_type")
+    next_coupon_bookno = ""
+    next_leaf_no = ""
+    end_leaf_no = ""
+    next_free_leaf_no = ""
+    end_free_leaf_no = ""
+    
     last_coupon = NewCoupon.objects.filter(coupon_type__pk=coupon_type)
     if last_coupon.exists():
         last_coupon = last_coupon.latest("created_date")
@@ -73,17 +80,6 @@ def get_next_coupon_bookno(request):
                 
                 next_free_leaf_no = f"{free_leaf_alphabetic_part}{free_leaf_next_numeric_part}"
                 end_free_leaf_no = f"{free_leaf_alphabetic_part}{free_leaf_last_numeric_part}"
-        else: 
-            next_leaf_no = ""
-            end_leaf_no = ""
-            next_free_leaf_no = ""
-            end_free_leaf_no = ""
-    else:
-        next_coupon_bookno = ""
-        next_leaf_no = ""
-        end_leaf_no = ""
-        next_free_leaf_no = ""
-        end_free_leaf_no = ""
 
     data = {
         'next_coupon_bookno': next_coupon_bookno,
@@ -181,6 +177,8 @@ def create_Newcoupon(request):
             
             coupon_type_id = request.POST.get('coupon_type')
             book_num = request.POST.get('book_num')
+            valuable_leafs = request.POST.get('valuable_leafs')
+            free_leafs = request.POST.get('free_leafs')
             
             selected_coupon_type = get_object_or_404(CouponType, coupon_type_id=coupon_type_id)
 
@@ -195,40 +193,45 @@ def create_Newcoupon(request):
             branch = BranchMaster.objects.get(branch_id=branch_id)
             data.branch_id = branch           
             data.save()
-
-            # Generate leaflets for the coupon
-            leaflets = []
-            no_of_leaflets = int(selected_coupon_type.no_of_leaflets)
-
-            # Find the last leaflet number for the given coupon type and book number
-            last_leaflet = CouponLeaflet.objects.filter(
-                coupon__coupon_type=selected_coupon_type,
-                coupon__book_num=book_num
-            ).order_by('-couponleaflet_id').last()
-
-            # Start numbering from the next number
-            start_number = int(last_leaflet.leaflet_number) + 1 if last_leaflet else 1
-
-            for leaflet_num in range(start_number, start_number + no_of_leaflets):
-                leaflet_name = f"{book_num}{leaflet_num:02}"  # Use :02 to ensure two digits
-                leaflet = CouponLeaflet(coupon=data, leaflet_number=str(leaflet_num), leaflet_name=leaflet_name)
-                leaflet.save()
-                leaflets.append({'leaflet_number': leaflet.leaflet_number})
             
+            for v in valuable_leafs.split(', '):
+                CouponLeaflet.objects.create(
+                    coupon=data,
+                    leaflet_number=data.valuable_leaflets,
+                    leaflet_name=v,
+                    created_by=request.user.id,
+                    created_date=datetime.now(),
+                )
+                
+            for f in free_leafs.split(', '):
+                FreeLeaflet.objects.create(
+                    coupon=data,
+                    leaflet_number=data.free_leaflets,
+                    leaflet_name=f,
+                    created_by=request.user.id,
+                    created_date=datetime.now(),
+                )
             # Create CouponStock instance
-            coupon_stock = CouponStock.objects.create(couponbook=data, coupon_stock='company', created_by=str(request.user.id))
+            CouponStock.objects.create(
+                couponbook=data, 
+                coupon_stock='company', 
+                created_by=str(request.user.id)
+                )
 
             response_data = {
-                'success': True,
-                'book_num': data.book_num,
-                'leaflets': leaflets
+                "status": "true",
+                "title": "Successfully Created",
+                "message": "Coupon Generation successfully.",
+                'redirect': 'true',
+                "redirect_url": reverse('new_coupon')
             }
             return JsonResponse(response_data, status=200)
         else:
             message = generate_form_errors(form, formset=False)
             response_data = {
-                'success': False, 
-                'message': message,
+                "status": "false",
+                "title": "Failed",
+                "message": message,
             }
             return JsonResponse(response_data, status=200)
     else:
