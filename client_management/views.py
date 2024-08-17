@@ -63,6 +63,40 @@ def customer_custody_item(request,customer_id):
                         item = form.save(commit=False)
                         item.custody_custom = custody_custom_data
                         item.save()
+                        
+                        # Update bottle count if necessary
+                        # if item.product.product_name == "5 Gallon":
+                        #     bottle_count, created = BottleCount.objects.get_or_create(
+                        #         van__salesman=request.user,
+                        #         created_date__date=custody_custom_data.created_date.date(),
+                        #         defaults={'custody_issue': item.quantity}
+                        #     )
+                        #     if not created:
+                        #         bottle_count.custody_issue += item.quantity
+                        #         bottle_count.save()
+
+                        # Update or create CustomerCustodyStock
+                        if CustomerCustodyStock.objects.filter(customer=custody_custom_data.customer, product=item.product).exists():
+                            stock_instance = CustomerCustodyStock.objects.get(customer=custody_custom_data.customer, product=item.product)
+                            stock_instance.quantity += item.quantity
+                            stock_instance.serialnumber = (stock_instance.serialnumber + ',' + item.serialnumber) if stock_instance.serialnumber else item.serialnumber
+                            stock_instance.agreement_no = (stock_instance.agreement_no + ',' + item.agreement_no) if stock_instance.agreement_no else item.agreement_no
+                            stock_instance.save()
+                        else:
+                            CustomerCustodyStock.objects.create(
+                                customer=custody_custom_data.customer,
+                                agreement_no=custody_custom_data.agreement_no,
+                                deposit_type=custody_custom_data.deposit_type,
+                                reference_no=custody_custom_data.reference_no,
+                                product=item.product,
+                                quantity=item.quantity,
+                                serialnumber=item.serialnumber,
+                                amount=item.amount,
+                                can_deposite_chrge=item.can_deposite_chrge,
+                                five_gallon_water_charge=item.five_gallon_water_charge,
+                                amount_collected=custody_custom_data.amount_collected
+                            )
+                        
                     response_data = {
                         "status": "true",
                         "title": "Successfully Created",
