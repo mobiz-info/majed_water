@@ -6402,7 +6402,7 @@ class OffloadRequestingAPIView(APIView):
                 if item.product_name == "5 Gallon":
                     if products.filter(product=item).aggregate(total_stock=Sum('stock'))['total_stock'] or 0 > 0:
                         van_stock = products.filter(product=item).aggregate(total_stock=Sum('stock'))['total_stock'] or 0
-                        offload_request_stock = OffloadRequestItems.objects.filter(product=item,offload_request__van__salesman=request.user,offload_request__date=datetime.today().date(),stock_type="stock").aggregate(total_stock=Sum('quantity'))['total_stock'] or 0
+                        offload_request_stock = OffloadRequestItems.objects.filter(product=item,offload_request__van__salesman=request.user,offload_request__date=datetime.today().date(),offload_request__status=False,stock_type="stock").aggregate(total_stock=Sum('quantity'))['total_stock'] or 0
                         
                         if van_stock > offload_request_stock :
                             current_stock = van_stock - offload_request_stock
@@ -6418,7 +6418,7 @@ class OffloadRequestingAPIView(APIView):
                         })
                     if products.filter(product=item).aggregate(total_stock=Sum('empty_can_count'))['total_stock'] or 0 > 0:
                         van_empty = products.filter(product=item).aggregate(total_stock=Sum('empty_can_count'))['total_stock'] or 0
-                        offload_request_empty = OffloadRequestItems.objects.filter(product=item,offload_request__van__salesman=request.user,offload_request__date=datetime.today().date(),stock_type="emptycan").aggregate(total_stock=Sum('quantity'))['total_stock'] or 0
+                        offload_request_empty = OffloadRequestItems.objects.filter(product=item,offload_request__van__salesman=request.user,offload_request__date=datetime.today().date(),offload_request__status=False,stock_type="emptycan").aggregate(total_stock=Sum('quantity'))['total_stock'] or 0
                         
                         if van_empty > offload_request_empty :
                             current_empty = van_empty - offload_request_empty
@@ -6434,7 +6434,7 @@ class OffloadRequestingAPIView(APIView):
                         })
                     if products.filter(product=item).aggregate(total_stock=Sum('return_count'))['total_stock'] or 0 > 0:
                         van_return = products.filter(product=item).aggregate(total_stock=Sum('return_count'))['total_stock'] or 0
-                        offload_request_return = OffloadRequestItems.objects.filter(product=item,offload_request__van__salesman=request.user,offload_request__date=datetime.today().date(),stock_type="return").aggregate(total_stock=Sum('quantity'))['total_stock'] or 0
+                        offload_request_return = OffloadRequestItems.objects.filter(product=item,offload_request__van__salesman=request.user,offload_request__date=datetime.today().date(),offload_request__status=False,stock_type="return").aggregate(total_stock=Sum('quantity'))['total_stock'] or 0
                         
                         if van_return > offload_request_return :
                             current_return = van_return - offload_request_return
@@ -6451,7 +6451,7 @@ class OffloadRequestingAPIView(APIView):
                 elif item.product_name != "5 Gallon" and item.category.category_name != "Coupons":
                     if products.filter(product=item).aggregate(total_stock=Sum('stock'))['total_stock'] or 0 > 0:
                         van_non_five_gallon = products.filter(product=item).aggregate(total_stock=Sum('stock'))['total_stock'] or 0
-                        offload_request_non_five_gallon = OffloadRequestItems.objects.filter(product=item,offload_request__van__salesman=request.user,offload_request__date=datetime.today().date(),stock_type="stock").aggregate(total_stock=Sum('quantity'))['total_stock'] or 0
+                        offload_request_non_five_gallon = OffloadRequestItems.objects.filter(product=item,offload_request__van__salesman=request.user,offload_request__date=datetime.today().date(),offload_request__status=False,stock_type="stock").aggregate(total_stock=Sum('quantity'))['total_stock'] or 0
                         
                         if van_non_five_gallon > offload_request_non_five_gallon :
                             current_non_five_gallon = van_non_five_gallon - offload_request_non_five_gallon
@@ -6469,7 +6469,7 @@ class OffloadRequestingAPIView(APIView):
                 # Aggregate stock for coupons
                 coupons_list = coupons.filter(coupon__coupon_type__coupon_type_name=item.product_name)
                 van_coupon_stock = coupons_list.aggregate(total_stock=Sum('stock'))['total_stock'] or 0
-                coupon_offload_request_stock = OffloadRequestCoupon.objects.filter(coupon__coupon_type__coupon_type_name=item.product_name,offload_request__van__salesman=request.user,offload_request__date=datetime.today().date(),stock_type="stock").aggregate(total_stock=Sum('quantity'))['total_stock'] or 0
+                coupon_offload_request_stock = OffloadRequestCoupon.objects.filter(coupon__coupon_type__coupon_type_name=item.product_name,offload_request__van__salesman=request.user,offload_request__date=datetime.today().date(),offload_request__status=False,stock_type="stock").aggregate(total_stock=Sum('quantity'))['total_stock'] or 0
                  
                 if van_coupon_stock > coupon_offload_request_stock :
                     total_stock = van_coupon_stock - coupon_offload_request_stock
@@ -7190,7 +7190,7 @@ class OffloadRequestVanListAPIView(APIView):
 
     def get(self, request):
         try:
-            offload_requests = OffloadRequest.objects.select_related('van', 'van__salesman').all()
+            offload_requests = OffloadRequest.objects.select_related('van', 'van__salesman').filter(status=False)
             
             unique_vans = set()
             data = []
@@ -7229,7 +7229,7 @@ class OffloadRequestListAPIView(APIView):
         date_str = request.GET.get("date_str", str(datetime.today().date()))
         date = datetime.strptime(date_str, '%Y-%m-%d').date()
         
-        offload_requests = OffloadRequest.objects.filter(van__van_id=van_id,date=date)
+        offload_requests = OffloadRequest.objects.filter(van__van_id=van_id,date=date,status=False)
         response_data = {
             "status": True,
             "vans": []
@@ -7237,7 +7237,7 @@ class OffloadRequestListAPIView(APIView):
 
         for offload_request in offload_requests:
             van_data = {
-                "van": str(offload_request.van),
+                "van": str(offload_request.van.pk),
                 "request_id": str(offload_request.id),
                 "products": []
             }
@@ -7431,14 +7431,17 @@ class OffloadRequestListAPIView(APIView):
                                     stock_type="stock",
                                     offload_request=offload_request_instance
                                 )
-                        
-                response_data = {
-                    "status": "true",
-                    "title": "Successfully Offloaded",
-                    "message": "Offload successfully.",
-                    'reload': 'true',
-                }
-                return Response(response_data, status=status.HTTP_200_OK)
+                                
+                        offload_request_instance.status = True
+                        offload_request_instance.save()
+                                
+                        response_data = {
+                            "status": "true",
+                            "title": "Successfully Offloaded",
+                            "message": "Offload successfully.",
+                            'reload': 'true',
+                        }
+                        return Response(response_data, status=status.HTTP_200_OK)
                     
         except IntegrityError as e:
             response_data = {

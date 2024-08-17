@@ -374,6 +374,7 @@ class OffloadRequest(models.Model):
     van = models.ForeignKey(Van, on_delete=models.CASCADE,null=True, blank=True)
     salesman = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE)
     date=models.DateField(blank=True, null=True)
+    status=models.BooleanField(default=False)
     
     created_by = models.CharField(max_length=20, blank=True)
     modified_by = models.CharField(max_length=20, null=True, blank=True)
