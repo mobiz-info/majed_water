@@ -37,49 +37,50 @@ def get_next_coupon_bookno(request):
     last_coupon = NewCoupon.objects.filter(coupon_type__pk=coupon_type)
     if last_coupon.exists():
         last_coupon = last_coupon.latest("created_date")
-        last_coupon_bookno = last_coupon.book_num
+        # last_coupon_bookno = last_coupon.book_num
+        next_coupon_bookno = int(last_coupon.book_num) + 1
 
         # Split the alphanumeric book number into alphabetic and numeric parts
-        match = re.match(r"([a-zA-Z]+)(\d+)", last_coupon_bookno)
-        if not match:
-            raise ValueError("Invalid book number format")
+        # match = re.match(r"([a-zA-Z]+)(\d+)", last_coupon_bookno)
+        # if not match:
+        #     raise ValueError("Invalid book number format")
 
-        alphabetic_part, numeric_part = match.groups()
-        next_numeric_part = int(numeric_part) + 1
-        next_coupon_bookno = f"{alphabetic_part}{next_numeric_part}"
+        # alphabetic_part, numeric_part = match.groups()
+        # next_numeric_part = int(numeric_part) + 1
+        # next_coupon_bookno = f"{alphabetic_part}{next_numeric_part}"
         
         if (leaflet:=CouponLeaflet.objects.filter(coupon=last_coupon)).exists():
-            last_leaf_name = leaflet.latest("created_date").leaflet_name
+            last_leaf_number = leaflet.latest("created_date").leaflet_name
             
             # Split the alphanumeric leaflet number into alphabetic and numeric parts
-            match = re.match(r"([a-zA-Z]+)(\d+)", last_leaf_name)
-            if not match:
-                raise ValueError("Invalid leaf number format")
+            # match = re.match(r"([a-zA-Z]+)(\d+)", last_leaf_name)
+            # if not match:
+            #     raise ValueError("Invalid leaf number format")
 
-            leaf_alphabetic_part, leaf_name_part = match.groups()
-            leaf_next_numeric_part = int(leaf_name_part) + 1
-            leaf_last_numeric_part = leaf_next_numeric_part + int(last_coupon.valuable_leaflets)
+            # leaf_alphabetic_part, leaf_name_part = match.groups()
+            next_leaf_no = int(last_leaf_number) + 1
+            end_leaf_no = next_leaf_no + int(last_coupon.valuable_leaflets)
             
-            next_leaf_no = f"{leaf_alphabetic_part}{leaf_next_numeric_part}"
-            end_leaf_no = f"{leaf_alphabetic_part}{leaf_last_numeric_part}"
+            # next_leaf_no = f"{leaf_alphabetic_part}{leaf_next_numeric_part}"
+            # end_leaf_no = f"{leaf_alphabetic_part}{leaf_last_numeric_part}"
             
             if (freeleafs:=FreeLeaflet.objects.filter(coupon=last_coupon)).exists():
-                last_free_leaf_name = freeleafs.latest("created_date").leaflet_name
+                last_free_leaf_number = freeleafs.latest("created_date").leaflet_name
                 
                 # Split the alphanumeric leaflet number into alphabetic and numeric parts
-                match = re.match(r"([a-zA-Z]+)(\d+)", last_free_leaf_name)
-                if not match:
-                    raise ValueError("Invalid leaf number format")
+                # match = re.match(r"([a-zA-Z]+)(\d+)", last_free_leaf_name)
+                # if not match:
+                #     raise ValueError("Invalid leaf number format")
 
-                free_leaf_alphabetic_part, free_leaf_name_part = match.groups()
-                free_leaf_next_numeric_part = int(free_leaf_name_part) + 1
+                # free_leaf_alphabetic_part, free_leaf_name_part = match.groups()
+                free_leaf_next_number = int(last_free_leaf_number) + 1
                 if int(last_coupon.free_leaflets) > 1:
-                    free_leaf_last_numeric_part = free_leaf_next_numeric_part + int(last_coupon.free_leaflets)
+                    free_leaf_last_number = free_leaf_next_number + int(last_coupon.free_leaflets)
                 else:
-                    free_leaf_last_numeric_part = free_leaf_next_numeric_part
+                    free_leaf_last_number = free_leaf_next_number
                 
-                next_free_leaf_no = f"{free_leaf_alphabetic_part}{free_leaf_next_numeric_part}"
-                end_free_leaf_no = f"{free_leaf_alphabetic_part}{free_leaf_last_numeric_part}"
+                next_free_leaf_no = f"{free_leaf_next_number}"
+                end_free_leaf_no = f"{free_leaf_last_number}"
 
     data = {
         'next_coupon_bookno': next_coupon_bookno,

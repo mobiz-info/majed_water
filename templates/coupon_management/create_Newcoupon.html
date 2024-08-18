@@ -166,7 +166,7 @@
     
         let leafletList = [];
     
-        for (let i = startNum; i <= endNum; i++) {
+        for (let i = startNum; i <= endNum-1; i++) {
             const listItem = document.createElement('li');
             listItem.textContent = prefix + i;
             listItem.classList.add("generated_leaf_li"); 
