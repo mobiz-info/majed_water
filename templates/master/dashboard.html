@@ -1,29 +1,205 @@
 {% extends 'base.html' %}
-{% block title %} Branch List {% endblock %}
+{% block title %}Dashboard{% endblock %}
 {% block content %}
 {% load static %}
-        <!-- End::app-sidebar -->
-        <!-- Page Header -->
-        <div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
-            <h4 class="fw-medium mb-0">Dashboard</h4>
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-50">Dashboards</a>
-                </li>
-                <li class="breadcrumb-item active" aria-current="page">Admin Dashboard</li>
-            </ol>
-        </div>
-        <!-- Page Header Close -->
 
-
-
-        <!-- Start::app-content -->
-        <div class="main-content app-content">
-            <div class="container-fluid">
-                <h2></h2>
-
-                      
-
+<!-- Page Header -->
+<div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between">
+    <h4 class="fw-medium mb-0">Dashboard</h4>
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-50">Dashboards</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Admin Dashboard</li>
+    </ol>
+</div>
+<!-- Page Header Close -->
+<div class="main-content app-content">
+    <div class="container-fluid">
+        <!-- Row 1: Status -->
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card text-center">
+                    <div class="card-header bg-primary text-dark">
+                        Active Vans
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">{{ total_vans }}</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center">
+                    <div class="card-header bg-primary text-dark">
+                        Customers
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">{{ total_customers }}</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center">
+                    <div class="card-header bg-primary text-dark">
+                        Emergency
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">{{ total_emergency_customers }}</h5>
+                    </div>
+                </div>
             </div>
         </div>
-        <!-- End::app-content -->
-        {% endblock %}
+
+        <!-- Row 2: Sales and Collections -->
+        <div class="row mt-4 mb-0">
+            <div class="col-md-6">
+                <div class="card mb-0">
+                    <div class="card-header bg-primary text-dark text-center">
+                        Sales and Collections
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-bordered">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th></th>
+                                    <th class="text-center">Cash</th>
+                                    <th class="text-center">Credit</th>
+                                    <th class="text-center">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="text-right">Sales</td>
+                                    <td class="text-center">{{ cash_sales }}</td>
+                                    <td class="text-center">{{ credit_sales }}</td>
+                                    <td class="text-center">{{ total_sales }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right">Returns</td>
+                                    <td class="text-center">{{ cash_returns_today }}</td>
+                                    <td class="text-center">{{ credit_returns_today }}</td>
+                                    <td class="text-center">{{ total_returns_today }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right">Collection - Today</td>
+                                    <td class="text-center">{{ cash_collection_today }}</td>
+                                    <td class="text-center">{{ credit_collection_today }}</td>
+                                    <td class="text-center">{{ total_collection_today }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right">Collection - Previous</td>
+                                    <td class="text-center">{{ cash_collection_previous }}</td>
+                                    <td class="text-center">{{ credit_collection_previous }}</td>
+                                    <td class="text-center">{{ total_collection_previous }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right">Outstanding</td>
+                                    <td class="text-center">{{ cash_outstanding_today }}</td>
+                                    <td class="text-center">{{ credit_outstanding_today }}</td>
+                                    <td class="text-center">{{ total_outstanding_today }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card mb-0">
+                    <div class="card-header bg-primary text-dark text-center">
+                        Bottle Status
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-bordered">
+                            <tbody>
+                                <tr>
+                                    <td class="text-right">Custody Issued</td>
+                                    <td class="text-center">{{ total_issued_5gallon_today}}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right">Custody Pullout</td>
+                                    <td class="text-center"></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right">Pending Bottles Given Today</td>
+                                    <td class="text-center">{{ pending_bottles_given_today }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right">Pending Bottles Collected</td>
+                                    <td class="text-center"></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right">Outstanding Bottles</td>
+                                    <td class="text-center"></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right">Scrap Bottles</td>
+                                    <td class="text-center">{{ scrap_bottle_collected_today }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right">Bottles in Service</td>
+                                    <td class="text-center">{{ bottle_in_service_today }}</td>
+                                </tr> 
+                                <tr>
+                                    <td class="text-right">Company Stock Fresh</td>
+                                    <td class="text-center">{{ company_fresh_stock }}</td>
+                                </tr>                          
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 4:Coupons -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-dark text-center">
+                        Coupons
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-bordered">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th></th>
+                                    <th class="text-center">Manual</th>
+                                    <th class="text-center">Digital</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="text-right">Books Sold</td>
+                                    <td class="text-center">{{ manual_book_sold }}</td>
+                                    <td class="text-center">{{ digital_book_sold }}</td>
+
+                                </tr>
+                                <tr>
+                                    <td class="text-right">Coupons Collected</td>
+                                    <td class="text-center">{{manual_coupons_collected}}</td>
+                                    <td class="text-center">{{digital_coupons_collected}}</td>
+
+                                </tr>
+                                <tr>
+                                    <td class="text-right">Pending Coupons - Today</td>
+                                    <td class="text-center"></td>
+                                    <td class="text-center"></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right">Pending Coupons Collected</td>
+                                    <td class="text-center"></td>
+                                    <td class="text-center"></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right">Outstanding</td>
+                                    <td class="text-center"></td>
+                                    <td class="text-center"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

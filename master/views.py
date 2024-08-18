@@ -16,7 +16,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.hashers import make_password, check_password
 from .models import *
-
+from datetime import timedelta
+from django.db.models import Sum
 from . serializers import *
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -25,18 +26,183 @@ from rest_framework import status
 from rest_framework.authentication import BasicAuthentication 
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import render, redirect, get_object_or_404
+from van_management.models import Van, VanProductStock , VanCouponStock
+from customer_care.models import DiffBottlesModel
+from client_management.models import CustomerSupply, CustomerOutstandingReport, CustomerSupplyCoupon
+from sales_management.models import CollectionItems
+from invoice_management.models import Invoice
+from coupon_management.models import CouponStock
 
 
-
-# Create your views here.
 # Create your views here.
 @login_required(login_url='login')
 def home(request):
     template_name = 'master/dashboard.html'
-    context = {}
-    # sales_man = CustomUser.objects.get(username="salesman_test")
-    # notification(sales_man.pk,"test","tets","Sanawaterfcm")
-    return render(request, template_name,context)
+    
+    # Get the total count of all vans
+    total_vans = Van.objects.count()
+    
+    # Get the total count of all customers
+    total_customers = Customers.objects.count()
+    
+    # Calculate the date 10 days ago
+    ten_days_ago = timezone.now() - timedelta(days=10)
+    
+    # Get the count of customers created exactly 10 days ago
+    new_customers_count = Customers.objects.filter(created_date__date=ten_days_ago.date()).count()
+    
+    # Get the total count of emergency customers
+    today = timezone.now().date()
+    emergency_customers = DiffBottlesModel.objects.filter(delivery_date=today)
+    emergency_customer_ids = {ec.customer_id for ec in emergency_customers}
+    total_emergency_customers = Customers.objects.filter(customer_id__in=emergency_customer_ids).count()
+    
+    # Get the total sales for today filtered by cash and credit
+    cash_sales = CustomerSupply.objects.filter(created_date__date=today,customer__sales_type='CASH').count()
+    credit_sales = CustomerSupply.objects.filter(created_date__date=today,customer__sales_type='CREDIT').count()
+    total_sales = cash_sales + credit_sales
+    
+    # Get the total returns for today filtered by cash and credit
+    cash_returns_today = Invoice.objects.filter(
+        created_date__date=today,
+        customer__sales_type='CASH'
+    ).count()
+
+    credit_returns_today = Invoice.objects.filter(
+        created_date__date=today,
+        customer__sales_type='CASH'
+    ).count()
+
+    total_returns_today = cash_returns_today + credit_returns_today
+    
+    # Get the total collection for today filtered by cash and credit
+
+    cash_collection_today = CollectionItems.objects.filter(
+        collection_payment__customer__sales_type='CASH',
+        collection_payment__created_date__date=today
+    ).count()
+
+    credit_collection_today = CollectionItems.objects.filter(
+        collection_payment__customer__sales_type='CREDIT',
+         collection_payment__created_date__date=today
+    ).count()
+
+    total_collection_today = cash_collection_today + credit_collection_today
+    
+    # Get the total collection for previous days (excluding today) filtered by cash and credit
+    cash_collection_previous = CollectionItems.objects.filter(
+        collection_payment__customer__sales_type='CASH',
+        collection_payment__created_date__lt=today
+    ).count()
+
+    credit_collection_previous = CollectionItems.objects.filter(
+        collection_payment__customer__sales_type='CREDIT',
+        collection_payment__created_date__lt=today
+    ).count()
+
+    total_collection_previous = cash_collection_previous + credit_collection_previous
+    
+    # Get the total outstanding for today filtered by cash and credit
+    cash_outstanding_today = CustomerOutstandingReport.objects.filter(
+        customer__sales_type='CASH',
+        value__gt=0
+    ).count()
+
+    credit_outstanding_today = CustomerOutstandingReport.objects.filter(
+        customer__sales_type='CREDIT',
+        value__gt=0
+    ).count()
+
+    total_outstanding_today = cash_outstanding_today + credit_outstanding_today
+    
+    # Get today's total issued 5-gallon count from VanProductStock
+    total_issued_5gallon_today = VanProductStock.objects.filter(
+        product__product_name='5 gallon',
+        created_date=datetime.today().date()
+        # created_date__date=today
+    ).aggregate(total_issued=Sum('stock'))['total_issued'] or 0
+    
+    # Calculate the pending bottles given today 
+    pending_bottles_given_today = VanProductStock.objects.filter(
+        product__product_name='5 gallon',
+        created_date=datetime.today().date()
+    ).aggregate(total_pending=Sum('pending_count'))['total_pending'] or 0
+    
+    # Calculate the scrap bottles collected today 
+
+    scrap_bottle_collected_today = VanProductStock.objects.filter(
+        product__product_name='5 gallon',
+        created_date=datetime.today().date()
+    ).aggregate(total_scrap=Sum('excess_bottle'))['total_scrap'] or 0
+    # Calculate the  bottle in Service given today 
+
+    bottle_in_service_today = VanProductStock.objects.filter(
+        product__product_name='5 gallon',
+        created_date=datetime.today().date()
+    ).aggregate(total_service_bottle=Sum('damage_count'))['total_service_bottle'] or 0
+    
+    # Calculate the company Fresh stock given today 
+
+    company_fresh_stock = VanProductStock.objects.filter(
+        product__product_name='5 gallon',
+        created_date=datetime.today().date()
+    ).aggregate(total_fresh_stock=Sum('opening_count'))['total_fresh_stock'] or 0
+    
+    # Get the count of digital and manual coupons sold
+    manual_book_sold = CouponStock.objects.filter(
+        created_date=datetime.today().date(),
+        coupon_stock="van",
+        couponbook__coupon_method='MANUAL').count()
+    digital_book_sold = CouponStock.objects.filter(
+        created_date=datetime.today().date(),
+        coupon_stock="van",
+        couponbook__coupon_method='DIGITAL').count()
+    
+    # Calculate the total coupons collected (for both manual and digital)
+    customer_supplies_today = CustomerSupply.objects.filter(created_date=datetime.today().date())
+    manual_coupons_collected = sum(
+        cs.total_coupon_recieved()["manual_coupon"] for cs in customer_supplies_today
+    )
+    digital_coupons_collected = sum(
+        cs.total_coupon_recieved()["digital_coupon"] for cs in customer_supplies_today
+    )
+    
+    
+    
+    
+    context = {
+        'total_vans': total_vans,
+        'total_customers': total_customers,
+        'new_customers_count': new_customers_count,
+        'total_emergency_customers': total_emergency_customers,
+        'cash_sales': cash_sales,
+        'credit_sales': credit_sales,
+        'total_sales': total_sales,
+        'cash_returns_today': cash_returns_today,
+        'credit_returns_today': credit_returns_today,
+        'total_returns_today': total_returns_today,
+        'cash_collection_today': cash_collection_today,
+        'credit_collection_today': credit_collection_today,
+        'total_collection_today': total_collection_today,
+        'cash_collection_previous': cash_collection_previous,
+        'credit_collection_previous': credit_collection_previous,
+        'total_collection_previous': total_collection_previous,
+        'cash_outstanding_today': cash_outstanding_today,
+        'credit_outstanding_today': credit_outstanding_today,
+        'total_outstanding_today': total_outstanding_today,
+        'total_issued_5gallon_today': total_issued_5gallon_today,  
+        'pending_bottles_given_today':pending_bottles_given_today,
+        'scrap_bottle_collected_today':scrap_bottle_collected_today,
+        'bottle_in_service_today':bottle_in_service_today,
+        'company_fresh_stock':company_fresh_stock,
+        'manual_book_sold':manual_book_sold,
+        'digital_book_sold':digital_book_sold,
+        'manual_coupons_collected':manual_coupons_collected,
+        'digital_coupons_collected':digital_coupons_collected,
+
+    }
+    
+    return render(request, template_name, context)
 
 
 class Branch_List(View):
