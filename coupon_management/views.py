@@ -59,7 +59,7 @@ def get_next_coupon_bookno(request):
 
             # leaf_alphabetic_part, leaf_name_part = match.groups()
             next_leaf_no = int(last_leaf_number) + 1
-            end_leaf_no = next_leaf_no + int(last_coupon.valuable_leaflets)
+            end_leaf_no = next_leaf_no + int(last_coupon.valuable_leaflets) - 1
             
             # next_leaf_no = f"{leaf_alphabetic_part}{leaf_next_numeric_part}"
             # end_leaf_no = f"{leaf_alphabetic_part}{leaf_last_numeric_part}"
@@ -75,7 +75,7 @@ def get_next_coupon_bookno(request):
                 # free_leaf_alphabetic_part, free_leaf_name_part = match.groups()
                 free_leaf_next_number = int(last_free_leaf_number) + 1
                 if int(last_coupon.free_leaflets) > 1:
-                    free_leaf_last_number = free_leaf_next_number + int(last_coupon.free_leaflets)
+                    free_leaf_last_number = free_leaf_next_number + int(last_coupon.free_leaflets) - 1
                 else:
                     free_leaf_last_number = free_leaf_next_number
                 
