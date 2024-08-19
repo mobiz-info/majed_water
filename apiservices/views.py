@@ -3181,7 +3181,6 @@ class create_customer_supply(APIView):
                                         customer_stock.save()
                                         
                                 if total_fivegallon_qty < len(collected_coupon_ids):
-                                    # print("total_fivegallon_qty < len(collected_coupon_ids)", total_fivegallon_qty, "------------------------", len(collected_coupon_ids))
                                     balance_coupon = Decimal(total_fivegallon_qty) - Decimal(len(collected_coupon_ids))
                                     
                                     customer_outstanding_coupon = CustomerOutstanding.objects.create(
@@ -3192,7 +3191,7 @@ class create_customer_supply(APIView):
                                     )
                                     
                                     if (customer_coupon:=CustomerCouponStock.objects.filter(customer__pk=customer_supply_data['customer'],coupon_method="manual")).exists():
-                                        customer_coupon_type = customer_coupon.first().customer_coupon.coupon_type_id
+                                        customer_coupon_type = customer_coupon.first().coupon_type_id
                                     else:
                                         customer_coupon_type = CouponType.objects.get(coupon_type_name="Other")
                                     outstanding_coupon = OutstandingCoupon.objects.create(
@@ -3224,7 +3223,7 @@ class create_customer_supply(APIView):
                                     )
                                     
                                     if (customer_coupon:=CustomerCouponStock.objects.filter(customer__pk=customer_supply_data['customer'],coupon_method="manual")).exists():
-                                        customer_coupon_type = customer_coupon.first().customer_coupon.coupon_type_id
+                                        customer_coupon_type = customer_coupon.first().coupon_type_id
                                     else:
                                         customer_coupon_type = CouponType.objects.get(coupon_type_name="Other")
                                     outstanding_coupon = OutstandingCoupon.objects.create(
@@ -3261,6 +3260,64 @@ class create_customer_supply(APIView):
                                 customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_supply_data['customer'],coupon_method="digital",coupon_type_id__coupon_type_name="Other")
                                 customer_stock.count -= Decimal(total_coupon_collected)
                                 customer_stock.save()
+                                
+                                if total_fivegallon_qty < Decimal(total_coupon_collected):
+                                    balance_coupon = Decimal(total_fivegallon_qty) - Decimal(total_coupon_collected)
+                                    
+                                    customer_outstanding_coupon = CustomerOutstanding.objects.create(
+                                        customer=customer_supply.customer,
+                                        product_type="coupons",
+                                        created_by=request.user.id,
+                                        created_date=datetime.today()
+                                    )
+                                    
+                                    customer_coupon_type = CouponType.objects.get(coupon_type_name="Other")
+                                    outstanding_coupon = OutstandingCoupon.objects.create(
+                                        count=balance_coupon,
+                                        customer_outstanding=customer_outstanding_coupon,
+                                        coupon_type=customer_coupon_type
+                                    )
+                                    outstanding_instance = ""
+
+                                    try:
+                                        outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_supply.customer,product_type="coupons")
+                                        outstanding_instance.value += Decimal(outstanding_coupon.count)
+                                        outstanding_instance.save()
+                                    except:
+                                        outstanding_instance = CustomerOutstandingReport.objects.create(
+                                            product_type='coupons',
+                                            value=outstanding_coupon.count,
+                                            customer=outstanding_coupon.customer_outstanding.customer
+                                        )
+                                
+                                elif total_fivegallon_qty > Decimal(total_coupon_collected) :
+                                    balance_coupon = total_fivegallon_qty - Decimal(total_coupon_collected)
+                                    
+                                    customer_outstanding_coupon = CustomerOutstanding.objects.create(
+                                        customer=customer_supply.customer,
+                                        product_type="coupons",
+                                        created_by=request.user.id,
+                                        created_date=datetime.today()
+                                    )
+                                    
+                                    customer_coupon_type = CouponType.objects.get(coupon_type_name="Other")
+                                    outstanding_coupon = OutstandingCoupon.objects.create(
+                                        count=balance_coupon,
+                                        customer_outstanding=customer_outstanding_coupon,
+                                        coupon_type=customer_coupon_type
+                                    )
+                                    outstanding_instance = ""
+                                    
+                                    try :
+                                        outstanding_instance=CustomerOutstandingReport.objects.get(customer=customer_supply.customer,product_type="coupons")
+                                        outstanding_instance.value += Decimal(balance_coupon)
+                                        outstanding_instance.save()
+                                    except:
+                                        outstanding_instance=CustomerOutstandingReport.objects.create(
+                                            product_type="coupons",
+                                            value=balance_coupon,
+                                            customer=customer_supply.customer,
+                                            )
                         elif Customers.objects.get(pk=customer_supply_data['customer']).sales_type == "CASH" or Customers.objects.get(pk=customer_supply_data['customer']).sales_type == "CREDIT" :
                             if customer_supply.amount_recieved < customer_supply.subtotal:
                                 balance_amount = customer_supply.subtotal - customer_supply.amount_recieved
