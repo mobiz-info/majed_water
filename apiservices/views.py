@@ -6530,6 +6530,7 @@ class TotalCouponsConsumedView(APIView):
     
 #---------------Offload API---------------------------------- 
 
+   
 class OffloadRequestingAPIView(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
@@ -6547,7 +6548,8 @@ class OffloadRequestingAPIView(APIView):
         # Filtering coupons based on today's date and salesman
         coupons = VanCouponStock.objects.filter(
             created_date=datetime.today().date(),
-            van__salesman=request.user
+            van__salesman=request.user,
+            stock__gt=0
         )
         
         for item in product_items:
@@ -6622,7 +6624,13 @@ class OffloadRequestingAPIView(APIView):
                 # Aggregate stock for coupons
                 coupons_list = coupons.filter(coupon__coupon_type__coupon_type_name=item.product_name)
                 van_coupon_stock = coupons_list.aggregate(total_stock=Sum('stock'))['total_stock'] or 0
-                coupon_offload_request_stock = OffloadRequestCoupon.objects.filter(coupon__coupon_type__coupon_type_name=item.product_name,offload_request__van__salesman=request.user,offload_request__date=datetime.today().date(),offload_request__status=False,stock_type="stock").aggregate(total_stock=Sum('quantity'))['total_stock'] or 0
+                coupon_offload_request_stock = OffloadRequestCoupon.objects.filter(
+                    coupon__coupon_type__coupon_type_name=item.product_name,
+                    offload_request__van__salesman=request.user,
+                    offload_request__date=datetime.today().date(),
+                    offload_request__status=False,
+                    stock_type="stock"
+                    ).aggregate(total_stock=Sum('quantity'))['total_stock'] or 0
                  
                 if van_coupon_stock > coupon_offload_request_stock :
                     total_stock = van_coupon_stock - coupon_offload_request_stock
@@ -6708,6 +6716,7 @@ class OffloadRequestingAPIView(APIView):
                     )
 
         return Response({'status': 'true', 'message': 'Offload request created successfully.'}, status=status.HTTP_201_CREATED)
+
 
 class EditProductAPIView(APIView):
     authentication_classes = [BasicAuthentication]
