@@ -189,6 +189,35 @@ class requestType(View):
         return render(request, self.template_name, context)
     
 
+class new_customer_request(View):
+    template_name = 'customer_care/new_request.html'
+
+    def get(self, request, *args, **kwargs):
+        # Retrieve the query parameter
+        query = request.GET.get("q")
+        route_filter = request.GET.get('route_name')
+        # Start with all customers
+        user_li = CustomerOrders.objects.all()
+
+        # Apply filters if they exist
+        if query:
+            user_li = user_li.filter(
+                Q(customer_name__icontains=query) |
+                Q(mobile_no__icontains=query) |
+                Q(routes__route_name__icontains=query) |
+                Q(location__location_name__icontains=query) |
+                Q(building_name__icontains=query)
+            )
+
+        if route_filter:
+            user_li = user_li.filter(routes__route_name=route_filter)
+
+        # Get all route names for the dropdown
+        route_li = RouteMaster.objects.all()
+
+        context = {'user_li': user_li, 'route_li': route_li}
+        return render(request, self.template_name, context)
+    
 
          
 
@@ -304,7 +333,6 @@ class Bottle_List(ListAPIView):
         bottle_list=[]
         if bottle_list_exists:
             bottle_list = DiffBottlesModel.objects.filter(customer=pk)
-            print('bottle_list',bottle_list)
         context = {'bottle_list': bottle_list,'customer_id':id_customer}
         return render(request,'customer_care/bottle_list.html',context)
 
@@ -327,7 +355,6 @@ class Diffbottles_Create(View):
 
     def post(self, request, pk, *args, **kwargs):
         try:
-            print(request.POST,"====")
             form = self.form_class(request.POST, request.FILES)
             if form.is_valid():
                 data = form.save(commit=False)
@@ -448,21 +475,16 @@ class Custody_Pullout_Create(View):
         
     def post(self, request, pk, *args, **kwargs):
         try:
-            print(request.POST,"====request.POST")
             form = self.form_class(pk,request.POST)
             if form.is_valid():
-                print("inside form")
                 data = form.save(commit=False)
                 id_customer = Customers.objects.get(customer_id=pk)
-                print(id_customer,"<-----id_customer")
                 data.customer = id_customer
                 data.created_by = str(request.user.id)
                 data.save()
-                print(data,"====data")
                 messages.success(request, 'Custody Pullout Successfully Added.', 'alert-success')
                 return redirect('custody_pullout_list',pk)
             else:
-                print(form.errors)
                 for field, errors in form.errors.items():
                     for error in errors:
                         print(f"Field: {field}, Error: {error}")
@@ -671,9 +693,7 @@ class NewRequestHome(View):
             next_delivery_date = self.find_next_delivery_date(customer)
 
             form = self.form_class(request.POST, request.FILES)
-            print(request.POST.get("request_type"))
             if form.is_valid():
-                print(form)
                 data = form.save(commit=False)
                 data.customer = customer
                 data.created_by = str(request.user.id)
@@ -684,16 +704,16 @@ class NewRequestHome(View):
                 # Send notification to the sales staff if assigned
                 if customer.sales_staff:
                     sales_man = customer.sales_staff
-                    print(sales_man, 'sales_man')
                     try:
-                        notification(sales_man.pk, "New Request", "A new request has been created.", "Sanawaterfcm")
+                        salesman_body = f'A new request has been created. for {customer.customer_name}'
+                        notification(sales_man.pk, "New Water Request", salesman_body, "Nationalwaterfcm")
+                        notification(customer.user_id.pk, "New Water Request", "Your Request Created Succesfull.", "Nationalwatercustomer")
                     except CustomUser.DoesNotExist:
                         messages.error(request, 'Salesman does not exist.', 'alert-danger')
                     except Send_Notification.DoesNotExist:
                         messages.error(request, 'No device token found for the salesman.', 'alert-danger')
                     except Exception as e:
                         messages.error(request, f'Error sending notification: {e}', 'alert-danger')
-                        print(f"Notification error: {e}")
 
                 messages.success(request, 'Bottles Successfully Added.', 'alert-success')
                 return redirect('requestType')

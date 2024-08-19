@@ -293,27 +293,22 @@ class SupplyItemProductGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProdutItemMaster
-        fields = ['id', 'product_name','category','unit','rate','quantity']
+        fields = ['id', 'product_name', 'category', 'unit', 'rate', 'quantity']
         read_only_fields = ['id', 'product_name']
 
-    
     def get_quantity(self, obj):
         customer_id = self.context.get('customer_id')
-        qty = 1
-        if (reuests:=DiffBottlesModel.objects.filter(delivery_date__date=date.today(), customer__pk=customer_id)).exists():
-            for r in reuests :
-                if r.product_item.product_name == "5 Gallon":
-                    qty = r.quantity_required
+        qty = obj.default_quantity
+        if (requests := DiffBottlesModel.objects.filter(delivery_date__date=date.today(), customer__pk=customer_id)).exists():
+            for r in requests:
+                if r.product_item == obj:
+                    qty += r.quantity_required
         return qty
     
     def get_rate(self, obj):
         customer_id = self.context.get('customer_id')
         customer_rate = Customers.objects.get(pk=customer_id).rate
-        if Decimal(customer_rate) > 0:
-           rate = customer_rate
-        else:
-            rate = obj.rate 
-        return rate
+        return customer_rate if int(customer_rate) > 0 else obj.rate
     
 class CouponLeafSerializer(serializers.ModelSerializer):
 
@@ -327,26 +322,33 @@ class SupplyItemCustomersSerializer(serializers.ModelSerializer):
     pending_to_return = serializers.SerializerMethodField()
     coupon_details = serializers.SerializerMethodField()
     is_supplied = serializers.SerializerMethodField()
+
     class Meta:
         model = Customers
-        fields = ['customer_id','customer_name','routes','sales_type','products','pending_to_return','coupon_details','is_supplied']
+        fields = ['customer_id', 'customer_name', 'routes', 'sales_type', 'products', 'pending_to_return', 'coupon_details', 'is_supplied']
         
     def get_products(self, obj):
+        products_data = {}
+        
+        # Fetch the 5 Gallon product
         fivegallon = ProdutItemMaster.objects.get(product_name="5 Gallon")
         five_gallon_serializer = SupplyItemFiveGallonWaterGetSerializer(fivegallon, context={"customer_id": obj.pk})
         five_gallon_data = five_gallon_serializer.data
+        products_data[five_gallon_data['id']] = five_gallon_data
         
-        supply_product_data = []
-        
+        # Process emergency or additional product requests
         c_requests = DiffBottlesModel.objects.filter(delivery_date__date=date.today(), customer__pk=obj.pk)
         if c_requests.exists():
             for r in c_requests:
-                items = ProdutItemMaster.objects.filter(pk=r.product_item.pk)
-                if items.exists():
-                    supply_product_serializer = SupplyItemProductGetSerializer(items.first(), many=False,context={"customer_id": obj.pk})
-                    supply_product_data.append(supply_product_serializer.data)
+                product_id = str(r.product_item.pk)
+                if product_id in products_data:
+                    products_data[product_id]['quantity']
+                else:
+                    supply_product_serializer = SupplyItemProductGetSerializer(r.product_item, context={"customer_id": obj.pk})
+                    supply_product_data = supply_product_serializer.data
+                    products_data[product_id] = supply_product_data
         
-        return [five_gallon_data] + supply_product_data
+        return list(products_data.values())
     
     def get_pending_to_return(self, obj):
         # total_quantity = CustodyCustomItems.objects.filter(
@@ -1271,7 +1273,7 @@ class FreshvsCouponCustomerSerializer(serializers.ModelSerializer):
         
         return pending_cans.get('total_pending_cans', 0) or 0
 
-class CustomerOrdersSerializer(serializers.ModelSerializer):
+class  CustomerOrdersSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = CustomerOrders
@@ -1308,7 +1310,8 @@ class StockMovementSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StockMovement
-        fields = ['id', 'created_by', 'salesman', 'from_van', 'to_van', 'products']
+        fields = ['id', 'salesman', 'from_van', 'to_van', 'products']
+        read_only = ['id']
 
     def create(self, validated_data):
         if self.context.get("date_str"):
@@ -1316,7 +1319,9 @@ class StockMovementSerializer(serializers.ModelSerializer):
         else :
             date_str = str(datetime.today().date())
         products_data = validated_data.pop('products')
-        stock_movement = StockMovement.objects.create(**validated_data)
+        stock_movement = StockMovement.objects.create(
+            created_by=self.context.get("request").user.pk,
+            **validated_data)
         
         for product_data in products_data:
             StockMovementProducts.objects.create(stock_movement=stock_movement, **product_data)
