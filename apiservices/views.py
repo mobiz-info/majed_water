@@ -8603,7 +8603,7 @@ class ProductionDamageAPIView(APIView):
                     product_stock.save()
                     
                 if product_to == "scrap":
-                    product_stock = ScrapStock.objects.get(product_name=product_instance)
+                    product_stock = ScrapStock.objects.get(product=product_instance)
                     product_stock.quantity += quantity
                     product_stock.save()
                     
