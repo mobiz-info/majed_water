@@ -1844,3 +1844,20 @@ class TermsAndConditionsSerializer(serializers.ModelSerializer):
     class Meta:
         model = TermsAndConditions
         fields = '__all__'
+        
+class ProductTransferChoicesSerializer(serializers.Serializer):
+    product_transfer_from_choices = serializers.SerializerMethodField()
+    product_transfer_to_choices = serializers.SerializerMethodField()
+
+    def get_product_transfer_from_choices(self, obj):
+        return [{'value': key, 'display': value} for key, value in PRODUCT_TRANSFER_FROM_CHOICES]
+
+    def get_product_transfer_to_choices(self, obj):
+        return [{'value': key, 'display': value} for key, value in PRODUCT_TRANSFER_TO_CHOICES]
+        
+class ProductionDamageSerializer(serializers.ModelSerializer):
+    created_date = serializers.DateTimeField(format="%Y-%m-%d")
+
+    class Meta:
+        model = ProductionDamage
+        fields = '__all__'

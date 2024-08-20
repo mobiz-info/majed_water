@@ -8538,3 +8538,102 @@ class ExcessBottleCountAPIView(APIView):
         
         return Response(response_data, status=status_code)
     
+    
+class ProductTransferChoicesAPI(APIView):
+    def get(self, request, *args, **kwargs):
+        data = {
+            "product_transfer_from_choices": [{'value': key, 'display': value} for key, value in PRODUCT_TRANSFER_FROM_CHOICES],
+            "product_transfer_to_choices": [{'value': key, 'display': value} for key, value in PRODUCT_TRANSFER_TO_CHOICES]
+        }
+        response_data = {
+            "status": status.HTTP_200_OK,
+            "data": data,
+        }
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+    
+class ProductionDamageAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, *args, **kwargs):
+        instances = ProductionDamage.objects.all()
+        serializer = ProductionDamageSerializer(instances,many=True)
+        
+        status_code = status.HTTP_200_OK
+        response_data = {
+            "status": status_code,
+            "data": serializer.data,
+        }
+        
+        return Response(response_data, status=status_code)
+    
+    def post(self, request, *args, **kwargs):
+        route_id = request.data.get('route_id')
+        quantity = request.data.get('quantity')
+        reason = request.data.get('reason')
+        product_from = request.data.get('product_from')
+        product_to = request.data.get('product_to')
+        
+        try:
+            with transaction.atomic():
+                product_instance = ProdutItemMaster.objects.get(product_name="5 Gallon")
+                route_instance = RouteMaster.objects.get(pk=route_id)
+                
+                ProductionDamage.objects.create(
+                    product=product_instance,
+                    route=route_instance,
+                    branch=request.user.branch_id,
+                    product_from=product_from,
+                    product_to=product_to,
+                    quantity=quantity,
+                    reason=reason,
+                    created_by=request.user.id,
+                    created_date=datetime.today().now(),
+                )
+                
+                if product_from == "fresh":
+                    product_stock = ProductStock.objects.get(product_name=product_instance,branch=request.user.branch_id)
+                    product_stock.quantity -= quantity
+                    product_stock.save()
+                    
+                if product_from == "used":
+                    product_stock = WashedUsedProduct.objects.get(product=product_instance)
+                    product_stock.quantity -= quantity
+                    product_stock.save()
+                    
+                if product_to == "scrap":
+                    product_stock = ScrapStock.objects.get(product_name=product_instance)
+                    product_stock.quantity += quantity
+                    product_stock.save()
+                    
+                if product_to == "service":
+                    product_stock = WashingStock.objects.get(product=product_instance)
+                    product_stock.quantity += quantity
+                    product_stock.save()
+                
+                status_code = status.HTTP_201_CREATED
+                response_data = {
+                    "status": status_code,
+                    "title": "Success",
+                    "message": "Production Damage Stock successfully Added",
+                }
+        
+        except IntegrityError as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "status": status_code,
+                "title": "Failed",
+                "message": str(e),
+            }
+        
+        except Exception as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "status": status_code,
+                "title": "Failed",
+                "message": str(e),
+            }
+        
+        return Response(response_data, status=status_code)
+    
