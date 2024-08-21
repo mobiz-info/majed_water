@@ -2303,7 +2303,7 @@ def delete_outstanding(request, pk):
                         
                         if CustomerCoupon.objects.filter(invoice_no=invoice.invoice_no).exists():
                             instance = CustomerCoupon.objects.get(invoice_no=invoice.invoice_no)
-                            delete_coupon_recharge(instance)
+                            delete_coupon_recharge(instance.invoice_no)
                             
                     invoice.is_deleted=True
                     invoice.save()

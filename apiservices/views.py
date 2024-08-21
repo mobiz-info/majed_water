@@ -2453,47 +2453,60 @@ def fetch_coupon(request):
 
     return Response(response_data, status_code)
 
-def delete_coupon_recharge(customer_coupon):
+def delete_coupon_recharge(invoice_no):
     """
     Delete a customer coupon recharge and reverse all related transactions.
     """
     try:
         with transaction.atomic():
-            # Reverse creation of invoices and associated items
-            invoices = Invoice.objects.filter(customer_coupon=customer_coupon)
-            for invoice in invoices:
-                InvoiceItems.objects.filter(invoice=invoice).delete()
-                invoice.delete()
-
-            # Reverse any updates to customer coupon stock
-            CustomerCouponItems.objects.filter(customer_coupon=customer_coupon).delete()
+            invoice = Invoice.objects.get(invoice_no=invoice_no)
+            customer_coupon = CustomerCoupon.objects.get(invoice_no=invoice_no)
             
-            # Reverse any updates to van coupon stock
-            # Note: Adjust this part based on your actual models and logic
-            for item in customer_coupon.items.all():
+            coupon_items = CustomerCouponItems.objects.filter(customer_coupon=customer_coupon)
+            for item in coupon_items:
+                coupon_stock = CustomerCouponStock.objects.get(customer=customer_coupon.customer,coupon_type_id=item.coupon.coupon_type)
+                coupon_stock.count -= int(item.coupon.coupon_type.no_of_leaflets)
+                coupon_stock.save()
+                                                
                 van_coupon_stock = VanCouponStock.objects.get(coupon=item.coupon)
-                van_coupon_stock.stock += item.qty  # Adjust this logic based on your actual field names
+                van_coupon_stock.stock += 1
                 van_coupon_stock.save()
+                item.delete()
+                
+                coupon_stock_status = CouponStock.objects.get(couponbook=item.coupon)
+                coupon_stock_status.coupon_stock = "van"
+                coupon_stock_status.save()
 
-            # Delete associated daily collections
-            InvoiceDailyCollection.objects.filter(invoice__customer_coupon=customer_coupon).delete()
+            InvoiceDailyCollection.objects.filter(invoice=invoice).delete()
 
-            # Delete associated cheque payment instance (if any)
             ChequeCouponPayment.objects.filter(customer_coupon=customer_coupon).delete()
-
-            # Delete outstanding amounts and reports (if any)
-            CustomerOutstanding.objects.filter(customer=customer_coupon.customer).delete()
-            CustomerOutstandingReport.objects.filter(customer=customer_coupon.customer).delete()
-
-            # Finally, delete the customer coupon instance
+            
+            balance_amount = invoice.amout_total - invoice.amout_recieved
+                
+            if invoice.amout_total > invoice.amout_recieved:
+                if CustomerOutstandingReport.objects.filter(customer=customer_coupon.customer, product_type="amount").exists():
+                    customer_outstanding_report_instance = CustomerOutstandingReport.objects.get(customer=customer_coupon.customer, product_type="amount")
+                    customer_outstanding_report_instance.value -= Decimal(balance_amount)
+                    customer_outstanding_report_instance.save()
+                    
+            elif invoice.amout_total < invoice.amout_recieved:
+                customer_outstanding_report_instance = CustomerOutstandingReport.objects.get(customer=customer_coupon.customer, product_type="amount")
+                customer_outstanding_report_instance.value += Decimal(balance_amount)
+                customer_outstanding_report_instance.save()
+            
             customer_coupon.delete()
-
+            
             return True
 
+    except Invoice.DoesNotExist:
+        return {"status": "error", "message": "Invoice not found."}
+    except CustomerCoupon.DoesNotExist:
+        return {"status": "error", "message": "Customer coupon not found."}
     except Exception as e:
-        # Handle exceptions or log errors
-        print(f"Error deleting customer coupon recharge: {e}")
-        return False
+        return {"status": "error", "message": f"An error occurred: {str(e)}"}
+    
+    
+
 
 class CustomerCouponRecharge(APIView):
     def post(self, request, *args, **kwargs):
@@ -2696,7 +2709,7 @@ class CustomerCouponRecharge(APIView):
         """
         try:
             customer_coupon = CustomerCoupon.objects.get(pk=pk)
-            if delete_coupon_recharge(customer_coupon):
+            if delete_coupon_recharge(customer_coupon.invoice_no):
                 return Response({"message": "Customer coupon recharge deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
             else:
                 return Response({"message": "Failed to delete customer coupon recharge."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
