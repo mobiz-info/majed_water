@@ -2634,7 +2634,7 @@ class CustomerCouponRecharge(APIView):
                         reference_no=customer_coupon.reference_number
                     )
                     
-                    customer_coupon.invoice_no == invoice_instance.invoice_no
+                    customer_coupon.invoice_no = invoice_instance.invoice_no
                     customer_coupon.save()
                     
                     if invoice_instance.amout_total == invoice_instance.amout_recieved:
