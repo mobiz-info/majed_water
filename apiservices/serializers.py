@@ -316,6 +316,12 @@ class CouponLeafSerializer(serializers.ModelSerializer):
         model = CouponLeaflet
         fields = ['couponleaflet_id', 'leaflet_number','leaflet_name','used']
         read_only_fields = ['id']
+        
+class FreeLeafSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FreeLeaflet
+        fields = ['couponleaflet_id', 'leaflet_number', 'leaflet_name', 'used']
+        read_only_fields = ['couponleaflet_id']
 
 class SupplyItemCustomersSerializer(serializers.ModelSerializer):
     products = serializers.SerializerMethodField()
@@ -365,28 +371,39 @@ class SupplyItemCustomersSerializer(serializers.ModelSerializer):
         digital_coupons = 0
         manual_coupons = 0
         leafs = []
-        
-        if CustomerOutstandingReport.objects.filter(product_type="coupons",customer=obj).exists() :
-            pending_coupons = CustomerOutstandingReport.objects.get(product_type="coupons",customer=obj).value
-        
-        if CustomerCouponStock.objects.filter(customer=obj).exists() :
+
+        # Get the count of pending coupons from CustomerOutstandingReport
+        if CustomerOutstandingReport.objects.filter(product_type="coupons", customer=obj).exists():
+            pending_coupons = CustomerOutstandingReport.objects.get(product_type="coupons", customer=obj).value
+
+        # Get the count of digital and manual coupons from CustomerCouponStock
+        if CustomerCouponStock.objects.filter(customer=obj).exists():
             customer_coupon_stock = CustomerCouponStock.objects.filter(customer=obj)
-            
-            if (customer_coupon_stock_digital:=customer_coupon_stock.filter(coupon_method="digital")).exists() :
+
+            if (customer_coupon_stock_digital := customer_coupon_stock.filter(coupon_method="digital")).exists():
                 digital_coupons = customer_coupon_stock_digital.aggregate(total_count=Sum('count'))['total_count']
-            if (customer_coupon_stock_manual:=customer_coupon_stock.filter(coupon_method="manual")).exists() :
+            if (customer_coupon_stock_manual := customer_coupon_stock.filter(coupon_method="manual")).exists():
                 manual_coupons = customer_coupon_stock_manual.aggregate(total_count=Sum('count'))['total_count']
-            
-            coupon_ids_queryset = CustomerCouponItems.objects.filter(customer_coupon__customer=obj).values_list('coupon__pk', flat=True)
-            coupon_leafs = CouponLeaflet.objects.filter(used=False,coupon__pk__in=list(coupon_ids_queryset)).order_by("leaflet_name")
-            leafs = CouponLeafSerializer(coupon_leafs, many=True).data
-            
+
+        # Retrieve CouponLeaflet instances
+        coupon_ids_queryset = CustomerCouponItems.objects.filter(customer_coupon__customer=obj).values_list('coupon__pk', flat=True)
+        coupon_leafs = CouponLeaflet.objects.filter(used=False, coupon__pk__in=list(coupon_ids_queryset)).order_by("leaflet_name")
+        coupon_leafs_data = CouponLeafSerializer(coupon_leafs, many=True).data
+
+        # Retrieve FreeLeaflet instances
+        free_leaflets = FreeLeaflet.objects.filter(used=False, coupon__pk__in=list(coupon_ids_queryset)).order_by("leaflet_name")
+        free_leaflets_data = FreeLeafSerializer(free_leaflets, many=True).data
+
+        # Combine both CouponLeaflet and FreeLeaflet instances
+        leafs = coupon_leafs_data + free_leaflets_data
+
         return {
             'pending_coupons': pending_coupons,
             'digital_coupons': digital_coupons,
             'manual_coupons': manual_coupons,
-            'leafs' : leafs,   
+            'leafs': leafs,
         }
+
         
     def get_is_supplied(self,obj):
         status = False
@@ -453,6 +470,7 @@ class OutstandingCouponSerializer(serializers.ModelSerializer):
     class Meta:
         model = OutstandingAmount
         fields = '__all__'
+        
 class OutstandingAmountSerializer(serializers.ModelSerializer):
     custodycustomitems = CustodyCustomItemSerializer
     class Meta:
@@ -535,6 +553,7 @@ class VanProductStockSerializer(serializers.Serializer):
 #         fields = ['customer', 'count', 'coupon_type_id']
 
 class CustomerOutstandingSerializer(serializers.ModelSerializer):
+    customer_name = serializers.SerializerMethodField()
     route_name = serializers.SerializerMethodField()
     route_id = serializers.SerializerMethodField()
     amount = serializers.SerializerMethodField()
@@ -544,6 +563,12 @@ class CustomerOutstandingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customers
         fields = ['customer_id','customer_name','building_name','route_name','route_id','door_house_no','amount','empty_can','coupons']
+    
+    def get_customer_name(self,obj):
+        if obj.customer_name :
+            return obj.customer_name
+        else:
+            return "-"
     
     def get_amount(self,obj):
         result = 0

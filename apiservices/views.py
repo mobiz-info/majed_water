@@ -3170,11 +3170,17 @@ class create_customer_supply(APIView):
                                     customer_supply_coupon = CustomerSupplyCoupon.objects.create(
                                         customer_supply=customer_supply,
                                     )
-                                    leaflet_instance = CouponLeaflet.objects.get(pk=c_id)
-                                    customer_supply_coupon.leaf.add(leaflet_instance)
-                                    leaflet_instance.used=True
-                                    leaflet_instance.save()
-                                    
+                                    if CouponLeaflet.objects.filter(pk=c_id).exists():
+                                        leaflet_instance = CouponLeaflet.objects.get(pk=c_id)
+                                        customer_supply_coupon.leaf.add(leaflet_instance)
+                                        leaflet_instance.used=True
+                                        leaflet_instance.save()
+                                    else:
+                                        leaflet_instance = FreeLeaflet.objects.get(pk=c_id)
+                                        customer_supply_coupon.free_leaf.add(leaflet_instance)
+                                        leaflet_instance.used=True
+                                        leaflet_instance.save()
+                                        
                                     if CustomerCouponStock.objects.filter(customer__pk=customer_supply_data['customer'],coupon_method="manual",coupon_type_id=leaflet_instance.coupon.coupon_type).exists() :
                                         customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_supply_data['customer'],coupon_method="manual",coupon_type_id=leaflet_instance.coupon.coupon_type)
                                         customer_stock.count -= 1
