@@ -741,7 +741,7 @@ def create_customer_supply(request,pk):
                                     customer_coupon_digital.count += total_coupon_collected
                                     customer_coupon_digital.save()
                                     
-                                    customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_suply_form_instance.customer.pk,coupon_method="digital",coupon_type_id__coupon_type_name="Other")
+                                    customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_suply_form_instance.customer.pk,coupon_method="digital",coupon_type_id__coupon_type_name="Digital")
                                     customer_stock.count -= Decimal(total_coupon_collected)
                                     customer_stock.save()
                                     
@@ -1163,7 +1163,7 @@ def edit_customer_supply(request, pk):
                                     customer_coupon_digital.count += total_coupon_collected
                                     customer_coupon_digital.save()
                                     
-                                    customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_suply_form_instance.customer.pk,coupon_method="digital",coupon_type_id__coupon_type_name="Other")
+                                    customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_suply_form_instance.customer.pk,coupon_method="digital",coupon_type_id__coupon_type_name="Digital")
                                     customer_stock.count -= Decimal(total_coupon_collected)
                                     customer_stock.save()
                                     
@@ -1469,7 +1469,7 @@ def handle_coupons(customer_supply_instance, five_gallon_qty):
     elif (digital_coupons := CustomerSupplyDigitalCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():
         customer_coupon_digital = CustomerSupplyDigitalCoupon.objects.get(customer_supply=customer_supply_instance)
                                 
-        customer_stock = CustomerCouponStock.objects.get(customer=customer_supply_instance.customer,coupon_method="digital",coupon_type_id__coupon_type_name="Other")
+        customer_stock = CustomerCouponStock.objects.get(customer=customer_supply_instance.customer,coupon_method="digital",coupon_type_id__coupon_type_name="Digital")
         customer_stock.count += Decimal(customer_coupon_digital.count)
         customer_stock.save()
         
@@ -1479,7 +1479,7 @@ def handle_coupons(customer_supply_instance, five_gallon_qty):
     #     CustomerCouponStock.objects.filter(
     #         coupon_method="digital",
     #         customer=customer_supply_instance.customer,
-    #         coupon_type_id__coupon_type_name="Other"
+    #         coupon_type_id__coupon_type_name="Digital"
     #     ).update(count=F('count') + digital_coupons_instance.count)
     
     # elif (manual_coupon_instances := CustomerSupplyCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():

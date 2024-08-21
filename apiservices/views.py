@@ -2591,13 +2591,13 @@ class CustomerCouponRecharge(APIView):
                             customer_coupon_stock = CustomerCouponStock.objects.get(
                                 coupon_method=coupon_method,
                                 customer_id=customer.pk,
-                                coupon_type_id=CouponType.objects.get(coupon_type_name="Other")
+                                coupon_type_id=CouponType.objects.get(coupon_type_name="Digital")
                             )
                         except CustomerCouponStock.DoesNotExist:
                             customer_coupon_stock = CustomerCouponStock.objects.create(
                                 coupon_method=coupon_method,
                                 customer_id=customer.pk,
-                                coupon_type_id=CouponType.objects.get(coupon_type_name="Other"),
+                                coupon_type_id=CouponType.objects.get(coupon_type_name="Digital"),
                                 count=0
                             )
                         customer_coupon_stock.count += digital_coupon_data.get("count")
@@ -3199,7 +3199,7 @@ class create_customer_supply(APIView):
                                     if (customer_coupon:=CustomerCouponStock.objects.filter(customer__pk=customer_supply_data['customer'],coupon_method="manual")).exists():
                                         customer_coupon_type = customer_coupon.first().coupon_type_id
                                     else:
-                                        customer_coupon_type = CouponType.objects.get(coupon_type_name="Other")
+                                        customer_coupon_type = CouponType.objects.get(coupon_type_name="Digital")
                                     outstanding_coupon = OutstandingCoupon.objects.create(
                                         count=balance_coupon,
                                         customer_outstanding=customer_outstanding_coupon,
@@ -3231,7 +3231,7 @@ class create_customer_supply(APIView):
                                     if (customer_coupon:=CustomerCouponStock.objects.filter(customer__pk=customer_supply_data['customer'],coupon_method="manual")).exists():
                                         customer_coupon_type = customer_coupon.first().coupon_type_id
                                     else:
-                                        customer_coupon_type = CouponType.objects.get(coupon_type_name="Other")
+                                        customer_coupon_type = CouponType.objects.get(coupon_type_name="Digital")
                                     outstanding_coupon = OutstandingCoupon.objects.create(
                                         count=balance_coupon,
                                         customer_outstanding=customer_outstanding_coupon,
@@ -3263,7 +3263,7 @@ class create_customer_supply(APIView):
                                 customer_coupon_digital.count += total_coupon_collected
                                 customer_coupon_digital.save()
                                 
-                                customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_supply_data['customer'],coupon_method="digital",coupon_type_id__coupon_type_name="Other")
+                                customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_supply_data['customer'],coupon_method="digital",coupon_type_id__coupon_type_name="Digital")
                                 customer_stock.count -= Decimal(total_coupon_collected)
                                 customer_stock.save()
                                 
@@ -3277,7 +3277,7 @@ class create_customer_supply(APIView):
                                         created_date=datetime.today()
                                     )
                                     
-                                    customer_coupon_type = CouponType.objects.get(coupon_type_name="Other")
+                                    customer_coupon_type = CouponType.objects.get(coupon_type_name="Digital")
                                     outstanding_coupon = OutstandingCoupon.objects.create(
                                         count=balance_coupon,
                                         customer_outstanding=customer_outstanding_coupon,
@@ -3306,7 +3306,7 @@ class create_customer_supply(APIView):
                                         created_date=datetime.today()
                                     )
                                     
-                                    customer_coupon_type = CouponType.objects.get(coupon_type_name="Other")
+                                    customer_coupon_type = CouponType.objects.get(coupon_type_name="Digital")
                                     outstanding_coupon = OutstandingCoupon.objects.create(
                                         count=balance_coupon,
                                         customer_outstanding=customer_outstanding_coupon,
@@ -3609,7 +3609,7 @@ class edit_customer_supply(APIView):
                     CustomerCouponStock.objects.get(
                         coupon_method="digital",
                         customer=supply_instance.customer,
-                        coupon_type_id__coupon_type_name="Other"
+                        coupon_type_id__coupon_type_name="Digital"
                         ).count += digital_coupons_instance.count
                 
                 elif (manual_coupon_instances := CustomerSupplyCoupon.objects.filter(customer_supply=supply_instance)).exists():
@@ -3870,7 +3870,7 @@ class edit_customer_supply(APIView):
                             customer_coupon_digital.count += total_coupon_collected
                             customer_coupon_digital.save()
                             
-                            customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_supply_data['customer'],coupon_method="digital",coupon_type_id__coupon_type_name="Other")
+                            customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_supply_data['customer'],coupon_method="digital",coupon_type_id__coupon_type_name="Digital")
                             customer_stock.count -= Decimal(total_coupon_collected)
                             customer_stock.save()
                             
