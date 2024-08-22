@@ -3178,56 +3178,59 @@ def dsr_stock_report(request):
     filter_data = {}
     data_filter = False
     stock_report_total = 0
-   
-    van_instances = Van.objects.none
-    van_route = Van_Routes.objects.none
-    salesman_id =  ""
-    products = ProdutItemMaster.objects.none
+
+    van_instances = Van.objects.none()
+    van_route = Van_Routes.objects.none()
+    salesman_id = ""
+    products = ProdutItemMaster.objects.none()
     routes_instances = RouteMaster.objects.all()
-    van_product_stock = VanProductStock.objects.none
-    
-    date = request.GET.get('date')
+    van_product_stock = VanProductStock.objects.none()
+
+    # Get date filters from the request
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
     route_name = request.GET.get('route_name')
-    
-    if date:
-        date = datetime.strptime(date, '%Y-%m-%d').date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-    else:
-        date = datetime.today().date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-    
-    
-    if route_name:
+
+    if from_date and to_date:
+        from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
+        to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
+        filter_data['from_date'] = from_date.strftime('%Y-%m-%d')
+        filter_data['to_date'] = to_date.strftime('%Y-%m-%d')
         data_filter = True
-        
+    else:
+        # Default to the current date if no dates are provided
+        from_date = to_date = datetime.today().date()
+        filter_data['from_date'] = from_date.strftime('%Y-%m-%d')
+        filter_data['to_date'] = to_date.strftime('%Y-%m-%d')
+
+    if route_name:
         van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
-        salesman = van_route.van.salesman
-        salesman_id = salesman.pk
-        filter_data['route_name'] = route_name
-      
-        ##### stock report #### 
-        products = ProdutItemMaster.objects.filter()
-        van_instances = Van.objects.get(salesman=salesman)
-        van_product_stock = VanProductStock.objects.filter(created_date=date,van=van_instances,product__product_name="5 Gallon")
-        stock_report_total = van_product_stock.aggregate(total_stock=Sum('stock'))['total_stock'] or 0
-        
-        
-        
+        if van_route:
+            salesman = van_route.van.salesman
+            salesman_id = salesman.pk
+            filter_data['route_name'] = route_name
+
+            # Filter VanProductStock by the given date range
+            van_instances = Van.objects.filter(salesman=salesman)
+            van_product_stock = VanProductStock.objects.filter(
+                created_date__range=(from_date, to_date),
+                van__in=van_instances,
+                product__product_name="5 Gallon"
+            )
+            stock_report_total = van_product_stock.aggregate(total_stock=Sum('stock'))['total_stock'] or 0
+
     context = {
         'data_filter': data_filter,
         'salesman_id': salesman_id,
         'van_route': van_route,
-       
         'routes_instances': routes_instances,
-        # stock report
         'products': products,
         'van_instances': van_instances,
         'van_product_stock': van_product_stock,
         'stock_report_total': stock_report_total,
         'filter_data': filter_data,
-        
     }
-    
+
     return render(request, 'sales_management/dsr_stock_report.html', context)
 
 def dsr_stock_report_print(request):
@@ -3576,67 +3579,93 @@ def visitstatistics_report(request):
     filter_data = {}
     data_filter = False
 
-    # Initialize counts and variables
-    new_customers_count = 0
-    emergency_supply_count = 0
-    visited_customers_count = 0
-    non_visited_count = 0
-    planned_visit_count = 0
-    salesman_id = ""
-    van_route = None
-
-    # Retrieve all route instances
+    # Initialize overall counts and variables
+    routes_statistics = []
     routes_instances = RouteMaster.objects.all()
 
     # Get filter parameters from request
-    date = request.GET.get('date')
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
     route_name = request.GET.get('route_name')
 
-    # Set date and filter data
-    if date:
-        date = datetime.strptime(date, '%Y-%m-%d').date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    # Set date range and filter data
+    if from_date and to_date:
+        from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
+        to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
+        filter_data['filter_from_date'] = from_date.strftime('%Y-%m-%d')
+        filter_data['filter_to_date'] = to_date.strftime('%Y-%m-%d')
     else:
-        date = datetime.today().date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-    
+        today = datetime.today().date()
+        from_date = today
+        to_date = today
+        filter_data['filter_from_date'] = from_date.strftime('%Y-%m-%d')
+        filter_data['filter_to_date'] = to_date.strftime('%Y-%m-%d')
+
+    # If a specific route is selected, filter by it
     if route_name:
         data_filter = True
-        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
-        route_id = van_route.routes.pk if van_route else None
+        routes_instances = routes_instances.filter(route_name=route_name)
         filter_data['route_name'] = route_name
-    else:
-        route_id = None
 
-    # Ensure van_route is defined
-    if van_route:
-        # Retrieve salesman
-        salesman = van_route.van.salesman
-        salesman_id = salesman.pk
+    # Loop through each route to calculate statistics
+    for route in routes_instances:
+        van_route = Van_Routes.objects.filter(routes=route).first()
 
-        # Calculate statistics
-        new_customers_count = Customers.objects.filter(created_date__date=date, sales_staff_id=salesman).count()
-        emergency_supply_count = DiffBottlesModel.objects.filter(created_date__date=date, assign_this_to_id=salesman).count()
-        visited_customers_count = CustomerSupply.objects.filter(salesman_id=salesman, created_date__date=date).distinct().count()
-        todays_customers = find_customers(request, str(date), van_route.routes.pk)
-        planned_visit_count = len(todays_customers)
-        non_visited_count = planned_visit_count - visited_customers_count
+        if van_route:
+            salesman = van_route.van.salesman
+            driver = van_route.van.driver  # Ensure driver is a valid related field
+
+            # Get names
+            salesman_name = salesman.get_fullname() if salesman else "N/A"
+            driver_name = driver.get_fullname() if driver else "N/A"
+
+            # Calculate statistics for the current route
+            new_customers_count = Customers.objects.filter(
+                created_date__date__range=[from_date, to_date],
+                sales_staff_id=salesman
+            ).count()
+            emergency_supply_count = DiffBottlesModel.objects.filter(
+                created_date__date__range=[from_date, to_date],
+                assign_this_to_id=salesman
+            ).count()
+            visited_customers_count = CustomerSupply.objects.filter(
+                salesman_id=salesman,
+                created_date__date__range=[from_date, to_date]
+            ).distinct().count()
+
+            # Find today's customers
+            todays_customers = find_customers(request, str(from_date), route.pk)
+            
+            # Ensure todays_customers is not None
+            if todays_customers is None:
+                planned_visit_count = 0
+            else:
+                planned_visit_count = len(todays_customers)
+
+            # Calculate non-visited customers as an absolute value
+            non_visited_count = abs(planned_visit_count - visited_customers_count)
+
+            # Add route statistics to the list
+            routes_statistics.append({
+                'salesman_id': salesman.pk,
+                'route': route.route_name,
+                'new_customers_count': new_customers_count,
+                'planned_visit_count': planned_visit_count,
+                'visited_customers_count': visited_customers_count,
+                'non_visited_count': non_visited_count,
+                'emergency_supply_count': emergency_supply_count,
+                'salesman_name': salesman_name,
+                'driver_name': driver_name,
+            })
 
     context = {
-        'salesman_id': salesman_id,
-        'van_route': van_route,
-        'new_customers_count': new_customers_count,
-        'planned_visit_count': planned_visit_count,
-        'visited_customers_count': visited_customers_count,
-        'non_visited_count': non_visited_count,
-        'emergency_supply_count': emergency_supply_count,
+        'routes_statistics': routes_statistics,
         'filter_data': filter_data,
         'data_filter': data_filter,
         'routes_instances': routes_instances,
     }
 
     return render(request, 'sales_management/dsr_visit_statistics_report.html', context)
-
 
 
 def visitstatistics_report_print(request):
