@@ -187,7 +187,37 @@ class requestType(View):
 
         context = {'user_li': user_li, 'route_li': route_li}
         return render(request, self.template_name, context)
-    
+
+
+class new_customer_request(View):
+    template_name = 'customer_care/new_request.html'
+
+    def get(self, request, *args, **kwargs):
+        # Retrieve the query parameter
+        query = request.GET.get("q")
+        route_filter = request.GET.get('route_name')
+        # Start with all customers
+        user_li = CustomerOrders.objects.all()
+
+        # Apply filters if they exist
+        if query:
+            user_li = user_li.filter(
+                Q(customer_name__icontains=query) |
+                Q(mobile_no__icontains=query) |
+                Q(routes__route_name__icontains=query) |
+                Q(location__location_name__icontains=query) |
+                Q(building_name__icontains=query)
+            )
+
+        if route_filter:
+            user_li = user_li.filter(routes__route_name=route_filter)
+
+        # Get all route names for the dropdown
+        route_li = RouteMaster.objects.all()
+
+        context = {'user_li': user_li, 'route_li': route_li}
+        return render(request, self.template_name, context)
+        
 
 class new_customer_request(View):
     template_name = 'customer_care/new_request.html'
