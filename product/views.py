@@ -120,6 +120,7 @@ class Product_Item_Edit(View):
     def post(self, request, pk, *args, **kwargs):
         rec = ProdutItemMaster.objects.get(id=pk)
         pre_name = rec.product_name
+        
         form = self.form_class(request.POST, request.FILES, instance=rec)
         if form.is_valid():
             data = form.save(commit=False)

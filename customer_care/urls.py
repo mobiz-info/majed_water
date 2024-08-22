@@ -39,5 +39,6 @@ path('cancel_request/<uuid:diffbottles_id>/', CancelRequestView.as_view(), name=
 # path('next_delivery_date', find_next_delivery_date, name = 'nexr_delivery_date'),
 path('reassign_request/<uuid:diffbottles_id>/',ReassignRequestView.as_view(), name='reassign_request'),
 
+path('new_customer_request', new_customer_request.as_view(), name='new_customer_request'),
 
 ]

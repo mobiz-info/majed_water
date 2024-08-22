@@ -4,6 +4,7 @@
 {% load static %}
 {% load van_template_tags %}
 {% load sales_templatetags %}
+
 <!-- Page Header -->
 <div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
     <h4 class="fw-medium mb-0">Stock Report</h4>
@@ -12,6 +13,7 @@
         <li class="breadcrumb-item active" aria-current="page">Stock Report</li>
     </ol>
 </div>
+
 <div class="main-content app-content">
     <div class="container-fluid">
         <!-- Start:: row-2 -->
@@ -28,12 +30,16 @@
                         <form method="GET" action="{% url 'dsr_stock_report' %}">
                             <div class="card-body">
                                 <div class="row align-items-center">
-                                    <div class="col-4">
-                                        <label for="date">Date:</label>
-                                        <input type="date" class="form-control" id="date" name="date" value="{{ filter_data.filter_date }}">
+                                    <div class="col-3">
+                                        <label for="from_date">From Date:</label>
+                                        <input type="date" class="form-control" id="from_date" name="from_date" value="{{ filter_data.from_date }}">
                                     </div>
-                                    <div class="col-4">
-                                        <label for="product">Routes :</label>
+                                    <div class="col-3">
+                                        <label for="to_date">To Date:</label>
+                                        <input type="date" class="form-control" id="to_date" name="to_date" value="{{ filter_data.to_date }}">
+                                    </div>
+                                    <div class="col-3">
+                                        <label for="route_name">Routes:</label>
                                         <select name="route_name" class="form-select">
                                             <option value="">All Routes</option>
                                             {% for route in routes_instances %}
@@ -46,16 +52,15 @@
                                         {% if data_filter %}
                                         <button type="button" class="btn btn-secondary btn-sm mx-1" onclick="resetFilters()" style="width:max-content">Reset Filter</button>
                                         {% endif %}
-                                        {% comment %} <a href="{% url 'export_dsr_summary' %}?date={{ filter_data.filter_date }}&route_name={{ filter_data.route_name }}" class="btn btn-outline-success btn-sm mx-1"><i class="fas fa-file-excel"></i>Excel</a> {% endcomment %}
-                                        <a href="{% url 'dsr_stock_report_print' %}?date={{ filter_data.filter_date }}&route_name={{ filter_data.route_name }}" class="btn btn-outline-success btn-sm mx-1" target="__blank"><i class="fas fa-file-excel"></i>Print</a>
-
+                                        <a href="{% url 'dsr_stock_report_print' %}?from_date={{ filter_data.from_date }}&to_date={{ filter_data.to_date }}&route_name={{ filter_data.route_name }}" class="btn btn-outline-success btn-sm mx-1" target="__blank"><i class="fas fa-file-excel"></i>Print</a>
                                     </div>
                                 </div>
                             </div>
                         </form>
                     </div>
+
                     {% if data_filter %}
-                    <div >
+                    <div>
                         <div class="card-body">
                             <div class="row align-items-center">
                                 <div class="col-4">
@@ -65,19 +70,11 @@
                                     <p><strong>Driver: {{van_route.van.driver.get_fullname}}</strong></p>
                                 </div>
                             </div>
-                            {% comment %} <div class="row align-items-center">
-                                <div class="col-4">
-                                    <p>Route: {{van_route.routes.route_name}}</p>
-                                </div>
-                                <div class="col-4">
-                                    <p>Date: {{ filter_data.filter_date }}</p>
-                                </div>
-                            </div> {% endcomment %}
                         </div>
                     </div>
                     <div id="table-container">
                         <div class="card-body">
-                            <table  class="table table-bordered text-wrap" style="width: 100%">
+                            <table class="table table-bordered text-wrap" style="width: 100%">
                                 <thead>
                                     <tr>
                                         <th class="text-center text-bold" colspan="10">Stock Report</th>
@@ -85,32 +82,27 @@
                                     <tr>
                                         <th scope="col" style="text-align:center;">Product Name</th>
                                         <th scope="col" style="text-align:center;">Opening Stock</th>
-                                        {% comment %} <th scope="col" style="text-align:center;">Requested Stock</th> {% endcomment %}
                                         <th scope="col" style="text-align:center;">Issued</th>
                                         <th scope="col" style="text-align:center;">Sold</th>
                                         <th scope="col" style="text-align:center;">FOC</th>
                                         <th scope="col" style="text-align:center;">Returned</th>
                                         <th scope="col" style="text-align:center;">Damage Bottle</th>
-                                        {% comment %} <th scope="col" style="text-align:center;">Offload</th> {% endcomment %}
                                         <th scope="col" style="text-align:center;">Empty Bottle</th>
-                                        
                                         <th scope="col" style="text-align:center;">Fresh Stock</th>
                                         <th scope="col" style="text-align:center;">Closing</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for van_data in van_product_stock %}
-                                    {% get_van_product_wise_stock filter_data.filter_date van_data.van.pk van_data.product.pk as stock_details %}
+                                    {% get_van_product_wise_stock filter_data.from_date van_data.van.pk van_data.product.pk as stock_details %}
                                     <tr>
                                         <td style="text-align:center;">{{van_data.product.product_name}}</td>
                                         <td style="text-align:center;">{{van_data.opening_count}}</td>
-                                        {% comment %} <td style="text-align:center;">{{stock_details.requested_count}}</td> {% endcomment %}
                                         <td style="text-align:center;">{{stock_details.issued_count}}</td>
                                         <td style="text-align:center;">{{van_data.sold_count }}</td>
                                         <td style="text-align:center;">{{van_data.foc }}</td>
                                         <td style="text-align:center;">{{van_data.return_count}}</td>
                                         <td style="text-align:center;">{{van_data.damage_count}}</td>
-                                        {% comment %} <td style="text-align:center;">{{stock_details.offload_count}}</td> {% endcomment %}
                                         <td style="text-align:center;">{{van_data.empty_can_count}}</td>
                                         <td style="text-align:center;">{{stock_report_total}}</td>
                                         <td style="text-align:center;">{{van_data.closing_count}}</td>
@@ -130,17 +122,20 @@
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 
 <script>
- $('#submit').click(function(e){ 
-    e.preventDefault();       
-            // Show the table when dates are selected
-            $('#table-container').show();
+    $('#submit').click(function(e){ 
+        e.preventDefault();       
+        // Show the table when dates are selected
+        if($("#from_date").val() && $("#to_date").val()){
+            $('#table-container').show(); 
+        }else{
+            $('#table-container').hide();
+        }
     });
-    
-    function resetFilters() {
-        // Redirect to the same page
-        location.href = "{% url 'dsr_stock_report' %}";
-    }
-   
-</script>
 
+    function resetFilters() {
+        // Reset the form and refresh the page
+        document.querySelector('form').reset();
+        window.location.href = "{% url 'dsr_stock_report' %}";
+    }
+</script>
 {% endblock %}

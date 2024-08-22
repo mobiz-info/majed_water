@@ -433,9 +433,6 @@ def delete_invoice(request, pk):
                     customer=customer_supply_instance.customer_id
                     ).update(status='pending')
                 
-                # Handle invoice related deletions
-                handle_invoice_deletion(customer_supply_instance)
-                
                 # Handle outstanding amount adjustments
                 handle_outstanding_amounts(customer_supply_instance, five_gallon_qty)
                 
@@ -451,7 +448,7 @@ def delete_invoice(request, pk):
                 
             if CustomerCoupon.objects.filter(invoice_no=invoice.invoice_no).exists():
                 instance = CustomerCoupon.objects.get(invoice_no=invoice.invoice_no)
-                delete_coupon_recharge(instance)
+                delete_coupon_recharge(instance.invoice_no)
                 
             if CustomerOutstanding.objects.filter(invoice_no=invoice.invoice_no).exists():
                 # Retrieve outstanding linked to the invoice
@@ -465,21 +462,21 @@ def delete_invoice(request, pk):
                 report = CustomerOutstandingReport.objects.get(customer=outstanding.customer, product_type='amount')
                 report.value -= invoice.amout_total  # Adjust based on your invoice amount field
                 report.save()
+                    
+                invoice.is_deleted=True
+                invoice.save()
                 
-            invoice.is_deleted=True
-            invoice.save()
-            
-            InvoiceItems.objects.filter(invoice=invoice).update(is_deleted=True)
-            
+                InvoiceItems.objects.filter(invoice=invoice).update(is_deleted=True)
+                
             response_data = {
-            "status": "true",
-            "title": "Successfully Deleted",
-            "message": "Invoice and associated data successfully deleted and reversed.",
-            "redirect": "true",
-            "redirect_url": reverse('invoice:invoice_list'),
-        }
-        
-        return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+                "status": "true",
+                "title": "Successfully Deleted",
+                "message": "Invoice and associated data successfully deleted and reversed.",
+                "redirect": "true",
+                "redirect_url": reverse('invoice:invoice_list'),
+            }
+            
+            return HttpResponse(json.dumps(response_data), content_type='application/javascript')
 
     except Invoice.DoesNotExist:
         response_data = {
