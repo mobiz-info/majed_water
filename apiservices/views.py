@@ -8560,10 +8560,14 @@ class ExcessBottleCountAPIView(APIView):
     
 class ProductTransferChoicesAPI(APIView):
     def get(self, request, *args, **kwargs):
+        re_instances = ProductionDamageReason.objects.all()
         data = {
             "product_transfer_from_choices": [{'value': key, 'display': value} for key, value in PRODUCT_TRANSFER_FROM_CHOICES],
-            "product_transfer_to_choices": [{'value': key, 'display': value} for key, value in PRODUCT_TRANSFER_TO_CHOICES]
+            "product_transfer_to_choices": [{'value': key, 'display': value} for key, value in PRODUCT_TRANSFER_TO_CHOICES],
+            "reasons" : ProductionDamageReasonSerializer(re_instances,many=True).data
         }
+        
+        
         response_data = {
             "status": status.HTTP_200_OK,
             "data": data,

@@ -1879,7 +1879,13 @@ class ProductTransferChoicesSerializer(serializers.Serializer):
 
     def get_product_transfer_to_choices(self, obj):
         return [{'value': key, 'display': value} for key, value in PRODUCT_TRANSFER_TO_CHOICES]
-        
+
+class ProductionDamageReasonSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ProductionDamageReason
+        fields = ['id','reason']
+ 
 class ProductionDamageSerializer(serializers.ModelSerializer):
     created_date = serializers.DateTimeField(format="%Y-%m-%d")
 

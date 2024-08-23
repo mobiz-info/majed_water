@@ -297,15 +297,33 @@ class ScrapcleanedStock(models.Model):
         return str(self.product.product_name)
     
     
+class ProductionDamageReason(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    reason = models.CharField(max_length=20)
+    
+    created_by = models.CharField(max_length=20)
+    modified_by = models.CharField(max_length=20)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_date = models.DateTimeField(null=True)
+
+    class Meta:
+        ordering = ('created_date',)
+
+    def __str__(self):
+        return str(self.reason)
+    
+    
 class ProductionDamage(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
     product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
     route = models.ForeignKey('master.RouteMaster', on_delete=models.CASCADE)
     branch = models.ForeignKey('master.BranchMaster', on_delete=models.CASCADE)
+    reason = models.ForeignKey(ProductionDamageReason, on_delete=models.CASCADE)
+    
     product_from = models.CharField(max_length=20,choices=PRODUCT_TRANSFER_FROM_CHOICES)
     product_to = models.CharField(max_length=20,choices=PRODUCT_TRANSFER_TO_CHOICES)
-    quantity=models.PositiveIntegerField(default=0)
-    reason = models.TextField()
+    quantity = models.PositiveIntegerField(default=0)
     
     created_by = models.CharField(max_length=20)
     modified_by = models.CharField(max_length=20)
