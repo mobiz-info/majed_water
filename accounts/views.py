@@ -343,30 +343,70 @@ class Inactive_Customer_List(View):
     template_name = 'accounts/inactive_customer_list.html'
 
     def get(self, request, *args, **kwargs):
+        # Get filter data from request
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        route_name = request.GET.get('route_name')
         query = request.GET.get("q")
-        route_filter = request.GET.get('route_name')
+        filter_data = {}
+        inactive_customers = []
 
-        user_li = Customers.objects.all()
+        # Parse date filters
+        if from_date:
+            from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
+            filter_data['from_date'] = from_date.strftime('%Y-%m-%d')
+        else:
+            from_date = datetime.today().date()
+            filter_data['from_date'] = from_date.strftime('%Y-%m-%d')
 
-        if route_filter:
-            user_li = user_li.filter(routes__route_name=route_filter)
+        if to_date:
+            to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
+            filter_data['to_date'] = to_date.strftime('%Y-%m-%d')
+        else:
+            to_date = datetime.today().date()
+            filter_data['to_date'] = to_date.strftime('%Y-%m-%d')
+
+        if route_name:
+            van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+            if van_route:
+                salesman_id = van_route.van.salesman.pk
+                filter_data['route_name'] = route_name
+
+                # Get customers who have made purchases within the date range
+                visited_customers = CustomerSupply.objects.filter(
+                    salesman_id=salesman_id,
+                    created_date__date__range=(from_date, to_date)
+                ).values_list('customer_id', flat=True)
+
+                # Get all customers assigned to the route
+                route_customers = Customers.objects.filter(routes=van_route.routes)
+
+                # Filter out the visited customers
+                inactive_customers = route_customers.exclude(pk__in=visited_customers)
+
+                # Get today's planned customers
+                todays_customers = find_customers(request, str(datetime.today().date()), van_route.routes.pk)
+                todays_customer_ids = [customer['customer_id'] for customer in todays_customers]
+
+                # Filter out today's planned customers from inactive customers
+                inactive_customers = inactive_customers.exclude(pk__in=todays_customer_ids)
 
         if query and query != "None":
-            user_li = user_li.filter(
-                Q(custom_id__icontains=query) |
-                Q(customer_name__icontains=query) |
-                Q(mobile_no__icontains=query) |
-                Q(routes__route_name__icontains=query) |
-                Q(location__location_name__icontains=query) |
-                Q(building_name__icontains=query)
+            query = query.lower()
+            inactive_customers = inactive_customers.filter(
+                custom_id__icontains=query
+            ) | inactive_customers.filter(
+                customer_name__icontains=query
+            ) | inactive_customers.filter(
+                building_name__icontains=query
             )
-
-        route_li = RouteMaster.objects.all()
+            filter_data['q'] = query
 
         context = {
-            'user_li': user_li.order_by("-created_date"),
-            'route_li': route_li,
-            'route_filter': route_filter,
+            'inactive_customers': inactive_customers,
+            'routes_instances': RouteMaster.objects.all(),
+            'filter_data': filter_data,
+            'data_filter': bool(route_name),
             'q': query,
         }
 
