@@ -114,3 +114,29 @@ class StockTransferForm(forms.Form):
 class ScrapStockForm(forms.Form):
     product = forms.ModelChoiceField(queryset=ProdutItemMaster.objects.all(), label="Product")
     cleared_quantity = forms.IntegerField(label="Cleared Quantity")
+    
+    
+class ProductionDamageReasonForm(forms.ModelForm):
+    
+    class Meta:
+        model = ProductionDamageReason
+        fields = ['reason']
+        
+        widgets = {
+            'reason': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+
+class ProductionDamageForm(forms.ModelForm):
+    
+    class Meta:
+        model = ProductionDamage
+        fields = ['route','reason','product_from','product_to','quantity']
+        
+        widgets = {
+            'route': forms.Select(attrs={'class': 'form-control'}),
+            'reason': forms.Select(attrs={'class': 'form-control'}),
+            'product_from': forms.Select(attrs={'class': 'form-control'}),
+            'product_to': forms.Select(attrs={'class': 'form-control'}),
+            'quantity': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
+        }

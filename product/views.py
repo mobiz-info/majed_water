@@ -1140,3 +1140,454 @@ def scrap_stock_transfer_view(request):
         form = ScrapStockForm()
 
     return render(request, 'products/scrap_stock_transfer.html', {'form': form, 'scrap_stocks': scrap_stocks})
+
+# ----------------------------production damage-------------------------------- #
+@login_required
+def production_damage_reason_list(request):
+    """
+    Production Damage Reason List
+    :param request:
+    :return: Production Damage Reason list view
+    """
+    
+    instances = ProductionDamageReason.objects.all().order_by("-created_date")
+         
+    date_range = ""
+    date_range = request.GET.get('date_range')
+    # print(date_range)
+
+    if date_range:
+        start_date_str, end_date_str = date_range.split(' - ')
+        start_date = datetime.strptime(start_date_str, '%m/%d/%Y').date()
+        end_date = datetime.strptime(end_date_str, '%m/%d/%Y').date()
+        instances = instances.filter(date__range=[start_date, end_date])
+    
+    filter_data = {}
+    query = request.GET.get("q")
+    
+    if query:
+
+        instances = instances.filter(
+            Q(product__product_name__icontains=query) |
+            Q(route__route_name__icontains=query) 
+        )
+        title = "Production Damage Reason List - %s" % query
+        filter_data['q'] = query
+
+    context = {
+        'instances': instances,
+        'page_name' : 'Production Damage Reason List',
+        'page_title' : 'Production Damage Reason List',
+        'filter_data' :filter_data,
+        'date_range': date_range,
+        
+        'is_production_damage_reason': True,
+        'is_need_datetime_picker': True,
+    }
+
+    return render(request, 'products/production_damage/reason_list.html', context)
+
+def create_production_damage_reason(request):
+    message = ''
+    if request.method == 'POST':
+        production_damage_reason_form = ProductionDamageReasonForm(request.POST)
+        
+        if production_damage_reason_form.is_valid() :
+            
+            try:
+                with transaction.atomic():
+                    data = production_damage_reason_form.save(commit=False)
+                    data.created_date = datetime.today()
+                    data.created_by = request.user.id
+                    data.save()
+                    
+                    response_data = {
+                        "status": "true",
+                        "title": "Successfully Created",
+                        "message": "Production Damage Reason created successfully.",
+                        'redirect': 'true',
+                        "redirect_url": reverse('production_damage_reason_list')
+                    }
+                    
+            except IntegrityError as e:
+                # Handle database integrity error
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": str(e),
+                }
+
+            except Exception as e:
+                # Handle other exceptions
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": str(e),
+                }
+        else:
+            message = generate_form_errors(production_damage_reason_form,formset=False)
+            
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": message,
+            }
+
+        return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+    
+    else:
+        production_damage_reason_form = ProductionDamageReasonForm()
+        
+        context = {
+            'form': production_damage_reason_form,
+            
+            'page_title': 'Create Production Damage Reason',
+            'production_damage_reason_page': True,
+            'is_need_datetime_picker': True
+        }
+        
+        return render(request,'products/production_damage/reason_create.html',context)
+
+
+@login_required
+def edit_production_damage_reason(request,pk):
+    """
+    edit operation of production damage reason
+    :param request:
+    :param pk:
+    :return:
+    """
+    instance = get_object_or_404(ProductionDamageReason, pk=pk)
+        
+    message = ''
+    if request.method == 'POST':
+        production_damage_reason_form = ProductionDamageReasonForm(request.POST,instance=instance)
+        
+        if production_damage_reason_form.is_valid() :
+            #create
+            data = production_damage_reason_form.save(commit=False)
+            data.modified_date = datetime.today()
+            data.modified_by = request.user.id
+            data.save()
+                
+            response_data = {
+                "status": "true",
+                "title": "Successfully Updated",
+                "message": "Production Damage Reason Updated Successfully.",
+                'redirect': 'true',
+                "redirect_url": reverse('production_damage_reason_list'),
+                "return" : True,
+            }
+    
+        else:
+            message = generate_form_errors(production_damage_reason_form,formset=False)
+            
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": message
+            }
+
+        return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+                        
+    else:
+        production_damage_reason_form = ProductionDamageReasonForm(instance=instance)
+
+        context = {
+            'form': production_damage_reason_form,
+            'url' : reverse('edit_production_damage_reason', args=[pk]),
+
+            'page_name' : 'Edit Production Damage Reason',
+            'production_damage_reason_page': True,   
+            'is_edit' : True,        
+        }
+
+        return render(request, 'products/production_damage/reason_create.html', context)
+    
+@login_required
+def delete_production_damage_reason(request, pk):
+    """
+    production_damage_reason deletion, it only mark as is deleted field to true
+    :param request:
+    :param pk:
+    :return:
+    """
+    ProductionDamageReason.objects.filter(pk=pk).delete()
+        
+    response_data = {
+        "status": "true",
+        "title": "Successfully Deleted",
+        "message": "Production Damage Reason successfully deleted",
+        "redirect": "true",
+        "redirect_url": reverse('production_damage_reason_list'),
+    }
+    
+    return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+
+
+@login_required
+def production_damage_list(request):
+    """
+    Production Damage List
+    :param request:
+    :return: Production Damage list view
+    """
+    
+    instances = ProductionDamage.objects.all().order_by("-created_date")
+         
+    date_range = ""
+    date_range = request.GET.get('date_range')
+    # print(date_range)
+
+    if date_range:
+        start_date_str, end_date_str = date_range.split(' - ')
+        start_date = datetime.strptime(start_date_str, '%m/%d/%Y').date()
+        end_date = datetime.strptime(end_date_str, '%m/%d/%Y').date()
+        instances = instances.filter(date__range=[start_date, end_date])
+    
+    filter_data = {}
+    query = request.GET.get("q")
+    
+    if query:
+
+        instances = instances.filter(
+            Q(product__product_name__icontains=query) |
+            Q(route__route_name__icontains=query) 
+        )
+        title = "Production Damage List - %s" % query
+        filter_data['q'] = query
+
+    context = {
+        'instances': instances,
+        'page_name' : 'Production Damage List',
+        'page_title' : 'Production Damage List',
+        'filter_data' :filter_data,
+        'date_range': date_range,
+        
+        'is_production_damage': True,
+        'is_need_datetime_picker': True,
+    }
+
+    return render(request, 'products/production_damage/list.html', context)
+
+def create_production_damage(request):
+    message = ''
+    if request.method == 'POST':
+        production_damage_form = ProductionDamageForm(request.POST)
+        product_instance = ProdutItemMaster.objects.get(product_name="5 Gallon")
+        
+        if production_damage_form.is_valid() :
+            
+            try:
+                with transaction.atomic():
+                    data = production_damage_form.save(commit=False)
+                    data.product=product_instance
+                    data.branch=request.user.branch_id
+                    data.created_date = datetime.today()
+                    data.created_by = request.user.id
+                    data.save()
+                    
+                    if data.product_from == "fresh":
+                        product_stock = ProductStock.objects.get(product_name=product_instance,branch=request.user.branch_id)
+                        product_stock.quantity -= data.quantity
+                        product_stock.save()
+                    
+                    if data.product_from == "used":
+                        product_stock = WashedUsedProduct.objects.get(product=product_instance)
+                        product_stock.quantity -= data.quantity
+                        product_stock.save()
+                        
+                    if data.product_to == "scrap":
+                        product_stock = ScrapStock.objects.get(product=product_instance)
+                        product_stock.quantity += data.quantity
+                        product_stock.save()
+                        
+                    if data.product_to == "service":
+                        product_stock = WashingStock.objects.get(product=product_instance)
+                        product_stock.quantity += data.quantity
+                        product_stock.save()
+                    
+                    response_data = {
+                        "status": "true",
+                        "title": "Successfully Created",
+                        "message": "Production Damage created successfully.",
+                        'redirect': 'true',
+                        "redirect_url": reverse('production_damage_list')
+                    }
+                    
+            except IntegrityError as e:
+                # Handle database integrity error
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": str(e),
+                }
+
+            except Exception as e:
+                # Handle other exceptions
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": str(e),
+                }
+        else:
+            message = generate_form_errors(production_damage_form,formset=False)
+            
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": message,
+            }
+
+        return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+    
+    else:
+        production_damage_form = ProductionDamageForm()
+        
+        context = {
+            'form': production_damage_form,
+            
+            'page_title': 'Create Production Damage',
+            'production_damage_page': True,
+            'is_need_datetime_picker': True
+        }
+        
+        return render(request,'products/production_damage/create.html',context)
+
+
+@login_required
+def edit_production_damage(request,pk):
+    """
+    edit operation of production_damage
+    :param request:
+    :param pk:
+    :return:
+    """
+    instance = get_object_or_404(ProductionDamage, pk=pk)
+        
+    message = ''
+    if request.method == 'POST':
+        
+        if instance.product_from == "fresh":
+            product_stock = ProductStock.objects.get(product_name=instance.product)
+            product_stock.quantity += instance.quantity
+            product_stock.save()
+        
+        if instance.product_from == "used":
+            product_stock = WashedUsedProduct.objects.get(product=instance.product)
+            product_stock.quantity += instance.quantity
+            product_stock.save()
+            
+        if instance.product_to == "scrap":
+            product_stock = ScrapStock.objects.get(product=instance.product)
+            product_stock.quantity -= instance.quantity
+            product_stock.save()
+            
+        if instance.product_to == "service":
+            product_stock = WashingStock.objects.get(product=instance.product)
+            product_stock.quantity -= instance.quantity
+            product_stock.save()
+        
+        production_damage_form = ProductionDamageForm(request.POST,instance=instance)
+        
+        if production_damage_form.is_valid() :
+            #create
+            data = production_damage_form.save(commit=False)
+            data.modified_date = datetime.today()
+            data.modified_by = request.user.id
+            data.save()
+            
+            if data.product_from == "fresh":
+                product_stock = ProductStock.objects.get(product_name=instance.product,branch=request.user.branch_id)
+                product_stock.quantity -= data.quantity
+                product_stock.save()
+            
+            if data.product_from == "used":
+                product_stock = WashedUsedProduct.objects.get(product=instance.product)
+                product_stock.quantity -= data.quantity
+                product_stock.save()
+                
+            if data.product_to == "scrap":
+                product_stock = ScrapStock.objects.get(product=instance.product)
+                product_stock.quantity += data.quantity
+                product_stock.save()
+                
+            if data.product_to == "service":
+                product_stock = WashingStock.objects.get(product=instance.product)
+                product_stock.quantity += data.quantity
+                product_stock.save()
+                
+            response_data = {
+                "status": "true",
+                "title": "Successfully Updated",
+                "message": "Production Damage Updated Successfully.",
+                'redirect': 'true',
+                "redirect_url": reverse('production_damage_list'),
+                "return" : True,
+            }
+    
+        else:
+            message = generate_form_errors(production_damage_form,formset=False)
+            
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": message
+            }
+
+        return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+                        
+    else:
+        production_damage_form = ProductionDamageForm(instance=instance)
+
+        context = {
+            'form': production_damage_form,
+            'url' : reverse('edit_production_damage', args=[pk]),
+
+            'page_name' : 'Edit Production Damage',
+            'production_damage_page': True,   
+            'is_edit' : True,        
+        }
+
+        return render(request, 'products/production_damage/create.html', context)
+    
+@login_required
+def delete_production_damage(request, pk):
+    """
+    production_damage deletion, it only mark as is deleted field to true
+    :param request:
+    :param pk:
+    :return:
+    """
+    data = ProductionDamage.objects.get(pk=pk)
+    
+    if data.product_from == "fresh":
+        product_stock = ProductStock.objects.get(product_name=data.product)
+        product_stock.quantity += data.quantity
+        product_stock.save()
+    
+    if data.product_from == "used":
+        product_stock = WashedUsedProduct.objects.get(product=data.product)
+        product_stock.quantity += data.quantity
+        product_stock.save()
+        
+    if data.product_to == "scrap":
+        product_stock = ScrapStock.objects.get(product=data.product)
+        product_stock.quantity -= data.quantity
+        product_stock.save()
+        
+    if data.product_to == "service":
+        product_stock = WashingStock.objects.get(product=data.product)
+        product_stock.quantity -= data.quantity
+        product_stock.save()
+    
+    data.delete()
+    response_data = {
+        "status": "true",
+        "title": "Successfully Deleted",
+        "message": "Production Damage successfully deleted",
+        "redirect": "true",
+        "redirect_url": reverse('production_damage_list'),
+    }
+    
+    return HttpResponse(json.dumps(response_data), content_type='application/javascript')

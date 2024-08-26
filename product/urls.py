@@ -38,6 +38,13 @@ urlpatterns = [
     path('stocktransfer/', stock_transfer_view, name='stocktransfer'),
     path('scrap_stock_transfer_view/', scrap_stock_transfer_view, name='scrap_stock_transfer_view'),
 
-
+    re_path(r'production-damage-reason-list/$', views.production_damage_reason_list, name='production_damage_reason_list'),
+    re_path(r'create-production-damage-reason/$', views.create_production_damage_reason, name='create_production_damage_reason'),
+    re_path(r'^edit-production-damage-reason/(?P<pk>.*)/$', views.edit_production_damage_reason, name='edit_production_damage_reason'),
+    re_path(r'^delete-production-damage-reason/(?P<pk>.*)/$', views.delete_production_damage_reason, name='delete_production_damage_reason'),
+    
+    re_path(r'production-damage-list/$', views.production_damage_list, name='production_damage_list'),
+    re_path(r'create-production-damage/$', views.create_production_damage, name='create_production_damage'),
+    re_path(r'^edit-production-damage/(?P<pk>.*)/$', views.edit_production_damage, name='edit_production_damage'),
+    re_path(r'^delete-production-damage/(?P<pk>.*)/$', views.delete_production_damage, name='delete_production_damage'),
    ]
-

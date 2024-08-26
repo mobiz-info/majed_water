@@ -863,3 +863,205 @@ class NonVisitedCustomersView(View):
         }
 
         return render(request, self.template_name, context)    
+
+
+
+class MissingCustomersView(View):
+    template_name = 'accounts/missing_customers.html'
+
+    def get(self, request, *args, **kwargs):
+        date = datetime.now().date()  # Or pass this as an argument if needed
+
+        routes = RouteMaster.objects.all()  # Get all RouteMaster instances
+        route_data = []
+
+        for route in routes:
+            route_id = route.route_id  # Use route_id from RouteMaster
+            actual_visitors = Customers.objects.filter(routes__pk=route_id, is_active=True).count()
+
+            planned_visitors_list = find_customers(request, str(date), route_id)  # Ensure this returns a list
+            planned_visitors = len(planned_visitors_list) if planned_visitors_list else 0
+
+            supplied_customers = CustomerSupply.objects.filter(
+                customer__routes__pk=route_id,
+                created_date__date=date
+            ).count()
+
+            if isinstance(planned_visitors_list, list):
+                todays_customers_dict = planned_visitors_list
+            else:
+                todays_customers_dict = []
+
+            visited_customers_ids = set(
+                CustomerSupply.objects.filter(
+                    customer__routes__pk=route_id,
+                    created_date__date=date
+                ).values_list('customer_id', flat=True)
+            )
+
+            # Filter out visited customers
+            missed_customers = [
+                customer for customer in todays_customers_dict 
+                if customer['customer_id'] not in visited_customers_ids
+            ]
+
+            missed_customers_count = len(missed_customers)
+            print("missed_customers_count", missed_customers_count)
+
+            route_data.append({
+                'route_name': route.route_name,  
+                'actual_visitors': actual_visitors,
+                'planned_visitors': planned_visitors,
+                'missed_customers': missed_customers_count,
+                'supplied_customers': supplied_customers,
+                'route_id': route.route_id  
+            })
+
+        context = {
+            'route_data': route_data
+        }
+
+        return render(request, self.template_name, context)
+
+class MissingCustomersPdfView(View):
+    template_name = 'accounts/missing_customers_pdf.html'
+
+    def get(self, request, *args, **kwargs):
+        date = datetime.now().date()  
+
+        routes = RouteMaster.objects.all()  
+        route_data = []
+
+        for route in routes:
+            route_id = route.route_id
+            actual_visitors = Customers.objects.filter(routes__pk=route_id, is_active=True).count()
+
+            planned_visitors_list = find_customers(request, str(date), route_id)  # Ensure this returns a list
+            planned_visitors = len(planned_visitors_list) if planned_visitors_list else 0
+
+            supplied_customers = CustomerSupply.objects.filter(
+                customer__routes__pk=route_id,
+                created_date__date=date
+            ).count()
+
+            if isinstance(planned_visitors_list, list):
+                todays_customers_dict = planned_visitors_list
+            else:
+                todays_customers_dict = []
+
+            visited_customers_ids = set(
+                CustomerSupply.objects.filter(
+                    customer__routes__pk=route_id,
+                    created_date__date=date
+                ).values_list('customer_id', flat=True)
+            )
+
+            missed_customers = [
+                customer for customer in todays_customers_dict
+                if customer['customer_id'] not in visited_customers_ids
+            ]
+
+            missed_customers_count = len(missed_customers)
+
+            route_data.append({
+                'route_name': route.route_name,
+                'actual_visitors': actual_visitors,
+                'planned_visitors': planned_visitors,
+                'missed_customers': missed_customers_count,
+                'supplied_customers': supplied_customers,
+                'route_id': route.route_id
+            })
+
+        context = {
+            'route_data': route_data
+        }
+        return render(request, self.template_name, context)
+
+
+        
+class MissedOnDeliveryView(View):
+    template_name = 'accounts/missed_on_delivery.html'
+
+    def get(self, request, route_id, *args, **kwargs):
+        date = timezone.now().date()
+        van_route = get_object_or_404(Van_Routes, routes__route_id=route_id)
+        print("van_route",van_route)
+        planned_customers = find_customers(request, str(date), route_id)
+
+        supplied_customers_ids = CustomerSupply.objects.filter(
+            customer__routes__route_id=route_id,
+            created_date__date=date
+        ).values_list('customer_id', flat=True)
+
+        missed_customers = []
+        for customer in planned_customers:
+            if customer['customer_id'] not in supplied_customers_ids:
+                last_supply = CustomerSupply.objects.filter(
+                    customer_id=customer['customer_id']
+                ).order_by('-created_date').last()
+
+                last_sold_date = last_supply.created_date if last_supply else None
+
+                # Get the reason for non-visit if exists
+                non_visit_report = NonvisitReport.objects.filter(
+                    customer_id=customer['customer_id'],
+                    supply_date=date
+                ).last()
+
+                reason_for_non_visit = non_visit_report.reason if non_visit_report else None
+
+                customer['last_sold_date'] = last_sold_date
+                customer['reason_for_non_visit'] = reason_for_non_visit
+                missed_customers.append(customer)
+
+        context = {
+            'missed_customers': missed_customers,
+            'route_id': route_id
+        }
+
+        return render(request, self.template_name, context)
+
+
+class MissedOnDeliveryPrintView(View):
+    
+    template_name = 'accounts/missed_on_delivery_print.html'
+
+    
+    def get(self, request, route_id, *args, **kwargs):
+        date = timezone.now().date()
+        van_route = get_object_or_404(Van_Routes, routes__route_id=route_id)
+
+        planned_customers = find_customers(request, str(date), route_id)
+
+        supplied_customers_ids = CustomerSupply.objects.filter(
+            customer__routes__route_id=route_id,
+            created_date__date=date
+        ).values_list('customer_id', flat=True)
+
+        missed_customers = []
+        for customer in planned_customers:
+            if customer['customer_id'] not in supplied_customers_ids:
+                last_supply = CustomerSupply.objects.filter(
+                    customer_id=customer['customer_id']
+                ).order_by('-created_date').last()
+
+                last_sold_date = last_supply.created_date if last_supply else None
+
+                # Get the reason for non-visit if exists
+                non_visit_report = NonvisitReport.objects.filter(
+                    customer_id=customer['customer_id'],
+                    supply_date=date
+                ).last()
+
+                reason_for_non_visit = non_visit_report.reason if non_visit_report else None
+
+                customer['last_sold_date'] = last_sold_date
+                customer['reason_for_non_visit'] = reason_for_non_visit
+                missed_customers.append(customer)
+
+        context = {
+            'missed_customers': missed_customers,
+            'route_id':route_id,
+        }
+
+        return render(request, self.template_name, context)

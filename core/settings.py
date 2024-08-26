@@ -16,6 +16,9 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 INSTALLED_APPS = [
     'el_pagination',
     
+    'ckeditor',
+    'ckeditor_uploader',
+    
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -148,6 +151,55 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     # ...
 ]
+
+DJANGO_WYSIWYG_FLAVOR = "ckeditor"
+CKEDITOR_JQUERY_URL = 'https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js'
+
+
+DJANGO_WYSIWYG_FLAVOR = "ckeditor"
+CKEDITOR_IMAGE_BACKEND = "pillow"
+CKEDITOR_UPLOAD_PATH = "uploads/"
+
+
+CKEDITOR_CONFIGS = {
+    'default': {
+        'skin': 'office2013',
+
+        'height': 100,
+        'width': '100%',
+        'tabSpaces': 4,
+        'toolbar_Custom': [
+            {'name': 'math', 'items': ['Mathjax', ]},
+            ['Link', 'Unlink'],
+            {'name': 'document', 'items': ['Source', '-', 'Templates']},
+            {'name': 'clipboard', 'items': ['Undo', 'Redo', 'PasteFromWord', '-']},
+            {'name': 'basicstyles',
+             'items': ['Bold', 'Italic', 'Underline', 'Strike', 'Subscript', 'Superscript', '-',]},
+            {'name': 'paragraph',
+             'items': ['NumberedList', 'BulletedList',
+                       'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-',]},
+            {'name': 'insert',
+             'items': ['Image', 'Table', 'HorizontalRule', 'Smiley', 'SpecialChar','PasteFromWord']},
+            {'name': 'styles', 'items': ['Styles', 'Format', 'Font', 'FontSize',]},
+
+            '/',  # put this to force next toolbar on new line
+        ],
+        'toolbar': 'full',
+        'toolbar_Custom': [
+            ['Bold', 'Italic', 'Underline'],
+            ['NumberedList', 'BulletedList', '-', 'Outdent', 'Indent'],
+            ['Link', 'Unlink', 'Image'],
+            ['Source'],
+        ],
+        'mathJaxLib': '//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML',
+        'extraPlugins': ','.join(['mathjax','uploadimage','uploadwidget','widget']),
+    },
+    'resize_enabled' : 'false',
+}
+
+X_FRAME_OPTIONS = 'ALLOWALL'
+
+XS_SHARING_ALLOWED_METHODS = ['POST','GET','OPTIONS', 'PUT', 'DELETE']
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/

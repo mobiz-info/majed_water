@@ -28,6 +28,10 @@ urlpatterns = [
     path('inactive_customers', Inactive_Customer_List.as_view(), name='inactive_customers'),
     path('non_visited_customers', NonVisitedCustomersView.as_view(), name="non_visited_customers"),
 
+    path('missing_customers', MissingCustomersView.as_view(), name='missing_customers'),
+    path('missing_customers_pdf/', MissingCustomersPdfView.as_view(), name='missing_customers_pdf'),  
+    path('missed_on_delivery/<uuid:route_id>/', MissedOnDeliveryView.as_view(), name='missed_on_delivery'),
+    path('missed_on_delivery/<uuid:route_id>/print/', MissedOnDeliveryPrintView.as_view(), name='missed_on_delivery_print'),
 
 
 ]
