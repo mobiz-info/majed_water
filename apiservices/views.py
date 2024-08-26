@@ -8602,6 +8602,7 @@ class ProductionDamageAPIView(APIView):
             with transaction.atomic():
                 product_instance = ProdutItemMaster.objects.get(product_name="5 Gallon")
                 route_instance = RouteMaster.objects.get(pk=route_id)
+                reason_instance = ProductionDamageReason.objects.get(pk=reason)
                 
                 ProductionDamage.objects.create(
                     product=product_instance,
@@ -8610,7 +8611,7 @@ class ProductionDamageAPIView(APIView):
                     product_from=product_from,
                     product_to=product_to,
                     quantity=quantity,
-                    reason=reason,
+                    reason=reason_instance,
                     created_by=request.user.id,
                     created_date=datetime.today().now(),
                 )
