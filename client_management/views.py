@@ -1981,11 +1981,13 @@ def outstanding_list(request):
     :return: Customer Outstanding list view
     """
     filter_data = {}
-    instances = CustomerOutstanding.objects.all()
+    instances = CustomerOutstanding.objects.all().order_by('-created_date')
     
     query = request.GET.get("q")
     date = request.GET.get('date')
     route_filter = request.GET.get('route_name')
+    sales_type_filter = request.GET.get('sales_type')
+
     
     if date:
         date = datetime.strptime(date, '%Y-%m-%d').date()
@@ -1999,6 +2001,11 @@ def outstanding_list(request):
             instances = instances.filter(customer__routes__route_name=route_filter)
     route_li = RouteMaster.objects.all()
     
+    if sales_type_filter:
+        instances = instances.filter(customer__sales_type=sales_type_filter)
+        filter_data['sales_type'] = sales_type_filter
+    sales_type_li = Customers.objects.values_list('sales_type', flat=True).distinct()
+
     if query:
 
         instances = instances.filter(
@@ -2007,6 +2014,8 @@ def outstanding_list(request):
         )
         title = "Outstanding List - %s" % query
         filter_data['q'] = query
+    # Calculate the total sum of outstanding counts
+    total_outstanding_count = sum([item.get_outstanding_count() for item in instances])
     
     context = {
         'instances': instances,
@@ -2018,6 +2027,10 @@ def outstanding_list(request):
         'is_need_datetime_picker': True,
         'filter_data': filter_data,
         'route_li':route_li,
+        'sales_type_li': sales_type_li,
+        'total_outstanding_count': total_outstanding_count,  
+
+
     }
 
     return render(request, 'client_management/customer_outstanding/outstanding_list.html', context)
