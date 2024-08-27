@@ -113,6 +113,7 @@ class Customers(models.Model):
     user_id = models.ForeignKey('accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True,related_name='user_sign')
     rate = models.CharField(max_length=100, null=True, blank=True)
     coupon_count = models.PositiveIntegerField(default=0)
+    is_calling_customer = models.BooleanField(default=False)
     
     def __str__(self):
         return str(self.customer_name)

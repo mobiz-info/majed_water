@@ -296,6 +296,9 @@ urlpatterns = [
     path('production-damage-choices/', ProductTransferChoicesAPI.as_view(), name='production_damage_choices'),
     path('production-damage/', ProductionDamageAPIView.as_view(), name='production_damage'),
     
+    path('customer-product-return/', CustomerProductReturnAPIView.as_view(), name='customer_product_return'),
+    path('customer-product-replacement/', CustomerProductReplaceAPIView.as_view(), name='customer_product_replacement'),
+    
     path('excess-bottle-count/', ExcessBottleCountAPIView.as_view(), name='excess_bottle_count'),
 
     path('privacy-policy/', privacy),

@@ -4,7 +4,9 @@ import uuid
 from django.db import models
 from django.db.models import Sum
 
+from accounts.models import Customers
 from master.models import *
+from order.models import Change_Reason
 from product.models import Product, ProdutItemMaster
 from coupon_management.models import Coupon, CouponType, NewCoupon
 
@@ -436,3 +438,38 @@ class ExcessBottleCount(models.Model):
 
     def __str__(self):
         return f"Excess bottles for {self.van} on {self.created_date}"
+    
+
+class CustomerProductReturn(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_by = models.CharField(max_length=30, blank=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(auto_now=True ,blank=True, null=True)
+    
+    van = models.ForeignKey(Van, on_delete=models.CASCADE)
+    customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
+    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
+    reason= models.ForeignKey(Change_Reason, on_delete=models.CASCADE)
+    quantity= models.PositiveIntegerField(default=0)
+    note = models.TextField()
+    
+    def __str__(self):
+        return f"{self.id}"
+    
+class CustomerProductReplace(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_by = models.CharField(max_length=30, blank=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(auto_now=True ,blank=True, null=True)
+    
+    van = models.ForeignKey(Van, on_delete=models.CASCADE)
+    customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
+    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
+    reason= models.ForeignKey(Change_Reason, on_delete=models.CASCADE)
+    quantity= models.PositiveIntegerField(default=0)
+    note = models.TextField()
+    
+    def __str__(self):
+        return f"{self.id}"

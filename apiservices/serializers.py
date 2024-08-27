@@ -1892,3 +1892,18 @@ class ProductionDamageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductionDamage
         fields = '__all__'
+        
+
+class CustomerProductReturnSerializer(serializers.ModelSerializer):
+    # created_date = serializers.DateTimeField(format="%Y-%m-%d")
+
+    class Meta:
+        model = CustomerProductReturn
+        fields = ['customer','product','reason','quantity','note']
+        
+class CustomerProductReplaceSerializer(serializers.ModelSerializer):
+    # created_date = serializers.DateTimeField(format="%Y-%m-%d")
+
+    class Meta:
+        model = CustomerProductReplace
+        fields = ['customer','product','reason','quantity','note']
