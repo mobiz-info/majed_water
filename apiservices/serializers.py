@@ -1907,3 +1907,22 @@ class CustomerProductReplaceSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerProductReplace
         fields = ['customer','product','reason','quantity','note']
+        
+
+        
+class CouponLeafletSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CouponLeaflet
+        fields = ['couponleaflet_id', 'leaflet_number', 'used']
+        
+class NewCouponSerializer(serializers.ModelSerializer):
+    used_leaflets = serializers.SerializerMethodField()
+
+    class Meta:
+        model = NewCoupon
+        fields = ['coupon_id', 'book_num', 'coupon_type', 'used_leaflets']
+
+    def get_used_leaflets(self, obj):
+        # Filter the leaflets to include only those that are used
+        used_leaflets = obj.leaflets.filter(used=True)
+        return CouponLeafletSerializer(used_leaflets, many=True).data

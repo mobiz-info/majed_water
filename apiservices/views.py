@@ -8826,3 +8826,21 @@ class CustomerProductReplaceAPIView(APIView):
         
         return Response(response_data, status=status_code)
     
+    
+
+class CustomerCouponListAPIView(APIView):
+    def get(self, request, customer_id):
+        try:
+            # Get the customer
+            customer = Customers.objects.get(customer_id=customer_id)
+            
+            # Retrieve all NewCoupon instances associated with this customer
+            coupons = NewCoupon.objects.filter(branch_id=customer.branch_id)
+
+            # Serialize the data
+            serializer = NewCouponSerializer(coupons, many=True)
+
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Customers.DoesNotExist:
+            return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)
