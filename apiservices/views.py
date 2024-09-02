@@ -8826,18 +8826,22 @@ class CustomerProductReplaceAPIView(APIView):
         
         return Response(response_data, status=status_code)
     
-    
 
 class CustomerCouponListAPIView(APIView):
     def get(self, request, customer_id):
         try:
-            # Get the customer
-            customer = Customers.objects.get(customer_id=customer_id)
-            
-            # Retrieve all NewCoupon instances associated with this customer
-            coupons = NewCoupon.objects.filter(branch_id=customer.branch_id)
+            customer_coupon_ids = CustomerCouponItems.objects.filter(
+                customer_coupon__customer__customer_id=customer_id
+            ).values_list('coupon__coupon_id', flat=True)
 
-            # Serialize the data
+            coupons = NewCoupon.objects.filter(
+                pk__in=customer_coupon_ids
+            ).annotate(
+                unused_leaflets_count=Count('leaflets', filter=Q(leaflets__used=False))
+            ).filter(
+                unused_leaflets_count__gt=0
+            )
+
             serializer = NewCouponSerializer(coupons, many=True)
 
             return Response(serializer.data, status=status.HTTP_200_OK)
