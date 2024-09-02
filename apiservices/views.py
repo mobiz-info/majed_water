@@ -700,7 +700,7 @@ def find_customers(request, def_date, route_id):
     
     todays_customers = []
     buildings = []
-    for customer in Customers.objects.filter(routes=route):
+    for customer in Customers.objects.filter(routes=route,is_calling_customer=False):
         if customer.visit_schedule:
             for day, weeks in customer.visit_schedule.items():
                 if day in str(day_of_week) and week_number in str(weeks):
@@ -8602,6 +8602,7 @@ class ProductionDamageAPIView(APIView):
             with transaction.atomic():
                 product_instance = ProdutItemMaster.objects.get(product_name="5 Gallon")
                 route_instance = RouteMaster.objects.get(pk=route_id)
+                reason_instance = ProductionDamageReason.objects.get(pk=reason)
                 
                 ProductionDamage.objects.create(
                     product=product_instance,
@@ -8610,7 +8611,7 @@ class ProductionDamageAPIView(APIView):
                     product_from=product_from,
                     product_to=product_to,
                     quantity=quantity,
-                    reason=reason,
+                    reason=reason_instance,
                     created_by=request.user.id,
                     created_date=datetime.today().now(),
                 )
@@ -8660,3 +8661,186 @@ class ProductionDamageAPIView(APIView):
         
         return Response(response_data, status=status_code)
     
+class CustomerProductReturnAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, *args, **kwargs):
+        instances = CustomerProductReturn.objects.all()
+        serializer = CustomerProductReturnSerializer(instances,many=True)
+        
+        status_code = status.HTTP_200_OK
+        response_data = {
+            "status": status_code,
+            "data": serializer.data,
+        }
+        
+        return Response(response_data, status=status_code)
+    
+    def post(self, request, *args, **kwargs):
+        
+        data = request.data
+        serializer = CustomerProductReturnSerializer(data=data, context={'request': request})
+        try:
+            with transaction.atomic():
+                if serializer.is_valid():
+                    
+                    van_instance = Van.objects.get(salesman=request.user)
+                    return_instance = serializer.save(
+                        created_by=request.user.id,
+                        created_date=datetime.today(),
+                        van=van_instance
+                    )
+                    
+                    if return_instance.product.category.category_name != "Coupons":
+                        stock_instance = VanProductStock.objects.get(van=van_instance,created_date=datetime.today().date(),product=return_instance.product)
+                        stock_instance.return_count += return_instance.quantity
+                        stock_instance.save()
+                        
+                    if return_instance.product.category.category_name == "Coupons":
+                        book_numbers = request.data.get('book_numbers').split(',')
+                        
+                        for book_number in book_numbers :
+                            coupon = NewCoupon.objects.get(book_num=book_number)
+                            
+                            stock_instance = VanCouponStock.objects.get(van=van_instance,created_date=datetime.today().date(),coupon=coupon)
+                            stock_instance.return_count += return_instance.quantity
+                            stock_instance.save()
+                            
+                            
+
+                    status_code = status.HTTP_201_CREATED
+                    response_data = {
+                        "StatusCode": status_code,
+                        "status": status_code,
+                        "data": serializer.data,
+                    }
+
+                else:
+                    status_code = status.HTTP_400_BAD_REQUEST
+                    response_data = {
+                        "StatusCode": status_code,
+                        "status": status_code,
+                        "message": serializer.errors,
+                    }
+                        
+        except IntegrityError as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "StatusCode": 400,
+                "status": status_code,
+                "title": "Failed",
+                "message": str(e),
+            }
+
+        except Exception as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "StatusCode": 400,
+                "status": status_code,
+                "title": "Failed",
+                "message": str(e),
+            }
+        
+        return Response(response_data, status=status_code)
+    
+    
+class CustomerProductReplaceAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, *args, **kwargs):
+        instances = CustomerProductReplace.objects.all()
+        serializer = CustomerProductReplaceSerializer(instances,many=True)
+        
+        status_code = status.HTTP_200_OK
+        response_data = {
+            "status": status_code,
+            "data": serializer.data,
+        }
+        
+        return Response(response_data, status=status_code)
+    
+    def post(self, request, *args, **kwargs):
+        
+        data = request.data
+        serializer = CustomerProductReplaceSerializer(data=data, context={'request': request})
+        try:
+            with transaction.atomic():
+                if serializer.is_valid():
+                    
+                    van_instance = Van.objects.get(salesman=request.user)
+                    replace_instance = serializer.save(
+                        created_by=request.user.id,
+                        created_date=datetime.today(),
+                        van=van_instance
+                    )
+                    
+                    if replace_instance.product.category.category_name != "Coupons":
+                        stock_instance = VanProductStock.objects.get(van=van_instance,created_date=datetime.today().date())
+                        stock_instance.stock -= replace_instance.quantity
+                        stock_instance.save()
+                        
+                    if replace_instance.product.category.category_name == "Coupons":
+                        book_numbers = request.data.get('book_numbers').split(',')
+                        
+                        for book_number in book_numbers :
+                            coupon = NewCoupon.objects.get(book_num=book_number)
+                            
+                            stock_instance = VanCouponStock.objects.get(van=van_instance,created_date=datetime.today().date(),coupon=coupon)
+                            stock_instance.stock -= replace_instance.quantity
+                            stock_instance.save()
+
+                    status_code = status.HTTP_201_CREATED
+                    response_data = {
+                        "StatusCode": status_code,
+                        "status": status_code,
+                        "data": serializer.data,
+                    }
+
+                else:
+                    status_code = status.HTTP_400_BAD_REQUEST
+                    response_data = {
+                        "StatusCode": status_code,
+                        "status": status_code,
+                        "message": serializer.errors,
+                    }
+                        
+        except IntegrityError as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "StatusCode": 400,
+                "status": status_code,
+                "title": "Failed",
+                "message": str(e),
+            }
+
+        except Exception as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "StatusCode": 400,
+                "status": status_code,
+                "title": "Failed",
+                "message": str(e),
+            }
+        
+        return Response(response_data, status=status_code)
+    
+    
+
+class CustomerCouponListAPIView(APIView):
+    def get(self, request, customer_id):
+        try:
+            # Get the customer
+            customer = Customers.objects.get(customer_id=customer_id)
+            
+            # Retrieve all NewCoupon instances associated with this customer
+            coupons = NewCoupon.objects.filter(branch_id=customer.branch_id)
+
+            # Serialize the data
+            serializer = NewCouponSerializer(coupons, many=True)
+
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Customers.DoesNotExist:
+            return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)

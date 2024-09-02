@@ -252,9 +252,11 @@ class Customer_List(View):
     template_name = 'accounts/customer_list.html'
 
     def get(self, request, *args, **kwargs):
+        filter_data = {}
         # Retrieve the query parameter
         query = request.GET.get("q")
         route_filter = request.GET.get('route_name')
+        customer_type_filter = request.GET.get('customer_type')
 
         # Start with all customers
         user_li = Customers.objects.all()
@@ -268,9 +270,15 @@ class Customer_List(View):
                 Q(location__location_name__icontains=query) |
                 Q(building_name__icontains=query)
             )
+            filter_data['q'] = query
 
         if route_filter:
             user_li = user_li.filter(routes__route_name=route_filter)
+            filter_data['route_filter'] = route_filter
+            
+        if customer_type_filter:
+            user_li = user_li.filter(sales_type=customer_type_filter)
+            filter_data['customer_type'] = customer_type_filter
 
         # Get all route names for the dropdown
         route_li = RouteMaster.objects.all()
@@ -280,6 +288,7 @@ class Customer_List(View):
             'route_li': route_li,
             'route_filter': route_filter,
             'q': query,
+            'filter_data': filter_data,
         }
 
 
@@ -291,12 +300,14 @@ class Latest_Customer_List(View):
 
     def get(self, request, *args, **kwargs):
         filter_data = {}
-        query = request.GET.get("q")
         
+        query = request.GET.get("q")
         route_filter = request.GET.get('route_name')
+        customer_type_filter = request.GET.get('customer_type')
 
         ten_days_ago = datetime.now() - timedelta(days=10)
         user_li = Customers.objects.filter(created_date__gte=ten_days_ago)
+        
         if request.GET.get('start_date'):
             start_date = request.GET.get('start_date')
         else:
@@ -313,7 +324,11 @@ class Latest_Customer_List(View):
         filter_data["start_date"] = start_date.strftime('%Y-%m-%d') if start_date else None
         filter_data["end_date"] = end_date.strftime('%Y-%m-%d') if end_date else None
         
-        user_li = Customers.objects.filter(Q(created_date__date__range=[start_date, end_date]))
+        user_li = user_li.filter(Q(created_date__date__range=[start_date, end_date]))
+        
+        if customer_type_filter:
+            user_li = user_li.filter(sales_type=customer_type_filter)
+            filter_data['customer_type'] = customer_type_filter
 
         if route_filter:
             user_li = user_li.filter(routes__route_name=route_filter)
