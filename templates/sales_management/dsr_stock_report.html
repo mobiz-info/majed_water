@@ -80,6 +80,7 @@
                                         <th class="text-center text-bold" colspan="10">Stock Report</th>
                                     </tr>
                                     <tr>
+                                        <th scope="col" style="text-align:center;">Date</th>
                                         <th scope="col" style="text-align:center;">Product Name</th>
                                         <th scope="col" style="text-align:center;">Opening Stock</th>
                                         <th scope="col" style="text-align:center;">Issued</th>
@@ -96,6 +97,7 @@
                                     {% for van_data in van_product_stock %}
                                     {% get_van_product_wise_stock filter_data.from_date van_data.van.pk van_data.product.pk as stock_details %}
                                     <tr>
+                                        <td style="text-align:center;">{{van_data.created_date|date:'d/m/Y'}}</td>
                                         <td style="text-align:center;">{{van_data.product.product_name}}</td>
                                         <td style="text-align:center;">{{van_data.opening_count}}</td>
                                         <td style="text-align:center;">{{stock_details.issued_count}}</td>
