@@ -59,6 +59,10 @@ from reportlab.lib.units import inch
 from invoice_management.models import *
 from van_management.models import Expense
 from reportlab.lib.styles import getSampleStyleSheet
+from invoice_management.models import *
+from van_management.models import Expense
+from reportlab.lib.styles import getSampleStyleSheet
+import openpyxl
 
 class TransactionHistoryListView(ListView):
     model = Transaction
@@ -1633,9 +1637,10 @@ def yearmonthsalesreportview(request, route_id):
 #---------------------New Sales Report-----------------------------
 
 
+
 def customerSales_report(request):
     filter_data = {}
-    
+
     total_amount = 0
     total_discount = 0
     total_net_payable = 0
@@ -1645,35 +1650,42 @@ def customerSales_report(request):
 
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
-    
+    sales_type_filter = request.GET.get('sales_type')
+
     if start_date_str and end_date_str:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-    else :
+    else:
         start_date = datetime.today().date()
         end_date = datetime.today().date()
-    # print(start_date,end_date)
+
     filter_data = {
         'start_date': start_date.strftime('%Y-%m-%d'),
         'end_date': end_date.strftime('%Y-%m-%d'),
+        'sales_type': sales_type_filter,
     }
-    
+
+    # Filter CustomerSupply data
     sales = CustomerSupply.objects.select_related('customer', 'salesman').filter(
-        created_date__date__gte=start_date,  # Assuming start_date and end_date are provided
+        created_date__date__gte=start_date,
         created_date__date__lte=end_date
-    ).exclude(customer__sales_type__in=["CASH COUPON","CREDIT COUPON"]).order_by("-created_date")
+    ).exclude(customer__sales_type__in=["CASH COUPON", "CREDIT COUPON"])
+    
+    if sales_type_filter:
+        sales = sales.filter(customer__sales_type=sales_type_filter)
+    
+    sales = sales.order_by("-created_date")
 
-    # Query CustomerCoupon data
+    # Filter CustomerCoupon data
     coupons = CustomerCoupon.objects.select_related('customer', 'salesman').filter(
-        created_date__date__gte=start_date,  # Assuming start_date and end_date are provided
+        created_date__date__gte=start_date,
         created_date__date__lte=end_date
-    ).order_by("-created_date")
+    )
+    
+    if sales_type_filter:
+        coupons = coupons.filter(payment_type=sales_type_filter)
 
-    # Query CollectionPayment data
-    # collections = CollectionPayment.objects.select_related('customer', 'salesman').filter(
-    #     created_date__date__gte=start_date,  # Assuming start_date and end_date are provided
-    #     created_date__date__lte=end_date
-    # ).order_by("-created_date")
+    coupons = coupons.order_by("-created_date")
 
     # Organize the data for rendering in the template
     sales_report_data = []
@@ -1683,11 +1695,12 @@ def customerSales_report(request):
         sales_report_data.append({
             'date': sale.created_date.date(),
             'ref_invoice_no': sale.reference_number,
+            'invoice_number': sale.invoice_no,
             'customer_name': sale.customer.customer_name,
-            'building_name':sale.customer.building_name,
-            'sales_type':sale.customer.sales_type,
-            'route_name':sale.customer.routes.route_name,
-            'salesman':sale.customer.sales_staff.get_fullname(),
+            'building_name': sale.customer.building_name,
+            'sales_type': sale.customer.sales_type,
+            'route_name': sale.customer.routes.route_name,
+            'salesman': sale.customer.sales_staff.get_fullname(),
             'amount': sale.grand_total,
             'discount': sale.discount,
             'net_taxable': sale.subtotal,
@@ -1708,12 +1721,12 @@ def customerSales_report(request):
         sales_report_data.append({
             'date': coupon.created_date.date(),
             'ref_invoice_no': coupon.reference_number,
+            'invoice_number': coupon.invoice_no,
             'customer_name': coupon.customer.customer_name,
-            'building_name':coupon.customer.building_name,
-            'sales_type':coupon.customer.sales_type,
-            'route_name':coupon.customer.routes.route_name,
-            'salesman':coupon.customer.sales_staff.get_fullname(),
-            # Add other fields as needed from CustomerCoupon model
+            'building_name': coupon.customer.building_name,
+            'sales_type': coupon.customer.sales_type,
+            'route_name': coupon.customer.routes.route_name,
+            'salesman': coupon.customer.sales_staff.get_fullname(),
             'amount': coupon.grand_total,
             'discount': coupon.discount,
             'net_taxable': coupon.net_amount,
@@ -1729,34 +1742,6 @@ def customerSales_report(request):
         total_grand_total += coupon.grand_total
         total_amount_recieved += coupon.amount_recieved
 
-    # # Process CollectionPayment data
-    # for collection in collections:
-    #     sales_report_data.append({
-    #         'date': collection.created_date.date(),
-    #         'ref_invoice_no': "",
-    #         'customer_name': collection.customer.customer_name,
-    #         'building_name':collection.customer.building_name,
-    #         'sales_type':collection.customer.sales_type,
-    #         'route_name':collection.customer.routes.route_name,
-    #         'salesman':collection.customer.sales_staff.get_fullname(),
-    #         # Add other fields as needed from CollectionPayment model
-    #         'amount': collection.total_amount(),
-    #         'discount': collection.total_discounts(),
-    #         'net_taxable': collection.total_net_taxeble(),
-    #         'vat_amount': collection.total_vat(),
-    #         'grand_total': collection.total_amount(),
-    #         'amount_collected': collection.collected_amount(),
-    #         # Add other necessary data
-    #     })
-        
-    #     total_amount += collection.total_amount()
-    #     total_discount += collection.total_discounts()
-    #     total_net_payable += collection.total_net_taxeble()
-    #     total_vat += collection.total_vat()
-    #     total_grand_total += collection.total_amount()
-    #     total_amount_recieved += collection.collected_amount()
-
-        
     context = {
         'customersales': sales_report_data,
         'total_amount': total_amount,
@@ -1764,21 +1749,27 @@ def customerSales_report(request):
         'total_net_payable': total_net_payable,
         'total_vat': total_vat,
         'total_grand_total': total_grand_total,
-        'total_amount_recieved' :total_amount_recieved,
+        'total_amount_recieved': total_amount_recieved,
         'filter_data': filter_data,
-        
+        'sales_types': ['CASH', 'CREDIT'],  # Available filter options
     }
     return render(request, 'sales_management/customerSales_report.html', context)
-
-def customerSales_Detail_report(request, id):
-    customersale = get_object_or_404(CustomerSupplyItems, id=id)
-    return render(request, 'sales_management/customerSales_Detail_report.html', {'customersale': customersale})
 
 
 
 def customerSales_Excel_report(request):
+    filter_data = {}
+
+    total_amount = 0
+    total_discount = 0
+    total_net_payable = 0
+    total_vat = 0
+    total_grand_total = 0
+    total_amount_recieved = 0
+
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
+    sales_type_filter = request.GET.get('sales_type')
 
     if start_date_str and end_date_str:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
@@ -1787,116 +1778,176 @@ def customerSales_Excel_report(request):
         start_date = datetime.today().date()
         end_date = datetime.today().date()
 
+    filter_data = {
+        'start_date': start_date.strftime('%Y-%m-%d'),
+        'end_date': end_date.strftime('%Y-%m-%d'),
+        'sales_type': sales_type_filter,
+    }
+
+    # Filter CustomerSupply data
     sales = CustomerSupply.objects.select_related('customer', 'salesman').filter(
         created_date__date__gte=start_date,
         created_date__date__lte=end_date
-    ).exclude(customer__sales_type__in=["CASH COUPON", "CREDIT COUPON"]).order_by("-created_date")
+    ).exclude(customer__sales_type__in=["CASH COUPON", "CREDIT COUPON"])
 
+    if sales_type_filter:
+        sales = sales.filter(customer__sales_type=sales_type_filter)
+
+    sales = sales.order_by("-created_date")
+
+    # Filter CustomerCoupon data
     coupons = CustomerCoupon.objects.select_related('customer', 'salesman').filter(
         created_date__date__gte=start_date,
         created_date__date__lte=end_date
-    ).order_by("-created_date")
+    )
 
-    # Create a workbook and add a worksheet
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Customer Sales Report"
+    if sales_type_filter:
+        coupons = coupons.filter(payment_type=sales_type_filter)
 
-    # Add the header row
+    coupons = coupons.order_by("-created_date")
+
+    # Create an Excel workbook and sheet
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Customer Sales Report"
+
+    # Define column headers
     headers = [
-        "Sl No", "Date", "Ref/Invoice No", "Customer Name", "Building Name/Room No/Floor No", 
-        "Customer Sales Type", "Route", "Salesman", "Amount", "Discount", "Net Taxable", 
-        "Vat Amount", "Grand Total", "Amount Collected"
+        'Date', 'Reference Invoice No', 'Invoice Number', 'Customer Name',
+        'Building Name', 'Sales Type', 'Route Name', 'Salesman',
+        'Amount', 'Discount', 'Net Taxable', 'VAT Amount', 'Grand Total', 'Amount Collected'
     ]
-    ws.append(headers)
+    sheet.append(headers)
 
-    # Initialize totals
-    total_amount = 0
-    total_discount = 0
-    total_net_taxable = 0
-    total_vat_amount = 0
-    total_grand_total = 0
-    total_amount_collected = 0
-
-    # Counter for serial numbers
-    serial_number = 1
-
-    # Add data rows for CustomerSupply
+    # Process CustomerSupply data
     for sale in sales:
-        ws.append([
-            serial_number, sale.created_date.date(), sale.reference_number, sale.customer.customer_name,
-            sale.customer.building_name, sale.customer.sales_type, sale.customer.routes.route_name,
-            sale.customer.sales_staff.get_fullname(), sale.grand_total, sale.discount,
-            sale.subtotal, sale.vat, sale.grand_total, sale.amount_recieved
-        ])
-        # Update totals
+        row = [
+            sale.created_date.date(),
+            sale.reference_number,
+            sale.invoice_no,
+            sale.customer.customer_name,
+            sale.customer.building_name,
+            sale.customer.sales_type,
+            sale.customer.routes.route_name,
+            sale.customer.sales_staff.get_fullname(),
+            sale.grand_total,
+            sale.discount,
+            sale.subtotal,
+            sale.vat,
+            sale.grand_total,
+            sale.amount_recieved,
+        ]
+        sheet.append(row)
+
         total_amount += sale.grand_total
         total_discount += sale.discount
-        total_net_taxable += sale.subtotal
-        total_vat_amount += sale.vat
+        total_net_payable += sale.net_payable
+        total_vat += sale.vat
         total_grand_total += sale.grand_total
-        total_amount_collected += sale.amount_recieved
-        serial_number += 1
+        total_amount_recieved += sale.amount_recieved
 
-    # Add data rows for CustomerCoupon
+    # Process CustomerCoupon data
     for coupon in coupons:
-        ws.append([
-            serial_number, coupon.created_date.date(), coupon.reference_number, coupon.customer.customer_name,
-            coupon.customer.building_name, coupon.customer.sales_type, coupon.customer.routes.route_name,
-            coupon.customer.sales_staff.get_fullname(), coupon.grand_total, coupon.discount,
-            coupon.net_amount, Tax.objects.get(name="VAT").percentage, coupon.grand_total, coupon.amount_recieved
-        ])
-        # Update totals
+        row = [
+            coupon.created_date.date(),
+            coupon.reference_number,
+            coupon.invoice_no,
+            coupon.customer.customer_name,
+            coupon.customer.building_name,
+            coupon.customer.sales_type,
+            coupon.customer.routes.route_name,
+            coupon.customer.sales_staff.get_fullname(),
+            coupon.grand_total,
+            coupon.discount,
+            coupon.net_amount,
+            Tax.objects.get(name="VAT").percentage,
+            coupon.grand_total,
+            coupon.amount_recieved,
+        ]
+        sheet.append(row)
+
         total_amount += coupon.grand_total
         total_discount += coupon.discount
-        total_net_taxable += coupon.net_amount
-        total_vat_amount += Tax.objects.get(name="VAT").percentage
+        total_net_payable += coupon.net_amount
+        total_vat += Tax.objects.get(name="VAT").percentage
         total_grand_total += coupon.grand_total
-        total_amount_collected += coupon.amount_recieved
-        serial_number += 1
+        total_amount_recieved += coupon.amount_recieved
 
-    # Add the totals row
+    # Add totals row
     totals_row = [
-        "", "", "", "", "", "", "", "Grand Total", 
-        total_amount, total_discount, total_net_taxable, 
-        total_vat_amount, total_grand_total, total_amount_collected
+        '', '', '', '', '', '', '', '',  # Empty cells for non-applicable columns
+        total_amount, total_discount, total_net_payable, total_vat, total_grand_total, total_amount_recieved
     ]
-    ws.append(totals_row)
+    sheet.append(totals_row)
 
     # Prepare the response
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename=CustomerSalesReport_{start_date_str}_to_{end_date_str}.xlsx'
-    wb.save(response)
+    
+    # Save workbook to the response
+    workbook.save(response)
 
     return response
-    
-from django.template.loader import get_template
-from xhtml2pdf import pisa
-from django.conf import settings
-def customerSales_Print_report(request):
-    start_date = request.GET.get('start_date')
-    end_date = request.GET.get('end_date')
 
-    # Query your data similar to customerSales_report view
+
+def customerSales_Print_report(request):
+    filter_data = {}
+
+    total_amount = 0
+    total_discount = 0
+    total_net_payable = 0
+    total_vat = 0
+    total_grand_total = 0
+    total_amount_recieved = 0
+
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    sales_type_filter = request.GET.get('sales_type')
+
+    if start_date_str and end_date_str:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    else:
+        start_date = datetime.today().date()
+        end_date = datetime.today().date()
+
+    filter_data = {
+        'start_date': start_date.strftime('%Y-%m-%d'),
+        'end_date': end_date.strftime('%Y-%m-%d'),
+        'sales_type': sales_type_filter,
+    }
+
+    # Filter CustomerSupply data
     sales = CustomerSupply.objects.select_related('customer', 'salesman').filter(
         created_date__date__gte=start_date,
         created_date__date__lte=end_date
-    ).exclude(customer__sales_type__in=["CASH COUPON","CREDIT COUPON"]).order_by("-created_date")
+    ).exclude(customer__sales_type__in=["CASH COUPON", "CREDIT COUPON"])
 
+    if sales_type_filter:
+        sales = sales.filter(customer__sales_type=sales_type_filter)
+
+    sales = sales.order_by("-created_date")
+
+    # Filter CustomerCoupon data
     coupons = CustomerCoupon.objects.select_related('customer', 'salesman').filter(
         created_date__date__gte=start_date,
         created_date__date__lte=end_date
-    ).order_by("-created_date")
+    )
 
-    # Combine sales and coupons data into a single list
+    if sales_type_filter:
+        coupons = coupons.filter(payment_type=sales_type_filter)
+
+    coupons = coupons.order_by("-created_date")
+
+    # Organize the data for rendering in the template
     sales_report_data = []
-    
+
+    # Process CustomerSupply data
     for sale in sales:
         sales_report_data.append({
             'date': sale.created_date.date(),
             'ref_invoice_no': sale.reference_number,
+            'invoice_number': sale.invoice_no,
             'customer_name': sale.customer.customer_name,
             'building_name': sale.customer.building_name,
             'sales_type': sale.customer.sales_type,
@@ -1910,10 +1961,19 @@ def customerSales_Print_report(request):
             'amount_collected': sale.amount_recieved,
         })
 
+        total_amount += sale.grand_total
+        total_discount += sale.discount
+        total_net_payable += sale.net_payable
+        total_vat += sale.vat
+        total_grand_total += sale.grand_total
+        total_amount_recieved += sale.amount_recieved
+
+    # Process CustomerCoupon data
     for coupon in coupons:
         sales_report_data.append({
             'date': coupon.created_date.date(),
             'ref_invoice_no': coupon.reference_number,
+            'invoice_number': coupon.invoice_no,
             'customer_name': coupon.customer.customer_name,
             'building_name': coupon.customer.building_name,
             'sales_type': coupon.customer.sales_type,
@@ -1922,21 +1982,18 @@ def customerSales_Print_report(request):
             'amount': coupon.grand_total,
             'discount': coupon.discount,
             'net_taxable': coupon.net_amount,
-            'vat_amount': Tax.objects.get(name="VAT").percentage,  # Assuming Tax model exists
+            'vat_amount': Tax.objects.get(name="VAT").percentage,
             'grand_total': coupon.grand_total,
             'amount_collected': coupon.amount_recieved,
         })
 
-    # Calculate totals
-    total_amount = sum(sale['amount'] for sale in sales_report_data)
-    total_discount = sum(sale['discount'] for sale in sales_report_data)
-    total_net_payable = sum(sale['net_taxable'] for sale in sales_report_data)
-    total_vat = sum(sale['vat_amount'] for sale in sales_report_data)
-    total_grand_total = sum(sale['grand_total'] for sale in sales_report_data)
-    total_amount_recieved = sum(sale['amount_collected'] for sale in sales_report_data)
+        total_amount += coupon.grand_total
+        total_discount += coupon.discount
+        total_net_payable += coupon.net_amount
+        total_vat += Tax.objects.get(name="VAT").percentage
+        total_grand_total += coupon.grand_total
+        total_amount_recieved += coupon.amount_recieved
 
-    # Render the template for printing (you can use HTML or PDF as per your requirement)
-    template_path = 'sales_management/print_template.html'  # Create a template for printing
     context = {
         'customersales': sales_report_data,
         'total_amount': total_amount,
@@ -1945,217 +2002,15 @@ def customerSales_Print_report(request):
         'total_vat': total_vat,
         'total_grand_total': total_grand_total,
         'total_amount_recieved': total_amount_recieved,
-        'filter_data': {
-            'start_date': start_date,
-            'end_date': end_date,
-        },
+        'filter_data': filter_data,
+        'sales_types': ['CASH', 'CREDIT'],  # Available filter options
     }
+    return render(request, 'sales_management/customerSales_report_pdf.html', context)
 
-    # If you want to generate a PDF instead of HTML for printing
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="customer_sales_report_{start_date}_{end_date}.pdf"'
-
-    template = get_template(template_path)
-    html = template.render(context)
-
-    # Create PDF document
-    pisa_status = pisa.CreatePDF(
-        html,
-        dest=response,
-            )
-
-    # Return PDF response
-    if pisa_status.err:
-        return HttpResponse('We had some errors <pre>' + html + '</pre>')
-    return response
-
-    # If you want to return HTML response for printing
-    # return render(request, template_path, context)
-    
-    
-#     # Initialize totals
-#     total_amount = 0
-#     total_discount = 0
-#     total_net_payable = 0
-#     total_vat = 0
-#     total_grand_total = 0
-#     total_amount_received = 0
-
-#     # Get start and end dates from request parameters or default to today
-#     start_date = request.GET.get('start_date')
-#     end_date = request.GET.get('end_date')
-    
-#     if start_date and end_date:
-#         start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-#         end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
-#     else:
-#         start_date = datetime.today().date()
-#         end_date = datetime.today().date()
-    
-#     # Query CustomerSupply data
-#     sales = CustomerSupply.objects.select_related('customer', 'salesman').filter(
-#         created_date__date__gte=start_date,
-#         created_date__date__lte=end_date
-#     ).exclude(customer__sales_type__in=["CASH COUPON", "CREDIT"]).order_by("-created_date")
-
-#     # Query CustomerCoupon data
-#     coupons = CustomerCoupon.objects.select_related('customer', 'salesman').filter(
-#         created_date__date__gte=start_date,
-#         created_date__date__lte=end_date
-#     ).order_by("-created_date")
-
-#     # Query CollectionPayment data
-#     collections = CollectionPayment.objects.select_related('customer', 'salesman').filter(
-#         created_date__date__gte=start_date,
-#         created_date__date__lte=end_date
-#     ).order_by("-created_date")
-
-#     # Organize the data for rendering in the template
-#     sales_report_data = []
-
-#     # Process CustomerSupply data
-#     for idx, sale in enumerate(sales, start=1):
-#         sales_report_data.append({
-#             'date': sale.created_date.date(),
-#             'ref_invoice_no': sale.reference_number,
-#             'customer_name': sale.customer.customer_name,
-#             'building_name': sale.customer.building_name,
-#             'sales_type': sale.customer.sales_type,
-#             'route_name': sale.customer.routes.route_name,
-#             'salesman': sale.customer.sales_staff.get_fullname(),
-#             'amount': sale.grand_total,
-#             'discount': sale.discount,
-#             'net_taxable': sale.subtotal,
-#             'vat_amount': sale.vat,
-#             'grand_total': sale.grand_total,
-#             'amount_collected': sale.amount_recieved,
-#         })
-        
-#         total_amount += sale.grand_total
-#         total_discount += sale.discount
-#         total_net_payable += sale.net_payable
-#         total_vat += sale.vat
-#         total_grand_total += sale.grand_total
-#         total_amount_received += sale.amount_recieved
-
-#     # Process CustomerCoupon data
-#     for idx, coupon in enumerate(coupons, start=len(sales_report_data) + 1):
-#         sales_report_data.append({
-#             'date': coupon.created_date.date(),
-#             'ref_invoice_no': coupon.reference_number,
-#             'customer_name': coupon.customer.customer_name,
-#             'building_name': coupon.customer.building_name,
-#             'sales_type': coupon.customer.sales_type,
-#             'route_name': coupon.customer.routes.route_name,
-#             'salesman': coupon.customer.sales_staff.get_fullname(),
-#             'amount': coupon.grand_total,
-#             'discount': coupon.discount,
-#             'net_taxable': coupon.net_amount,
-#             'vat_amount': Tax.objects.get(name="VAT").percentage,
-#             'grand_total': coupon.grand_total,
-#             'amount_collected': coupon.amount_recieved,
-#         })
-        
-#         total_amount += coupon.grand_total
-#         total_discount += coupon.discount
-#         total_net_payable += coupon.net_amount
-#         total_vat += Tax.objects.get(name="VAT").percentage
-#         total_grand_total += coupon.grand_total
-#         total_amount_received += coupon.amount_recieved
-
-#     # Process CollectionPayment data
-#     for idx, collection in enumerate(collections, start=len(sales_report_data) + 1):
-#         sales_report_data.append({
-#             'date': collection.created_date.date(),
-#             'ref_invoice_no': "",
-#             'customer_name': collection.customer.customer_name,
-#             'building_name': collection.customer.building_name,
-#             'sales_type': collection.customer.sales_type,
-#             'route_name': collection.customer.routes.route_name,
-#             'salesman': collection.customer.sales_staff.get_fullname(),
-#             'amount': collection.total_amount(),
-#             'discount': collection.total_discounts(),
-#             'net_taxable': collection.total_net_taxeble(),
-#             'vat_amount': collection.total_vat(),
-#             'grand_total': collection.total_amount(),
-#             'amount_collected': collection.collected_amount(),
-#         })
-        
-#         total_amount += collection.total_amount()
-#         total_discount += collection.total_discounts()
-#         total_net_payable += collection.total_net_taxeble()
-#         total_vat += collection.total_vat()
-#         total_grand_total += collection.total_amount()
-#         total_amount_received += collection.collected_amount()
-
-#     # Create a PDF report
-#     response = HttpResponse(content_type='application/pdf')
-#     response['Content-Disposition'] = 'attachment; filename="customerSales_PDF_report.pdf"'
-
-#     # Create a PDF document
-#     # doc = SimpleDocTemplate(response, pagesize=landscape(A4))
-
-#     # Define custom page size (e.g., 8.5x5.5 inches)
-#     custom_page_size = (14.5 * inch, 5.5 * inch)
-
-#     # Create a PDF document with custom page size
-#     doc = SimpleDocTemplate(response, pagesize=landscape(custom_page_size))
-#     elements = []
-
-#     # Define styles
-#     styles = {
-#         'header': {'fontSize': 10, 'bold': True},
-#         'cell': {'fontSize': 8},
-#     }
-
-#     # Create table data
-#     data = []
-#     headers = ['Date & Time', 'Ref/Invoice No', 'Customer Name', 'Building Name', 'SalesType', 'Route', 'Salesman', 'Amount', 'Discount', 'Net Taxable', 'Vat Amount', 'Grand Total', 'Amount Collected']
-#     data.append(headers)
-#     for sale_data in sales_report_data:
-#         row = [sale_data['date'], sale_data['ref_invoice_no'], sale_data['customer_name'], sale_data['building_name'], sale_data['sales_type'], sale_data['route_name'], sale_data['salesman'], sale_data['amount'], sale_data['discount'], sale_data['net_taxable'], sale_data['vat_amount'], sale_data['grand_total'], sale_data['amount_collected']]
-#         data.append(row)
-
-#     # Create table and apply styles
-#     table = Table(data)
-#     table.setStyle(TableStyle([
-#         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-#         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-#         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-#         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-#         ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-#         ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-#     ]))
-#     elements.append(table)
-
-#   # Write totals
-#     totals_table = Table([
-#         ['Total:', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 
-#          '', '', '', '', '', '', '', '','', '', '', '', '', '', '', '', '', '',total_amount,'',total_discount, '', '', total_net_payable, '', '',total_vat, '', '', total_grand_total, '', '', '', total_amount_received]
-#     ])
-#     totals_table.setStyle(TableStyle([
-#         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-#         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-#         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-#     ]))
-#     elements.append(totals_table)
-
-#     # Add elements to the document
-#     doc.build(elements)
-
-#     return response
 
 #------------------Collection Report-------------------------                
 
-# def collectionreport(request):
-#     # Retrieve collection payments along with related fields
-#     collection_payments = CollectionItems.objects.select_related('invoice','collection_payment__customer', 'collection_payment__customer__routes').all()
 
-#     context = {
-#         'collection_payments': collection_payments
-#     }
-
-#     return render(request, 'sales_management/collection_report.html', context)
 def collectionreport(request):
     filter_data = {}
     selected_route_id = request.GET.get('route_name')
