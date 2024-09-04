@@ -1917,10 +1917,11 @@ class CouponLeafletSerializer(serializers.ModelSerializer):
         
 class NewCouponSerializer(serializers.ModelSerializer):
     balance_leaflets = serializers.SerializerMethodField()
+    coupon_name = serializers.CharField(source='coupon_type.coupon_type_name', read_only=True)  
 
     class Meta:
         model = NewCoupon
-        fields = ['coupon_id', 'book_num', 'coupon_type', 'balance_leaflets']
+        fields = ['coupon_id', 'book_num', 'coupon_type', 'coupon_name', 'balance_leaflets']
 
     def get_balance_leaflets(self, obj):
         # Filter the leaflets to include only those that are used
