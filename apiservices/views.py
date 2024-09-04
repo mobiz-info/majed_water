@@ -39,7 +39,7 @@ from invoice_management.models import Invoice, InvoiceDailyCollection, InvoiceIt
 from client_management.forms import CoupenEditForm
 from master.serializers import *
 from master.functions import generate_serializer_errors, get_custom_id, get_next_visit_date
-from master.models import *
+
 from random import randint
 from datetime import datetime as dt
 from coupon_management.models import *
@@ -52,6 +52,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from accounts.models import *
 from master.models import *
+from credit_note.models import *
 from product.models import *
 from sales_management.models import CollectionItems, CollectionPayment, SalesmanSpendingLog
 from van_management.models import *
@@ -8848,3 +8849,69 @@ class CustomerCouponListAPIView(APIView):
 
         except Customers.DoesNotExist:
             return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+
+from rest_framework import generics        
+class CreditNoteListAPI(generics.ListAPIView):
+    serializer_class = CreditNoteSerializer
+
+    def get_queryset(self):
+        queryset = CreditNote.objects.filter(is_deleted=False).order_by("-created_date")
+        
+        start_date_str = self.request.query_params.get('start_date')
+        end_date_str = self.request.query_params.get('end_date')
+        sales_type = self.request.query_params.get('sales_type')
+        query = self.request.query_params.get('q')
+        
+        if start_date_str and end_date_str:
+            try:
+                start_date = parse_date(start_date_str)
+                end_date = parse_date(end_date_str)
+                if start_date and end_date:
+                    queryset = queryset.filter(created_date__range=[start_date, end_date])
+            except ValueError:
+                return queryset.none()
+        
+        if sales_type:
+            queryset = queryset.filter(customer__sales_type=sales_type)
+        
+        if query:
+            queryset = queryset.filter(
+                credit_note_no__icontains=query
+            )
+        
+        return queryset
+
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)        
+  
+class ProductRouteSalesReportAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if not start_date:
+            start_date = datetime.today().date()
+        else:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        
+        if not end_date:
+            end_date = datetime.today().date() + timedelta(days=1)
+        else:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        
+        instances = ProdutItemMaster.objects.all()
+                
+        serializer = ProductSalesReportSerializer(
+            instances,
+            many=True,
+            context={'user_id': request.user.pk, 'start_date': start_date, 'end_date': end_date}
+        )
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    

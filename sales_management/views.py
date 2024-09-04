@@ -3125,6 +3125,48 @@ def dsr_stock_report_print(request):
     filter_data = {}
     data_filter = False
     stock_report_total = 0
+
+    # Get date filters and route name from the request
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    route_name = request.GET.get('route_name')
+
+    # If no filters are applied, set default values
+    if not from_date or not to_date:
+        from_date = to_date = datetime.today().date()
+        filter_data['from_date'] = from_date.strftime('%Y-%m-%d')
+        filter_data['to_date'] = to_date.strftime('%Y-%m-%d')
+    else:
+        from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
+        to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
+        filter_data['from_date'] = from_date.strftime('%Y-%m-%d')
+        filter_data['to_date'] = to_date.strftime('%Y-%m-%d')
+        data_filter = True
+
+    # Get all routes initially
+    routes_instances = RouteMaster.objects.all()
+    van_product_stock = VanProductStock.objects.none()
+
+    # If a specific route is selected, filter based on the route
+    if route_name:
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
+        if van_route:
+            filter_data['route_name'] = route_name
+            van_instances = Van.objects.filter(salesman=van_route.van.salesman)
+            van_product_stock = VanProductStock.objects.filter(
+                created_date__range=(from_date, to_date),
+                van__in=van_instances,
+                product__product_name="5 Gallon"
+            )
+            stock_report_total = van_product_stock.aggregate(total_stock=Sum('stock'))['total_stock'] or 0
+    else:
+        # If no specific route is selected, fetch data for all routes
+        van_product_stock = VanProductStock.objects.filter(
+            created_date__range=(from_date, to_date),
+            product__product_name="5 Gallon"
+        )
+        stock_report_total = van_product_stock.aggregate(total_stock=Sum('stock'))['total_stock'] or 0
+
    
     van_instances = Van.objects.none
     van_route = Van_Routes.objects.none
@@ -3133,15 +3175,6 @@ def dsr_stock_report_print(request):
     routes_instances = RouteMaster.objects.all()
     van_product_stock = VanProductStock.objects.none
     
-    date = request.GET.get('date')
-    route_name = request.GET.get('route_name')
-    
-    if date:
-        date = datetime.strptime(date, '%Y-%m-%d').date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-    else:
-        date = datetime.today().date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
     
     if route_name:
@@ -3155,7 +3188,7 @@ def dsr_stock_report_print(request):
         ##### stock report #### 
         products = ProdutItemMaster.objects.filter()
         van_instances = Van.objects.get(salesman=salesman)
-        van_product_stock = VanProductStock.objects.filter(created_date=date,van=van_instances,product__product_name="5 Gallon")
+        van_product_stock = VanProductStock.objects.filter(created_date__range=(from_date, to_date),van=van_instances,product__product_name="5 Gallon")
         stock_report_total = van_product_stock.aggregate(total_stock=Sum('stock'))['total_stock'] or 0
         
         
@@ -3172,7 +3205,6 @@ def dsr_stock_report_print(request):
         'van_product_stock': van_product_stock,
         'stock_report_total': stock_report_total,
         'filter_data': filter_data,
-        'filter_date_formatted': date.strftime('%d-%m-%Y'),
     }
     
     return render(request, 'sales_management/dsr_stock_report_print.html', context)
