@@ -947,14 +947,56 @@ class EmergencyCustomersSerializer(serializers.ModelSerializer):
 #----------------------New sales Report-------------
 
 class NewSalesCustomerSupplySerializer(serializers.ModelSerializer):
+    taxable_amount = serializers.SerializerMethodField() 
+    total = serializers.SerializerMethodField() 
+    amount_recieved = serializers.SerializerMethodField() 
+    customer_name = serializers.SerializerMethodField() 
+    customer_code = serializers.SerializerMethodField() 
+    
     class Meta:
         model = CustomerSupply
-        fields = '__all__'
+        fields = ['invoice_no','reference_number','customer_name','customer_code','taxable_amount','total','amount_recieved']
+    
+    def get_taxable_amount(self, obj):
+        return obj.grand_total
+    
+    def get_total(self, obj):
+        return obj.total
+    
+    def get_amount_recieved(self, obj):
+        return obj.amount_recieved
+    
+    def get_customer_name(self, obj):
+        return obj.customer.customer_name
+    
+    def get_customer_code(self, obj):
+        return obj.customer.custom_id
 
 class NewSalesCustomerCouponSerializer(serializers.ModelSerializer):
+    taxable_amount = serializers.SerializerMethodField() 
+    total = serializers.SerializerMethodField() 
+    amount_recieved = serializers.SerializerMethodField() 
+    customer_name = serializers.SerializerMethodField() 
+    customer_code = serializers.SerializerMethodField() 
+    
     class Meta:
         model = CustomerCoupon
-        fields = '__all__'
+        fields = ['invoice_no','reference_number','customer_name','customer_code','taxable_amount','total','amount_recieved']
+    
+    def get_taxable_amount(self, obj):
+        return obj.grand_total
+    
+    def get_total(self, obj):
+        return obj.total
+    
+    def get_amount_recieved(self, obj):
+        return obj.amount_recieved
+    
+    def get_customer_name(self, obj):
+        return obj.customer.customer_name
+    
+    def get_customer_code(self, obj):
+        return obj.customer.custom_id
 
 class NewSalesCollectionPaymentSerializer(serializers.ModelSerializer):
     class Meta:
