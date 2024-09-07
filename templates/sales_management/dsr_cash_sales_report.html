@@ -27,30 +27,34 @@
                         <form method="GET" action="{% url 'cashsales_report' %}">
                             <div class="card-body">
                                 <div class="row align-items-center">
-                                    <div class="col-4">
-                                        <label for="date">Date:</label>
-                                        <input type="date" class="form-control" id="date" name="date" value="{{ filter_data.filter_date }}">
+                                    <div class="col-3">
+                                        <label for="date_from">From Date:</label>
+                                        <input type="date" class="form-control" id="date_from" name="date_from" value="{{ filter_data.filter_date_from }}">
                                     </div>
-                                    <div class="col-4">
-                                        <label for="product">Routes :</label>
+                                    <div class="col-3">
+                                        <label for="date_to">To Date:</label>
+                                        <input type="date" class="form-control" id="date_to" name="date_to" value="{{ filter_data.filter_date_to }}">
+                                    </div>
+                                    <div class="col-3">
+                                        <label for="route_name">Routes:</label>
                                         <select name="route_name" class="form-select">
                                             <option value="">All Routes</option>
                                             {% for route in routes_instances %}
-                                                <option value="{{ route.route_name }}"  {% if route.route_name == filter_data.route_name %}selected{% endif %}>{{ route.route_name }}</option>
+                                                <option value="{{ route.route_name }}" {% if route.route_name == filter_data.route_name %}selected{% endif %}>{{ route.route_name }}</option>
                                             {% endfor %}
                                         </select>
                                     </div>
                                     <div class="col d-flex align-items-end justify-content-end">
                                         <input type="submit" class="btn btn-primary btn-sm mx-1" value="Apply Filter">
                                         {% if data_filter %}
-                                        <button type="button" class="btn btn-secondary btn-sm mx-1" onclick="resetFilters()" style="width:max-content">Reset Filter</button>
+                                            <button type="button" class="btn btn-secondary btn-sm mx-1" onclick="resetFilters()" style="width:max-content">Reset Filter</button>
                                         {% endif %}
-                                        <a href="{% url 'cashsales_report_print' %}?date={{ filter_data.filter_date }}&route_name={{ filter_data.route_name }}" class="btn btn-outline-success btn-sm mx-1" target="__blank"><i class="fas fa-file-excel"></i>Print</a>
-
+                                        <a href="{% url 'cashsales_report_print' %}?date_from={{ filter_data.filter_date_from }}&date_to={{ filter_data.filter_date_to }}&route_name={{ filter_data.route_name }}" class="btn btn-outline-success btn-sm mx-1" target="__blank"><i class="fas fa-file-excel"></i> Print</a>
                                     </div>
                                 </div>
                             </div>
                         </form>
+                        
                     </div>
                     {% if data_filter %}
                     <div >

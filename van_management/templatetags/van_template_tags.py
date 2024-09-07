@@ -62,7 +62,9 @@ def get_five_gallon_ratewise_count(rate,date,salesman):
         "credit_amount_count": instances.filter(customer_supply__amount_recieved=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"]).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0,
         "coupon_amount_count": instances.filter(customer_supply__customer__sales_type="CASH COUPON").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
     }
-    
+
+
+
 @register.simple_tag
 def get_coupon_vanstock_count(van_pk,date,coupon_type):
     return VanCouponStock.objects.filter(created_date=date,van__pk=van_pk,coupon__coupon_type__coupon_type_name=coupon_type).aggregate(total_stock=Sum('stock'))['total_stock'] or 0
@@ -111,3 +113,30 @@ def get_van_coupon_wise_stock(date, van, coupon):
             "total_stock": total_stock
         }
     return {}
+
+
+@register.simple_tag
+def get_five_gallon_ratewise_counts(rate, from_date, to_date, salesman):
+    try:
+        from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
+        to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
+    except ValueError:
+        return {
+            "debit_amount_count": 0,
+            "credit_amount_count": 0,
+            "coupon_amount_count": 0,
+        }
+
+    instances = CustomerSupplyItems.objects.filter(
+        customer_supply__created_date__date__range=(from_date, to_date),
+        customer_supply__salesman_id=salesman,
+        product__product_name="5 Gallon",
+        customer_supply__customer__rate=rate
+    )
+
+    return {
+        
+        "debit_amount_count": instances.filter(customer_supply__amount_recieved__gt=0).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0,
+        "credit_amount_count": instances.filter(customer_supply__amount_recieved=0).exclude(customer_supply__customer__sales_type__in=["FOC", "CASH COUPON"]).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0,
+        "coupon_amount_count": instances.filter(customer_supply__customer__sales_type="CASH COUPON").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+    }

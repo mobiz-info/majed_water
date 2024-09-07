@@ -304,4 +304,10 @@ urlpatterns = [
     path('privacy-policy/', privacy),
     
     path('terms_and_conditions/', terms_and_conditions),
+    
+    path('customers_coupons/<uuid:customer_id>/', CustomerCouponListAPIView.as_view(), name='customer-coupon-list'),
+    
+    path('credit-note-list/', CreditNoteListAPI.as_view(), name='credit_note_list'),
+    path('product-route-salesreport/', ProductRouteSalesReportAPIView.as_view(), name='product_route_salesreport_api'),
+
 ]
