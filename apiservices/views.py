@@ -8851,17 +8851,14 @@ class CustomerCouponListAPIView(APIView):
             return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)
         
 
-from rest_framework import generics        
-class CreditNoteListAPI(generics.ListAPIView):
-    serializer_class = CreditNoteSerializer
-
-    def get_queryset(self):
-        queryset = CreditNote.objects.filter(is_deleted=False).order_by("-created_date")
+class CreditNoteListAPI(APIView):
+    def get(self, request, *args, **kwargs):
+        queryset = CreditNote.objects.filter(is_deleted=False)
         
-        start_date_str = self.request.query_params.get('start_date')
-        end_date_str = self.request.query_params.get('end_date')
-        sales_type = self.request.query_params.get('sales_type')
-        query = self.request.query_params.get('q')
+        start_date_str = request.query_params.get('start_date')
+        end_date_str = request.query_params.get('end_date')
+        sales_type = request.query_params.get('sales_type')
+        query = request.query_params.get('q')
         
         if start_date_str and end_date_str:
             try:
@@ -8870,23 +8867,33 @@ class CreditNoteListAPI(generics.ListAPIView):
                 if start_date and end_date:
                     queryset = queryset.filter(created_date__range=[start_date, end_date])
             except ValueError:
-                return queryset.none()
+                return Response({"error": "Invalid date format"}, status=status.HTTP_400_BAD_REQUEST)
         
         if sales_type:
             queryset = queryset.filter(customer__sales_type=sales_type)
         
         if query:
-            queryset = queryset.filter(
-                credit_note_no__icontains=query
-            )
-        
-        return queryset
+            queryset = queryset.filter(credit_note_no__icontains=query)
 
-    def get(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)        
-  
+        # Aggregating the totals for the fields
+        totals = queryset.aggregate(
+            total_net_taxable=Sum('net_taxable'),
+            total_vat=Sum('vat'),
+            total_amount_total=Sum('amout_total'),
+            total_amount_received=Sum('amout_recieved')
+        )
+
+        # Serialize the queryset
+        serializer = CreditNoteSerializer(queryset, many=True)
+        
+        # Combine the serialized data and the aggregated totals in the response
+        response_data = {
+            'credit_notes': serializer.data,
+            'totals': totals
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
+    
 class ProductRouteSalesReportAPIView(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
