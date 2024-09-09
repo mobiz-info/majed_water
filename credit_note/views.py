@@ -140,7 +140,7 @@ def create_credit_note(request, customer_pk):
             try:
                 with transaction.atomic():
                     credit_note = credit_note_form.save(commit=False)
-                    credit_note.created_date = datetime.datetime.today()
+                    credit_note.created_date = datetime.today()
                     credit_note.credit_note_no = credit_note_number
                     credit_note.customer = customer_instance
                     credit_note.save()
