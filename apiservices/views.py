@@ -8915,3 +8915,41 @@ class ProductRouteSalesReportAPIView(APIView):
 
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+
+class SalesInvoicesAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if not start_date:
+            start_date = datetime.today().date()
+        else:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        
+        if not end_date:
+            end_date = datetime.today().date() + timedelta(days=1)
+        else:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        
+        route = Van_Routes.objects.filter(van__salesman=request.user).first()
+        instances = Invoice.objects.filter(created_date__date__gt=start_date,created_date__date__lte=end_date,customer__routes=route)
+                
+        serializer = SalesInvoiceSerializer(instances,many=True)
+        
+        response_data = {
+            "StatusCode": status.HTTP_200_OK,
+            "status": status.HTTP_200_OK,
+            "data": {
+                "invoices": serializer.data,
+                "total_taxable": instances.aggregate(total_net_taxable=Sum('net_taxable'))['total_net_taxable'],
+                "total_vat": instances.aggregate(total_vat=Sum('vat'))['total_vat'],
+                "total_amount": instances.aggregate(total_amount=Sum('amout_total'))['total_amount'],
+                "total_amount_collected": instances.aggregate(total_amout_recieved=Sum('amout_recieved'))['total_amout_recieved'],
+            },
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
+    

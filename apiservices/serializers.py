@@ -2036,3 +2036,11 @@ class ProductSalesReportSerializer(serializers.ModelSerializer):
         coupon_total_qty = coupon_sales.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         
         return cash_total_quantity + credit_total_quantity + coupon_total_qty
+    
+
+class SalesInvoiceSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
+    
+    class Meta:
+        model = Invoice
+        fields = ['created_date','invoice_no','reference_no','customer_name','net_taxable','vat','discount','amout_total','amout_recieved']  

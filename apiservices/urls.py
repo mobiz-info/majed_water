@@ -309,5 +309,7 @@ urlpatterns = [
     
     path('credit-note-list/', CreditNoteListAPI.as_view(), name='credit_note_list'),
     path('product-route-salesreport/', ProductRouteSalesReportAPIView.as_view(), name='product_route_salesreport_api'),
+    
+    path('sales-invoices/', SalesInvoicesAPIView.as_view(), name='sales_invoices'),
 
 ]
