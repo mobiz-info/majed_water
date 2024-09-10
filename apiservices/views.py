@@ -8960,3 +8960,30 @@ class SalesInvoicesAPIView(APIView):
 
         return Response(response_data, status=status.HTTP_200_OK)
     
+class CustomerSupplyListAPIView(APIView):
+    
+    def get(self, request, *args, **kwargs):
+        instances = CustomerSupply.objects.all().order_by("-created_date")
+        
+        product_id = request.GET.get('product_id', None)
+        filter_date_str = request.GET.get('filter_date', None)
+
+        if product_id:
+            instances = instances.filter(id__in=CustomerSupplyItems.objects.filter(product_id=product_id).values('customer_supply_id'))
+
+        if filter_date_str:
+            filter_date = datetime.strptime(filter_date_str, '%Y-%m-%d').date()
+            instances = instances.filter(created_date__date=filter_date)
+
+        serializer = CustomersSupplysSerializer(instances, many=True)
+        data = serializer.data
+        
+        total_supplied = sum(item['supplied'] for item in data if 'supplied' in item)
+        
+        response_data = {
+            'items': data,
+            'total': total_supplied
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
+    

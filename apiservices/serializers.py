@@ -2044,3 +2044,28 @@ class SalesInvoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invoice
         fields = ['created_date','invoice_no','reference_no','customer_name','net_taxable','vat','discount','amout_total','amout_recieved']  
+        
+        
+class CustomersSupplysSerializer(serializers.ModelSerializer):
+    
+    building_no = serializers.CharField(source='customer.building_name')
+    door_house_no = serializers.CharField(source='customer.door_house_no')
+    supplied = serializers.SerializerMethodField()
+    sales_mode = serializers.CharField(source='customer.sales_type')
+    customer_code = serializers.SerializerMethodField() 
+    
+    class Meta:
+        model = CustomerSupply
+        fields = ['customer_code', 'building_no', 'door_house_no', 'supplied', 'sales_mode']
+
+    def get_supplied(self, obj):
+        coupon_products = CustomerSupplyItems.objects.filter(customer_supply=obj).exclude(customer_supply__customer__sales_type="CASH COUPON")
+        
+        if coupon_products:
+            return obj.get_total_supply_qty() 
+        else:
+            print("Couo")
+            return obj.total_coupon_recieved().get('manual_coupon', 0) + obj.total_coupon_recieved().get('digital_coupon', 0)
+    
+    def get_customer_code(self, obj):
+        return obj.customer.custom_id
