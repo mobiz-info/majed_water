@@ -5143,39 +5143,53 @@ class CollectionReportAPI(APIView):
 
     def get(self, request, *args, **kwargs):
         try:
-            user_id = request.user.id
-            print("user_id", user_id)
-
-            # Retrieve date parameters from request
-            start_date = request.data.get('start_date')
-            end_date = request.data.get('end_date')
-
-            if not (start_date and end_date):
-                return Response({"error": "Both start_date and end_date are required."}, status=status.HTTP_400_BAD_REQUEST)
-
-            try:
-                start_datetime = datetime.strptime(start_date, '%Y-%m-%d')
-                end_datetime = datetime.strptime(end_date, '%Y-%m-%d')
-            except ValueError:
-                return Response({"error": "Invalid date format. Use 'YYYY-MM-DD'."}, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-            # Filter CollectionItems for the salesman within the date range
+            start_date_str = request.query_params.get('start_date')
+            end_date_str = request.query_params.get('end_date')
+            selected_route_id = request.query_params.get('route_name')
+            
+            today = timezone.now().date()
+            start_date = today
+            end_date = today + timedelta(days=1)
+            
+            if start_date_str and end_date_str:
+                try:
+                    start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                    end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    return Response({"error": "Invalid date format. Use 'YYYY-MM-DD'."}, status=status.HTTP_400_BAD_REQUEST)
+            
             collection_items = CollectionItems.objects.filter(
-                collection_payment__salesman_id=user_id,
-                collection_payment__created_date__range=(start_datetime, end_datetime)
+                collection_payment__created_date__date__range=[start_date, end_date]
             ).select_related('collection_payment__customer')
-
-            if collection_items.exists():
-                serialized_data = CollectionReportSerializer(collection_items, many=True).data
-                return Response({'status': True, 'data': serialized_data}, status=status.HTTP_200_OK)
-            else:
-                return Response({'status': False, 'message': 'No data found'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            if selected_route_id:
+                try:
+                    selected_route = RouteMaster.objects.get(route_name=selected_route_id)
+                    collection_items = collection_items.filter(
+                        collection_payment__customer__routes__route_name=selected_route
+                    )
+                except RouteMaster.DoesNotExist:
+                    return Response({"error": "Route not found."}, status=status.HTTP_404_NOT_FOUND)
+            
+            total_collected_amount = collection_items.aggregate(total=Sum('amount_received'))['total'] or 0
+            
+            serialized_data = CollectionReportSerializer(collection_items, many=True).data
+            
+            
+            return Response({
+                'status': True,
+                'data': serialized_data,
+                'total_collected_amount': str(total_collected_amount),
+                'filter_data': {
+                    'start_date': start_date.strftime('%Y-%m-%d'),
+                    'end_date': end_date.strftime('%Y-%m-%d'),
+                    'selected_route': selected_route_id
+                }
+            }, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+          
 #----------------------Coupon Supply Report
 class CouponSupplyCountAPIView(APIView):
     authentication_classes = [BasicAuthentication]

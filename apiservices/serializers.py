@@ -1028,29 +1028,24 @@ class CreditNoteSerializer(serializers.ModelSerializer):
         return obj.customer.customer_name
     
 class CollectionReportSerializer(serializers.ModelSerializer):
-    customer_id = serializers.SerializerMethodField()
+    customer_code = serializers.SerializerMethodField() 
     customer_name = serializers.SerializerMethodField()
     receipt_no = serializers.CharField(source='invoice.reference_no')
     mode_of_payment = serializers.CharField(source='collection_payment.payment_method')
     collected_amount = serializers.DecimalField(source='amount_received', max_digits=10, decimal_places=2)
-    custom_amount_received = serializers.SerializerMethodField()
-
+    invoice = serializers.CharField(source='invoice.invoice_no')
+    
     class Meta:
         model = CollectionItems
-        fields = ['customer_id', 'customer_name', 'receipt_no', 'mode_of_payment', 'collected_amount', 'custom_amount_received']
+        fields = [ 'customer_code','customer_name', 'receipt_no', 'mode_of_payment', 'collected_amount','invoice']
 
-    def get_customer_id(self, obj):
-        return obj.collection_payment.customer.customer_id
-
+   
     def get_customer_name(self, obj):
         return obj.collection_payment.customer.customer_name
     
-    def get_custom_amount_received(self, obj):
-        if obj.amount_received > 0:
-            return obj.amount_received
-        return 0  # Or any other value you want to set if amount_received is not greater than 0
-
-
+    def get_customer_code(self, obj):
+        return obj.collection_payment.customer.custom_id
+    
 class CouponSupplyCountSerializer(serializers.ModelSerializer):
     customer__customer_name = serializers.CharField()  
     manual_coupon_paid_count = serializers.IntegerField()
