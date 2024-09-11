@@ -110,10 +110,58 @@ class StaffOrderDetailsSerializers(serializers.ModelSerializer):
     class Meta:
         model = Staff_Orders_details
         fields = '__all__'
-class CustomerOrderSerializer(serializers.ModelSerializer):
+class  CustomerCartItemsSerializer(serializers.ModelSerializer):
+    product_id = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CustomerCartItems
+        fields = ['id','product','quantity','price','total_amount','product_id']
+        read_only_fields = ['id','order_status','price','total_amount','product_id']
+        
+    def get_product_id(self, obj):
+        return obj.product.pk
+        
+        
+class  CustomerCartSerializer(serializers.ModelSerializer):
+    items = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CustomerCart
+        fields = ['id','customer','grand_total','delivery_date','order_status','items']
+        read_only_fields = ['id','customer','grand_total','order_status','items']
+        
+    def get_items(self, obj):
+        instances = CustomerCartItems.objects.filter(customer_cart=obj)
+        serializer = CustomerCartItemsSerializer(instances, many=True)
+        
+        return serializer.data
+        
+        
+class  CustomerOrderItemsSerializer(serializers.ModelSerializer):
+    product_id = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CustomerOrdersItems
+        fields = ['id','product','quantity','price','total_amount','product_id']
+        read_only_fields = ['id','order_status','price','total_amount','product_id']
+        
+    def get_product_id(self, obj):
+        return obj.product.pk
+        
+        
+class  CustomerOrderSerializer(serializers.ModelSerializer):
+    items = serializers.SerializerMethodField()
+    
     class Meta:
         model = CustomerOrders
-        fields = ['id', 'created_date', 'order_status']
+        fields = ['id','customer','grand_total','delivery_date','order_status','items']
+        read_only_fields = ['id','customer','grand_total','order_status','items']
+        
+    def get_items(self, obj):
+        instances = CustomerOrdersItems.objects.filter(customer_order=obj)
+        serializer = CustomerOrderItemsSerializer(instances, many=True)
+        
+        return serializer.data
 
 from client_management.models import CustodyCustomItems
 

@@ -4,7 +4,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from datetime import date
 from accounts.models import *
-from coupon_management.models import COUPON_METHOD_CHOICES, Coupon, CouponLeaflet, CouponType, FreeLeaflet, NewCoupon
+from coupon_management.models import COUPON_METHOD_CHOICES, Coupon, CouponLeaflet, CouponType, NewCoupon
 from product.models import *
 from django.http import HttpResponse
 from django.db.models import Count,Sum
@@ -427,7 +427,6 @@ class CustomerSupplyCoupon(models.Model):
         id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
         customer_supply = models.ForeignKey(CustomerSupply,on_delete = models.CASCADE)
         leaf = models.ManyToManyField(CouponLeaflet)
-        free_leaf = models.ManyToManyField(FreeLeaflet)
 
         class Meta:
             ordering = ('-id',)
@@ -484,31 +483,54 @@ class MarketShare(models.Model):
         def __str__(self):
             return str(self.product)
         
+        
 class CustomerOrders(models.Model):
-        id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-        product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
-        customer = models.ForeignKey('accounts.Customers',on_delete = models.CASCADE)
-        quantity=models.DecimalField(default=0, max_digits=10, decimal_places=2)
-        total_amount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
-        no_empty_bottle_return = models.PositiveIntegerField(default=0)
-        empty_bottle_required = models.BooleanField(default=False)
-        no_empty_bottle_required = models.PositiveIntegerField(default=0)
-        empty_bottle_amount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
-        total_net_amount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
-        delivery_date = models.DateField()
-        payment_option = models.CharField(max_length=10,choices=CUSTOMER_ORDER_PAYMENT_OPTION)
-        order_status = models.CharField(max_length=10,choices=CUSTOMER_ORDER_STATUS)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer = models.ForeignKey(Customers, on_delete=models.CASCADE, null=True, blank=True)
+    delivery_date = models.DateField()
+    grand_total = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    order_status = models.CharField(max_length=10,choices=CUSTOMER_ORDER_STATUS)
+    
+    created_by = models.CharField(max_length=20)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.customer}"
+    
+class CustomerOrdersItems(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer_order = models.ForeignKey(CustomerOrders, on_delete=models.CASCADE)
+    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE,null=True,blank=True)
+    quantity = models.DecimalField(default=1, max_digits=10, decimal_places=0)
+    price = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    total_amount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    
+    def __str__(self):
+        return f"{self.product} - Quantity: {self.quantity}"
         
-        created_by = models.CharField(max_length=100, blank=True)
-        created_date = models.DateTimeField(auto_now_add=True)
-        modified_by = models.CharField(max_length=20, null=True, blank=True)
-        modified_date = models.DateTimeField(auto_now=True ,blank=True, null=True)
+# class CustomerOrders(models.Model):
+#         id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+#         product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
+#         customer = models.ForeignKey('accounts.Customers',on_delete = models.CASCADE)
+#         quantity = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+#         amount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+#         gand_total = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+#         delivery_date = models.DateField()
+#         payment_option = models.CharField(max_length=10,choices=CUSTOMER_ORDER_PAYMENT_OPTION)
+#         order_status = models.CharField(max_length=10,choices=CUSTOMER_ORDER_STATUS)
         
-        class Meta:
-            ordering = ('-created_date',)
+#         created_by = models.CharField(max_length=100, blank=True)
+#         created_date = models.DateTimeField(auto_now_add=True)
+#         modified_by = models.CharField(max_length=20, null=True, blank=True)
+#         modified_date = models.DateTimeField(auto_now=True ,blank=True, null=True)
+        
+#         class Meta:
+#             ordering = ('-created_date',)
             
-        def __str__(self):
-            return str(self.product)
+#         def __str__(self):
+#             return str(self.product)
 
 
 
@@ -536,3 +558,30 @@ class NonvisitReport(models.Model):
 
     def __str__(self):
         return f'{self.customer} - {self.salesman} - {self.reason}'
+    
+    
+class CustomerCart(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer = models.ForeignKey(Customers, on_delete=models.CASCADE, null=True, blank=True)
+    delivery_date = models.DateField()
+    grand_total = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    order_status = models.BooleanField(default=False)
+    
+    created_by = models.CharField(max_length=20)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.customer}"
+    
+class CustomerCartItems(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer_cart = models.ForeignKey(CustomerCart, on_delete=models.CASCADE)
+    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE,null=True,blank=True)
+    quantity = models.DecimalField(default=1, max_digits=10, decimal_places=0)
+    price = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    total_amount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    
+    def __str__(self):
+        return f"{self.product} - Quantity: {self.quantity}"
