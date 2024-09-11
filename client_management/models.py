@@ -491,9 +491,9 @@ class CustomerOrders(models.Model):
     grand_total = models.DecimalField(default=0, max_digits=10, decimal_places=2)
     order_status = models.CharField(max_length=10,choices=CUSTOMER_ORDER_STATUS)
     
-    created_by = models.CharField(max_length=20)
+    created_by = models.CharField(max_length=200)
     created_date = models.DateTimeField(auto_now_add=True)
-    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_by = models.CharField(max_length=200, null=True, blank=True)
     modified_date = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):
@@ -567,9 +567,9 @@ class CustomerCart(models.Model):
     grand_total = models.DecimalField(default=0, max_digits=10, decimal_places=2)
     order_status = models.BooleanField(default=False)
     
-    created_by = models.CharField(max_length=20)
+    created_by = models.CharField(max_length=200)
     created_date = models.DateTimeField(auto_now_add=True)
-    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_by = models.CharField(max_length=200, null=True, blank=True)
     modified_date = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):
