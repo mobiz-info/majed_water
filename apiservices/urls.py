@@ -311,5 +311,6 @@ urlpatterns = [
     path('product-route-salesreport/', ProductRouteSalesReportAPIView.as_view(), name='product_route_salesreport_api'),
     
     path('sales-invoices/', SalesInvoicesAPIView.as_view(), name='sales_invoices'),
+    path('customer-supply-list/', CustomerSupplyListAPIView.as_view(), name='customer-supply-list'),
 
 ]
