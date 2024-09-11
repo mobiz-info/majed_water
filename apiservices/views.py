@@ -5964,6 +5964,7 @@ class CustomerCouponBalanceAPI(APIView):
             pending_coupons = 0
             digital_coupons = 0
             manual_coupons = 0
+            leaf_serializer = []
             
             if CustomerOutstandingReport.objects.filter(product_type="coupons",customer__user_id=request.user).exists() :
                 pending_coupons = CustomerOutstandingReport.objects.get(product_type="coupons",customer__user_id=request.user).value
@@ -5975,7 +5976,11 @@ class CustomerCouponBalanceAPI(APIView):
                     digital_coupons = customer_coupon_stock_digital.aggregate(total_count=Sum('count'))['total_count']
                 if (customer_coupon_stock_manual:=customer_coupon_stock.filter(coupon_method="manual")).exists() :
                     manual_coupons = customer_coupon_stock_manual.aggregate(total_count=Sum('count'))['total_count']
-            
+
+                customer_coupons_ids = CustomerCouponItems.objects.filter(customer_coupon__customer__user_id=request.user).values_list('coupon__pk')
+                coupon_leaflets = CouponLeaflet.objects.filter(coupon__pk__in=customer_coupons_ids,used=False)
+                leaf_serializer = CouponLeafSerializer(coupon_leaflets,many=True).data
+                
             return Response({
                 'status': True,
                 'message': 'success!',
@@ -5983,6 +5988,7 @@ class CustomerCouponBalanceAPI(APIView):
                     'pending_coupons': pending_coupons,
                     'digital_coupons': digital_coupons,
                     'manual_coupons': manual_coupons,
+                    'manual_coupon_leaflets': leaf_serializer
                 },
             })
         
