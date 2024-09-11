@@ -5991,10 +5991,12 @@ class CustomerCouponBalanceAPI(APIView):
                 if (customer_coupon_stock_manual:=customer_coupon_stock.filter(coupon_method="manual")).exists() :
                     manual_coupons = customer_coupon_stock_manual.aggregate(total_count=Sum('count'))['total_count']
 
-                customer_coupons_ids = CustomerCouponItems.objects.filter(customer_coupon__customer__user_id=request.user).values_list('coupon__pk')
-                coupon_leaflets = CouponLeaflet.objects.filter(coupon__pk__in=customer_coupons_ids,used=False)
-                leaf_serializer = CouponLeafSerializer(coupon_leaflets,many=True).data
-                
+                    customer_coupons_ids = CustomerCouponItems.objects.filter(customer_coupon__customer__user_id=request.user).values_list('coupon__pk')
+                    coupon_leaflets = CouponLeaflet.objects.filter(coupon__pk__in=customer_coupons_ids,used=False)
+                    leaf_serializer = CouponLeafSerializer(coupon_leaflets,many=True).data
+                    
+            bottle_conseption = CustomerSupplyItems.objects.filter(customer_supply__customer__user_id=request.user,product__product_name="5 Gallon").aggregate(total_count=Sum('quantity'))['total_count'] or 0
+            
             return Response({
                 'status': True,
                 'message': 'success!',
@@ -6002,7 +6004,8 @@ class CustomerCouponBalanceAPI(APIView):
                     'pending_coupons': pending_coupons,
                     'digital_coupons': digital_coupons,
                     'manual_coupons': manual_coupons,
-                    'manual_coupon_leaflets': leaf_serializer
+                    'manual_coupon_leaflets': leaf_serializer,
+                    'bottle_conseption_count': bottle_conseption
                 },
             })
         
