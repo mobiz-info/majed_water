@@ -8934,6 +8934,7 @@ class CustomerProductReplaceAPIView(APIView):
                 if serializer.is_valid():
                     
                     van_instance = Van.objects.get(salesman=request.user)
+                    
                     replace_instance = serializer.save(
                         created_by=request.user.id,
                         created_date=datetime.today(),
@@ -8951,9 +8952,15 @@ class CustomerProductReplaceAPIView(APIView):
                         for book_number in book_numbers :
                             coupon = NewCoupon.objects.get(book_num=book_number)
                             
-                            stock_instance = VanCouponStock.objects.get(van=van_instance,created_date=datetime.today().date(),coupon=coupon)
+                            stock_instance = VanCouponStock.objects.get_or_(van=van_instance,created_date=datetime.today().date(),coupon=coupon)
                             stock_instance.stock -= replace_instance.quantity
                             stock_instance.save()
+                            
+                            CustomerCouponItems.objects.filter(customer_coupon__customer=replace_instance.customer,coupon=coupon).delete()
+                         
+                        stock = CustomerCouponStock.objects.get(customer=replace_instance.customer,coupon_type_id__coupon_type_name=replace_instance.product.product_name,coupon_method="manual")
+                        stock.count -= replace_instance.quantity
+                        stock.save()
 
                     status_code = status.HTTP_201_CREATED
                     response_data = {

@@ -1009,7 +1009,7 @@ class NewSalesCustomerSupplySerializer(serializers.ModelSerializer):
         return obj.grand_total
     
     def get_total(self, obj):
-        return obj.total
+        return obj.subtotal
     
     def get_amount_recieved(self, obj):
         return obj.amount_recieved
