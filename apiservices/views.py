@@ -6246,60 +6246,81 @@ class CustomerCartAPIView(APIView):
     
     def get(self, request, *args, **kwargs):
         response_data = {}
+        if CustomerCart.objects.filter(customer__user_id=request.user,order_status=False).exists():
+            instance = CustomerCart.objects.get(customer__user_id=request.user,order_status=False)
+            serializer = CustomerCartSerializer(instance, many=False)
         
-        instance = CustomerCart.objects.get(customer__user_id=request.user)
-        serializer = CustomerCartSerializer(instance, many=False)
+            response_data = {
+                "statusCode": status.HTTP_200_OK,
+                "data" : serializer.data,
+            }
         
-        response_data = {
-            "statusCode": status.HTTP_200_OK,
-            "data" : serializer.data,
-        }
+            return Response(response_data, status=status.HTTP_200_OK)
         
-        return Response(response_data, status=status.HTTP_200_OK)
+        else:
+            response_data = {
+                "statusCode": status.HTTP_400_BAD_REQUEST,
+                "message" : "no data found",
+            }
+            
+            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
     
     def post(self, request, *args, **kwargs):
         customer = Customers.objects.get(user_id=request.user)
-        cart_serializer = CustomerCartSerializer(data=request.data)
-        cart_item_serializer = CustomerCartItemsSerializer(data=request.data)
-        
-        if cart_serializer.is_valid() and cart_item_serializer.is_valid():
-        
-            if (cart_instances:=CustomerCart.objects.filter(customer__user_id=request.user,order_status=False)).exists():
+        cart_data = request.data
+
+        # Pass the entire request data to the CustomerCartPostSerializer
+        cart_serializer = CustomerCartPostSerializer(data=cart_data)
+
+        if cart_serializer.is_valid():
+            # Check if there is an existing cart with order_status=False
+            if (cart_instances := CustomerCart.objects.filter(customer__user_id=request.user, order_status=False)).exists():
                 cart_instance = cart_instances.latest('-created_date')
-            else :
+            else:
                 cart_instance = cart_serializer.save(
                     customer=customer,
                     created_by=customer.pk,
                     created_date=datetime.today()
                 )
-                
-            cart_item_instance = cart_item_serializer.save(
-                    customer_cart=cart_instance,
+            
+            # Process the single item in the request
+            item_data = cart_data['items']
+            product_id = item_data['product']
+
+            # If the product is not already in the cart, proceed to add it
+            cart_item_serializer = CustomerCartItemsPostSerializer(data=item_data)
+
+            if cart_item_serializer.is_valid():
+                cart_item_instance = cart_item_serializer.save(
+                    customer_cart=cart_instance
                 )
-            
-            cart_item_instance.total_amount += cart_item_instance.quantity * cart_item_instance.price
-            cart_item_instance.save()
-            
-            cart_instance.grand_total += cart_item_instance.total_amount
-            cart_instance.save()
-            
-            response_data = {
-                "statusCode": status.HTTP_201_CREATED,
-                "data" : cart_item_serializer.data,
-                "message" : message,
-            }
                 
-            return Response(response_data, status=status.HTTP_201_CREATED)
+                # Calculate total amount for the item and update grand total
+                cart_item_instance.total_amount = cart_item_instance.quantity * cart_item_instance.price
+                cart_item_instance.save()
+
+                cart_instance.grand_total += cart_item_instance.total_amount
+                cart_instance.save()
+
+                response_data = {
+                    "statusCode": status.HTTP_201_CREATED,
+                    "data": cart_serializer.data,
+                    "message": "Successfully added",
+                }
+                return Response(response_data, status=status.HTTP_201_CREATED)
+            else:
+                response_data = {
+                    "statusCode": status.HTTP_400_BAD_REQUEST,
+                    "title": "Item Data Error",
+                    "message": cart_item_serializer.errors,
+                }
+                return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
         else:
-            message = cart_serializer.errors
-            message += cart_item_serializer.errors
-            
             response_data = {
                 "statusCode": status.HTTP_400_BAD_REQUEST,
-                "title" : "Data Error",
-                "message" : message,
+                "title": "Cart Data Error",
+                "message": cart_serializer.errors,
             }
-            
             return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
         
     def delete(self, request, *args, **kwargs):

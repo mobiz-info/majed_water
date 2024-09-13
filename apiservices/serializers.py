@@ -119,7 +119,10 @@ class  CustomerCartItemsSerializer(serializers.ModelSerializer):
         read_only_fields = ['id','order_status','price','total_amount','product_id']
         
     def get_product_id(self, obj):
-        return obj.product.pk
+        product_id = ""
+        if obj.product:
+            product_id = obj.product.pk
+        return product_id
         
         
 class  CustomerCartSerializer(serializers.ModelSerializer):
@@ -135,6 +138,29 @@ class  CustomerCartSerializer(serializers.ModelSerializer):
         serializer = CustomerCartItemsSerializer(instances, many=True)
         
         return serializer.data
+
+
+class CustomerCartItemsPostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerCartItems
+        fields = ['product', 'quantity', 'price']
+
+class CustomerCartPostSerializer(serializers.ModelSerializer):
+    items = CustomerCartItemsPostSerializer()
+
+    class Meta:
+        model = CustomerCart
+        fields = ['grand_total', 'delivery_date', 'items']
+
+    def create(self, validated_data):
+        # Extract the single item data
+        item_data = validated_data.pop('items')
+        cart_instance = super().create(validated_data)
+        
+        # Create the single cart item
+        CustomerCartItems.objects.create(customer_cart=cart_instance, **item_data)
+        
+        return cart_instance
         
         
 class  CustomerOrderItemsSerializer(serializers.ModelSerializer):
