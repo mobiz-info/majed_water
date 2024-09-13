@@ -6331,7 +6331,6 @@ class CustomerCartAPIView(APIView):
             cart = CustomerCart.objects.get(pk=item.customer_cart.pk)
             cart.grand_total -= item.price
             cart.save()
-            cart.delete()
             
             item.total_amount -= item.price
             item.save()
