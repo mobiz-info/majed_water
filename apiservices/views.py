@@ -6331,10 +6331,12 @@ class CustomerCartAPIView(APIView):
             cart = CustomerCart.objects.get(pk=item.customer_cart.pk)
             cart.grand_total -= item.price
             cart.save()
+            cart.delete()
             
             item.total_amount -= item.price
             item.save()
-                
+            item.delete()  
+              
             response_data = {
                 "statusCode": status.HTTP_200_OK,
                 "title" : "Successfull",
