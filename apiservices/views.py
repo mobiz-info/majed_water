@@ -6334,7 +6334,8 @@ class CustomerCartAPIView(APIView):
             
             item.total_amount -= item.price
             item.save()
-                
+            item.delete()  
+              
             response_data = {
                 "statusCode": status.HTTP_200_OK,
                 "title" : "Successfull",
