@@ -3191,7 +3191,7 @@ class create_customer_supply(APIView):
                                         leaflet_instance.save()
                                     else:
                                         leaflet_instance = FreeLeaflet.objects.get(pk=c_id)
-                                        customer_supply_coupon.free_leaf.add(leaflet_instance)
+                                        customer_supply_coupon.leaf.add(leaflet_instance)
                                         leaflet_instance.used=True
                                         leaflet_instance.save()
                                         
