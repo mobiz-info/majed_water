@@ -6386,17 +6386,17 @@ class CustomerOrdersAPIView(APIView):
                 )
                 
             for cart_item in customer_cart_items:
-                customer_order_instance,create = CustomerOrdersItems.objects.get_or_create(
+                customer_order_item_instance,create = CustomerOrdersItems.objects.get_or_create(
                     customer_order=customer_order_instance,
                     product=cart_item.product,
                 )
                 
-                customer_order_instance.quantity += cart_item.quantity
-                customer_order_instance.price += cart_item.price
-                customer_order_instance.total_amount += customer_order_instance.quantity * customer_order_instance.price
-                customer_order_instance.save()
+                customer_order_item_instance.quantity += cart_item.quantity
+                customer_order_item_instance.price += cart_item.price
+                customer_order_item_instance.total_amount += customer_order_item_instance.quantity * customer_order_item_instance.price
+                customer_order_item_instance.save()
                 
-                customer_order_instance.grand_total += customer_order_instance.total_amount
+                customer_order_instance.grand_total += customer_order_item_instance.total_amount
                 customer_order_instance.save()
                 
             response_data = {
