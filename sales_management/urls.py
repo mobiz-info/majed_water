@@ -111,5 +111,13 @@ urlpatterns = [
     
     #------------------DSR Outstanding Amount Collected Report-------------------------------------
     path('outstanding_amount_collected',outstanding_amount_collected, name='outstanding_amount_collected'),
-
+    
+    path('dsr/', dsr, name='dsr'),
+    path('print-dsr/', print_dsr, name='print_dsr'),
+    
+    path('collection_list/', collection_list_view, name='collection_list'),
+    path('delete_collection_payment/<str:receipt_number>/<uuid:customer_id>/', delete_collection_payment, name='delete_collection_payment'),
+    
+    
+    
 ]

@@ -33,5 +33,6 @@ urlpatterns = [
     path('missed_on_delivery/<uuid:route_id>/', MissedOnDeliveryView.as_view(), name='missed_on_delivery'),
     path('missed_on_delivery/<uuid:route_id>/print/', MissedOnDeliveryPrintView.as_view(), name='missed_on_delivery_print'),
 
+    path('processing_log', processing_log_list, name='processing_log'),
 
 ]

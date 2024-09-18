@@ -74,21 +74,12 @@ class Users_List(View):
     template_name = 'accounts/user_list.html'
 
     def get(self, request, *args, **kwargs):
-        query = request.GET.get("q")
+        
 
-        instances = CustomUser.objects.all().exclude(user_type__in=['Customers','Customer','customers','customer'])
-        if query:
-            instances = instances.filter(
-                Q(first_name__icontains=query) |
-                Q(designation_id__designation_name__icontains=query) |
-                Q(staff_id__icontains=query) |
-                Q(username__icontains=query) |
-                Q(branch_id__name__icontains=query) 
-            )
-
+        instances = CustomUser.objects.exclude(user_type__in=['Customers','Customer','customers','customer'])
+       
         context = {
-            'instances': instances,
-            'q': query
+            'instances': instances
             }
         return render(request, self.template_name, context)
 
@@ -1080,3 +1071,23 @@ class MissedOnDeliveryPrintView(View):
         }
 
         return render(request, self.template_name, context)
+
+def log_activity(created_by, description, created_date=None):
+    
+    if created_date is None:
+        created_date = timezone.now()
+
+    Processing_Log.objects.create(
+        created_by=created_by,
+        description=description,
+        created_date=created_date
+    )
+
+def processing_log_list(request):
+    logs = Processing_Log.objects.all().order_by("-created_date")
+    
+    context = {
+        'logs': logs,
+    }
+    
+    return render(request, 'accounts/processing_log_list.html', context)

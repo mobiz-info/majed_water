@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %} Collection List {% endblock %}
+{% block content %}
+{% load static %}
+        <!-- End::app-sidebar -->
+        <!-- Page Header -->
+        <div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
+            <h4 class="fw-medium mb-0">Collection List</h4>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-50">Sales Management</a>
+                </li>
+                <li class="breadcrumb-item active" aria-current="page">Collection List</li>
+            </ol>
+        </div>
+        <!-- Page Header Close -->
+        <!-- Start::app-content -->
+        <div class="main-content app-content">
+            <div class="container-fluid">
+                <!-- Start:: row-2 -->
+                <div class="row">
+                    <div class="col-xl-12">
+                        <div class="card custom-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    Collection List
+                                </div>
+                                {% comment %} <div class="ms-auto">
+                                    <a href="{% url 'product_items_create' %}">
+                                        <button type="button" class="btn btn-success btn-wave text-end d-flex me-4 my-auto"><i class="bi bi-plus-circle me-1"></i>Create</button>
+                                    </a>
+                                </div> {% endcomment %}
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-bordered text-nowrap" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col" class="text-center">Sl.No</th>
+                                            <th>Customer</th>
+                                            <th>Salesman</th>
+                                            <th>Payment Method</th>
+                                            <th>Receipt Number</th>
+                                            <th>Total Amount</th>
+                                            <th>Collected Amount</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% load el_pagination_tags %}
+                                        {% paginate 20 instances %}
+                                        {% for instance in instances %}
+                                        <tr>
+                                            <td class="text-center">{{forloop.counter}}</td>
+                                            <td>{{ instance.customer }}</td>
+                                            <td>{{ instance.salesman }}</td>
+                                            <td>{{ instance.payment_method }}</td>
+                                            <td>{{ instance.receipt_number }}</td>
+                                            <td>{{ instance.total_amount }}</td>
+                                            <td>{{ instance.collected_amount }}</td>
+                                            <td>
+                                                <a aria-label="anchor" class="action-button remove btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete"
+                                                    data-id="{{ instance.receipt_number }}" data-text="{{ confirm_delete_message }}" data-title="Are you sure?" 
+                                                    href="{% url 'delete_collection_payment' instance.receipt_number instance.customer.customer_id %}">
+                                                    <span class="ri-delete-bin-7-line fs-14"></span>
+                                                </a>
+                                                    
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% get_pages %}
+                            <div class="clearfix"></div>
+                            <div class="row pagi my-3">
+                                <div class="col-sm-6 col-xs-6 tot my-pagination">
+                                    <div class="m-t-10 text-start">
+                                        Showing {{title}}
+                                        <span class="current_page_index">{{ pages.current_start_index }}</span> - <span
+                                        class="current_end_status">{{ pages.current_end_index }}</span> of <span
+                                        class="total_count">{{ pages.total_count }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6 col-xs-6 text-end pagination-btn-div">{% show_pages %}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End:: row-2 -->
+
+                      
+
+            </div>
+        </div>
+        <!-- End::app-content -->
+        {% endblock %}

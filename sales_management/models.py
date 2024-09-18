@@ -152,8 +152,9 @@ class CollectionPayment(models.Model):
     customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
     salesman = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True, blank=True)
     amount_received = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    receipt_number = models.CharField(max_length=100, unique=True, null=True, blank=True)
     created_date = models.DateTimeField(auto_now_add=True)
-
+    
     class Meta:
         ordering = ('-id',)
 
