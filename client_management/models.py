@@ -283,6 +283,39 @@ class CustomerCouponStock(models.Model):
     def __str__(self):
         return str(self.customer.customer_name)
     
+    # Function to get the total sold coupon books count by type (manual and digital)
+    @classmethod
+    def get_sold_coupons_by_type(cls):
+        # Get sold coupons grouped by coupon_type and coupon_method
+        sold_coupons = NewCoupon.objects.filter(status=True).values('coupon_type__coupon_type_name', 'coupon_method').annotate(sold_count=Count('coupon_id'))
+        
+        result = {}
+        total_manual = 0
+        total_digital = 0
+        
+        for coupon in sold_coupons:
+            coupon_type_name = coupon['coupon_type__coupon_type_name']
+            coupon_method = coupon['coupon_method']
+            sold_count = coupon['sold_count']
+            
+            # Initialize dictionary for each coupon type
+            if coupon_type_name not in result:
+                result[coupon_type_name] = {'digital': 0, 'manual': 0}
+            
+            # Increment the count based on the coupon method
+            result[coupon_type_name][coupon_method] += sold_count
+            
+            # Update the totals
+            if coupon_method == 'manual':
+                total_manual += sold_count
+            elif coupon_method == 'digital':
+                total_digital += sold_count
+        
+        # Add total manual and digital coupons sold across all coupon types
+        result['total'] = {'manual': total_manual, 'digital': total_digital}
+
+        return result
+    
 class ChequeCouponPayment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     customer_coupon = models.ForeignKey(CustomerCoupon,on_delete = models.CASCADE, null=True, blank=True)
