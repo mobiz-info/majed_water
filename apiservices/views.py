@@ -5086,15 +5086,15 @@ class DashboardAPI(APIView):
         
         used_coupon_count = CustomerSupplyCoupon.objects.filter(customer_supply__customer__routes__pk=route_id,customer_supply__created_date__date=date).aggregate(leaf_count=Count('leaf'))['leaf_count']
         # sales records start
-        cash_sale_total_amount = CustomerSupply.objects.filter(customer__routes__pk=route_id,created_date__date=date,customer__sales_type="CASH").aggregate(total_amount=Sum('subtotal'))['total_amount'] or 0
-        cash_sale_total_amount += CustomerCoupon.objects.filter(created_date__date=date,customer__routes__pk=route_id,customer__sales_type="CASH").aggregate(total_amount=Sum('total_payeble'))['total_amount'] or 0
-        cash_sale_amount_recieved = CustomerSupply.objects.filter(customer__routes__pk=route_id,created_date__date=date,customer__sales_type="CASH").aggregate(total_amount=Sum('amount_recieved'))['total_amount'] or 0
-        cash_sale_amount_recieved += CustomerCoupon.objects.filter(created_date__date=date,customer__routes__pk=route_id,customer__sales_type="CASH").aggregate(total_amount=Sum('amount_recieved'))['total_amount'] or 0
+        cash_sale_total_amount = CustomerSupply.objects.filter(customer__routes__pk=route_id,created_date__date=date,amount_recieved__gt=0).aggregate(total_amount=Sum('subtotal'))['total_amount'] or 0
+        cash_sale_total_amount += CustomerCoupon.objects.filter(created_date__date=date,customer__routes__pk=route_id,amount_recieved__gt=0).aggregate(total_amount=Sum('total_payeble'))['total_amount'] or 0
+        cash_sale_amount_recieved = CustomerSupply.objects.filter(customer__routes__pk=route_id,created_date__date=date,amount_recieved__gt=0).aggregate(total_amount=Sum('amount_recieved'))['total_amount'] or 0
+        cash_sale_amount_recieved += CustomerCoupon.objects.filter(created_date__date=date,customer__routes__pk=route_id,amount_recieved__gt=0).aggregate(total_amount=Sum('amount_recieved'))['total_amount'] or 0
         
-        credit_sale_total_amount = CustomerSupply.objects.filter(customer__routes__pk=route_id,created_date__date=date,customer__sales_type="CREDIT").aggregate(total_amount=Sum('subtotal'))['total_amount'] or 0
-        credit_sale_total_amount += CustomerCoupon.objects.filter(customer__routes__pk=route_id,created_date__date=date,customer__sales_type="CREDIT").aggregate(total_amount=Sum('total_payeble'))['total_amount'] or 0
-        credit_sale_amount_recieved = CustomerSupply.objects.filter(customer__routes__pk=route_id,created_date__date=date,customer__sales_type="CREDIT").aggregate(total_amount=Sum('amount_recieved'))['total_amount'] or 0
-        credit_sale_amount_recieved += CustomerCoupon.objects.filter(customer__routes__pk=route_id,created_date__date=date,customer__sales_type="CREDIT").aggregate(total_amount=Sum('amount_recieved'))['total_amount'] or 0
+        credit_sale_total_amount = CustomerSupply.objects.filter(customer__routes__pk=route_id,created_date__date=date,amount_recieved__lte=0).aggregate(total_amount=Sum('subtotal'))['total_amount'] or 0
+        credit_sale_total_amount += CustomerCoupon.objects.filter(customer__routes__pk=route_id,created_date__date=date,amount_recieved__lte=0).aggregate(total_amount=Sum('total_payeble'))['total_amount'] or 0
+        credit_sale_amount_recieved = CustomerSupply.objects.filter(customer__routes__pk=route_id,created_date__date=date,amount_recieved__lte=0).aggregate(total_amount=Sum('amount_recieved'))['total_amount'] or 0
+        credit_sale_amount_recieved += CustomerCoupon.objects.filter(customer__routes__pk=route_id,created_date__date=date,amount_recieved__lte=0).aggregate(total_amount=Sum('amount_recieved'))['total_amount'] or 0
         # sales records end
         # cash in hand start
         cash_sale_amount = CustomerSupply.objects.filter(customer__routes__pk=route_id,created_date__date=date,amount_recieved__gt=0).aggregate(total_amount=Sum('subtotal'))['total_amount'] or 0
@@ -5106,7 +5106,7 @@ class DashboardAPI(APIView):
         credit_sales_amount_collected = dialy_collections.aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         total_sales_amount_collected = cash_sale_amount_recieved + credit_sales_amount_collected
         # cash in hand end
-        expences = Expense.objects.filter(van__salesman__pk=request.user.pk,expense_date=date).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        expences = Expense.objects.filter(van__salesman__pk=van_route.van.salesman.pk,expense_date=date).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
         
         balance_in_hand = total_sales_amount_collected - expences
         
@@ -5131,7 +5131,7 @@ class DashboardAPI(APIView):
             },
             'credit_sale': {
                 'credit_sale_total_amount': credit_sale_total_amount,
-                'credit_sale_amount_recieved': credit_sale_amount_recieved,
+                'credit_sale_amount_recieved': credit_sales_amount_collected,
             },
             'expences': expences,
         }
@@ -9202,6 +9202,11 @@ class CustomersOutstandingAmountsAPI(APIView):
         instances = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__gte=start_date,customer_outstanding__created_date__date__lt=end_date,customer_outstanding__customer__routes=route)        
         serializer = CustomersOutstandingAmountsSerializer(instances, many=True, context={'user_id': request.user.pk})
         
+        total_amount = instances.aggregate(total_amout_recieved=Sum('amount'))['total_amout_recieved'] or 0
+        
+        customer_ids = instances.values_list('customer_outstanding__customer__pk')
+        dialy_collections = CollectionPayment.objects.filter(customer__pk__in=customer_ids,created_date__date__gte=start_date,created_date__date__lt=end_date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        
         return Response({
             'status': True,
             'message': 'Success',
@@ -9210,9 +9215,13 @@ class CustomersOutstandingAmountsAPI(APIView):
                     'filter_start_date': filter_start_date,
                     'filter_end_date': filter_end_date,
                     'data': serializer.data,
+                    'total_amount': total_amount,
+                    'total_collected_amount': dialy_collections,
+                    'total_balance_amount': total_amount - dialy_collections,
                 },
         })
         
+
 class CustomersOutstandingCouponsAPI(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
@@ -9236,6 +9245,15 @@ class CustomersOutstandingCouponsAPI(APIView):
         instances = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lt=end_date,customer__routes=route,customer__sales_type="CASH COUPON")        
         serializer = CustomersOutstandingCouponSerializer(instances, many=True, context={'user_id': request.user.pk})
         
+        supply_ids = instances.values_list('pk')
+        total_suplied_count = CustomerSupplyItems.objects.filter(customer_supply__pk__in=supply_ids).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+        
+        manual_coupon_count = CustomerSupplyCoupon.objects.filter(customer_supply__pk__in=supply_ids).aggregate(Count('leaf'))['leaf__count'] or 0
+        digital_coupon_count = CustomerSupplyDigitalCoupon.objects.filter(customer_supply__pk__in=supply_ids).aggregate(total_count=Sum('count'))['total_count'] or 0
+        total_recieved_count = manual_coupon_count + digital_coupon_count
+        
+        total_pending_count = total_suplied_count - total_recieved_count
+        
         return Response({
             'status': True,
             'message': 'Success',
@@ -9244,6 +9262,9 @@ class CustomersOutstandingCouponsAPI(APIView):
                     'filter_start_date': filter_start_date,
                     'filter_end_date': filter_end_date,
                     'data': serializer.data,
+                    'total_suplied_count': total_suplied_count,
+                    'total_recieved_count': total_recieved_count,
+                    'total_pending_count': total_pending_count,
                 },
         })
         
@@ -9270,6 +9291,13 @@ class CustomersOutstandingBottlesAPI(APIView):
         instances = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lt=end_date,customer__routes=route)        
         serializer = CustomersOutstandingBottlesSerializer(instances, many=True, context={'user_id': request.user.pk})
         
+        supply_ids = instances.values_list('pk')
+        total_suplied_count = CustomerSupplyItems.objects.filter(customer_supply__pk__in=supply_ids).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+        
+        total_recieved_count = instances.aggregate(total_qty=Sum('collected_empty_bottle'))['total_qty'] or 0
+        
+        total_pending_count = total_suplied_count - total_recieved_count
+        
         return Response({
             'status': True,
             'message': 'Success',
@@ -9278,6 +9306,9 @@ class CustomersOutstandingBottlesAPI(APIView):
                     'filter_start_date': filter_start_date,
                     'filter_end_date': filter_end_date,
                     'data': serializer.data,
+                    'total_suplied_count': total_suplied_count,
+                    'total_recieved_count': total_recieved_count,
+                    'total_pending_count': total_pending_count,
                 },
         })
     
