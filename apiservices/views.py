@@ -9178,3 +9178,72 @@ class CustomerSupplyListAPIView(APIView):
 
         return Response(response_data, status=status.HTTP_200_OK)
     
+
+class CustomersOutstandingAmountsAPI(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        else:
+            start_date = date.today()
+            end_date = date.today()
+
+        filter_start_date = start_date.strftime('%Y-%m-%d')
+        filter_end_date = end_date.strftime('%Y-%m-%d')
+        
+        route = Van_Routes.objects.filter(van__salesman=request.user).first().routes
+        instances = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__gte=start_date,customer_outstanding__created_date__date__lt=end_date,customer_outstanding__customer__routes=route)        
+        serializer = CustomersOutstandingAmountsSerializer(instances, many=True, context={'user_id': request.user.pk})
+        
+        return Response({
+            'status': True,
+            'message': 'Success',
+            'data': 
+                {
+                    'filter_start_date': filter_start_date,
+                    'filter_end_date': filter_end_date,
+                    'data': serializer.data,
+                },
+        })
+        
+
+class CustomersOutstandingCouponsAPI(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            filter_start_date = start_date.strftime('%Y-%m-%d')
+            filter_end_date = end_date.strftime('%Y-%m-%d')
+        else:
+            start_date = datetime.today().date()
+            end_date = datetime.today().date()
+            filter_start_date = date.strftime('%Y-%m-%d')
+            filter_end_date = date.strftime('%Y-%m-%d')
+        
+        route = Van_Routes.objects.filter(van__salesman=request.user).first().routes
+        instances = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lt=end_date,customer__routes=route,customer__sales_type="CASH COUPON")        
+        serializer = CustomersOutstandingCouponSerializer(instances, many=True, context={'user_id': request.user.pk})
+        
+        return Response({
+            'status': True,
+            'message': 'Success',
+            'data': 
+                {
+                    'filter_start_date': filter_start_date,
+                    'filter_end_date': filter_end_date,
+                    'data': serializer.data,
+                },
+        })
+    
