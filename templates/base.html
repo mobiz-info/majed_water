@@ -1065,6 +1065,9 @@
                                 <li class="slide">
                                     <a href="{% url 'customerSales_report' %}" class="side-menu__item">Sales Report</a>
                                 </li>
+                                <li class="slide">
+                                    <a href="{% url 'collection_list' %}" class="side-menu__item">Collection</a>
+                                </li>
                                 {% comment %} <li class="slide">
                                     <a href="{% url 'suspense_report' %}" class="side-menu__item">Suspense Report</a>
                                 </li> {% endcomment %}
@@ -1121,6 +1124,9 @@
                                 </li>
                                 <li class="slide">
                                     <a href="{% url 'dsr_summary' %}" class="side-menu__item">DSR Summary</a>
+                                </li>
+                                <li class="slide">
+                                    <a href="{% url 'dsr' %}" class="side-menu__item">DSR </a>
                                 </li>
                             </ul>
                         </li>
@@ -1471,6 +1477,12 @@
                             <i class='bx bx-desktop'></i>
                         </span>
                         <span class="side-menu__label">Terms and Conditions</span>
+                    </a>
+                    <a href="{% url 'processing_log' %}" class="side-menu__item">
+                        <span class=" side-menu__icon">
+                            <i class='bx bx-desktop'></i>
+                        </span>
+                        <span class="side-menu__label">Processing Log</span>
                     </a>
                     <div class="slide-right" id="slide-right"><svg xmlns="http://www.w3.org/2000/svg" fill="#7b8191" width="24" height="24" viewBox="0 0 24 24"> <path d="M10.707 17.707 16.414 12l-5.707-5.707-1.414 1.414L13.586 12l-4.293 4.293z"></path> </svg></div>
                 </nav>

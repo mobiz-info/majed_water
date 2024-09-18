@@ -4576,8 +4576,9 @@ class customer_outstanding(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request, *args, **kwargs):
         customers = Customers.objects.filter(sales_staff=request.user)
+        print("customers",customers)
         route_id = request.GET.get("route_id")
-        
+        print("route_id",route_id)
         if route_id :
             customers = customers.filter(routes__pk=route_id)
             
