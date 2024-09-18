@@ -4,7 +4,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from datetime import date
 from accounts.models import *
-from coupon_management.models import COUPON_METHOD_CHOICES, Coupon, CouponLeaflet, CouponType, NewCoupon
+from coupon_management.models import COUPON_METHOD_CHOICES, Coupon, CouponLeaflet, CouponType, FreeLeaflet, NewCoupon
 from product.models import *
 from django.http import HttpResponse
 from django.db.models import Count,Sum
@@ -427,6 +427,7 @@ class CustomerSupplyCoupon(models.Model):
         id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
         customer_supply = models.ForeignKey(CustomerSupply,on_delete = models.CASCADE)
         leaf = models.ManyToManyField(CouponLeaflet)
+        free_leaf = models.ManyToManyField(FreeLeaflet)
 
         class Meta:
             ordering = ('-id',)

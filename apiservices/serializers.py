@@ -2143,3 +2143,88 @@ class CustomersSupplysSerializer(serializers.ModelSerializer):
     
     def get_customer_code(self, obj):
         return obj.customer.custom_id
+    
+class CustomersOutstandingAmountsSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source='customer_outstanding.customer.customer_name', read_only=True)
+    mode = serializers.CharField(source='customer_outstanding.customer.sales_type', read_only=True)
+    invoice_number = serializers.CharField(source='customer_outstanding.invoice_no', read_only=True)
+    building_room_no = serializers.SerializerMethodField()
+    collected_amount = serializers.SerializerMethodField()
+    balance_amount = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = OutstandingAmount
+        fields = ['customer_name','building_room_no','invoice_number','mode','amount','collected_amount','balance_amount']
+    
+    def get_building_room_no(self, obj):
+        return f"{obj.customer_outstanding.customer.building_name} {obj.customer_outstanding.customer.door_house_no}"
+        
+    def get_collected_amount(self, obj):
+        dialy_collections = CollectionPayment.objects.filter(customer=obj.customer_outstanding.customer,created_date__date=obj.customer_outstanding.created_date.date()).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        
+        return dialy_collections
+    
+    def get_balance_amount(self, obj):
+        dialy_collections = CollectionPayment.objects.filter(customer=obj.customer_outstanding.customer,created_date__date=obj.customer_outstanding.created_date.date()).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        balance_amount = obj.amount - dialy_collections
+        return balance_amount
+    
+
+class CustomersOutstandingCouponSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
+    building_room_no = serializers.SerializerMethodField()
+    suplied_count = serializers.SerializerMethodField()
+    recieved = serializers.SerializerMethodField()
+    pending = serializers.SerializerMethodField()
+    total_pending = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CustomerSupply
+        fields = ['customer_name','building_room_no','invoice_no','suplied_count','recieved','pending','total_pending']
+    
+    def get_building_room_no(self, obj):
+        return f"{obj.customer.building_name} {obj.customer.door_house_no}"
+        
+    def get_suplied_count(self, obj):
+        return obj.get_total_supply_qty()
+    
+    def get_recieved(self, obj):
+        return sum(obj.total_coupon_recieved().values())
+    
+    def get_pending(self, obj):
+        total_supplied = obj.get_total_supply_qty()
+        total_received = sum(obj.total_coupon_recieved().values())
+        return total_supplied - total_received
+    
+    def get_total_pending(self, obj):
+        return OutstandingCoupon.objects.filter(customer_outstanding__customer=obj.customer,customer_outstanding__created_date__date=obj.created_date.date()).aggregate(total_count=Sum('count'))['total_count'] or 0
+    
+
+class CustomersOutstandingBottlesSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
+    building_room_no = serializers.SerializerMethodField()
+    suplied_count = serializers.SerializerMethodField()
+    recieved = serializers.SerializerMethodField()
+    pending = serializers.SerializerMethodField()
+    total_pending = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CustomerSupply
+        fields = ['customer_name','building_room_no','invoice_no','suplied_count','recieved','pending','total_pending']
+    
+    def get_building_room_no(self, obj):
+        return f"{obj.customer.building_name} {obj.customer.door_house_no}"
+        
+    def get_suplied_count(self, obj):
+        return obj.get_total_supply_qty()
+    
+    def get_recieved(self, obj):
+        return obj.collected_empty_bottle
+    
+    def get_pending(self, obj):
+        total_supplied = obj.get_total_supply_qty()
+        total_received = obj.collected_empty_bottle
+        return total_supplied - total_received
+    
+    def get_total_pending(self, obj):
+        return OutstandingProduct.objects.filter(customer_outstanding__customer=obj.customer,customer_outstanding__created_date__date=obj.created_date.date()).aggregate(total_count=Sum('empty_bottle'))['total_count'] or 0
