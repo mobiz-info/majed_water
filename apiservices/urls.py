@@ -316,5 +316,6 @@ urlpatterns = [
     path('customer-cart/', CustomerCartAPIView.as_view(), name='customer_cart'),
     
     path('customer-outstandings-amount-report/', CustomersOutstandingAmountsAPI.as_view(), name='customers_outstandings_amount_reports'),
+    path('customer-outstandings-bottles-report/', CustomersOutstandingBottlesAPI.as_view(), name='customers_outstandings_bottles_reports'),
     path('customer-outstandings-coupon-report/', CustomersOutstandingCouponsAPI.as_view(), name='customers_outstandings_coupons_reports'),
 ]
