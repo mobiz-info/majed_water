@@ -17,7 +17,7 @@ from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.hashers import make_password, check_password
 from .models import *
 from datetime import timedelta
-from django.db.models import Sum
+from django.db.models import Sum, Case, When, IntegerField,Count,Q
 from . serializers import *
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -27,21 +27,94 @@ from rest_framework.authentication import BasicAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import render, redirect, get_object_or_404
 from van_management.models import Van, VanProductStock , VanCouponStock
+from van_management.models import Expense,Van_Routes,CustomerProductReturn,CustomerProductReplace
+
 from customer_care.models import DiffBottlesModel
 from client_management.models import CustomerSupply, CustomerOutstandingReport, CustomerSupplyCoupon
+from client_management.models import CustomerSupplyStock,CustomerCouponStock, Vacation, NonvisitReport,CustomerSupplyItems
+
 from sales_management.models import CollectionItems
 from invoice_management.models import Invoice
-from coupon_management.models import CouponStock
+from coupon_management.models import CouponStock, CouponLeaflet
+from product.models import WashedUsedProduct
+from apiservices.views import find_customers
+import json
 
 
 # Create your views here.
 @login_required(login_url='login')
 def home(request):
-    template_name = 'master/dashboard.html'
+    template_name = 'master/dashboard/dashboard.html'
     
+    today = timezone.now().date()
+    # Get the total sales for today filtered by cash and credit
+    cash_sales = CustomerSupply.objects.filter(created_date__date=today,customer__sales_type='CASH').count()
+    credit_sales = CustomerSupply.objects.filter(created_date__date=today,customer__sales_type='CREDIT').count()
+    total_sales = cash_sales + credit_sales
+    # Get the total expense for today
+    expense = Expense.objects.filter(expense_date=today).aggregate(total_expense=Sum('amount'))['total_expense'] or 0
+    
+    #Get Today's Collection
+    todays_collection = CollectionItems.objects.filter(collection_payment__created_date__date=today,collection_payment__amount_received__gt=0).aggregate(total_collected=Sum('amount_received'))['total_collected'] or 0
+    print("todays_collection",todays_collection)
+    yesterday = today - timedelta(days=1)
+
+    # Old payments (everything before today)
+    old_payment = CollectionItems.objects.filter(collection_payment__created_date__date=yesterday).aggregate(total_collected=Sum('amount_received'))['total_collected'] or 0
+
+    # Total collection (sum of today's collection and old payments)
+    total_collection = todays_collection + old_payment
+    
+    
+
     # Get the total count of all vans
-    total_vans = Van.objects.count()
+    # total_vans = Van.objects.filter(van_master__created_date=today).distinct()
+    # active_vans_count = total_vans.count()
+    total_vans = Van.objects.all().count()
+#----------Delivery Progress--------------------
+
     
+
+    
+    # -----------Yesterday Missed Customer----------
+    # Calculate yesterday's date
+    date = datetime.now().date()
+    yesterday = date - timedelta(days=1)
+
+    routes = RouteMaster.objects.all()  # Get all RouteMaster instances
+    total_missed_customers = 0  # Initialize counter for all routes
+
+    for route in routes:
+        route_id = route.route_id  # Use route_id from RouteMaster
+
+        # Get planned customers for yesterday
+        planned_visitors_list = find_customers(request, str(yesterday), route_id)
+        planned_visitors = len(planned_visitors_list) if planned_visitors_list else 0
+
+        # Get visited customers (supplied) for yesterday
+        visited_customers_ids = set(
+            CustomerSupply.objects.filter(
+                customer__routes__pk=route_id,
+                created_date__date=yesterday
+            ).values_list('customer_id', flat=True)
+        )
+        visited_customers_count = len(visited_customers_ids)
+
+        # Calculate missed customers
+        if isinstance(planned_visitors_list, list):
+            missed_customers = [
+                customer for customer in planned_visitors_list
+                if customer['customer_id'] not in visited_customers_ids
+            ]
+            missed_customers_count = len(missed_customers)
+        else:
+            missed_customers_count = 0
+
+        # Add to total missed customers
+        total_missed_customers += missed_customers_count
+        
+# --------------------Yesterday Missed Customer----------
+
     # Get the total count of all customers
     total_customers = Customers.objects.count()
     
@@ -51,18 +124,99 @@ def home(request):
     # Get the count of customers created exactly 10 days ago
     new_customers_count = Customers.objects.filter(created_date__date=ten_days_ago.date()).count()
     
-    # Get the total count of emergency customers
+#---------- Get the total count of emergency customers-------------
     today = timezone.now().date()
     emergency_customers = DiffBottlesModel.objects.filter(delivery_date=today)
     emergency_customer_ids = {ec.customer_id for ec in emergency_customers}
     total_emergency_customers = Customers.objects.filter(customer_id__in=emergency_customer_ids).count()
     
-    # Get the total sales for today filtered by cash and credit
-    cash_sales = CustomerSupply.objects.filter(created_date__date=today,customer__sales_type='CASH').count()
-    credit_sales = CustomerSupply.objects.filter(created_date__date=today,customer__sales_type='CREDIT').count()
-    total_sales = cash_sales + credit_sales
+#-----------Get the total count of Vacation Mode Customers-------------    
     
-    # Get the total returns for today filtered by cash and credit
+    # Query all vacations where today is between start_date and end_date
+    vacation_customers = Vacation.objects.filter(start_date__lte=today, end_date__gte=today)
+    
+    # Count the number of vacation customers
+    vacation_customers_count = vacation_customers.count()
+#-----------Get the total count of Door Lock Mode Customers-------------    
+
+    door_lock_count = NonvisitReport.objects.filter(reason__reason_text="Door Lock").count()
+    if door_lock_count is None:
+        door_lock_count = 0
+
+    
+#-----------Sales type CASH,CREDIT,COUPON Pie Chart Data--------
+    # Aggregating the data
+    sales_pie_data = Customers.objects.values('sales_type').annotate(count=Count('sales_type'))
+
+    # Creating the data structure for the pie chart
+    sales_chart_data = {
+        'Cash': 0,
+        'Credit': 0,
+        'Coupon': 0
+    }
+
+    for data in sales_pie_data:
+        sales_type = data['sales_type']
+        count = data['count']
+        
+        # Check if sales_type is None before using .upper()
+        if sales_type:
+            if 'CASH' in sales_type.upper():
+                sales_chart_data['Cash'] += count
+            elif 'CREDIT' in sales_type.upper():
+                sales_chart_data['Credit'] += count
+            elif 'COUPON' in sales_type.upper():
+                sales_chart_data['Coupon'] += count
+
+# Pass sales_chart_data to your context or return as JSON
+
+#-----New Customers Bar Chart------------------
+    ten_days_ago = datetime.now() - timedelta(days=10)
+    new_customers = Customers.objects.filter(
+            created_date__gte=ten_days_ago
+        )
+    # Count new customers for each salesman
+    salesman_customer_count = new_customers.values('sales_staff__username').annotate(customer_count=Count('customer_id')).order_by('-customer_count')
+
+    salesmen = [entry['sales_staff__username'] for entry in salesman_customer_count]
+    customer_counts = [entry['customer_count'] for entry in salesman_customer_count]
+    # Pass salesmen and  customer_counts to your context or return as JSON
+#-----------5 Gallon Supply Pie Chart-------------
+    five_G_supply_data = (
+            CustomerSupplyItems.objects
+            .filter(product__product_name="5 Gallon")
+            .values('customer_supply__salesman__username')  # Group by salesman's username
+            .annotate(total_quantity=Sum('quantity'))  # Calculate total quantity for each salesman
+        )
+    print("five_G_supply_data",five_G_supply_data)
+    # Calculate total 5-gallon quantity across all salesmen
+    total_quantity = sum([data['total_quantity'] for data in five_G_supply_data])
+    print("Total Quantity of 5 Gallon Supplies:", total_quantity)
+
+    # Calculate the percentage contribution of each salesman
+    for data in five_G_supply_data:
+        data['percentage'] = (data['total_quantity'] / total_quantity) * 100
+     # Extract salesmen names and their respective percentage contribution
+    salesmen_names = [data['customer_supply__salesman__username'] for data in five_G_supply_data]
+    salesmen_percentages = [data['percentage'] for data in five_G_supply_data]
+
+        
+    # Pass  salesmen_names and salesmen_percentages to your context or return as JSON
+
+#-------------------End of Overview Tab-----------
+
+
+#----------Start of Sales Tab--------------------
+    sales_return = CustomerProductReturn.objects.filter(product__product_name='5 Gallon',created_date__date=today).aggregate(total=Sum('quantity'))['total']
+    if sales_return is None:
+        sales_return = 0
+        
+    product_replacement = CustomerProductReplace.objects.filter(product__product_name='5 Gallon',created_date__date=today).aggregate(total=Sum('quantity'))['total']
+    if product_replacement is None:
+        product_replacement = 0
+
+
+#------------ Get the total returns for today filtered by cash and credit
     cash_returns_today = Invoice.objects.filter(
         created_date__date=today,
         customer__sales_type='CASH'
@@ -128,6 +282,47 @@ def home(request):
         created_date=datetime.today().date()
     ).aggregate(total_pending=Sum('pending_count'))['total_pending'] or 0
     
+
+    # Get the count of digital and manual coupons sold
+    manual_book_sold = CouponStock.objects.filter(
+        created_date=datetime.today().date(),
+        coupon_stock="van",
+        couponbook__coupon_method='MANUAL').count()
+    digital_book_sold = CouponStock.objects.filter(
+        created_date=datetime.today().date(),
+        coupon_stock="van",
+        couponbook__coupon_method='DIGITAL').count()
+    
+    # Calculate the total coupons collected (for both manual and digital)
+    customer_supplies_today = CustomerSupply.objects.filter(created_date=datetime.today().date())
+    manual_coupons_collected = sum(
+        cs.total_coupon_recieved()["manual_coupon"] for cs in customer_supplies_today
+    )
+    digital_coupons_collected = sum(
+        cs.total_coupon_recieved()["digital_coupon"] for cs in customer_supplies_today
+    )
+    
+    # Count of used coupon leaflets for manual method
+    manual_leaflets_used_count = CouponLeaflet.objects.filter(
+        used=True, coupon__coupon_method='manual'
+    ).count()
+
+    # Count of used coupon leaflets for digital method
+    digital_leaflets_used_count = CouponLeaflet.objects.filter(
+        used=True, coupon__coupon_method='digital'
+    ).count()
+
+#-------------Start of Bottle OverView Tab-----------------
+# Filter for customers created today and where is_calling_customer is True
+    calling_customers_count = Customers.objects.filter(
+        created_date__date=today, 
+        is_calling_customer=True
+    ).aggregate(total=Count('customer_id'))['total']
+
+    # If no customers match the query, total will be None, so ensure it's 0
+    if calling_customers_count is None:
+        calling_customers_count = 0
+    
     # Calculate the scrap bottles collected today 
 
     scrap_bottle_collected_today = VanProductStock.objects.filter(
@@ -148,36 +343,293 @@ def home(request):
         created_date=datetime.today().date()
     ).aggregate(total_fresh_stock=Sum('opening_count'))['total_fresh_stock'] or 0
     
-    # Get the count of digital and manual coupons sold
-    manual_book_sold = CouponStock.objects.filter(
-        created_date=datetime.today().date(),
-        coupon_stock="van",
-        couponbook__coupon_method='MANUAL').count()
-    digital_book_sold = CouponStock.objects.filter(
-        created_date=datetime.today().date(),
-        coupon_stock="van",
-        couponbook__coupon_method='DIGITAL').count()
-    
-    # Calculate the total coupons collected (for both manual and digital)
-    customer_supplies_today = CustomerSupply.objects.filter(created_date=datetime.today().date())
-    manual_coupons_collected = sum(
-        cs.total_coupon_recieved()["manual_coupon"] for cs in customer_supplies_today
-    )
-    digital_coupons_collected = sum(
-        cs.total_coupon_recieved()["digital_coupon"] for cs in customer_supplies_today
-    )
+
+    # Filter WashedUsedProduct based on these product IDs and today's date
+    used_bottle_stock = WashedUsedProduct.objects.filter(
+        product__product_name = "5 Gallon",
+    ).aggregate(total_quantity=models.Sum('quantity'))['total_quantity'] or 0
     
     
+    # Fetch market bottle count
+    start_date = request.GET.get('start_date')
+
+    market_bottle_count = Van_Routes.objects.all()
+
+    # Prepare dictionaries to hold the stock and pending bottle data for each van route
+    stock_data_by_route = {}
+    pending_bottles_by_route = {}
+     # Filter based on date if provided
+    if start_date:
+        market_bottle_count = market_bottle_count.filter(created_date__date=start_date)
+
+    for route in market_bottle_count:
+        # Get the salesman ID for the current van route
+        salesman_id = route.van.salesman.id
+
+        # Get total stock with customers for this salesman
+        stock_data = CustomerSupplyStock.objects.filter(customer__sales_staff__id=salesman_id).aggregate(total_stock=Sum('stock_quantity'))
+        stock_data_by_route[route.van_route_id] = stock_data['total_stock'] or 0  # Default to 0 if no stock
+
+        # Get pending bottles for this salesman
+        pending_bottles = CustomerSupply.objects.filter(customer__sales_staff__id=salesman_id).aggregate(total_pending=Sum('allocate_bottle_to_pending'))['total_pending'] or 0
+        pending_bottles_by_route[route.van_route_id] = pending_bottles
     
     
+    sold_coupons_data = CustomerCouponStock.get_sold_coupons_by_type()
+    
+    # Fetch all van routes
+    van_routes = Van_Routes.objects.all()
+
+    # Prepare a dictionary to hold excess bottle data for each van route
+    excess_data_by_route = {}
+
+    for route in van_routes:
+        # Fetch the van related to the current route
+        van = route.van
+
+        # Get the total excess bottle count for the van from the VanProductStock model
+        excess_data = VanProductStock.objects.filter(van=van).aggregate(total_excess=Sum('excess_bottle'))
+
+        # Store the excess data by route
+        excess_data_by_route[route.van_route_id] = excess_data['total_excess'] or 0  # If no data, default to 0
+    
+    
+    #Coupon Book Sale Summary
+    
+    coupon_summary = CustomerCouponStock.objects.values('coupon_type_id__coupon_type_name').annotate(
+            manual_count=Sum(
+                Case(
+                    When(coupon_method='manual', then='count'),
+                    output_field=IntegerField(),
+                )
+            ),
+            digital_count=Sum(
+                Case(
+                    When(coupon_method='digital', then='count'),
+                    output_field=IntegerField(),
+                )
+            ),
+            total=Sum('count')
+        )
+        
+    # print("coupon_summary",coupon_summary)
+    
+    #--------------------start of Customer statictics Overview------------#
+    
+    # finding of New Customer
+    
+    # Get today's and month's start dates
+    today = datetime.today().date()
+    start_of_month = today.replace(day=1)
+    
+    # Filter customers created today and this month
+    today_customers = Customers.objects.filter(created_date__date=today)
+    month_customers = Customers.objects.filter(created_date__date__gte=start_of_month)
+
+    # Group by routes and count customers
+    today_customer_counts = today_customers.values('routes__route_name').annotate(count_today=Count('customer_id'))
+    month_customer_counts = month_customers.values('routes__route_name').annotate(count_month=Count('customer_id'))
+
+    # Creating dictionaries to hold route-based counts
+    today_counts = {item['routes__route_name']: item['count_today'] for item in today_customer_counts}
+    month_counts = {item['routes__route_name']: item['count_month'] for item in month_customer_counts}
+    
+    # Get all routes
+    routes = RouteMaster.objects.all()
+    
+    # Prepare data for template
+    newCustomer_data = []
+    for route in routes:
+        route_name = route.route_name
+        newCustomer_data.append({
+            'route_name': route_name,
+            'count_today': today_counts.get(route_name, 0),
+            'count_month': month_counts.get(route_name, 0)
+        })
+        
+    
+    # Finding Inactive Customers
+        today = timezone.now().date()
+        last_20_days = today - timedelta(days=20)
+
+        # Dictionary to store data for each route
+        inactive_routes_data = []
+
+        # Fetch all routes
+        inactive_routes = RouteMaster.objects.all()
+
+        for route in inactive_routes:
+            # All customers assigned to this route
+            route_customers = Customers.objects.filter(routes=route)
+
+            # Customers who made a purchase in the last 20 days
+            visited_customers = CustomerSupply.objects.filter(
+                created_date__date__gte=last_20_days,
+                customer__in=route_customers
+            ).values_list('customer', flat=True)
+
+            # Inactive customers in the last 20 days
+            inactive_customers = route_customers.exclude(pk__in=visited_customers)
+
+            # Add the route data to the list
+            inactive_routes_data.append({
+                'route_name': route.route_name,
+                'inactive_customers_count': inactive_customers.count(),
+            })
+            
+        
+    # Non-Visited Customers
+    non_visited_data = []
+
+    # Iterate over all routes and calculate non-visited customers
+    all_nonvisitedroutes = RouteMaster.objects.all()
+    for route in all_nonvisitedroutes:
+        # Find the corresponding van route using the correct field
+        van_route = Van_Routes.objects.filter(routes=route).first()
+        
+        if van_route:
+            # Get the associated van
+            van = van_route.van
+            
+            # Assuming the Van model is linked to the salesman (CustomUser)
+            salesman = van.salesman  # You need to ensure this field exists in the Van model
+            
+            # Get planned visits for this route
+            todays_customers = find_customers(request, str(datetime.today().date()), route.pk)
+
+            if todays_customers is None:
+                todays_customers = []  # Handle None case, treat as an empty list
+
+            # Extract customer IDs from todays_customers
+            customer_ids = [customer['customer_id'] for customer in todays_customers]
+
+
+
+            # Actual visits (filter by salesman)
+            visited_customers = CustomerSupply.objects.filter(customer__in=customer_ids, salesman=salesman)
+
+            visited_customer_ids = set(visited_customers.values_list('customer_id', flat=True))
+
+            # Filter non-visited customers
+            non_visited = [customer for customer in todays_customers if customer['customer_id'] not in visited_customer_ids]
+
+            # Add the route and non-visited customer count to the data
+            non_visited_data.append({
+                'route_name': route.route_name,
+                'non_visited_count': len(non_visited),
+            })
+            
+    #-----Customer's Sales Type Count of cash,credit,is_calling,Coupon----------------
+    # Initialize route_customer_data and totals
+    route_customer_data = []
+    total_cash = 0
+    total_credit = 0
+    total_coupon = 0
+    total_call = 0
+    total_route_sum = 0
+    
+    # Get all routes
+    all_routes = RouteMaster.objects.all()
+
+    # Iterate over all routes
+    for route in all_routes:
+        # Get customers for the current route
+        customers = Customers.objects.filter(routes=route)
+
+        # Count customers based on sales_type and is_calling_customer
+        cash_count = customers.filter(sales_type='CASH').count()
+        credit_count = customers.filter(sales_type='CREDIT').count()
+        coupon_count = customers.filter(sales_type='CASH COUPON').count()
+        call_count = customers.filter(is_calling_customer=True).count()
+
+        # Calculate the total for the current route
+        route_total = cash_count + credit_count + coupon_count + call_count
+
+        # Append data for the current route
+        route_customer_data.append({
+            'route_name': route.route_name,
+            'cash_count': cash_count,
+            'credit_count': credit_count,
+            'coupon_count': coupon_count,
+            'call_count': call_count,
+            'route_total': route_total,
+        })
+
+        # Add to the overall totals
+        total_cash += cash_count
+        total_credit += credit_count
+        total_coupon += coupon_count
+        total_call += call_count
+        total_route_sum += route_total  
+
+    # Get the sales type counts for each route
+    sales_customer_data = []
+    total_home = 0
+    total_corporate = 0
+    total_shop = 0
+    total_customer_sales_type = 0
+    
+    # Get all routes
+    all_routes = RouteMaster.objects.all()
+    
+    # Iterate over all routes
+    for route in all_routes:
+        # Get customers for the current route
+        customers = Customers.objects.filter(routes=route)
+        # Count customers based on customer_type
+        home_count = customers.filter(customer_type='HOME').count()
+        corporate_count = customers.filter(customer_type='CORPORATE').count()
+        shop_count = customers.filter(customer_type='SHOP').count()
+        # Calculate the total for the current route
+        total_sales_type = home_count + corporate_count + shop_count
+        
+        # Append data for the current route
+        sales_customer_data.append({
+            'route_name': route.route_name,
+            'home_count': home_count,
+            'corporate_count': corporate_count,
+            'shop_count': shop_count,
+            'total_sales_type': total_sales_type,
+        })
+        
+        # Add counts to the total counters
+        total_home += home_count
+        total_corporate += corporate_count
+        total_shop += shop_count
+        total_customer_sales_type += total_sales_type
+
+
     context = {
-        'total_vans': total_vans,
-        'total_customers': total_customers,
-        'new_customers_count': new_customers_count,
-        'total_emergency_customers': total_emergency_customers,
         'cash_sales': cash_sales,
         'credit_sales': credit_sales,
         'total_sales': total_sales,
+        'expense':expense,
+        'todays_collection':todays_collection,
+        'old_payment':old_payment,
+        'total_collection':total_collection,
+        
+        # 'active_vans_count': active_vans_count,
+        'total_vans':total_vans,
+        'planned_visitors':planned_visitors,
+        'visited_customers_count':visited_customers_count,
+        'total_missed_customers_yesterday': total_missed_customers,
+        'total_customers': total_customers,
+        'new_customers_count': new_customers_count,
+        'total_emergency_customers': total_emergency_customers,
+        'vacation_customers_count': vacation_customers_count,
+        'door_lock_count':door_lock_count,
+        
+        'sales_chart_data':sales_chart_data,
+        'salesmen':salesmen,
+        'customer_counts':customer_counts,
+        # 'five_G_supply_data':list(five_G_supply_data),
+        # 'salesmen_names':salesmen_names,
+        # 'salesmen_percentages':salesmen_percentages,
+        'salesmen_names': json.dumps(salesmen_names),  # Ensure it's JSON-encoded
+        'salesmen_percentages': json.dumps(salesmen_percentages),  # Ensure it's JSON-encoded
+
+        'sales_return':sales_return,
+        'product_replacement':product_replacement,
         'cash_returns_today': cash_returns_today,
         'credit_returns_today': credit_returns_today,
         'total_returns_today': total_returns_today,
@@ -190,19 +642,66 @@ def home(request):
         'cash_outstanding_today': cash_outstanding_today,
         'credit_outstanding_today': credit_outstanding_today,
         'total_outstanding_today': total_outstanding_today,
+        
         'total_issued_5gallon_today': total_issued_5gallon_today,  
         'pending_bottles_given_today':pending_bottles_given_today,
+        
+        'calling_customers_count':calling_customers_count,
         'scrap_bottle_collected_today':scrap_bottle_collected_today,
         'bottle_in_service_today':bottle_in_service_today,
         'company_fresh_stock':company_fresh_stock,
+        'used_bottle_stock':used_bottle_stock,
+        
+        #Bottle count in market
+        'market_bottle_count' :market_bottle_count,
+        'stock_data_by_route': stock_data_by_route,  
+        'pending_bottles_by_route': pending_bottles_by_route,
+        'filter_data': {'start_date': start_date},
+
+        
+        #Excess / Shortage Bottle 
+        'van_routes': van_routes,
+        'excess_data_by_route': excess_data_by_route,
+        
+        #Coupon Book Sale Summary
+        'coupon_summary':coupon_summary,
+        
+        #
+        'sold_coupons_data':sold_coupons_data,
+        
+        # New customer data
+        'newCustomer_data':newCustomer_data,
+        
+        'inactive_routes_data': inactive_routes_data,
+    
+
+        'non_visited_data': non_visited_data,
+        'inactive_routes': inactive_routes,
+        
+        'route_customer_data': route_customer_data,
+        'total_cash': total_cash,
+        'total_credit': total_credit,
+        'total_coupon': total_coupon,
+        'total_call': total_call,
+        'grand_total': total_cash + total_credit + total_coupon + total_call,  
+        'total_route_sum': total_route_sum,
+        
+        'sales_customer_data': sales_customer_data,
+        'total_home': total_home,
+        'total_corporate': total_corporate,
+        'total_shop': total_shop,
+        'total_customer_sales_type': total_customer_sales_type,
+        
         'manual_book_sold':manual_book_sold,
         'digital_book_sold':digital_book_sold,
         'manual_coupons_collected':manual_coupons_collected,
         'digital_coupons_collected':digital_coupons_collected,
+        'manual_leaflets_used_count':manual_leaflets_used_count,
+        'digital_leaflets_used_count':digital_leaflets_used_count,
 
     }
     
-    return render(request, template_name, context)
+    return render(request, template_name, context)  
 
 
 class Branch_List(View):
