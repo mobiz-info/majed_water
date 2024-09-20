@@ -6438,6 +6438,9 @@ class CustomerOrdersAPIView(APIView):
                 customer_order_instance.grand_total += customer_order_item_instance.total_amount
                 customer_order_instance.save()
                 
+            customer_cart.order_status = True
+            customer_cart.save()
+                
             response_data = {
                 "statusCode": status.HTTP_201_CREATED,
                 "title" : "successfull",
