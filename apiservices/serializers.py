@@ -1301,10 +1301,22 @@ class VanProductSerializer(serializers.ModelSerializer):
         model = VanProductStock
         fields = ['id','product','created_date','opening_count','change_count','damage_count','empty_can_count','stock','return_count','requested_count','sold_count','closing_count','pending_count']
 
-class CouponConsumptionSerializer(serializers.Serializer):
-    customer__customer_name = serializers.CharField()
-    total_digital_leaflets = serializers.IntegerField()
-    total_manual_leaflets = serializers.IntegerField()
+class CouponConsumptionSerializer(serializers.ModelSerializer):
+    customer__customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
+    total_digital_leaflets = serializers.SerializerMethodField()
+    total_manual_leaflets = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CustomerSupply
+        fields = ['customer__customer_name','total_digital_leaflets','total_manual_leaflets']
+        
+    def get_total_digital_leaflets(self,obj):
+        count = CustomerSupplyDigitalCoupon.objects.filter(customer_supply=obj).aggregate(total_count=Sum('count'))['total_count'] or 0
+        return count
+    
+    def get_total_manual_leaflets(self,obj):
+        count = CustomerSupplyCoupon.objects.filter(customer_supply=obj).aggregate(total_leaflets=Count('leaf'))['total_leaflets'] or 0
+        return count
 
 class FreshCanStockSerializer(serializers.ModelSerializer):
     van = VanSerializer(read_only=True)

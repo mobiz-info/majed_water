@@ -5279,55 +5279,33 @@ class CouponConsumptionReport(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        user_id = request.user.id
-        print("user_id", user_id)
-        customer_objs = Customers.objects.filter(sales_staff=user_id)
-        start_date = request.data.get('start_date')
-        print("start_date",start_date)
-        end_date = request.data.get('end_date')
-        print("end_date",end_date)
-
-        if not (start_date and end_date):
-            start_datetime = datetime.today().date()
-            end_datetime = datetime.today().date()
-            return Response({"error": "Both start_date and end_date are required."}, status=status.HTTP_400_BAD_REQUEST)
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
         else:
-            start_datetime = datetime.strptime(start_date, '%Y-%m-%d')
-            end_datetime = datetime.strptime(end_date, '%Y-%m-%d')
+            start_date = date.today()
+            end_date = date.today()
 
-        queryset = []
-        for customer_obj in customer_objs:
-            digital_coupon_data = CustomerSupplyDigitalCoupon.objects.filter(
-                customer_supply__customer=customer_obj,
-                customer_supply__salesman=customer_obj.sales_staff,
-                customer_supply__created_date__range=[start_datetime, end_datetime],
-            ).aggregate(total_digital_leaflets=Sum('count'))
+        filter_start_date = start_date.strftime('%Y-%m-%d')
+        filter_end_date = end_date.strftime('%Y-%m-%d')
+        
+        supply_instance = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,customer__sales_type="CASH COUPON")
+        
+        serializer = CouponConsumptionSerializer(supply_instance, many=True)
+        
+        total_digital_sum = CustomerSupplyDigitalCoupon.objects.filter(
+            customer_supply__created_date__date__gte=start_date,
+            customer_supply__created_date__date__lte=end_date
+        ).aggregate(total_count=Sum('count'))['total_count'] or 0  # Use Sum expression
 
-            total_digital_leaflets = digital_coupon_data['total_digital_leaflets'] or 0
-
-            manual_coupon_data = CustomerCoupon.objects.annotate(
-                total_manual_leaflets=Count(
-                    'customercouponitems__coupon__leaflets',
-                    filter=Q(created_date__range=[start_datetime, end_datetime], customer=customer_obj, salesman=customer_obj.sales_staff, customercouponitems__coupon__coupon_method='manual', customercouponitems__coupon__leaflets__used=False),
-                    distinct=True
-                )
-            ).values(
-                'customer__customer_name',
-                'total_manual_leaflets'
-            ).first()
-
-            total_manual_leaflets = manual_coupon_data['total_manual_leaflets'] if manual_coupon_data else 0
-
-            queryset.append({
-                'customer__customer_name': customer_obj.customer_name,
-                'total_digital_leaflets': total_digital_leaflets,
-                'total_manual_leaflets': total_manual_leaflets
-            })
-
-        serializer = CouponConsumptionSerializer(queryset, many=True)
-
-        total_digital_sum = sum(item['total_digital_leaflets'] for item in queryset)
-        total_manual_sum = sum(item['total_manual_leaflets'] for item in queryset)
+        # Correct aggregation for manual leaflets
+        total_manual_sum = CustomerSupplyCoupon.objects.filter(
+            customer_supply__created_date__date__gte=start_date,
+            customer_supply__created_date__date__lte=end_date
+        ).aggregate(total_leaflets=Count('leaf'))['total_leaflets'] or 0
 
         return Response({
             'status': True,
