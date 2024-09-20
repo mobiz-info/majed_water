@@ -1061,7 +1061,7 @@ class NewSalesCustomerCouponSerializer(serializers.ModelSerializer):
         return obj.grand_total
     
     def get_total(self, obj):
-        return obj.total
+        return obj.total_payeble
     
     def get_amount_recieved(self, obj):
         return obj.amount_recieved
