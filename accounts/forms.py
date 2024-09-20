@@ -209,3 +209,27 @@ class VisitScheduleForm(forms.Form):
     week2 = forms.CharField(required=False)
     week3 = forms.CharField(required=False)
     week4 = forms.CharField(required=False)
+    
+    
+from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import SetPasswordForm
+CustomUser = get_user_model()
+
+class CustomPasswordChangeForm(SetPasswordForm):
+    new_password1 = forms.CharField(
+        label="New Password",
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+    )
+    new_password2 = forms.CharField(
+        label="Confirm New Password",
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['new_password1'].widget.attrs.update({'class': 'form-control'})
+        self.fields['new_password2'].widget.attrs.update({'class': 'form-control'})
+
+    class Meta:
+        model = CustomUser
+        fields = ['new_password1', 'new_password2']

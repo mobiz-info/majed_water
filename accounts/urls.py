@@ -2,6 +2,7 @@ from django.urls import path
 from .views import *
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import TemplateView
 
 urlpatterns = [
     path('login',user_login, name='login'),
@@ -27,6 +28,9 @@ urlpatterns = [
     path('latest_customers', Latest_Customer_List.as_view(), name='latest_customers'),
     path('inactive_customers', Inactive_Customer_List.as_view(), name='inactive_customers'),
     path('non_visited_customers', NonVisitedCustomersView.as_view(), name="non_visited_customers"),
+    
+    path('change-password/<int:user_id>/', change_password, name='change_password'),
+    path('password-change-done/', TemplateView.as_view(template_name='accounts/password_change_done.html'), name='password_change_done'),
 
     path('missing_customers', MissingCustomersView.as_view(), name='missing_customers'),
     path('missing_customers_pdf/', MissingCustomersPdfView.as_view(), name='missing_customers_pdf'),  
