@@ -76,6 +76,9 @@
 
                                                 <td>
                                                     <div class="g-2">
+                                                        <a href="{% url 'change_password' data.id %}" aria-label="anchor" class="btn  btn-warning-light btn-sm" data-bs-toggle="tooltip" data-bs-original-title="Change Password">
+                                                            <span class="bi bi-eye-slash fs-14"></span>
+                                                        </a>
                                                         <a href="{% url 'user_details' data.id %}" aria-label="anchor" class="btn  btn-warning-light btn-sm" data-bs-toggle="tooltip" data-bs-original-title="View">
                                                             <span class="bi bi-eye fs-14"></span>
                                                         </a>

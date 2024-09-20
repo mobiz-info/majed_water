@@ -1086,6 +1086,33 @@
                                 <li class="slide side-menu__label1">
                                     <a href="javascript:void(0)"></a>
                                 </li>
+                                
+                                 <li class="slide">
+                                    <a href="{% url 'suspense_report' %}" class="side-menu__item"> Suspence</a>
+                                </li>
+                                <li class="slide">
+                                    <a href="{% url 'dsr_summary' %}" class="side-menu__item">DSR Summary</a>
+                                </li>
+                                <li class="slide">
+                                    <a href="{% url 'dsr' %}" class="side-menu__item">DSR </a>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <li class="slide__category"><span class="category-name">Reports</span></li>
+
+                        <li class="slide has-sub">
+                            <a href="javascript:void(0);" class="side-menu__item">
+                                <span class=" side-menu__icon">
+                                    <i class='bx bx-desktop'></i>
+                                </span>
+                                <span class="side-menu__label">Reports<span class="badge bg-warning-transparent ms-2 d-inline-block">3</span></span>
+                                <i class="fe fe-chevron-right side-menu__angle"></i>
+                            </a>
+                            <ul class="slide-menu child1">
+                                <li class="slide side-menu__label1">
+                                    <a href="javascript:void(0)"></a>
+                                </li>
                                 <li class="slide">
                                     <a href="{%url 'visitstatistics_report'%}" class="side-menu__item"> Visit statistics</a>
                                 </li>
@@ -1119,15 +1146,6 @@
                                 <li class="slide">
                                     <a href="{% url 'dsr_expense' %}" class="side-menu__item"> Expense</a>
                                 </li> 
-                                 <li class="slide">
-                                    <a href="{% url 'suspense_report' %}" class="side-menu__item"> Suspence</a>
-                                </li>
-                                <li class="slide">
-                                    <a href="{% url 'dsr_summary' %}" class="side-menu__item">DSR Summary</a>
-                                </li>
-                                <li class="slide">
-                                    <a href="{% url 'dsr' %}" class="side-menu__item">DSR </a>
-                                </li>
                             </ul>
                         </li>
                          <li class="slide__category"><span class="category-name">Van Management</span></li>

@@ -871,6 +871,29 @@ class NonVisitedCustomersView(View):
         return render(request, self.template_name, context)    
 
 
+def change_password(request, user_id):
+    user = get_object_or_404(CustomUser, pk=user_id)
+    
+    if request.method == 'POST':
+        form = CustomPasswordChangeForm(user=user, data=request.POST)
+        if form.is_valid():
+            form.save()
+            update_session_auth_hash(request, user)  
+            log_activity(
+                created_by=request.user.username, 
+                description=f"Password changed for user: {user.username}"
+            )
+            return redirect('password_change_done')
+        else:
+            log_activity(
+                created_by=request.user.username, 
+                description=f"Failed password change attempt for user: {user.username}. Errors: {form.errors}"
+            )
+    else:
+        form = CustomPasswordChangeForm(user=user)
+
+    return render(request, 'accounts/change_password.html', {'form': form})
+
 
 class MissingCustomersView(View):
     template_name = 'accounts/missing_customers.html'
