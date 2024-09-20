@@ -122,7 +122,7 @@ class CustomerReturnReason(models.Model):
 class CustomerReturn(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     customer = models.ForeignKey(Customers, on_delete=models.CASCADE,null=True,blank=True)
-    agreement_no = models.CharField(max_length=50, null=True, blank=True)
+    agreement_no = models.CharField(max_length=500, null=True, blank=True)
     reference_no = models.CharField(max_length=100, null=True, blank=True)
     deposit_type = models.CharField(max_length=20,choices=DEPOSIT_TYPES,null=True,blank=True)
     created_by = models.CharField(max_length=20,  blank=True)
@@ -139,7 +139,7 @@ class CustomerReturnItems(models.Model):
     customer_return = models.ForeignKey(CustomerReturn, on_delete=models.CASCADE,null=True,blank=True)
     product = models.ForeignKey('product.ProdutItemMaster', on_delete=models.CASCADE,null=True,blank=True)
     quantity = models.IntegerField(blank=True,null=True)
-    serialnumber = models.CharField(max_length=20, null=True, blank=True)
+    serialnumber = models.CharField(max_length=500, null=True, blank=True)
     amount = models.IntegerField(blank=True,null=True)
 
     def _str_(self):
@@ -148,12 +148,12 @@ class CustomerReturnItems(models.Model):
 class CustomerReturnStock(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     customer = models.ForeignKey('accounts.Customers', on_delete=models.CASCADE,null=True,blank=True)
-    agreement_no = models.CharField(max_length=50, null=True, blank=True)
+    agreement_no = models.CharField(max_length=500, null=True, blank=True)
     deposit_type = models.CharField(max_length=20,choices=DEPOSIT_TYPES,null=True,blank=True)
     reference_no = models.CharField(max_length=100)
     product = models.ForeignKey('product.ProdutItemMaster', on_delete=models.CASCADE,null=True,blank=True)
     quantity = models.IntegerField(blank=True,null=True)
-    serialnumber = models.CharField(max_length=20, null=True, blank=True)
+    serialnumber = models.CharField(max_length=500, null=True, blank=True)
     amount = models.DecimalField(default=0, decimal_places=2, max_digits=10)
     class Meta:
         ordering = ('id',)
