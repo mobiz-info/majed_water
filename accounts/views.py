@@ -34,6 +34,7 @@ from django.db.models import Q, Sum, Count
 from customer_care.models import *
 from apiservices.views import find_customers
 from van_management.models import Van_Routes,Van,VanProductStock
+from django.contrib.auth import update_session_auth_hash
 
 # Create your views here.
 def user_login(request):
