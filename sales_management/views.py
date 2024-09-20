@@ -3882,7 +3882,10 @@ def dsr_summary(request):
         #actual visit
         visited_customers_count = CustomerSupply.objects.filter(salesman_id=salesman, created_date__date=date).distinct().count()
         todays_customers = find_customers(request, str(date), van_route.routes.pk)
-        planned_visit_count = len(todays_customers)
+        if todays_customers :
+            planned_visit_count = len(todays_customers)
+        else:
+            planned_visit_count = 0
         non_visited_count = planned_visit_count - visited_customers_count
         
         ##### stock report #### 
@@ -4193,7 +4196,10 @@ def print_dsr_summary(request):
         #actual visit
         visited_customers_count = CustomerSupply.objects.filter(salesman_id=salesman, created_date__date=date).distinct().count()
         todays_customers = find_customers(request, str(date), van_route.routes.pk)
-        planned_visit_count = len(todays_customers)
+        if todays_customers :
+            planned_visit_count = len(todays_customers)
+        else:
+            planned_visit_count = 0
         non_visited_count = planned_visit_count - visited_customers_count
         
         ##### stock report #### 
@@ -4289,7 +4295,8 @@ def print_dsr_summary(request):
         # credit outstanding
         # outstanding_credit_notes = Invoice.objects.filter(invoice_type="credit_invoive",customer__sales_staff=salesman).exclude(created_date__date__gt=date)
         outstanding_credit_notes_total_amount = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__lte=date,customer_outstanding__product_type="amount",customer_outstanding__customer__routes=van_route.routes).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
-        outstanding_credit_notes_total_amount = outstanding_credit_notes_total_amount - dialy_collections.filter(created_date__date__lt=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        dialy_colection_upto__yesterday = dialy_collections.filter(created_date__date__lt=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        outstanding_credit_notes_total_amount = outstanding_credit_notes_total_amount - dialy_colection_upto__yesterday
         outstanding_credit_notes_received_amount = dialy_collections.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         outstanding_credit_notes_balance = outstanding_credit_notes_total_amount - outstanding_credit_notes_received_amount
         outstanding_total_amount_collected = dialy_collections.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
@@ -4399,8 +4406,6 @@ def print_dsr_summary(request):
         'balance_in_hand': balance_in_hand,
         'net_payble': net_payble,
         
-        'filter_data': filter_data,
-        # FOC customer
         'foc_customers':foc_customers,
         
         'filter_data': filter_data,

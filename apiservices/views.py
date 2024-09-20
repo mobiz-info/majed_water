@@ -6323,37 +6323,7 @@ class CustomerCartAPIView(APIView):
                 "message": cart_serializer.errors,
             }
             return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
-        
-    def delete(self, request, *args, **kwargs):
-        item_pk = request.data.get("item_pk")
-        if item_pk :
-            item = CustomerCartItems.objects.get(pk=item_pk)
-            
-            cart = CustomerCart.objects.get(pk=item.customer_cart.pk)
-            cart.grand_total -= item.price
-            cart.save()
-            
-            item.total_amount -= item.price
-            item.save()
-            item.delete()   
-             
-            response_data = {
-                "statusCode": status.HTTP_200_OK,
-                "title" : "Successfull",
-                "message" : "Item Removed from Cart",
-            }
-                
-            return Response(response_data, status=status.HTTP_200_OK)
-        
-        else:
-            response_data = {
-                "statusCode": status.HTTP_400_BAD_REQUEST,
-                "title" : "Error",
-                "message" : "no item pk",
-            }
-            
-            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
-        
+    
     def put(self, request, *args, **kwargs):
         item_pk = request.data.get("item_pk")
         item_qty = request.data.get("item_qty")
@@ -6378,6 +6348,36 @@ class CustomerCartAPIView(APIView):
                 "title" : "Successfull",
                 "data": serializer.data,
                 "message" : "Item Quantity Updated",
+            }
+                
+            return Response(response_data, status=status.HTTP_200_OK)
+        
+        else:
+            response_data = {
+                "statusCode": status.HTTP_400_BAD_REQUEST,
+                "title" : "Error",
+                "message" : "no item pk",
+            }
+            
+            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, *args, **kwargs):
+        item_pk = request.data.get("item_pk")
+        if item_pk :
+            item = CustomerCartItems.objects.get(pk=item_pk)
+            
+            cart = CustomerCart.objects.get(pk=item.customer_cart.pk)
+            cart.grand_total -= item.price
+            cart.save()
+            
+            item.total_amount -= item.price
+            item.save()
+            item.delete()   
+             
+            response_data = {
+                "statusCode": status.HTTP_200_OK,
+                "title" : "Successfull",
+                "message" : "Item Removed from Cart",
             }
                 
             return Response(response_data, status=status.HTTP_200_OK)
