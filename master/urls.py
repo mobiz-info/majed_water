@@ -5,6 +5,7 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('', home, name='dashboard'),
+    path('overview', overview, name='overview'),
     path('branch', Branch_List.as_view(), name='branch'),
     path('branch_create', Branch_Create.as_view(), name='branch_create'),
     path('branch_edit/<str:pk>', Branch_Edit.as_view(), name='branch_edit'),
