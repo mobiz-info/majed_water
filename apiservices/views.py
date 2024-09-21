@@ -2867,111 +2867,135 @@ class CustodyCustomAPIView(APIView):
             
             # Calculate the five_gallon_water_charge based on the quantity and customer's rate
             five_gallon_water_charge = quantity * float(customer.rate)
+            
+            vanstock = VanProductStock.objects.get(created_date=datetime.today().date(),product=product,van__salesman=request.user)
+                    
+            if vanstock.stock >= quantity:
 
-            # Create CustodyCustom instance
-            custody_custom_instance = CustodyCustom.objects.create(
-                customer=customer,
-                agreement_no=agreement_no,
-                total_amount=total_amount,
-                deposit_type=deposit_type,
-                reference_no=reference_no,
-                amount_collected=amount_collected,
-                created_by=request.user.pk,
-                created_date=datetime.today(),
-            )
-
-            # Create CustodyCustomItems instance
-            CustodyCustomItems.objects.create(
-                custody_custom=custody_custom_instance,
-                product=product,
-                quantity=quantity,
-                serialnumber=serialnumber,
-                amount=total_amount,
-                can_deposite_chrge=can_deposite_chrge,
-                five_gallon_water_charge=five_gallon_water_charge
-            )
-
-            try:
-                stock_instance = CustomerCustodyStock.objects.get(customer=customer, product=product)
-                stock_instance.agreement_no += ', ' + agreement_no
-                stock_instance.serialnumber += ', ' + serialnumber
-                stock_instance.amount += total_amount
-                stock_instance.quantity += quantity
-                stock_instance.save()
-            except CustomerCustodyStock.DoesNotExist:
-                CustomerCustodyStock.objects.create(
+                # Create CustodyCustom instance
+                custody_custom_instance = CustodyCustom.objects.create(
                     customer=customer,
                     agreement_no=agreement_no,
+                    total_amount=total_amount,
                     deposit_type=deposit_type,
                     reference_no=reference_no,
+                    amount_collected=amount_collected,
+                    created_by=request.user.pk,
+                    created_date=datetime.today(),
+                )
+
+                # Create CustodyCustomItems instance
+                CustodyCustomItems.objects.create(
+                    custody_custom=custody_custom_instance,
                     product=product,
                     quantity=quantity,
                     serialnumber=serialnumber,
                     amount=total_amount,
                     can_deposite_chrge=can_deposite_chrge,
-                    five_gallon_water_charge=five_gallon_water_charge,
-                    amount_collected=amount_collected
+                    five_gallon_water_charge=five_gallon_water_charge
                 )
 
-            if product.product_name.lower() == "5 gallon":
-                date_part = timezone.now().strftime('%Y%m%d')
                 try:
-                    invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
-                    last_invoice_number = invoice_last_no.invoice_no
+                    stock_instance = CustomerCustodyStock.objects.get(customer=customer, product=product)
+                    stock_instance.agreement_no += ', ' + agreement_no
+                    stock_instance.serialnumber += ', ' + serialnumber
+                    stock_instance.amount += total_amount
+                    stock_instance.quantity += quantity
+                    stock_instance.save()
+                except CustomerCustodyStock.DoesNotExist:
+                    CustomerCustodyStock.objects.create(
+                        customer=customer,
+                        agreement_no=agreement_no,
+                        deposit_type=deposit_type,
+                        reference_no=reference_no,
+                        product=product,
+                        quantity=quantity,
+                        serialnumber=serialnumber,
+                        amount=total_amount,
+                        can_deposite_chrge=can_deposite_chrge,
+                        five_gallon_water_charge=five_gallon_water_charge,
+                        amount_collected=amount_collected
+                    )
+                    
+                vanstock.stock -= quantity
+                if customer.sales_type != "FOC" :
+                    vanstock.sold_count += quantity
+                if customer.sales_type == "FOC" :
+                    vanstock.foc += quantity
+                # if product.product_name == "5 Gallon" :
+                    # total_fivegallon_qty += Decimal(quantity)
+                    # vanstock.empty_can_count += collected_empty_bottle
+                vanstock.save()
 
-                    # Validate the format of the last invoice number
-                    parts = last_invoice_number.split('-')
-                    if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
-                        prefix, old_date_part, number_part = parts
-                        new_number_part = int(number_part) + 1
-                        invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
-                    else:
-                        # If the last invoice number is not in the expected format, generate a new one
+                if product.product_name.lower() == "5 gallon":
+                    date_part = timezone.now().strftime('%Y%m%d')
+                    try:
+                        invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
+                        last_invoice_number = invoice_last_no.invoice_no
+
+                        # Validate the format of the last invoice number
+                        parts = last_invoice_number.split('-')
+                        if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
+                            prefix, old_date_part, number_part = parts
+                            new_number_part = int(number_part) + 1
+                            invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+                        else:
+                            # If the last invoice number is not in the expected format, generate a new one
+                            random_part = str(random.randint(1000, 9999))
+                            invoice_number = f'WTR-{date_part}-{random_part}'
+                    except Invoice.DoesNotExist:
                         random_part = str(random.randint(1000, 9999))
                         invoice_number = f'WTR-{date_part}-{random_part}'
-                except Invoice.DoesNotExist:
-                    random_part = str(random.randint(1000, 9999))
-                    invoice_number = f'WTR-{date_part}-{random_part}'
 
-                net_taxable = total_amount
-                discount = 0  
-                amount_total = total_amount
-                amount_received = amount_collected
+                    net_taxable = total_amount
+                    discount = 0  
+                    amount_total = total_amount
+                    amount_received = amount_collected
 
-                invoice_instance = Invoice.objects.create(
-                    invoice_no=invoice_number,
-                    created_date=datetime.today(),
-                    net_taxable=net_taxable,
-                    discount=discount,
-                    amout_total=amount_total,  # Corrected field name
-                    amout_recieved=amount_received,  # Corrected field name
-                    customer=customer,
-                    reference_no=reference_no
-                )
-                
-                if invoice_instance.amout_total == invoice_instance.amout_recieved:
-                    invoice_instance.invoice_status = "paid"
-                    invoice_instance.save()
+                    invoice_instance = Invoice.objects.create(
+                        invoice_no=invoice_number,
+                        created_date=datetime.today(),
+                        net_taxable=net_taxable,
+                        discount=discount,
+                        amout_total=amount_total,  # Corrected field name
+                        amout_recieved=amount_received,  # Corrected field name
+                        customer=customer,
+                        reference_no=reference_no
+                    )
+                    
+                    if invoice_instance.amout_total == invoice_instance.amout_recieved:
+                        invoice_instance.invoice_status = "paid"
+                        invoice_instance.save()
 
-                InvoiceItems.objects.create(
-                    category=product.category,
-                    product_items=product,
-                    qty=quantity,
-                    rate=product.rate,
-                    invoice=invoice_instance,
-                    remarks='Invoice generated from custody item creation'
-                )
+                    InvoiceItems.objects.create(
+                        category=product.category,
+                        product_items=product,
+                        qty=quantity,
+                        rate=product.rate,
+                        invoice=invoice_instance,
+                        remarks='Invoice generated from custody item creation'
+                    )
 
-                # Create daily collection record
-                InvoiceDailyCollection.objects.create(
-                    invoice=invoice_instance,
-                    created_date=datetime.today(),
-                    customer=invoice_instance.customer,
-                    salesman=request.user,
-                    amount=invoice_instance.amout_recieved,
-                )
+                    # Create daily collection record
+                    InvoiceDailyCollection.objects.create(
+                        invoice=invoice_instance,
+                        created_date=datetime.today(),
+                        customer=invoice_instance.customer,
+                        salesman=request.user,
+                        amount=invoice_instance.amout_recieved,
+                    )
 
-            return Response({'status': True, 'message': 'Created Successfully'})
+                return Response({'status': True, 'message': 'Created Successfully'})
+            
+            else:
+                status_code = status.HTTP_400_BAD_REQUEST
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": f"No stock available in {product.product_name}, only {vanstock.stock} left",
+                }
+                return Response(response_data, status=status_code)
+            
         except Exception as e:
             return Response({'status': False, 'data': str(e), 'message': str(e)})
 
@@ -4347,6 +4371,10 @@ class CustodyItemReturnAPI(APIView):
             custody_stock_instance.amount_collected -= total_amount
             custody_stock_instance.quantity -= quantity
             custody_stock_instance.save()
+            
+            vanstock = VanProductStock.objects.get(created_date=datetime.today().date(),product=product,van__salesman=request.user)
+            vanstock.return_count += quantity
+            vanstock.save()
             
             # date_part = datetime.today().strftime('%Y%m%d')
             # try:
