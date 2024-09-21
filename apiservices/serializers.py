@@ -1008,6 +1008,7 @@ class CustodyCustomItemsSerializer(serializers.ModelSerializer):
 #         model = DiffBottlesModel
 #         fields = '__all__'
 class EmergencyCustomersSerializer(serializers.ModelSerializer):
+    customer_id = serializers.CharField(source='customer.customer_id', allow_null=True)
     quantity_required = serializers.IntegerField()
     assign_this_to = serializers.CharField(source='assign_this_to.username', allow_null=True)
     mode = serializers.CharField()
@@ -1015,7 +1016,7 @@ class EmergencyCustomersSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DiffBottlesModel
-        fields = ['customer', 'quantity_required', 'assign_this_to', 'mode', 'product_item', 'delivery_date']
+        fields = ['customer','customer_id', 'quantity_required', 'assign_this_to', 'mode', 'product_item', 'delivery_date']
 
 
 #----------------------New sales Report-------------
