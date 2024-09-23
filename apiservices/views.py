@@ -3223,6 +3223,10 @@ class create_customer_supply(APIView):
                                         leaflet_instance.used=True
                                         leaflet_instance.save()
                                         
+                                    vancouponstock,create = VanCouponStock.objects.get_or_create(coupon=leaflet_instance.coupon,created_date=datetime.today().date(),van=van)
+                                    vancouponstock.used_leaf_count = 1
+                                    vancouponstock.save()
+                                        
                                     if CustomerCouponStock.objects.filter(customer__pk=customer_supply_data['customer'],coupon_method="manual",coupon_type_id=leaflet_instance.coupon.coupon_type).exists() :
                                         customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_supply_data['customer'],coupon_method="manual",coupon_type_id=leaflet_instance.coupon.coupon_type)
                                         customer_stock.count -= 1
@@ -8372,7 +8376,10 @@ class CreditSalesReportAPIView(APIView):
         data_filter = False
         salesman_id =  ""
         date_str = request.GET.get('date')
-        route_name = request.GET.get('route_name')
+        if request.GET.get('route_name'):
+            route_name = request.GET.get('route_name')
+        else:
+            route_name = request.data.get('route_name')
 
         if date_str:
             date = datetime.strptime(date_str, '%Y-%m-%d').date()
@@ -8424,6 +8431,9 @@ class CreditSalesReportAPIView(APIView):
             }
 
             return Response(data, status=status.HTTP_200_OK)
+        
+        else:
+            return Response({"message": "Add a route name"}, status=status.HTTP_400_BAD_REQUEST)
         
 #---------------------------Bottle Count API ------------------------------------------------   
 
