@@ -10,7 +10,7 @@ from invoice_management.models import Invoice, InvoiceItems
 from product.models import ProdutItemMaster
 
 # Read the Excel file
-file_path = '/home/ra/Downloads/S-41 Credit export software.xlsx'
+file_path = '/home/ra/Downloads/van-3 credit details.xlsx'
 data = pd.read_excel(file_path)
 print("File path:", file_path)
 print("DataFrame columns:", data.columns)
