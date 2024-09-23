@@ -30,7 +30,7 @@ class Van(models.Model):
     plate = models.CharField(max_length=50)
     renewal_date = models.DateTimeField(blank=True, null=True)
     insurance_expiry_date = models.DateTimeField(blank=True, null=True)
-    capacity = models.IntegerField(null=True,blank=True)
+    capacity = models.IntegerField(default=0)
     bottle_count = models.PositiveIntegerField(default=0)
     driver = models.ForeignKey('accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True,related_name='driver_van')
     salesman = models.ForeignKey('accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True,related_name='salesman_van')
