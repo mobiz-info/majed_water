@@ -1122,19 +1122,37 @@ class CollectionReportSerializer(serializers.ModelSerializer):
         return obj.collection_payment.customer.custom_id
     
 class CouponSupplyCountSerializer(serializers.ModelSerializer):
-    customer__customer_name = serializers.CharField()  
-    manual_coupon_paid_count = serializers.IntegerField()
-    manual_coupon_free_count = serializers.IntegerField()
-    digital_coupon_paid_count = serializers.IntegerField()
-    digital_coupon_free_count = serializers.IntegerField()
-    total_amount_collected = serializers.DecimalField(max_digits=10, decimal_places=2)
-    payment_type = serializers.ChoiceField(choices=PAYMENT_METHOD)  # Use ChoiceField for dropdown with choices
+    customer__customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
+    manual_coupon_paid_count = serializers.SerializerMethodField()
+    manual_coupon_free_count = serializers.SerializerMethodField()
+    digital_coupon_paid_count = serializers.SerializerMethodField()
+    digital_coupon_free_count = serializers.SerializerMethodField()
+    total_amount_collected = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomerCoupon
-        fields = ['customer__customer_name', 'manual_coupon_paid_count', 'manual_coupon_free_count', 'digital_coupon_paid_count', 'digital_coupon_free_count', 'total_amount_collected', 'payment_type']
-
-
+        fields = ['payment_type','customer__customer_name','manual_coupon_paid_count','manual_coupon_free_count','digital_coupon_paid_count','digital_coupon_free_count','total_amount_collected']
+        
+    def get_manual_coupon_paid_count(self,obj):
+        paid_coupon_count = CustomerCouponItems.objects.filter(customer_coupon=obj).aggregate(total_quantity=Sum('coupon__valuable_leaflets'))['total_quantity'] or 0
+        return paid_coupon_count
+    
+    def get_manual_coupon_free_count(self,obj):
+        free_coupon_count = CustomerCouponItems.objects.filter(customer_coupon=obj).aggregate(total_quantity=Sum('coupon__free_leaflets'))['total_quantity'] or 0
+        return free_coupon_count
+    
+    def get_digital_coupon_paid_count(self,obj):
+        return 1
+    
+    def get_digital_coupon_free_count(self,obj):
+        return 0
+    
+    def get_total_amount_collected(self,obj):
+        return obj.total_payeble
+        
+    def get_payment_type(self,obj):
+        return obj.payment_type
+    
 class CustomerCouponCountsSerializer(serializers.Serializer):
     customer_name = serializers.CharField(max_length=250)
     building_name = serializers.CharField(max_length=250)

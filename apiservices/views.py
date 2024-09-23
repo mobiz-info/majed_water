@@ -2282,7 +2282,11 @@ class ScheduleView(APIView):
             else:
                 for customer in todays_customers:
                     customer_count += 1
-                    bottle_count += customer['no_of_bottles']
+                    if not customer['no_of_bottles']:
+                        customer_no_of_bottles = 0
+                    else :
+                        customer_no_of_bottles = customer['no_of_bottles']
+                    bottle_count += customer_no_of_bottles
                     if customer['trip'] not in trips:
                         trips.append(customer['trip'])
 
@@ -2681,7 +2685,7 @@ class CustomerCouponRecharge(APIView):
 
                 # Create ChequeCouponPayment instanceno_of_leaflets
                 cheque_payment_instance = None
-                if payment_data.get('payment_type') == 'cheque':
+                if coupon_data.pop("payment_type") == 'cheque':
                     cheque_payment_instance = ChequeCouponPayment.objects.create(**payment_data)
 
                 return Response({"message": "Recharge successful"}, status=status.HTTP_200_OK)
@@ -5225,33 +5229,19 @@ class CouponSupplyCountAPIView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request, *args, **kwargs):
 
-        salesman_id = self.kwargs.get('salesman_id')  
-        # print("salesman_id",salesman_id)
         start_date = request.data.get('start_date')
-        # print("start_date",start_date)
         end_date = request.data.get('end_date')
-        # print("end_date",end_date)
         
         if not (start_date and end_date):
             start_datetime = datetime.today().date()
             end_datetime = datetime.today().date()
-            # return Response({"error": "Both start_date and end_date are required."}, status=400)
         else:
-            start_datetime = datetime.strptime(start_date, '%Y-%m-%d')
-            end_datetime = datetime.strptime(end_date, '%Y-%m-%d')
+            start_datetime = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_datetime = datetime.strptime(end_date, '%Y-%m-%d').date()
         
-        coupon_counts = CustomerCoupon.objects.filter(salesman_id=salesman_id,created_date__range=[start_datetime, end_datetime]) \
-            .values('customer__customer_name', 'customer__coupon_count','payment_type') \
-            .annotate(
-                manual_coupon_paid_count=Count('id', filter=models.Q(payment_type='manual')),
-                manual_coupon_free_count=Count('id', filter=models.Q(payment_type='manual', amount_recieved=0)),
-                digital_coupon_paid_count=Count('id', filter=models.Q(payment_type='digital')),
-                digital_coupon_free_count=Count('id', filter=models.Q(payment_type='digital', amount_recieved=0)),
-                total_amount_collected=Sum('amount_recieved')
-            )
-        print("coupon_counts",coupon_counts)
-
+        coupon_counts = CustomerCoupon.objects.filter(created_date__date__range=[start_datetime,end_datetime])
         serializer = CouponSupplyCountSerializer(coupon_counts, many=True)
+
         return Response({'status': True, 'data': serializer.data}, status=status.HTTP_200_OK)
 
 class RedeemedHistoryAPI(APIView):
@@ -9246,13 +9236,13 @@ class CustomersOutstandingAmountsAPI(APIView):
         filter_end_date = end_date.strftime('%Y-%m-%d')
         
         route = Van_Routes.objects.filter(van__salesman=request.user).first().routes
-        instances = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__gte=start_date,customer_outstanding__created_date__date__lt=end_date,customer_outstanding__customer__routes=route)        
+        instances = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__gte=start_date,customer_outstanding__created_date__date__lte=end_date,customer_outstanding__customer__routes=route)        
         serializer = CustomersOutstandingAmountsSerializer(instances, many=True, context={'user_id': request.user.pk})
         
         total_amount = instances.aggregate(total_amout_recieved=Sum('amount'))['total_amout_recieved'] or 0
         
         customer_ids = instances.values_list('customer_outstanding__customer__pk')
-        dialy_collections = CollectionPayment.objects.filter(customer__pk__in=customer_ids,created_date__date__gte=start_date,created_date__date__lt=end_date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        dialy_collections = CollectionPayment.objects.filter(customer__pk__in=customer_ids,created_date__date__gte=start_date,created_date__date__lte=end_date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         
         return Response({
             'status': True,
@@ -9289,7 +9279,7 @@ class CustomersOutstandingCouponsAPI(APIView):
             filter_end_date = date.strftime('%Y-%m-%d')
         
         route = Van_Routes.objects.filter(van__salesman=request.user).first().routes
-        instances = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lt=end_date,customer__routes=route,customer__sales_type="CASH COUPON")        
+        instances = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,customer__routes=route,customer__sales_type="CASH COUPON")        
         serializer = CustomersOutstandingCouponSerializer(instances, many=True, context={'user_id': request.user.pk})
         
         supply_ids = instances.values_list('pk')
@@ -9335,7 +9325,7 @@ class CustomersOutstandingBottlesAPI(APIView):
         filter_end_date = end_date.strftime('%Y-%m-%d')
         
         route = Van_Routes.objects.filter(van__salesman=request.user).first().routes
-        instances = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lt=end_date,customer__routes=route)        
+        instances = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,customer__routes=route)        
         serializer = CustomersOutstandingBottlesSerializer(instances, many=True, context={'user_id': request.user.pk})
         
         supply_ids = instances.values_list('pk')
