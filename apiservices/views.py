@@ -35,7 +35,7 @@ from rest_framework.authentication import BasicAuthentication
 from rest_framework.permissions import BasePermission, IsAuthenticated,IsAuthenticatedOrReadOnly
 
 from accounts.models import *
-from invoice_management.models import Invoice, InvoiceDailyCollection, InvoiceItems
+from invoice_management.models import INVOICE_TYPES, Invoice, InvoiceDailyCollection, InvoiceItems
 from client_management.forms import CoupenEditForm
 from master.serializers import *
 from master.functions import generate_serializer_errors, get_custom_id, get_next_visit_date
@@ -4988,7 +4988,7 @@ class CustomerSalesReportAPI(APIView):
             'start_date': start_date.strftime('%Y-%m-%d'),
             'end_date': end_date.strftime('%Y-%m-%d'),
         }
-
+        
         sales = CustomerSupply.objects.select_related('customer', 'salesman').filter(
             created_date__date__gte=start_date,
             created_date__date__lte=end_date,
@@ -5179,53 +5179,30 @@ class CollectionReportAPI(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        try:
-            start_date_str = request.query_params.get('start_date')
-            end_date_str = request.query_params.get('end_date')
-            selected_route_id = request.query_params.get('route_name')
-            
-            today = timezone.now().date()
-            start_date = today
-            end_date = today + timedelta(days=1)
-            
-            if start_date_str and end_date_str:
-                try:
-                    start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-                    end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-                except ValueError:
-                    return Response({"error": "Invalid date format. Use 'YYYY-MM-DD'."}, status=status.HTTP_400_BAD_REQUEST)
-            
-            collection_items = CollectionItems.objects.filter(
-                collection_payment__created_date__date__range=[start_date, end_date]
-            ).select_related('collection_payment__customer')
-            
-            if selected_route_id:
-                try:
-                    selected_route = RouteMaster.objects.get(route_name=selected_route_id)
-                    collection_items = collection_items.filter(
-                        collection_payment__customer__routes__route_name=selected_route
-                    )
-                except RouteMaster.DoesNotExist:
-                    return Response({"error": "Route not found."}, status=status.HTTP_404_NOT_FOUND)
-            
-            total_collected_amount = collection_items.aggregate(total=Sum('amount_received'))['total'] or 0
-            
-            serialized_data = CollectionReportSerializer(collection_items, many=True).data
-            
-            
-            return Response({
-                'status': True,
-                'data': serialized_data,
-                'total_collected_amount': str(total_collected_amount),
-                'filter_data': {
-                    'start_date': start_date.strftime('%Y-%m-%d'),
-                    'end_date': end_date.strftime('%Y-%m-%d'),
-                    'selected_route': selected_route_id
-                }
-            }, status=status.HTTP_200_OK)
+        start_date_str = request.data.get('start_date')
+        end_date_str = request.data.get('end_date')
 
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if start_date_str and end_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        else:
+            start_date = datetime.today().date()
+            end_date = datetime.today().date()
+            
+        instances = CollectionPayment.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,salesman=request.user)
+        serialized_data = CollectionReportSerializer(instances, many=True).data
+        
+        total_collected_amount = CollectionItems.objects.filter(collection_payment__pk__in=instances.values_list('pk')).aggregate(total=Sum('amount_received', output_field=DecimalField()))['total'] or 0
+        return Response({
+            'status': True,
+            'data': serialized_data,
+            'total_collected_amount': str(total_collected_amount),
+            'filter_data': {
+                'start_date': start_date.strftime('%Y-%m-%d'),
+                'end_date': end_date.strftime('%Y-%m-%d'),
+            }
+        }, status=status.HTTP_200_OK)
+
           
 #----------------------Coupon Supply Report
 class CouponSupplyCountAPIView(APIView):
@@ -6258,11 +6235,11 @@ class CustomerCartAPIView(APIView):
         
         else:
             response_data = {
-                "statusCode": status.HTTP_400_BAD_REQUEST,
-                "message" : "no data found",
+                "statusCode": status.HTTP_200_OK,
+                "data" : [],
             }
             
-            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
+            return Response(response_data, status=status.HTTP_200_OK)
     
     def post(self, request, *args, **kwargs):
         customer = Customers.objects.get(user_id=request.user)
@@ -9171,12 +9148,12 @@ class SalesInvoicesAPIView(APIView):
             start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
         
         if not end_date:
-            end_date = datetime.today().date() + timedelta(days=1)
+            end_date = datetime.today().date()
         else:
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
         
-        route = Van_Routes.objects.filter(van__salesman=request.user).first()
-        instances = Invoice.objects.filter(created_date__date__gt=start_date,created_date__date__lte=end_date,customer__routes=route)
+        route = Van_Routes.objects.get(van__salesman=request.user).routes
+        instances = Invoice.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,customer__routes=route)
                 
         serializer = SalesInvoiceSerializer(instances,many=True)
         
@@ -9185,10 +9162,16 @@ class SalesInvoicesAPIView(APIView):
             "status": status.HTTP_200_OK,
             "data": {
                 "invoices": serializer.data,
-                "total_taxable": instances.aggregate(total_net_taxable=Sum('net_taxable'))['total_net_taxable'],
-                "total_vat": instances.aggregate(total_vat=Sum('vat'))['total_vat'],
-                "total_amount": instances.aggregate(total_amount=Sum('amout_total'))['total_amount'],
-                "total_amount_collected": instances.aggregate(total_amout_recieved=Sum('amout_recieved'))['total_amout_recieved'],
+                "total_taxable": instances.aggregate(total_net_taxable=Sum('net_taxable'))['total_net_taxable'] or 0,
+                "total_vat": instances.aggregate(total_vat=Sum('vat'))['total_vat'] or 0,
+                "total_amount": instances.aggregate(total_amount=Sum('amout_total'))['total_amount'] or 0,
+                "total_amount_collected": instances.aggregate(total_amout_recieved=Sum('amout_recieved'))['total_amout_recieved'] or 0,
+                "filter_data":{
+                    "invoice_types": [{'key': key, 'value': value} for key, value in INVOICE_TYPES],
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "route_name": route.route_name,
+                }
             },
         }
 

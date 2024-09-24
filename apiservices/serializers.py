@@ -1022,15 +1022,17 @@ class EmergencyCustomersSerializer(serializers.ModelSerializer):
 #----------------------New sales Report-------------
 
 class NewSalesCustomerSupplySerializer(serializers.ModelSerializer):
-    taxable_amount = serializers.SerializerMethodField() 
+    created_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
     total = serializers.SerializerMethodField() 
-    amount_recieved = serializers.SerializerMethodField() 
-    customer_name = serializers.SerializerMethodField() 
-    customer_code = serializers.SerializerMethodField() 
+    invoice_type = serializers.SerializerMethodField() 
+    customer_name = serializers.SerializerMethodField()
+    customer_code = serializers.SerializerMethodField()
+    taxable_amount = serializers.SerializerMethodField() 
+    amount_recieved = serializers.SerializerMethodField()
     
     class Meta:
         model = CustomerSupply
-        fields = ['invoice_no','reference_number','customer_name','customer_code','taxable_amount','total','amount_recieved']
+        fields = ['created_date','invoice_no','reference_number','customer_name','customer_code','invoice_type','taxable_amount','total','vat','amount_recieved']
     
     def get_taxable_amount(self, obj):
         return obj.grand_total
@@ -1046,17 +1048,26 @@ class NewSalesCustomerSupplySerializer(serializers.ModelSerializer):
     
     def get_customer_code(self, obj):
         return obj.customer.custom_id
+    
+    def get_invoice_type(self, obj):
+        try:
+            return Invoice.objects.get(invoice_no=obj.invoice_no).invoice_type
+        except:
+            return ""
 
 class NewSalesCustomerCouponSerializer(serializers.ModelSerializer):
+    created_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
     taxable_amount = serializers.SerializerMethodField() 
     total = serializers.SerializerMethodField() 
     amount_recieved = serializers.SerializerMethodField() 
     customer_name = serializers.SerializerMethodField() 
     customer_code = serializers.SerializerMethodField() 
+    vat = serializers.SerializerMethodField()
+    invoice_type = serializers.SerializerMethodField()
     
     class Meta:
         model = CustomerCoupon
-        fields = ['invoice_no','reference_number','customer_name','customer_code','taxable_amount','total','amount_recieved']
+        fields = ['created_date','invoice_no','reference_number','customer_name','customer_code','invoice_type','taxable_amount','total','vat','amount_recieved']
     
     def get_taxable_amount(self, obj):
         return obj.grand_total
@@ -1072,6 +1083,15 @@ class NewSalesCustomerCouponSerializer(serializers.ModelSerializer):
     
     def get_customer_code(self, obj):
         return obj.customer.custom_id
+    
+    def get_invoice_type(self, obj):
+        try:
+            return Invoice.objects.get(invoice_no=obj.invoice_no).invoice_type
+        except:
+            return ""
+    
+    def get_vat(self, obj):
+        return ""
 
 class NewSalesCollectionPaymentSerializer(serializers.ModelSerializer):
     class Meta:
@@ -1105,21 +1125,23 @@ class CreditNoteSerializer(serializers.ModelSerializer):
 class CollectionReportSerializer(serializers.ModelSerializer):
     customer_code = serializers.SerializerMethodField() 
     customer_name = serializers.SerializerMethodField()
-    receipt_no = serializers.CharField(source='invoice.reference_no')
-    mode_of_payment = serializers.CharField(source='collection_payment.payment_method')
     collected_amount = serializers.DecimalField(source='amount_received', max_digits=10, decimal_places=2)
-    invoice = serializers.CharField(source='invoice.invoice_no')
+    invoices = serializers.SerializerMethodField() 
     
     class Meta:
-        model = CollectionItems
-        fields = [ 'customer_code','customer_name', 'receipt_no', 'mode_of_payment', 'collected_amount','invoice']
+        model = CollectionPayment
+        fields = ['customer_code','customer_name','receipt_number','payment_method','collected_amount','invoices']
 
    
     def get_customer_name(self, obj):
-        return obj.collection_payment.customer.customer_name
+        return obj.customer.customer_name
     
     def get_customer_code(self, obj):
-        return obj.collection_payment.customer.custom_id
+        return obj.customer.custom_id
+    
+    def get_invoices(self, obj):
+        invoice_list = CollectionItems.objects.filter(collection_payment=obj).values_list('invoice__invoice_no', flat=True)
+        return ', '.join(invoice_list)
     
 class CouponSupplyCountSerializer(serializers.ModelSerializer):
     customer__customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
@@ -1385,7 +1407,7 @@ class FreshvsCouponCustomerSerializer(serializers.ModelSerializer):
             van__salesman=obj.sales_staff,
             created_date__range=[start_datetime, end_datetime]
         ).aggregate(total_fresh_cans=Sum('stock'))
-        print("fresh_cans", fresh_cans)
+        # print("fresh_cans", fresh_cans)
 
         return fresh_cans.get('total_fresh_cans', 0) or 0
 
@@ -1398,7 +1420,7 @@ class FreshvsCouponCustomerSerializer(serializers.ModelSerializer):
             customer_supply__customer=obj,
             customer_supply__created_date__range=[start_datetime, end_datetime]
         ).aggregate(total_digital_leaflets=Sum('count'))
-        print("digital_coupon_data", digital_coupon_data)
+        # print("digital_coupon_data", digital_coupon_data)
         return digital_coupon_data.get('total_digital_leaflets', 0) or 0
 
     def get_total_manual_coupons(self, obj):
@@ -1412,7 +1434,7 @@ class FreshvsCouponCustomerSerializer(serializers.ModelSerializer):
             coupon__coupon_method='manual',
             coupon__leaflets__used=False
         ).aggregate(total_manual_leaflets=Count('coupon__leaflets', distinct=True))
-        print("manual_coupon_data", manual_coupon_data)
+        # print("manual_coupon_data", manual_coupon_data)
         return manual_coupon_data.get('total_manual_leaflets', 0) or 0
 
     def get_opening_cans(self, obj):
@@ -1424,7 +1446,7 @@ class FreshvsCouponCustomerSerializer(serializers.ModelSerializer):
             van__salesman=obj.sales_staff,
             created_date__range=[start_datetime, end_datetime]
         ).aggregate(total_opening_cans=Sum('opening_count'))
-        print("opening_cans", opening_cans)
+        # print("opening_cans", opening_cans)
         
         return opening_cans.get('total_fresh_cans', 0) or 0
     
@@ -1437,7 +1459,7 @@ class FreshvsCouponCustomerSerializer(serializers.ModelSerializer):
             van__salesman=obj.sales_staff,
             created_date__range=[start_datetime, end_datetime]
         ).aggregate(total_pending_cans=Sum('pending_count'))
-        print("pending_cans", pending_cans)
+        # print("pending_cans", pending_cans)
         
         return pending_cans.get('total_pending_cans', 0) or 0
 
@@ -2144,11 +2166,13 @@ class ProductSalesReportSerializer(serializers.ModelSerializer):
     
 
 class SalesInvoiceSerializer(serializers.ModelSerializer):
+    created_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
     customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
+    customer_code = serializers.CharField(source='customer.custom_id', read_only=True)
     
     class Meta:
         model = Invoice
-        fields = ['created_date','invoice_no','reference_no','customer_name','net_taxable','vat','discount','amout_total','amout_recieved']  
+        fields = ['created_date','invoice_no','reference_no','customer_name','invoice_type','customer_code','net_taxable','vat','discount','amout_total','amout_recieved']  
         
         
 class CustomersSupplysSerializer(serializers.ModelSerializer):
