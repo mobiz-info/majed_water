@@ -176,6 +176,7 @@ urlpatterns = [
     path('collectionreport/', CollectionReportAPI.as_view(), name='collectionreport'),
 
     path('coupon_supply_count/<int:salesman_id>/', CouponSupplyCountAPIView.as_view(), name='coupon_supply_count'),
+    path('coupon_sales_count/<int:salesman_id>/', Coupon_Sales_APIView.as_view(), name='coupon_sales_count'),
 
     path('redeemed_history/', RedeemedHistoryAPI.as_view(), name='redeemed_history'),
 

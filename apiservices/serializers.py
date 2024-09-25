@@ -1174,6 +1174,32 @@ class CouponSupplyCountSerializer(serializers.ModelSerializer):
         
     def get_payment_type(self,obj):
         return obj.payment_type
+
+class Coupon_Sales_Serializer(serializers.ModelSerializer):
+    book_num = serializers.CharField(source="coupon.book_num", read_only=True)
+    used_leaflets_count = serializers.SerializerMethodField()
+    customer_name = serializers.CharField(source="customer_coupon.customer.customer_name", read_only=True)
+    customer_id = serializers.CharField(source="customer_coupon.customer.custom_id", read_only=True)
+    customer_sales_type = serializers.CharField(source="customer_coupon.customer.sales_type", read_only=True)
+    coupon_method = serializers.CharField(source="customer_coupon.coupon_method", read_only=True)
+    balance_coupons = serializers.SerializerMethodField()
+    amount_collected = serializers.CharField(source="customer_coupon.amount_recieved", read_only=True)
+    balance = serializers.CharField(source="customer_coupon.balance", read_only=True)
+
+    class Meta:
+        model = CustomerCouponItems
+        fields = [
+            'customer_name', 'book_num', 'customer_id', 'customer_sales_type',
+            'used_leaflets_count', 'rate', 'amount_collected', 'balance', 
+            'balance_coupons', 'coupon_method'
+        ]
+
+    def get_used_leaflets_count(self, obj):
+        return CouponLeaflet.objects.filter(coupon=obj.coupon, used=True).count()
+
+    def get_balance_coupons(self, obj):
+        return CouponLeaflet.objects.filter(coupon=obj.coupon, used=False).count()
+
     
 class CustomerCouponCountsSerializer(serializers.Serializer):
     customer_name = serializers.CharField(max_length=250)

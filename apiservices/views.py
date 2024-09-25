@@ -5225,6 +5225,46 @@ class CouponSupplyCountAPIView(APIView):
 
         return Response({'status': True, 'data': serializer.data}, status=status.HTTP_200_OK)
 
+class Coupon_Sales_APIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    def get(self, request, *args, **kwargs):
+
+        start_date = request.data.get('start_date')
+        end_date = request.data.get('end_date')
+        sales_type = request.data.get('sales_type')  
+        
+        if not (start_date and end_date):
+            start_datetime = datetime.today().date()
+            end_datetime = datetime.today().date()
+        else:
+            start_datetime = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_datetime = datetime.strptime(end_date, '%Y-%m-%d').date()
+        
+            
+        coupon_sales = CustomerCouponItems.objects.filter(customer_coupon__created_date__date__range=[start_datetime,end_datetime])
+        
+        if sales_type:
+            coupon_sales = coupon_sales.filter(customer_coupon__customer__sales_type=sales_type)
+        
+        # Calculate totals for rate, amount_collected, and balance
+        total_rate = coupon_sales.aggregate(total=Sum('rate'))['total'] or 0
+        total_amount_collected = coupon_sales.aggregate(total=Sum('customer_coupon__amount_recieved'))['total'] or 0
+        total_balance = coupon_sales.aggregate(total=Sum('customer_coupon__balance'))['total'] or 0
+        
+        serializer = Coupon_Sales_Serializer(coupon_sales, many=True)
+
+# Return the response with totals in the footer
+        return Response({
+            'status': True,
+            'data': serializer.data,
+            'total_sum': {
+                'total_rate': total_rate,
+                'total_amount_collected': total_amount_collected,
+                'total_balance': total_balance
+            }
+        }, status=status.HTTP_200_OK)
+            
 class RedeemedHistoryAPI(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
