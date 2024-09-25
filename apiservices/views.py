@@ -5188,7 +5188,8 @@ class CollectionReportAPI(APIView):
         else:
             start_date = datetime.today().date()
             end_date = datetime.today().date()
-            
+        salesman=request.user
+        print("salesman",salesman)    
         instances = CollectionPayment.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,salesman=request.user)
         serialized_data = CollectionReportSerializer(instances, many=True).data
         
@@ -9152,19 +9153,23 @@ class ProductRouteSalesReportAPIView(APIView):
     def get(self, request):
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
-        
+        product_id = request.GET.get('product_id') 
+
         if not start_date:
             start_date = datetime.today().date()
         else:
             start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-        
+
         if not end_date:
             end_date = datetime.today().date() + timedelta(days=1)
         else:
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
-        
+
         instances = ProdutItemMaster.objects.all()
-                
+        
+        if product_id:
+            instances = instances.filter(id=product_id)
+        
         serializer = ProductSalesReportSerializer(
             instances,
             many=True,
@@ -9239,7 +9244,7 @@ class CustomerSupplyListAPIView(APIView):
         
         response_data = {
             'items': data,
-            'total': total_supplied
+            'total_supplied': total_supplied
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
