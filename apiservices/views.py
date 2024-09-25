@@ -9204,7 +9204,7 @@ class CustomerSupplyListAPIView(APIView):
         
         response_data = {
             'items': data,
-            'total': total_supplied
+            'total_supplied': total_supplied
         }
 
         return Response(response_data, status=status.HTTP_200_OK)

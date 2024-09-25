@@ -2184,10 +2184,11 @@ class CustomersSupplysSerializer(serializers.ModelSerializer):
     supplied = serializers.SerializerMethodField()
     sales_mode = serializers.CharField(source='customer.sales_type')
     customer_code = serializers.SerializerMethodField() 
+    customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
     
     class Meta:
         model = CustomerSupply
-        fields = ['customer_code', 'building_no', 'door_house_no', 'supplied', 'sales_mode']
+        fields = ['customer_name','customer_code', 'building_no', 'door_house_no', 'supplied', 'sales_mode']
 
     def get_supplied(self, obj):
         coupon_products = CustomerSupplyItems.objects.filter(customer_supply=obj).exclude(customer_supply__customer__sales_type="CASH COUPON")
@@ -2195,7 +2196,7 @@ class CustomersSupplysSerializer(serializers.ModelSerializer):
         if coupon_products:
             return obj.get_total_supply_qty() 
         else:
-            print("Couo")
+            # print("Couo")
             return obj.total_coupon_recieved().get('manual_coupon', 0) + obj.total_coupon_recieved().get('digital_coupon', 0)
     
     def get_customer_code(self, obj):
