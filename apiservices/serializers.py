@@ -2105,12 +2105,14 @@ class CreditCustomerSerializer(serializers.ModelSerializer):
         fields = ['customer_name', 'sales_type']  
 
 class CreditNoteSerializer(serializers.ModelSerializer):
-    customer = CreditCustomerSerializer()  
+    customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
+    customer_code = serializers.CharField(source='customer.custom_id', read_only=True) 
+    sales_type = serializers.CharField(source='customer.sales_type', read_only=True) 
     class Meta:
         model = CreditNote
-        fields = ['created_date','credit_note_no', 'net_taxable', 'vat', 'amout_total', 'amout_recieved', 'customer'] 
-            
- 
+        fields = ['created_date','credit_note_no', 'net_taxable', 'vat', 'amout_total', 'amout_recieved' ,'customer_name','customer_code','sales_type'] 
+       
+        
 class ProductSalesReportSerializer(serializers.ModelSerializer):
     cash_quantity = serializers.SerializerMethodField()
     credit_quantity = serializers.SerializerMethodField()

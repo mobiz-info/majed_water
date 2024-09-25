@@ -49,12 +49,25 @@ def user_login(request):
         if user is not None:
             if user.is_active:
                 login(request, user)
+                log_activity(
+                    created_by=username,
+                    description=f"User {username} logged in successfully."
+                )
                 return redirect('dashboard')
             else:
+                
                 context = {'error_msg': 'Invalid Username or Password'}
+                log_activity(
+                    created_by=username,
+                    description=f"User {username} failed to log in due to incorrect username or password."
+                )
                 return render(request, template_name, context)
         else:
             context = {'error_msg': 'User Doest Not exist'}
+            log_activity(
+                created_by=username,
+                description=f"Login attempt failed: User {username} does not exist."
+            )
             return render(request, template_name, context)
         
     return render(request, template_name)   
@@ -63,11 +76,21 @@ class UserLogout(View):
 
     def get(self, request):
         try:
+            user = request.user
+            username = user.username if user.is_authenticated else 'Unknown User'
+            
             logout(request)
+            log_activity(
+                created_by=username,
+                description=f"User {username} logged out successfully."
+            )
             messages.success(request, 'Successfully logged out', extra_tags='success')
             return redirect("login")
         except Exception as e:
-            # Handle exceptions if necessary
+            log_activity(
+                created_by=username,
+                description=f"An error occurred while {username} was trying to log out: {str(e)}"
+            )
             messages.error(request, 'An error occurred while logging out', extra_tags='danger')
             return redirect("login")
         
@@ -99,6 +122,12 @@ class User_Create(View):
             passw = make_password(data.password)
             data.password = passw
             data.save()
+            
+            log_activity(
+                created_by=request.user.username,
+                description=f"User {data.username} created successfully by {request.user.username}."
+            )
+            
             messages.success(request, 'User Successfully Added.', 'alert-success')
             return redirect('users')
         else:
@@ -155,6 +184,10 @@ class User_Delete(View):
     def post(self, request, pk, *args, **kwargs):
         user = get_object_or_404(CustomUser, id=pk)
         user.delete()
+        log_activity(
+            created_by=request.user.username,
+            description=f"User {user.username} was deleted by {request.user.username}."
+        )
         messages.success(request, 'User Successfully Deleted.', 'alert-success')
         return redirect('users')
 # class Customer_List(View):
