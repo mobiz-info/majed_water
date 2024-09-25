@@ -1176,22 +1176,24 @@ class CouponSupplyCountSerializer(serializers.ModelSerializer):
         return obj.payment_type
 
 class Coupon_Sales_Serializer(serializers.ModelSerializer):
+    coupon_method = serializers.CharField(source="customer_coupon.coupon_method", read_only=True)
     book_num = serializers.CharField(source="coupon.book_num", read_only=True)
-    used_leaflets_count = serializers.SerializerMethodField()
     customer_name = serializers.CharField(source="customer_coupon.customer.customer_name", read_only=True)
     customer_id = serializers.CharField(source="customer_coupon.customer.custom_id", read_only=True)
     customer_sales_type = serializers.CharField(source="customer_coupon.customer.sales_type", read_only=True)
-    coupon_method = serializers.CharField(source="customer_coupon.coupon_method", read_only=True)
+    no_of_leaflets = serializers.CharField(source="coupon.no_of_leaflets", read_only=True)  # Ensure this is correct
+    used_leaflets_count = serializers.SerializerMethodField()
     balance_coupons = serializers.SerializerMethodField()
+
     amount_collected = serializers.CharField(source="customer_coupon.amount_recieved", read_only=True)
     balance = serializers.CharField(source="customer_coupon.balance", read_only=True)
 
     class Meta:
         model = CustomerCouponItems
         fields = [
-            'customer_name', 'book_num', 'customer_id', 'customer_sales_type',
-            'used_leaflets_count', 'rate', 'amount_collected', 'balance', 
-            'balance_coupons', 'coupon_method'
+            'coupon_method', 'book_num', 'customer_name', 'customer_id', 
+            'customer_sales_type', 'no_of_leaflets', 'used_leaflets_count', 'balance_coupons', 
+            'rate', 'amount_collected', 'balance'
         ]
 
     def get_used_leaflets_count(self, obj):
