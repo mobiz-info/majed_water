@@ -270,6 +270,16 @@ class CustomerCouponItems(models.Model):
         leafs = CouponLeaflet.objects.filter(coupon=self.coupon,used=False)
         return leafs
     
+    def get_per_leaf_rate(self):
+        try:
+            valuable_leaflets = int(self.coupon.valuable_leaflets)  # Ensure this field exists in NewCoupon
+            if valuable_leaflets > 0:
+                return self.rate / valuable_leaflets
+        except (ValueError, ZeroDivisionError):
+            return None
+        return None
+    
+    
 class CustomerCouponStock(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     coupon_type_id = models.ForeignKey(CouponType, on_delete=models.CASCADE)
