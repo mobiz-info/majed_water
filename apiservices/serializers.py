@@ -1184,6 +1184,7 @@ class Coupon_Sales_Serializer(serializers.ModelSerializer):
     no_of_leaflets = serializers.CharField(source="coupon.no_of_leaflets", read_only=True)  # Ensure this is correct
     used_leaflets_count = serializers.SerializerMethodField()
     balance_coupons = serializers.SerializerMethodField()
+    per_leaf_rate = serializers.SerializerMethodField()  
 
     amount_collected = serializers.CharField(source="customer_coupon.amount_recieved", read_only=True)
     balance = serializers.CharField(source="customer_coupon.balance", read_only=True)
@@ -1192,8 +1193,8 @@ class Coupon_Sales_Serializer(serializers.ModelSerializer):
         model = CustomerCouponItems
         fields = [
             'coupon_method', 'book_num', 'customer_name', 'customer_id', 
-            'customer_sales_type', 'no_of_leaflets', 'used_leaflets_count', 'balance_coupons', 
-            'rate', 'amount_collected', 'balance'
+            'customer_sales_type', 'no_of_leaflets', 'used_leaflets_count', 
+            'balance_coupons', 'rate', 'per_leaf_rate', 'amount_collected', 'balance'
         ]
 
     def get_used_leaflets_count(self, obj):
@@ -1201,6 +1202,15 @@ class Coupon_Sales_Serializer(serializers.ModelSerializer):
 
     def get_balance_coupons(self, obj):
         return CouponLeaflet.objects.filter(coupon=obj.coupon, used=False).count()
+    
+    def get_per_leaf_rate(self, obj):
+        try:
+            valuable_leaflets = int(obj.coupon.valuable_leaflets)
+            if valuable_leaflets > 0:
+                return obj.rate / valuable_leaflets
+        except (ValueError, ZeroDivisionError):
+            return None
+        return None
 
     
 class CustomerCouponCountsSerializer(serializers.Serializer):
