@@ -3361,46 +3361,42 @@ def dsr_five_gallon_rates(request):
 def dsr_five_gallon_rates_print(request):
     filter_data = {}
     data_filter = False
-    van_route = Van_Routes.objects.none
-    salesman_id =  ""
-    routes_instances = RouteMaster.objects.all()
-    unique_amounts = CustomerCouponItems.objects.none
     
-    date = request.GET.get('date')
+    van_route = Van_Routes.objects.none()
+    salesman_id = ""
+    routes_instances = RouteMaster.objects.all()
+    unique_amounts = CustomerSupplyItems.objects.none()
+    
+    date = request.GET.get('date', datetime.today().strftime('%Y-%m-%d'))
     route_name = request.GET.get('route_name')
     
-    if date:
-        date = datetime.strptime(date, '%Y-%m-%d').date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-    else:
-        date = datetime.today().date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-    
+    date = datetime.strptime(date, '%Y-%m-%d').date()
+    filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
     if route_name:
         data_filter = True
-        
         van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
-        salesman = van_route.van.salesman
-        salesman_id = salesman.pk
-        filter_data['route_name'] = route_name
-        # 5 gallon rate based
-        unique_amounts = set(CustomerSupplyItems.objects.filter(customer_supply__created_date__date=date,customer_supply__salesman_id=salesman,product__product_name="5 Gallon").values_list('customer_supply__customer__rate', flat=True))
-      
-        
-        
+        if van_route:
+            salesman_id = van_route.van.salesman.pk
+            filter_data['route_name'] = route_name
+            unique_amounts = set(CustomerSupplyItems.objects.filter(
+                customer_supply__created_date__date=date,
+                customer_supply__salesman_id=salesman_id,
+                product__product_name="5 Gallon"
+            ).values_list('customer_supply__customer__rate', flat=True))
+    
     context = {
         'data_filter': data_filter,
         'salesman_id': salesman_id,
         'van_route': van_route,
         'routes_instances': routes_instances,
-        # 5 gallon rate based
         'five_gallon_rates': unique_amounts,
         'filter_data': filter_data,
         'filter_date_formatted': date.strftime('%d-%m-%Y'),
     }
     
     return render(request, 'sales_management/dsr_five_gallon_rates_print.html', context)
+
 
 def dsr_credit_outstanding(request):
     filter_data = {}
