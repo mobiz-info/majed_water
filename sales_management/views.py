@@ -5750,3 +5750,85 @@ def coupon_sales_report_view(request):
     }
 
     return render(request, 'sales_management/coupon_sales_report.html', context)
+
+
+def coupon_sales_excel_view(request):
+    # Retrieve filter parameters from GET request
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    sales_type = request.GET.get('sales_type')
+    route_name = request.GET.get('route_name')
+
+    # Set date range filter or use today's date if not provided
+    if not (start_date and end_date):
+        start_datetime = datetime.date.today()
+        end_datetime = datetime.date.today()
+    else:
+        start_datetime = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_datetime = datetime.strptime(end_date, '%Y-%m-%d').date()
+
+    # Query coupon sales within the date range
+    coupon_sales = CustomerCouponItems.objects.filter(
+        customer_coupon__created_date__date__range=[start_datetime, end_datetime]
+    )
+    
+    if sales_type:
+        coupon_sales = coupon_sales.filter(customer_coupon__customer__sales_type=sales_type)
+    
+    if route_name:
+        coupon_sales = coupon_sales.filter(customer_coupon__customer__routes__route_name=route_name)
+
+    # Prepare data for Excel
+    data = []
+    for sale in coupon_sales:
+        data.append({
+            'Coupon Method': sale.customer_coupon.coupon_method,
+            'Book Number': sale.coupon.book_num,
+            'Customer Name': sale.customer_coupon.customer.customer_name,
+            'Customer ID': sale.customer_coupon.customer.custom_id,
+            'Sales Type': sale.customer_coupon.customer.sales_type,
+            'Route Name': sale.customer_coupon.customer.routes.route_name,
+            'No of Leaflets': sale.coupon.no_of_leaflets,
+            'Used Leaflets': sale.get_used_leaflets(),
+            'Balance Coupons': sale.get_unused_leaflets(),
+            'Rate': sale.rate,
+            'Per Leaf Rate': sale.get_per_leaf_rate(),
+            'Amount Collected': sale.customer_coupon.amount_recieved,
+            'Balance': sale.customer_coupon.balance
+        })
+
+    # Create DataFrame
+    df = pd.DataFrame(data)
+
+    # Calculate footer (sum for numeric columns)
+    footer = {
+        'Coupon Method': 'Total',
+        'Book Number': '',
+        'Customer Name': '',
+        'Customer ID': '',
+        'Sales Type': '',
+        'Route Name': '',
+        'No of Leaflets': '',
+        'Used Leaflets': df['Used Leaflets'].sum(),
+        'Balance Coupons': df['Balance Coupons'].sum(),
+        'Rate': df['Rate'].sum(),
+        'Per Leaf Rate': df['Per Leaf Rate'].sum(),  # Assuming you want to sum per leaf rate
+        'Amount Collected': df['Amount Collected'].sum(),
+        'Balance': df['Balance'].sum()
+    }
+
+    # Convert the footer to a DataFrame and concatenate with the original DataFrame
+    footer_df = pd.DataFrame([footer])
+    df = pd.concat([df, footer_df], ignore_index=True)
+
+    # Write DataFrame to Excel buffer
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        df.to_excel(writer, sheet_name='Coupon Sales', index=False)
+
+    # Prepare HTTP response with Excel file
+    filename = f"Coupon_Sales_Report_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+    response = HttpResponse(buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    return response

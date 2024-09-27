@@ -55,11 +55,19 @@
                                 {% if data_filter %}
                                     <button type="button" class="btn btn-secondary btn-sm mx-1" onclick="resetFilters()">Reset Filter</button>
                                 {% endif %}
+                                <div class="d-flex">
+                                    <a href="{% url 'coupon_sales_excel' %}?start_date={{ filter_data.start_date }}&end_date={{ filter_data.end_date }}&sales_type={{ filter_data.sales_type }}&route_name={{ filter_data.route_name }}" class="btn btn-outline-success btn-sm mx-1">
+                                        <i class="fas fa-file-excel"></i> Excel
+                                    </a>
+                                    <a href="" class="btn btn-outline-success btn-sm mx-1"><i class="fas fa-print"></i> Print</a>
+                                </div>
                             </div>
+
                         </div>
                     </div>
                 </form>
             </div>
+            
 
             <div id="table-container" class="card-body">
                 <table class="table table-bordered text-wrap">
