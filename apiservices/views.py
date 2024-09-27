@@ -3139,12 +3139,16 @@ class create_customer_supply(APIView):
                         custody_custom=custody_instance
                         )
                     
-                    custody_stock = CustomerCustodyStock.objects.get_or_create(
+                    custody_stock, created = CustomerCustodyStock.objects.get_or_create(
                         customer=customer_supply.customer,
                         product=ProdutItemMaster.objects.get(product_name="5 Gallon"),
                     )
-                    custody_stock.reference_no=f"supply {customer_supply.customer.custom_id} - {customer_supply.created_date}"   
+
+                    # Set the reference number and other attributes
+                    custody_stock.reference_no = f"supply {customer_supply.customer.custom_id} - {customer_supply.created_date}"
                     custody_stock.quantity = allocate_bottle_to_custody
+
+                    # Save the instance
                     custody_stock.save()
                     
                     if (bottle_count:=BottleCount.objects.filter(van=van,created_date__date=customer_supply.created_date.date())).exists():
@@ -5253,6 +5257,11 @@ class Coupon_Sales_APIView(APIView):
         total_amount_collected = coupon_sales.aggregate(total=Sum('customer_coupon__amount_recieved'))['total'] or 0
         total_balance = coupon_sales.aggregate(total=Sum('customer_coupon__balance'))['total'] or 0
         
+        # Calculate total_per_leaf_rate
+        total_per_leaf_rate = sum(
+            coupon.get_per_leaf_rate() for coupon in coupon_sales if coupon.get_per_leaf_rate() is not None
+        )
+
         serializer = Coupon_Sales_Serializer(coupon_sales, many=True)
 
 # Return the response with totals in the footer
@@ -5262,6 +5271,7 @@ class Coupon_Sales_APIView(APIView):
             'total_sum': {
                 'total_rate': total_rate,
                 'total_amount_collected': total_amount_collected,
+                'total_per_leaf_rate': total_per_leaf_rate,
                 'total_balance': total_balance
             }
         }, status=status.HTTP_200_OK)

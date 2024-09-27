@@ -5,8 +5,8 @@ urlpatterns = [
     # path('api/customerorder/', CustomerOrder.as_view(), name='customer_order_api'),
     path('order_change_reason', order_change_reason, name="order_change_reason"),
     path('reason_add',  Reason_Add.as_view(), name="reason_add"),
-    path('reason_edit/<int:reason_id>',  Reason_Edit.as_view(), name="reason_edit"),
-    path('reason_delete/<int:reason_id>',  Reason_Delete.as_view(), name="reason_delete"),
+    path('reason_edit/<uuid:reason_id>',  Reason_Edit.as_view(), name="reason_edit"),
+    path('reason_delete/<uuid:reason_id>',  Reason_Delete.as_view(), name="reason_delete"),
 
     path('filter_route/<str:action>', filter_route, name="filter_route"),
 

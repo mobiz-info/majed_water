@@ -118,6 +118,7 @@ urlpatterns = [
     path('collection_list/', collection_list_view, name='collection_list'),
     path('delete_collection_payment/<str:receipt_number>/<uuid:customer_id>/', delete_collection_payment, name='delete_collection_payment'),
     
-    
+    path('coupon_sales_report/', coupon_sales_report_view, name='coupon_sales_report'),
+
     
 ]
