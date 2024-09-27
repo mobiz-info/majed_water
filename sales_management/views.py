@@ -5692,3 +5692,61 @@ def delete_collection_payment(request, receipt_number, customer_id):
     }
     
     return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+
+
+def coupon_sales_report_view(request):
+    # Retrieve filter parameters from GET request
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    sales_type = request.GET.get('sales_type')
+    route_name = request.GET.get('route_name')
+
+    # Set date range filter or use today's date if not provided
+    if not (start_date and end_date):
+        start_datetime = datetime.today().date()
+        end_datetime = datetime.today().date()
+    else:
+        start_datetime = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_datetime = datetime.strptime(end_date, '%Y-%m-%d').date()
+
+    # Query coupon sales within the date range
+    coupon_sales = CustomerCouponItems.objects.filter(
+        customer_coupon__created_date__date__range=[start_datetime, end_datetime]
+    )
+    
+    if sales_type :
+        coupon_sales = coupon_sales.filter(customer_coupon__customer__sales_type=sales_type)
+    if route_name:
+        coupon_sales = coupon_sales.filter(customer_coupon__customer__routes__route_name=route_name)
+
+    # Calculate total sums
+    total_rate = coupon_sales.aggregate(total=Sum('rate'))['total'] or 0
+    total_amount_collected = coupon_sales.aggregate(total=Sum('customer_coupon__amount_recieved'))['total'] or 0
+    total_balance = coupon_sales.aggregate(total=Sum('customer_coupon__balance'))['total'] or 0
+    total_per_leaf_rate = sum(coupon.get_per_leaf_rate() for coupon in coupon_sales if coupon.get_per_leaf_rate() is not None)
+
+
+
+    # Fetch routes for dropdown
+    routes_instances = RouteMaster.objects.all()
+
+    # Prepare filter data for the template
+    filter_data = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'sales_type': sales_type,
+        'route_name': route_name
+    }
+
+    context = {
+        'coupon_sales': coupon_sales,  # Pass the actual queryset
+        'total_rate': total_rate,
+        'total_amount_collected': total_amount_collected,
+        'total_balance': total_balance,
+        'total_per_leaf_rate':total_per_leaf_rate,
+        'filter_data': filter_data,
+        'routes_instances': routes_instances,
+        'data_filter': any([start_date, end_date, sales_type, route_name])  # To show reset filter button
+    }
+
+    return render(request, 'sales_management/coupon_sales_report.html', context)
