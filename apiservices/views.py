@@ -3139,12 +3139,16 @@ class create_customer_supply(APIView):
                         custody_custom=custody_instance
                         )
                     
-                    custody_stock = CustomerCustodyStock.objects.get_or_create(
+                    custody_stock, created = CustomerCustodyStock.objects.get_or_create(
                         customer=customer_supply.customer,
                         product=ProdutItemMaster.objects.get(product_name="5 Gallon"),
                     )
-                    custody_stock.reference_no=f"supply {customer_supply.customer.custom_id} - {customer_supply.created_date}"   
+
+                    # Set the reference number and other attributes
+                    custody_stock.reference_no = f"supply {customer_supply.customer.custom_id} - {customer_supply.created_date}"
                     custody_stock.quantity = allocate_bottle_to_custody
+
+                    # Save the instance
                     custody_stock.save()
                     
                     if (bottle_count:=BottleCount.objects.filter(van=van,created_date__date=customer_supply.created_date.date())).exists():
