@@ -120,6 +120,8 @@ urlpatterns = [
     
     path('coupon_sales_report/', coupon_sales_report_view, name='coupon_sales_report'),
     path('coupon_sales_excel/', coupon_sales_excel_view, name='coupon_sales_excel'),
+    path('coupon_sales_print/', coupon_sales_print_view, name='coupon_sales_print'),
+
 
     
 ]
