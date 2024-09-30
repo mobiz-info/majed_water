@@ -260,8 +260,20 @@ class CustomerCouponItems(models.Model):
     
     class Meta:
         ordering = ('-customer_coupon__created_date',)
+        
     def __str__(self):
         return str(self.customer_coupon.customer)
+    
+        # Function to get count of used coupon leaflets
+    def get_used_leaflets(self):
+        """Returns the count of used coupon leaflets for this sale."""
+        return CouponLeaflet.objects.filter(coupon=self.coupon, used=True).count()
+
+    # Function to get count of unused coupon leaflets
+    def get_unused_leaflets(self):
+        """Returns the count of unused coupon leaflets for this sale."""
+        return CouponLeaflet.objects.filter(coupon=self.coupon, used=False).count()
+
     
     def get_available_coupon_count(self):
         return CouponLeaflet.objects.filter(coupon=self.coupon,used=False).count()
