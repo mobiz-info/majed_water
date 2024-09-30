@@ -131,18 +131,13 @@ def invoice_list(request):
     :param request:
     :return: Invoices list view
     """
-    
+    filter_date = request.GET.get('filter_date')
     instances = Invoice.objects.filter(is_deleted=False).order_by("-created_date")
          
-    date_range = ""
-    date_range = request.GET.get('date_range')
-    # print(date_range)
-
-    if date_range:
-        start_date_str, end_date_str = date_range.split(' - ')
-        start_date = datetime.strptime(start_date_str, '%m/%d/%Y').date()
-        end_date = datetime.strptime(end_date_str, '%m/%d/%Y').date()
-        instances = instances.filter(date__range=[start_date, end_date])
+    if filter_date:
+        filter_date = datetime.datetime.strptime(filter_date, '%m/%d/%Y').date()
+        instances = instances.filter(date=filter_date)
+        filter_data['filter_date'] = filter_date.strftime('%Y-%m-%d')
     
     filter_data = {}
     query = request.GET.get("q")
@@ -151,7 +146,7 @@ def invoice_list(request):
 
         instances = instances.filter(
             Q(invoice_no__icontains=query) |
-            Q(product__invoice_id__icontains=query) 
+            Q(customer__customer_name__icontains=query) 
         )
         title = "Invoice List - %s" % query
         filter_data['q'] = query
@@ -163,7 +158,6 @@ def invoice_list(request):
         'page_name' : 'Invoice List',
         'page_title' : 'Invoice List',
         'filter_data' :filter_data,
-        'date_range': date_range,
         
         'is_invoice': True,
         'is_need_datetime_picker': True,

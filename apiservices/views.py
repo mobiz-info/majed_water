@@ -4489,12 +4489,9 @@ class OutstandingAmountListAPI(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
     def get(self, request, *args, **kwargs):
-        id = request.user.id
-        print("id",id)
-        customer=Customers.objects.filter(sales_staff__id = id)
-        print("customer",customer)
+        customer=Customers.objects.filter(sales_staff=request.user)
 
-        custody_items = CustodyCustomItems.objects.filter(customer__in =customer)
+        custody_items = CustodyCustomItems.objects.filter(custody_custom__customer__in=customer)
         print("custody_items",custody_items)
 
         serializer =CustodyCustomItemListSerializer(custody_items, many=True)
@@ -4616,9 +4613,8 @@ class customer_outstanding(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request, *args, **kwargs):
         customers = Customers.objects.filter(sales_staff=request.user)
-        print("customers",customers)
         route_id = request.GET.get("route_id")
-        print("route_id",route_id)
+        
         if route_id :
             customers = customers.filter(routes__pk=route_id)
             
