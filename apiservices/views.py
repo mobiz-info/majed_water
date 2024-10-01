@@ -1076,9 +1076,15 @@ class ExpenseListAPI(APIView):
             date = datetime.strptime(date, '%Y-%m-%d').date()
         else:
             date = datetime.today().date()
-        
-        van_route = Van_Routes.objects.get(van__salesman=request.user,expense_date=date)
-        expenses = Expense.objects.filter(route=van_route.routes,van=van_route.van)
+
+        try:
+            # Try to get the van route for the authenticated salesman
+            van_route = Van_Routes.objects.get(van__salesman=request.user)
+        except Van_Routes.DoesNotExist:
+            return Response({"detail": "No van route assigned for this salesman."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Filter expenses by van route and expense date
+        expenses = Expense.objects.filter(route=van_route.routes, van=van_route.van, expense_date=date)
         serializer = ExpenseSerializer(expenses, many=True)
         return Response(serializer.data)
 
