@@ -1393,7 +1393,7 @@ class CouponConsumptionSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = CustomerSupply
-        fields = ['customer_name', 'custom_id', 'building_name', 'no_of_bottles_supplied',
+        fields = ['customer_name', 'custom_id', 'building_name', 'no_of_bottles_supplied','collected_empty_bottle',
                 'total_digital_leaflets', 'total_manual_leaflets', 'no_of_leaflet_collected', 'pending_leaflet']
 
     # Corrected method for no_of_bottles_supplied
@@ -1420,20 +1420,13 @@ class CouponConsumptionSerializer(serializers.ModelSerializer):
         return collected_leaflets
 
     def get_pending_leaflet(self, obj):
-        total_collected = self.get_no_of_leaflet_collected(obj)
-
-        # Access the first related CustomerSupplyCoupon object
-        coupon = obj.customersupplycoupon_set.first()  
-
-        # Handle case where no related CustomerSupplyCoupon exists
-        if coupon and coupon.leaf.exists():  
-            # Use the correct field name in the aggregate function
-            total_leaflets_in_book = coupon.leaf.aggregate(total_leaflets=Count('leaflet_number'))['total_leaflets'] or 0
-            pending_leaflets = total_leaflets_in_book - total_collected
-            return pending_leaflets
-
-        return 0  
-
+        # Get all CouponLeaflet instances associated with the customer_supply via CustomerSupplyCoupon
+        pending_leaflets = CouponLeaflet.objects.filter(
+            customersupplycoupon__customer_supply=obj,
+            used=False  # Filter where used is False
+        ).count()
+        return pending_leaflets
+    
 class FreshCanStockSerializer(serializers.ModelSerializer):
     van = VanSerializer(read_only=True)
     

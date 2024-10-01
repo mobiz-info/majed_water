@@ -5322,7 +5322,6 @@ class RedeemedHistoryAPI(APIView):
         serializer = CustomerCouponCountsSerializer(customer_coupon_counts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-# VisitReportAPI
 # Coupon Consumption Report
 class CouponConsumptionReport(APIView):
     authentication_classes = [BasicAuthentication]
@@ -5350,6 +5349,7 @@ class CouponConsumptionReport(APIView):
             
             # Initialize total sums
             total_no_of_bottles_supplied = 0
+            total_collected_empty_bottle = 0
             total_total_digital_leaflets = 0
             total_total_manual_leaflets = 0
             total_no_of_leaflet_collected = 0
@@ -5358,6 +5358,7 @@ class CouponConsumptionReport(APIView):
             # Calculate total sums from serializer data
             for supply in serializer.data:
                 total_no_of_bottles_supplied += supply.get('no_of_bottles_supplied', 0)
+                total_collected_empty_bottle += supply.get('collected_empty_bottle', 0)  
                 total_total_digital_leaflets += supply.get('total_digital_leaflets', 0)
                 total_total_manual_leaflets += supply.get('total_manual_leaflets', 0)
                 total_no_of_leaflet_collected += supply.get('no_of_leaflet_collected', 0)
@@ -5367,6 +5368,7 @@ class CouponConsumptionReport(APIView):
                 'status': True,
                 'data': serializer.data,               
                 'total_no_of_bottles_supplied': total_no_of_bottles_supplied,
+                'total_collected_empty_bottle': total_collected_empty_bottle,                  
                 'total_total_digital_leaflets': total_total_digital_leaflets,
                 'total_total_manual_leaflets': total_total_manual_leaflets,
                 'total_no_of_leaflet_collected': total_no_of_leaflet_collected,
