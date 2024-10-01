@@ -5327,43 +5327,52 @@ class RedeemedHistoryAPI(APIView):
 class CouponConsumptionReport(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
-
     def get(self, request, *args, **kwargs):
-        start_date = request.GET.get('start_date')
-        end_date = request.GET.get('end_date')
-        
-        if start_date:
-            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
-        else:
-            start_date = date.today()
-            end_date = date.today()
+            start_date = request.data.get('start_date')  
+            print("start_date",start_date)
+            end_date = request.data.get('end_date')  
+            print("end_date",end_date)
+            
+            if start_date and end_date:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            else:
+                start_date = date.today()
+                end_date = date.today()
 
-        filter_start_date = start_date.strftime('%Y-%m-%d')
-        filter_end_date = end_date.strftime('%Y-%m-%d')
-        
-        supply_instance = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,customer__sales_type="CASH COUPON")
-        
-        serializer = CouponConsumptionSerializer(supply_instance, many=True)
-        
-        total_digital_sum = CustomerSupplyDigitalCoupon.objects.filter(
-            customer_supply__created_date__date__gte=start_date,
-            customer_supply__created_date__date__lte=end_date
-        ).aggregate(total_count=Sum('count'))['total_count'] or 0  # Use Sum expression
+            supply_instance = CustomerSupply.objects.filter(
+                created_date__date__gte=start_date,
+                created_date__date__lte=end_date,
+                customer__sales_type="CASH COUPON"
+            )
+            
+            serializer = CouponConsumptionSerializer(supply_instance, many=True)
+            
+            # Initialize total sums
+            total_no_of_bottles_supplied = 0
+            total_total_digital_leaflets = 0
+            total_total_manual_leaflets = 0
+            total_no_of_leaflet_collected = 0
+            total_pending_leaflet = 0
 
-        # Correct aggregation for manual leaflets
-        total_manual_sum = CustomerSupplyCoupon.objects.filter(
-            customer_supply__created_date__date__gte=start_date,
-            customer_supply__created_date__date__lte=end_date
-        ).aggregate(total_leaflets=Count('leaf'))['total_leaflets'] or 0
+            # Calculate total sums from serializer data
+            for supply in serializer.data:
+                total_no_of_bottles_supplied += supply.get('no_of_bottles_supplied', 0)
+                total_total_digital_leaflets += supply.get('total_digital_leaflets', 0)
+                total_total_manual_leaflets += supply.get('total_manual_leaflets', 0)
+                total_no_of_leaflet_collected += supply.get('no_of_leaflet_collected', 0)
+                total_pending_leaflet += supply.get('pending_leaflet', 0)
 
-        return Response({
-            'status': True,
-            'data': serializer.data,
-            'total_digital_sum': total_digital_sum,
-            'total_manual_sum': total_manual_sum,
-        }, status=status.HTTP_200_OK)
-    
+            return Response({
+                'status': True,
+                'data': serializer.data,               
+                'total_no_of_bottles_supplied': total_no_of_bottles_supplied,
+                'total_total_digital_leaflets': total_total_digital_leaflets,
+                'total_total_manual_leaflets': total_total_manual_leaflets,
+                'total_no_of_leaflet_collected': total_no_of_leaflet_collected,
+                'total_pending_leaflet': total_pending_leaflet,
+            }, status=status.HTTP_200_OK)
+
 
 from django.utils.timezone import make_aware
 from django.db.models import Sum, Count, Case, When, IntegerField
@@ -8734,6 +8743,14 @@ class addDamageBottleAPIView(APIView):
                 scrap_stock = ScrapStock.objects.get(product=product_item)
                 scrap_stock.quantity += quantity
                 scrap_stock.save()
+                
+                # Update VanProductStock to decrement empty_can_count
+                van_product_stock = VanProductStock.objects.filter(product=product_item).first()
+                if van_product_stock:
+                    van_product_stock.empty_can_count = max(0, van_product_stock.empty_can_count - quantity)  # Ensure count doesn't go negative
+                    van_product_stock.save()
+                    # print(f"VanProductStock updated: {van_product_stock} EmptyStock {van_product_stock.empty_can_count}.")
+                    
                 
                 status_code = status.HTTP_200_OK
                 response_data = {
