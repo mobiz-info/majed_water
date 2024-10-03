@@ -2358,6 +2358,7 @@ def outstanding_list(request):
     date = request.GET.get('date')
     route_filter = request.GET.get('route_name')
     sales_type_filter = request.GET.get('sales_type')
+    product_type_filter = request.GET.get('product_type')  
 
     
     if date:
@@ -2376,6 +2377,12 @@ def outstanding_list(request):
         instances = instances.filter(customer__sales_type=sales_type_filter)
         filter_data['sales_type'] = sales_type_filter
     sales_type_li = Customers.objects.values_list('sales_type', flat=True).distinct()
+    
+    # Product type filter
+    if product_type_filter:
+        instances = instances.filter(product_type=product_type_filter)
+        filter_data['product_type'] = product_type_filter
+
 
     if query:
 
@@ -2400,6 +2407,7 @@ def outstanding_list(request):
         'route_li':route_li,
         'sales_type_li': sales_type_li,
         'total_outstanding_count': total_outstanding_count,  
+        'product_types': dict(PRODUCT_TYPES)
 
 
     }

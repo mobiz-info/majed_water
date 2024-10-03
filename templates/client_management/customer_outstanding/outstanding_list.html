@@ -30,42 +30,55 @@
                     <div class="mt">
                         <form method="GET" action=".">
                             <div class="card-body">
-                                <div class="row align-items-center">
-                                    <div class="col-4">
-                                        <label for="date">Date:</label>
-                                        <input type="date" class="form-control" id="date" name="date" value="{{ filter_data.filter_date }}">
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <div class="flex-grow-1">
+                                        <label for="date" class="form-label">Date:</label>
+                                        <input type="date" class="form-control form-control-sm" id="date" name="date" value="{{ filter_data.filter_date }}">
                                     </div>
-                                    <div class="col-4">
-                                        <label for="product">Routes :</label>
-                                        <select name="route_name" class="form-select">
+                                    <div class="flex-grow-1">
+                                        <label for="route_name" class="form-label">Routes:</label>
+                                        <select name="route_name" class="form-select form-select-sm">
                                             <option value="">All Routes</option>
                                             {% for route in route_li %}
-                                            <option value="{{ route.route_name }}" {% if route.route_name == filter_data.route_name %}selected{% endif %}>
-                                                {{ route.route_name }}
-                                            </option>
+                                                <option value="{{ route.route_name }}" {% if route.route_name == filter_data.route_name %}selected{% endif %}>
+                                                    {{ route.route_name }}
+                                                </option>
                                             {% endfor %}
                                         </select>
                                     </div>
-                                    <div class="col-3">
-                                        <label for="sales_type">Customer Type:</label>
-                                        <select name="sales_type" class="form-select">
+                                    <div class="flex-grow-1">
+                                        <label for="sales_type" class="form-label">Customer Type:</label>
+                                        <select name="sales_type" class="form-select form-select-sm">
                                             <option value="">All Customer Types</option>
                                             {% for sales_type in sales_type_li %}
-                                            <option value="{{ sales_type }}" {% if sales_type == filter_data.sales_type %}selected{% endif %}>
-                                                {{ sales_type }}
-                                            </option>
+                                                <option value="{{ sales_type }}" {% if sales_type == filter_data.sales_type %}selected{% endif %}>
+                                                    {{ sales_type }}
+                                                </option>
                                             {% endfor %}
                                         </select>
                                     </div>
-                                    <div class="col d-flex align-items-end justify-content-end">
+                                    <div class="flex-grow-1">
+                                        <label for="product_type" class="form-label">Product Type:</label>
+                                        <select name="product_type" class="form-select form-select-sm">
+                                            <option value="">All Product Types</option>
+                                            {% for key, value in product_types.items %}
+                                                <option value="{{ key }}" {% if key == filter_data.product_type %}selected{% endif %}>
+                                                    {{ value }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="d-flex align-items-end">
                                         <input type="submit" class="btn btn-primary btn-sm mx-1" value="Apply Filter">
                                         {% if data_filter %}
-                                        <button type="button" class="btn btn-secondary btn-sm mx-1" onclick="resetFilters()" style="width:max-content">Reset Filter</button>
+                                            <button type="button" class="btn btn-secondary btn-sm mx-1" onclick="resetFilters()">Reset Filter</button>
                                         {% endif %}
                                     </div>
                                 </div>
                             </div>
                         </form>
+
+
                     </div>
                     <div id="table-container">
                         <div class="card-body">
