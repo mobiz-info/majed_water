@@ -5,7 +5,7 @@ from django.db.models import Q, Sum
 
 from accounts.models import Customers
 from client_management.models import *
-register = template.Library()
+from sales_management.models import *
 
 register = template.Library()
 
@@ -57,3 +57,26 @@ def route_wise_customer_bottle_count(customer_pk):
     }
         
         
+@register.simple_tag
+def get_outstanding_amount(customer_id,date):
+    outstanding_amounts = OutstandingAmount.objects.filter(customer_outstanding__customer__pk=customer_id,customer_outstanding__created_date__date__lte=date).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+    collection_amount = CollectionPayment.objects.filter(customer__pk=customer_id,created_date__date__lte=date).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+    
+    return outstanding_amounts - collection_amount
+
+@register.simple_tag
+def get_outstanding_bottles(customer_id, date):
+    outstanding_bottles = OutstandingProduct.objects.filter(
+        customer_outstanding__customer__pk=customer_id,
+        customer_outstanding__created_date__lte=date
+    ).aggregate(total_bottles=Sum('empty_bottle'))['total_bottles'] or 0
+    return outstanding_bottles
+
+@register.simple_tag
+def get_outstanding_coupons(customer_id, date):
+    outstanding_coupons = OutstandingCoupon.objects.filter(
+        customer_outstanding__customer__pk=customer_id,
+        customer_outstanding__created_date__lte=date,
+    ).aggregate(total_coupons=Sum('count'))
+    
+    return outstanding_coupons.get('total_coupons') or 0
