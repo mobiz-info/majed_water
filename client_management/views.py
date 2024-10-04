@@ -359,7 +359,7 @@ class CustomerCustodyList(View):
         route_li = RouteMaster.objects.all()
 
         # Base queryset for customer custody items
-        user_li = CustodyCustomItems.objects.select_related('custody_custom__customer', 'product').all()
+        user_li = CustodyCustomItems.objects.select_related('custody_custom__customer', 'product').all().order_by('-custody_custom__created_date')
 
         # Search query filtering
         query = request.GET.get("q")
@@ -385,7 +385,7 @@ class CustomerCustodyList(View):
 
         # Aggregating the product counts for each customer
         aggregated_data = (
-            user_li.values('custody_custom__customer__customer_name', 'custody_custom__customer__mobile_no', 'custody_custom__customer__building_name', 'custody_custom__customer__routes__route_name')
+            user_li.values('custody_custom__created_date','custody_custom__customer__customer_name', 'custody_custom__customer__mobile_no', 'custody_custom__customer__building_name', 'custody_custom__customer__routes__route_name')
             .annotate(
                 five_gallon_count=Sum('quantity', filter=Q(product__product_name='5 Gallon')),
                 dispenser_count=Sum('quantity', filter=Q(product__product_name='Dispenser')),
@@ -403,7 +403,6 @@ class CustomerCustodyList(View):
             }
         }
         return render(request, self.template_name, context)
-
 
 class AddCustodyItems(View):
     template_name = 'client_management/custody_item/add_custody_items.html'
