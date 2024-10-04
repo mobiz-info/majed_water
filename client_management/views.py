@@ -355,37 +355,54 @@ class CustomerCustodyList(View):
     template_name = 'client_management/custody_item/customer_custody_list.html'
 
     def get(self, request, *args, **kwargs):
-        form = CompetitorAnalysisFilterForm(request.GET)
-        
-        user_li = CustodyCustomItems.objects.all()
+        # Query all routes from the RouteMaster model
+        route_li = RouteMaster.objects.all()
+
+        # Base queryset for customer custody items
+        user_li = CustodyCustomItems.objects.select_related('custody_custom__customer', 'product').all()
+
+        # Search query filtering
         query = request.GET.get("q")
         if query:
             user_li = user_li.filter(
-                Q(custody_custom__customer__customer_name__icontains=query)|
-                Q(custody_custom__customer__mobile_no__icontains=query)|
-                Q(custody_custom__customer__building_name__icontains=query)|
-                Q(custody_custom__customer__routes__route_name__icontains=query)
-
+                Q(custody_custom__customer__customer_name__icontains=query) |
+                Q(custody_custom__customer__mobile_no__icontains=query) |
+                Q(custody_custom__customer__building_name__icontains=query)
             )
-            
 
+        # Date filtering
+        start_date = request.GET.get('from_date')
+        print("start_date",start_date)
+        end_date = request.GET.get('end_date')
+        print("end_date",end_date)
+        if start_date and end_date:
+            user_li = user_li.filter(custody_custom__created_date__date__range=[start_date, end_date])
+
+        # Route filtering
         route_filter = request.GET.get('route_name')
         if route_filter:
-            user_li = user_li.filter(custody_custom__route__route_name=route_filter)
+            user_li = user_li.filter(custody_custom__customer__routes__route_name=route_filter)
 
-        # Fetch counts of 5 gallons, dispenser, and water cooler from Product model
-        five_gallon_count = Product.objects.filter(product_name__product_name='5 Gallon').count()
-        dispenser_count = Product.objects.filter(product_name__product_name='Dispenser').count()
-        water_cooler_count = Product.objects.filter(product_name__product_name='Water Cooler').count()
+        # Aggregating the product counts for each customer
+        aggregated_data = (
+            user_li.values('custody_custom__customer__customer_name', 'custody_custom__customer__mobile_no', 'custody_custom__customer__building_name', 'custody_custom__customer__routes__route_name')
+            .annotate(
+                five_gallon_count=Sum('quantity', filter=Q(product__product_name='5 Gallon')),
+                dispenser_count=Sum('quantity', filter=Q(product__product_name='Dispenser')),
+                water_cooler_count=Sum('quantity', filter=Q(product__product_name='Water Cooler'))
+            )
+        )
 
         context = {
-            'user_li': user_li,
-            'form': form,
-            'five_gallon_count': five_gallon_count,
-            'dispenser_count': dispenser_count,
-            'water_cooler_count': water_cooler_count,
+            'user_li': aggregated_data,
+            'route_li': route_li,
+            'filter_data': {
+                'start_date': start_date,
+                'end_date': end_date,
+                'route_name': route_filter,
+            }
         }
-        return render(request, self.template_name, context)       
+        return render(request, self.template_name, context)
 
 
 class AddCustodyItems(View):
