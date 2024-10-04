@@ -9412,4 +9412,19 @@ class CustomersOutstandingBottlesAPI(APIView):
                     'total_pending_count': total_pending_count,
                 },
         })
-    
+
+
+class SalesmanListAPIView(APIView):
+    """
+    API view to list all salesmen.
+    """
+
+    def get(self, request):
+        # Filter for salesmen
+        salesmen = CustomUser.objects.filter(user_type='Salesman')
+
+        # Serialize the salesmen data
+        serializer = SalesmanSerializer(salesmen, many=True)
+
+        # Return the serialized data with a 200 OK response
+        return Response(serializer.data, status=status.HTTP_200_OK)

@@ -2354,3 +2354,14 @@ class CustomersOutstandingBottlesSerializer(serializers.ModelSerializer):
     
     def get_total_pending(self, obj):
         return OutstandingProduct.objects.filter(customer_outstanding__customer=obj.customer,customer_outstanding__created_date__date=obj.created_date.date()).aggregate(total_count=Sum('empty_bottle'))['total_count'] or 0
+    
+    
+class SalesmanSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'staff_id', 'username', 'first_name', 'last_name', 'full_name']
+
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip()
