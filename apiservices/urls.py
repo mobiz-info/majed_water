@@ -23,6 +23,7 @@ urlpatterns = [
     path('customer-outstanding-balance/',CustomerOutstandingAPI.as_view()),
     
     path('store-keeper-login/',StoreKeeperLoginApi.as_view()),
+    path('marketing-executive-login/',MarketingExecutiveLoginApi.as_view()),
     
     #################Master Url##############################
 
