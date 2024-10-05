@@ -1549,17 +1549,12 @@ def update_van_product_stock(customer_supply_instance, supply_items_instances, f
             # Special handling for "5 Gallon" products
             van_stock = VanProductStock.objects.get(product=item_data.product,created_date=customer_supply_instance.created_date.date(),van__salesman=customer_supply_instance.salesman)
                 
-            if item_data.product.product_name == "5 Gallon":
-                # Ensure empty_can_count does not go below zero
-                new_empty_can_count = van_stock.empty_can_count - customer_supply_instance.collected_empty_bottle
-                if new_empty_can_count < 0:
-                    new_empty_can_count = 0
-                if van_stock.created_date == datetime.today().date():
-                    van_stock.empty_can_count = new_empty_can_count
-                    van_stock.stock += item_data.quantity
-                    van_stock.sold_count -= item_data.quantity
+            if van_stock.created_date == datetime.today().date():
+                if item_data.product.product_name == "5 Gallon":
+                    van_stock.empty_can_count += customer_supply_instance.collected_empty_bottle
+                van_stock.stock += item_data.quantity
+                van_stock.sold_count -= item_data.quantity
                 van_stock.save()
-
 #------------------------------REPORT----------------------------------------
 
 def client_report(request):
@@ -1866,60 +1861,54 @@ def customer_outstanding_list(request):
     :return: Customer Outstanding list view
     """
     filter_data = {}
-    reports = CustomerOutstandingReport.objects.all()
+    route_name = request.GET.get('route_name', '')
+    q = request.GET.get('q', '')  
+    start_date = request.GET.get('start_date')
     
-    query = request.GET.get("q")
-    
-    if query:
-
-        reports = reports.filter(
-            Q(customer__customer_name__icontains=query) |
-            Q(customer__customer_id__icontains=query) |
-            Q(customer__mobile_no__icontains=query) |
-            Q(customer__whats_app__icontains=query) |
-            Q(customer__email_id__icontains=query) |
-            Q(building_name__invoice_id__icontains=query) 
-        )
-        title = "Outstanding List - %s" % query
-        filter_data['q'] = query
-    
-    route_filter = request.GET.get('route_name')
-    if route_filter:
-            reports = reports.filter(customer__routes__route_name=route_filter)
-    route_li = RouteMaster.objects.all()
-    if request.GET.get("customer_pk"):
-        reports = reports.filter(customer__pk=request.GET.get("customer_pk"))
-
-    # Organize data for rendering in the template
-    customer_data = {}
-    for report in reports:
-        customer_id = report.customer.pk
-        if customer_id not in customer_data:
-            customer_data[customer_id] = {
-                'customer': report.customer,
-                'amount': 0,
-                'empty_can': 0,
-                'coupons': 0
-            }
+    if request.GET.get('product_type'):
+        product_type = request.GET.get('product_type')
+    else:
+        product_type = "amount"
         
-        # Add product values based on product type
-        if report.product_type == 'amount':
-            customer_data[customer_id]['amount'] += report.value
-        elif report.product_type == 'emptycan':
-            customer_data[customer_id]['empty_can'] += report.value
-        elif report.product_type == 'coupons':
-            customer_data[customer_id]['coupons'] += report.value
-            
+    filter_data['product_type'] = product_type
+        
+    if not start_date:
+        start_date = datetime.today().date()
+    else:
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()    
+    filter_data['start_date']=start_date
+
+    outstanding_instances = CustomerOutstanding.objects.filter(product_type=product_type,created_date__date__lte=start_date)
+
+    if route_name:
+        outstanding_instances = outstanding_instances.filter(customer__routes__route_name=route_name)
+
+    if q:
+        outstanding_instances = outstanding_instances.filter(customer__customer_name__icontains=q)
+        
+    customer_ids = outstanding_instances.values_list('customer__pk', flat=True).distinct()
+
+    instances = Customers.objects.filter(pk__in=customer_ids)
+    
+    outstanding_ids = outstanding_instances.values_list('pk', flat=True)
+    outstanding_amounts = OutstandingAmount.objects.filter(customer_outstanding__pk__in=outstanding_ids).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+    collection_amount = CollectionPayment.objects.filter(customer__pk__in=customer_ids,created_date__date__lte=start_date).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+    
+    total_outstanding = outstanding_amounts - collection_amount
+    
+    route_instances = RouteMaster.objects.all()
     context = {
-        'instances': customer_data.values(),
-        'page_name' : 'Customer Outstanding List',
-        'page_title' : 'Customer Outstanding List',
-        'customer_pk': request.GET.get("customer_pk"),
+        'instances': instances,
+        'filter_data': filter_data,
+        'start_date': start_date,
+        'total_outstanding': total_outstanding,
+        'route_instances': route_instances,
+        'product_type': product_type,
         
+        'page_name': 'Customer Outstanding List',
+        'page_title': 'Customer Outstanding List',
         'is_customer_outstanding': True,
         'is_need_datetime_picker': True,
-        'route_li': route_li,
-        'filter_data': filter_data,
     }
 
     return render(request, 'client_management/customer_outstanding/list.html', context)
@@ -2007,7 +1996,6 @@ def outstanding_list(request):
     sales_type_li = Customers.objects.values_list('sales_type', flat=True).distinct()
 
     if query:
-
         instances = instances.filter(
             Q(product_type__icontains=query) |
             Q(invoice_no__icontains=query) 
@@ -2549,3 +2537,27 @@ def delete_nonvisitreason(request, id):
         delete_nonvisitreason.delete()
         return redirect('nonvisitreason_List')
     return render(request, 'client_management/NonVisitReason/delete_nonvisitreason.html', {'delete_nonvisitreason': delete_nonvisitreason})
+
+
+def upload_outstanding(request):
+    if request.method == 'POST':
+        form = UploadOutstandingForm(request.POST, request.FILES)
+        if form.is_valid():
+            excel_file = form.cleaned_data['excel_file']
+            route = form.cleaned_data['route']
+
+            file_name = default_storage.save(excel_file.name, excel_file)
+            file_path = os.path.join(settings.MEDIA_ROOT, file_name)
+
+            data = pd.read_excel(file_path)
+
+            populate_models_from_excel(data, request.user)
+
+            default_storage.delete(file_name)
+
+            messages.success(request, "Outstanding uploaded successfully.")
+            return redirect(reverse('customer_outstanding_list'))
+    else:
+        form = UploadOutstandingForm()
+
+    return render(request, 'client_management/customer_outstanding/upload.html', {'form': form})

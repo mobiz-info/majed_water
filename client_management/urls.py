@@ -70,7 +70,6 @@ urlpatterns = [
         path('nonvisitreason_List', nonvisitreason_List, name="nonvisitreason_List"),
         path('create_nonvisitreason', create_nonvisitreason, name="create_nonvisitreason"),
         path('delete_nonvisitreason/<uuid:id>/', delete_nonvisitreason, name='delete_nonvisitreason'),
-
-
-
+        
+        path('upload-outstanding/', upload_outstanding, name='upload_outstanding'),
 ]
