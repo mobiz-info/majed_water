@@ -6,10 +6,6 @@ from django.db.models import Q, Sum
 from accounts.models import Customers
 from client_management.models import *
 from sales_management.models import *
-<<<<<<< HEAD
-
-=======
->>>>>>> d421fcf72430ee8b0ee5b51af17d82293bc3dde2
 
 register = template.Library()
 
@@ -60,24 +56,6 @@ def route_wise_customer_bottle_count(customer_pk):
         'total_bottle_count': total_bottle_count
     }
         
-<<<<<<< HEAD
-@register.simple_tag
-def get_outstanding_amount(customer_id,start_date,product_type):
-    outstanding_amounts = OutstandingAmount.objects.filter(customer_outstanding__customer__pk=customer_id,customer_outstanding__created_date__date__lte=start_date).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
-    collection_amount = CollectionPayment.objects.filter(customer__pk=customer_id,created_date__date__lte=start_date).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
-    
-    if outstanding_amounts > collection_amount:
-        return outstanding_amounts - collection_amount
-    else:
-        return collection_amount - outstanding_amounts
-
-@register.simple_tag
-def get_outstanding_bottles(customer_id,start_date,end_date):
-    outstanding_amounts = OutstandingAmount.objects.filter(customer_outstanding__customer__pk=customer_id,customer_outstanding__created_date__lte=start_date).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
-    collection_amount = CollectionPayment.objects.filter(created_date__lte=start_date).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
-    
-    return outstanding_amounts - collection_amount
-=======
         
 @register.simple_tag
 def get_outstanding_amount(customer_id,date):
@@ -102,4 +80,3 @@ def get_outstanding_coupons(customer_id, date):
     ).aggregate(total_coupons=Sum('count'))
     
     return outstanding_coupons.get('total_coupons') or 0
->>>>>>> d421fcf72430ee8b0ee5b51af17d82293bc3dde2

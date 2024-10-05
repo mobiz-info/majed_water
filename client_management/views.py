@@ -1890,11 +1890,7 @@ def customer_outstanding_list(request):
     filter_data = {}
     route_name = request.GET.get('route_name', '')
     q = request.GET.get('q', '')  
-<<<<<<< HEAD
-    start_date = request.GET.get('start_date')
-=======
     date = request.GET.get('date')
->>>>>>> d421fcf72430ee8b0ee5b51af17d82293bc3dde2
     
     if request.GET.get('product_type'):
         product_type = request.GET.get('product_type')
@@ -1902,16 +1898,6 @@ def customer_outstanding_list(request):
         product_type = "amount"
         
     filter_data['product_type'] = product_type
-<<<<<<< HEAD
-        
-    if not start_date:
-        start_date = datetime.today().date()
-    else:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()    
-    filter_data['start_date']=start_date
-
-    outstanding_instances = CustomerOutstanding.objects.filter(product_type=product_type,created_date__date__lte=start_date)
-=======
     
     if date:
         date = datetime.strptime(date, '%Y-%m-%d').date()
@@ -1933,35 +1919,12 @@ def customer_outstanding_list(request):
 
     if request.GET.get("customer_pk"):
         outstanding_instances = outstanding_instances.filter(customer__pk=request.GET.get("customer_pk"))
->>>>>>> d421fcf72430ee8b0ee5b51af17d82293bc3dde2
 
     if route_name:
         outstanding_instances = outstanding_instances.filter(customer__routes__route_name=route_name)
 
     if q:
         outstanding_instances = outstanding_instances.filter(customer__customer_name__icontains=q)
-<<<<<<< HEAD
-        
-    customer_ids = outstanding_instances.values_list('customer__pk', flat=True).distinct()
-
-    instances = Customers.objects.filter(pk__in=customer_ids)
-    
-    outstanding_ids = outstanding_instances.values_list('pk', flat=True)
-    outstanding_amounts = OutstandingAmount.objects.filter(customer_outstanding__pk__in=outstanding_ids).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
-    collection_amount = CollectionPayment.objects.filter(customer__pk__in=customer_ids,created_date__date__lte=start_date).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
-    
-    total_outstanding = outstanding_amounts - collection_amount
-    
-    route_instances = RouteMaster.objects.all()
-    context = {
-        'instances': instances,
-        'filter_data': filter_data,
-        'start_date': start_date,
-        'total_outstanding': total_outstanding,
-        'route_instances': route_instances,
-        'product_type': product_type,
-        
-=======
         
     customer_ids = outstanding_instances.values_list('customer__pk', flat=True).distinct()
 
@@ -2014,7 +1977,6 @@ def customer_outstanding_list(request):
         'net_total_outstanding':net_total_outstanding,
         'total_outstanding_bottles': total_outstanding_bottles,
         'total_outstanding_coupons': total_outstanding_coupons,  
->>>>>>> d421fcf72430ee8b0ee5b51af17d82293bc3dde2
         'page_name': 'Customer Outstanding List',
         'page_title': 'Customer Outstanding List',
         'is_customer_outstanding': True,
