@@ -2396,18 +2396,34 @@ class Myclient_API(APIView):
 
     def post(self, request, *args, **kwargs):
         try:
-            userid = request.data["id"]
-            #81
+            userid = request.data.get("id")
+            route_id = request.data.get("route_id")
+
+            # Fetch the staff user
             staff = CustomUser.objects.get(id=userid)
+
+            # Fetch van details where the staff is either a driver or a salesman
             vans = Van.objects.filter(Q(driver=staff) | Q(salesman=staff)).first()
 
             if vans is not None:
-                van = Van.objects.get(van_id=vans.pk)
-                assign_routes = Van_Routes.objects.filter(van=van).values_list('routes', flat=True)
-                routes_list = RouteMaster.objects.filter(route_id__in = assign_routes).values_list('route_id',flat=True)
-                customer_list = Customers.objects.filter(routes__in=routes_list)
+                if not route_id:
+                    van = Van.objects.get(van_id=vans.pk)
+                    assign_routes = Van_Routes.objects.filter(van=van).values_list('routes', flat=True)
+                    routes_list = RouteMaster.objects.filter(route_id__in=assign_routes).values_list('route_id', flat=True)
+
+                    customer_list = Customers.objects.filter(routes__pk__in=routes_list, routes__route_id=route_id)
+                else:
+                    customer_list = Customers.objects.filter(routes__pk=route_id)
+
+                # Serialize the filtered customers
                 serializer = self.serializer_class(customer_list, many=True)
+
                 return Response(serializer.data)
+
+            return Response({'status': False, 'message': 'No van assigned to the user'})
+
+        except CustomUser.DoesNotExist:
+            return Response({'status': False, 'message': 'User not found'})
         except Exception as e:
             return Response({'status': False, 'message': str(e)})
 
