@@ -2411,7 +2411,7 @@ class Myclient_API(APIView):
                     assign_routes = Van_Routes.objects.filter(van=van).values_list('routes', flat=True)
                     routes_list = RouteMaster.objects.filter(route_id__in=assign_routes).values_list('route_id', flat=True)
 
-                    customer_list = Customers.objects.filter(routes__pk__in=routes_list, routes__route_id=route_id)
+                    customer_list = Customers.objects.filter(routes__pk__in=routes_list)
                 else:
                     customer_list = Customers.objects.filter(routes__pk=route_id)
 
