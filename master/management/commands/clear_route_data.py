@@ -42,4 +42,28 @@ class Command(BaseCommand):
         # CustomerProductReturn.objects.filter(customer__routes__route_name="v1").delete()
         # CustomerProductReplace.objects.filter(customer__routes__route_name="v1").delete()
         
+        outstanding_in = CustomerOutstanding.objects.filter(customer__routes__route_name="v1")
+        for i in outstanding_in:
+            Invoice.objects.filter(invoice_no=i.invoice_no).delete()
+        outstanding_in.delete()
+        CustomerOutstandingReport.objects.filter(customer__routes__route_name="v1").delete()
         
+        # CustodyCustom.objects.filter(customer_routes_route_name="v1").delete()
+        # Vacation.objects.filter(customer_routes_route_name="v1").delete()
+        # DiffBottlesModel.objects.filter(customer_routes_route_name="v1").delete()
+        # OtherRequirementModel.objects.filter(customer_routes_route_name="v1").delete()
+        # CouponPurchaseModel.objects.filter(customer_routes_route_name="v1").delete()
+        # CustodyPullOutModel.objects.filter(customer_routes_route_name="v1").delete()
+        # CustomerComplaint.objects.filter(customer_routes_route_name="v1").delete()
+        # Customer_Order.objects.filter(customer_id_routes_route_name="v1").delete()
+        # ChangeOrReturn.objects.filter(customer_routes_route_name="v1").delete()
+        # SaleEntryLog.objects.filter(customer_routes_route_name="v1").delete()
+        # OutstandingLog.objects.filter(customer_routes_route_name="v1").delete()
+        # Transaction.objects.filter(customer_routes_route_name="v1").delete()
+        # CustomerCoupons.objects.filter(customer_routes_route_name="v1").delete()
+        # Transactionn.objects.filter(customer_routes_route_name="v1").delete()
+        CollectionPayment.objects.filter(customer__routes__route_name="v1").delete()
+        # SalesmanSpendingLog.objects.filter(customer_routes_route_name="v1").delete()
+        # CustomerProductReturn.objects.filter(customer_routes_route_name="v1").delete()
+        # CustomerProductReplace.objects.filter(customer_routes_route_name="v1").delete()
+

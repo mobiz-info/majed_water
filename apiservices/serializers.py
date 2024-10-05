@@ -1380,23 +1380,53 @@ class VanProductSerializer(serializers.ModelSerializer):
         model = VanProductStock
         fields = ['id','product','created_date','opening_count','change_count','damage_count','empty_can_count','stock','return_count','requested_count','sold_count','closing_count','pending_count']
 
+
 class CouponConsumptionSerializer(serializers.ModelSerializer):
-    customer__customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
+    customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
+    custom_id = serializers.CharField(source='customer.custom_id', read_only=True)
+    building_name = serializers.CharField(source='customer.building_name', read_only=True)  
+    no_of_bottles_supplied = serializers.SerializerMethodField()  
     total_digital_leaflets = serializers.SerializerMethodField()
     total_manual_leaflets = serializers.SerializerMethodField()
+    no_of_leaflet_collected = serializers.SerializerMethodField()
+    pending_leaflet = serializers.SerializerMethodField()
     
     class Meta:
         model = CustomerSupply
-        fields = ['customer__customer_name','total_digital_leaflets','total_manual_leaflets']
-        
-    def get_total_digital_leaflets(self,obj):
+        fields = ['customer_name', 'custom_id', 'building_name', 'no_of_bottles_supplied','collected_empty_bottle',
+                'total_digital_leaflets', 'total_manual_leaflets', 'no_of_leaflet_collected', 'pending_leaflet']
+
+    # Corrected method for no_of_bottles_supplied
+    def get_no_of_bottles_supplied(self, obj):
+        total_bottles = CustomerSupplyItems.objects.filter(
+            customer_supply=obj,  # Use obj instead of self
+            product__product_name='5 Gallon'
+        ).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+        return total_bottles
+    
+    def get_total_digital_leaflets(self, obj):
         count = CustomerSupplyDigitalCoupon.objects.filter(customer_supply=obj).aggregate(total_count=Sum('count'))['total_count'] or 0
         return count
     
-    def get_total_manual_leaflets(self,obj):
+    def get_total_manual_leaflets(self, obj):
         count = CustomerSupplyCoupon.objects.filter(customer_supply=obj).aggregate(total_leaflets=Count('leaf'))['total_leaflets'] or 0
         return count
+    
+    # Method for total number of leaflet collected
+    def get_no_of_leaflet_collected(self, obj):
+        collected_leaflets = CustomerSupplyCoupon.objects.filter(customer_supply=obj).aggregate(
+            total_collected=Count('leaf')
+        )['total_collected'] or 0
+        return collected_leaflets
 
+    def get_pending_leaflet(self, obj):
+        # Get all CouponLeaflet instances associated with the customer_supply via CustomerSupplyCoupon
+        pending_leaflets = CouponLeaflet.objects.filter(
+            customersupplycoupon__customer_supply=obj,
+            used=False  # Filter where used is False
+        ).count()
+        return pending_leaflets
+    
 class FreshCanStockSerializer(serializers.ModelSerializer):
     van = VanSerializer(read_only=True)
     
@@ -2324,3 +2354,14 @@ class CustomersOutstandingBottlesSerializer(serializers.ModelSerializer):
     
     def get_total_pending(self, obj):
         return OutstandingProduct.objects.filter(customer_outstanding__customer=obj.customer,customer_outstanding__created_date__date=obj.created_date.date()).aggregate(total_count=Sum('empty_bottle'))['total_count'] or 0
+    
+    
+class SalesmanSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'staff_id', 'username', 'first_name', 'last_name', 'full_name']
+
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip()

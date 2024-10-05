@@ -23,6 +23,7 @@ urlpatterns = [
     path('customer-outstanding-balance/',CustomerOutstandingAPI.as_view()),
     
     path('store-keeper-login/',StoreKeeperLoginApi.as_view()),
+    path('marketing-executive-login/',MarketingExecutiveLoginApi.as_view()),
     
     #################Master Url##############################
 
@@ -319,4 +320,7 @@ urlpatterns = [
     path('customer-outstandings-amount-report/', CustomersOutstandingAmountsAPI.as_view(), name='customers_outstandings_amount_reports'),
     path('customer-outstandings-bottles-report/', CustomersOutstandingBottlesAPI.as_view(), name='customers_outstandings_bottles_reports'),
     path('customer-outstandings-coupon-report/', CustomersOutstandingCouponsAPI.as_view(), name='customers_outstandings_coupons_reports'),
+   
+    path('salesman/', SalesmanListAPIView.as_view(), name='salesman-list'),
+
 ]

@@ -424,3 +424,19 @@ class Create_NonVisitReasonForm(forms.ModelForm):
         widgets = {
             'reason_text': forms.TextInput(attrs={'class': 'form-control','placeholder': 'Enter reason text here'}),
         }
+        
+        
+        
+class UploadOutstandingForm(forms.Form):
+    route = forms.ModelChoiceField(queryset=RouteMaster.objects.all(),label="Select Route",required=True,
+            widget=forms.Select(attrs={
+            'class': 'form-control',
+            'placeholder': 'Route'
+        })
+    )
+    excel_file = forms.FileField(label="Upload Excel File",required=True,
+        widget=forms.FileInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Upload File'
+        })
+    )
