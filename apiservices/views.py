@@ -731,7 +731,7 @@ def find_customers(request, def_date, route_id):
     van_route = Van_Routes.objects.filter(routes=route).first()
     van_capacity = van_route.van.capacity if van_route else 200
     
-    vocation_customer_ids = Vacation.objects.filter(start_date__date__gte=date,end_date__date__lte=date).values_list('customer__pk')
+    vocation_customer_ids = Vacation.objects.filter(start_date__gte=date,end_date__lte=date).values_list('customer__pk')
     
     todays_customers = []
     buildings = []
