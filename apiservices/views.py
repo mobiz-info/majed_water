@@ -4660,19 +4660,37 @@ class DeleteCouponCount(APIView):
 class customer_outstanding(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
+
     def get(self, request, *args, **kwargs):
         customers = Customers.objects.filter(sales_staff=request.user)
         route_id = request.GET.get("route_id")
-        
-        if route_id :
+
+        if route_id:
             customers = customers.filter(routes__pk=route_id)
-            
-        serialized_data = CustomerOutstandingSerializer(customers, many=True)
-        
-        customer_outstanding = CustomerOutstandingReport.objects.filter(customer__in=customers)
-        total_amount = customer_outstanding.filter(product_type="amount").aggregate(total=Sum('value', output_field=DecimalField()))['total']
-        total_coupons = customer_outstanding.filter(product_type="coupons").aggregate(total=Sum('value', output_field=DecimalField()))['total']
-        total_emptycan = customer_outstanding.filter(product_type="emptycan").aggregate(total=Sum('value', output_field=DecimalField()))['total']
+
+        # Filter out customers whose outstanding amounts are all zero
+        customers_with_outstanding = []
+        for customer in customers:
+            amount = CustomerOutstandingReport.objects.filter(customer=customer, product_type="amount").aggregate(
+                total=Sum('value', output_field=DecimalField()))['total'] or 0
+            coupons = CustomerOutstandingReport.objects.filter(customer=customer, product_type="coupons").aggregate(
+                total=Sum('value', output_field=DecimalField()))['total'] or 0
+            empty_can = CustomerOutstandingReport.objects.filter(customer=customer, product_type="emptycan").aggregate(
+                total=Sum('value', output_field=DecimalField()))['total'] or 0
+
+            if amount != 0 or coupons != 0 or empty_can != 0:
+                customers_with_outstanding.append(customer)
+
+        serialized_data = CustomerOutstandingSerializer(customers_with_outstanding, many=True)
+
+        # Aggregate the total amounts for all customers
+        customer_outstanding = CustomerOutstandingReport.objects.filter(customer__in=customers_with_outstanding)
+        total_amount = customer_outstanding.filter(product_type="amount").aggregate(
+            total=Sum('value', output_field=DecimalField()))['total']
+        total_coupons = customer_outstanding.filter(product_type="coupons").aggregate(
+            total=Sum('value', output_field=DecimalField()))['total']
+        total_emptycan = customer_outstanding.filter(product_type="emptycan").aggregate(
+            total=Sum('value', output_field=DecimalField()))['total']
 
         return Response({
             'status': True,
@@ -4681,7 +4699,7 @@ class customer_outstanding(APIView):
             "total_coupons": total_coupons,
             "total_emptycan": total_emptycan,
             'message': 'success'
-        },)
+        })
 
 class CustomerCouponListAPI(APIView):
     authentication_classes = [BasicAuthentication]
