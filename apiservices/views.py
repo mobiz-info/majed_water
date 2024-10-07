@@ -731,22 +731,17 @@ def find_customers(request, def_date, route_id):
     van_route = Van_Routes.objects.filter(routes=route).first()
     van_capacity = van_route.van.capacity if van_route else 200
     
+    vocation_customer_ids = Vacation.objects.filter(start_date__gte=date,end_date__lte=date).values_list('customer__pk')
+    
     todays_customers = []
     buildings = []
-    for customer in Customers.objects.filter(routes=route,is_calling_customer=False):
+    for customer in Customers.objects.filter(routes=route,is_calling_customer=False).exclude(pk__in=vocation_customer_ids):
         if customer.visit_schedule:
             for day, weeks in customer.visit_schedule.items():
                 if day in str(day_of_week) and week_number in str(weeks):
                     todays_customers.append(customer)
                     buildings.append(customer.building_name)
                         
-    # Customers on vacation
-    date = datetime.strptime(def_date, '%Y-%m-%d').date()
-    for vacation in Vacation.objects.all():
-        if vacation.start_date <= date <= vacation.end_date:
-            if vacation.customer in todays_customers:
-                todays_customers.remove(vacation.customer)
-   
     # Emergency customers
     special_customers = DiffBottlesModel.objects.filter(delivery_date=date)
     emergency_customers = []
@@ -2401,20 +2396,41 @@ class Myclient_API(APIView):
 
     def post(self, request, *args, **kwargs):
         try:
-            userid = request.data["id"]
-            #81
+            userid = request.data.get("id")
+            route_id = request.data.get("route_id")
+
+            # # Ensure both 'id' and 'route_id' are provided
+            # if not userid or not route_id:
+            #     return Response({'status': False, 'message': 'User ID and Route ID are required'})
+
+            # Fetch the staff user
             staff = CustomUser.objects.get(id=userid)
+
+            # Fetch van details where the staff is either a driver or a salesman
             vans = Van.objects.filter(Q(driver=staff) | Q(salesman=staff)).first()
 
             if vans is not None:
-                van = Van.objects.get(van_id=vans.pk)
-                assign_routes = Van_Routes.objects.filter(van=van).values_list('routes', flat=True)
-                routes_list = RouteMaster.objects.filter(route_id__in = assign_routes).values_list('route_id',flat=True)
-                customer_list = Customers.objects.filter(routes__in=routes_list)
+                if not route_id:
+                    van = Van.objects.get(van_id=vans.pk)
+                    assign_routes = Van_Routes.objects.filter(van=van).values_list('routes', flat=True)
+                    routes_list = RouteMaster.objects.filter(route_id__in=assign_routes).values_list('route_id', flat=True)
+
+                    customer_list = Customers.objects.filter(routes__pk__in=routes_list)
+                else:
+                    customer_list = Customers.objects.filter(routes__pk=route_id)
+
+                # Serialize the filtered customers
                 serializer = self.serializer_class(customer_list, many=True)
+
                 return Response(serializer.data)
+
+            return Response({'status': False, 'message': 'No van assigned to the user'})
+
+        except CustomUser.DoesNotExist:
+            return Response({'status': False, 'message': 'User not found'})
         except Exception as e:
             return Response({'status': False, 'message': str(e)})
+
 
 class GetCustodyItem_API(APIView):
     authentication_classes = [BasicAuthentication]
@@ -4649,19 +4665,37 @@ class DeleteCouponCount(APIView):
 class customer_outstanding(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
+
     def get(self, request, *args, **kwargs):
         customers = Customers.objects.filter(sales_staff=request.user)
         route_id = request.GET.get("route_id")
-        
-        if route_id :
+
+        if route_id:
             customers = customers.filter(routes__pk=route_id)
-            
-        serialized_data = CustomerOutstandingSerializer(customers, many=True)
-        
-        customer_outstanding = CustomerOutstandingReport.objects.filter(customer__in=customers)
-        total_amount = customer_outstanding.filter(product_type="amount").aggregate(total=Sum('value', output_field=DecimalField()))['total']
-        total_coupons = customer_outstanding.filter(product_type="coupons").aggregate(total=Sum('value', output_field=DecimalField()))['total']
-        total_emptycan = customer_outstanding.filter(product_type="emptycan").aggregate(total=Sum('value', output_field=DecimalField()))['total']
+
+        # Filter out customers whose outstanding amounts are all zero
+        customers_with_outstanding = []
+        for customer in customers:
+            amount = CustomerOutstandingReport.objects.filter(customer=customer, product_type="amount").aggregate(
+                total=Sum('value', output_field=DecimalField()))['total'] or 0
+            coupons = CustomerOutstandingReport.objects.filter(customer=customer, product_type="coupons").aggregate(
+                total=Sum('value', output_field=DecimalField()))['total'] or 0
+            empty_can = CustomerOutstandingReport.objects.filter(customer=customer, product_type="emptycan").aggregate(
+                total=Sum('value', output_field=DecimalField()))['total'] or 0
+
+            if amount != 0 or coupons != 0 or empty_can != 0:
+                customers_with_outstanding.append(customer)
+
+        serialized_data = CustomerOutstandingSerializer(customers_with_outstanding, many=True)
+
+        # Aggregate the total amounts for all customers
+        customer_outstanding = CustomerOutstandingReport.objects.filter(customer__in=customers_with_outstanding)
+        total_amount = customer_outstanding.filter(product_type="amount").aggregate(
+            total=Sum('value', output_field=DecimalField()))['total']
+        total_coupons = customer_outstanding.filter(product_type="coupons").aggregate(
+            total=Sum('value', output_field=DecimalField()))['total']
+        total_emptycan = customer_outstanding.filter(product_type="emptycan").aggregate(
+            total=Sum('value', output_field=DecimalField()))['total']
 
         return Response({
             'status': True,
@@ -4670,7 +4704,7 @@ class customer_outstanding(APIView):
             "total_coupons": total_coupons,
             "total_emptycan": total_emptycan,
             'message': 'success'
-        },)
+        })
 
 class CustomerCouponListAPI(APIView):
     authentication_classes = [BasicAuthentication]

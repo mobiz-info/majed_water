@@ -598,21 +598,16 @@ def find_customers(request, def_date, route_id):
     van_route = Van_Routes.objects.filter(routes=route).first()
     van_capacity = van_route.van.capacity if van_route else 200
     
+    vocation_customer_ids = Vacation.objects.filter(start_date__gte=date,end_date__lte=date).values_list('customer__pk')
+    
     todays_customers = []
     buildings = []
-    for customer in Customers.objects.filter(routes=route):
+    for customer in Customers.objects.filter(routes=route,is_calling_customer=False).exclude(pk__in=vocation_customer_ids):
         if customer.visit_schedule:
             for day, weeks in customer.visit_schedule.items():
                 if day in str(day_of_week) and week_number in str(weeks):
                     todays_customers.append(customer)
                     buildings.append(customer.building_name)
-                        
-    # Customers on vacation
-    date = datetime.strptime(def_date, '%Y-%m-%d').date()
-    for vacation in Vacation.objects.all():
-        if vacation.start_date <= date <= vacation.end_date:
-            if vacation.customer in todays_customers:
-                todays_customers.remove(vacation.customer)
    
     # Emergency customers
     special_customers = DiffBottlesModel.objects.filter(delivery_date=date)

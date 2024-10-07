@@ -1576,17 +1576,12 @@ def update_van_product_stock(customer_supply_instance, supply_items_instances, f
             # Special handling for "5 Gallon" products
             van_stock = VanProductStock.objects.get(product=item_data.product,created_date=customer_supply_instance.created_date.date(),van__salesman=customer_supply_instance.salesman)
                 
-            if item_data.product.product_name == "5 Gallon":
-                # Ensure empty_can_count does not go below zero
-                new_empty_can_count = van_stock.empty_can_count - customer_supply_instance.collected_empty_bottle
-                if new_empty_can_count < 0:
-                    new_empty_can_count = 0
-                if van_stock.created_date == datetime.today().date():
-                    van_stock.empty_can_count = new_empty_can_count
-                    van_stock.stock += item_data.quantity
-                    van_stock.sold_count -= item_data.quantity
+            if van_stock.created_date == datetime.today().date():
+                if item_data.product.product_name == "5 Gallon":
+                    van_stock.empty_can_count += customer_supply_instance.collected_empty_bottle
+                van_stock.stock += item_data.quantity
+                van_stock.sold_count -= item_data.quantity
                 van_stock.save()
-
 #------------------------------REPORT----------------------------------------
 
 def client_report(request):
@@ -2401,7 +2396,6 @@ def outstanding_list(request):
 
 
     if query:
-
         instances = instances.filter(
             Q(product_type__icontains=query) |
             Q(invoice_no__icontains=query) 
@@ -2416,6 +2410,7 @@ def outstanding_list(request):
         'page_name' : 'Customer Outstanding List',
         'page_title' : 'Customer Outstanding List',
         'customer_pk': request.GET.get("customer_pk"),
+        'date': date,
         
         'is_customer_outstanding': True,
         'is_need_datetime_picker': True,
@@ -2424,8 +2419,6 @@ def outstanding_list(request):
         'sales_type_li': sales_type_li,
         'total_outstanding_count': total_outstanding_count,  
         'product_types': dict(PRODUCT_TYPES)
-
-
     }
 
     return render(request, 'client_management/customer_outstanding/outstanding_list.html', context)
@@ -3055,3 +3048,27 @@ def delete_nonvisitreason(request, id):
         delete_nonvisitreason.delete()
         return redirect('nonvisitreason_List')
     return render(request, 'client_management/NonVisitReason/delete_nonvisitreason.html', {'delete_nonvisitreason': delete_nonvisitreason})
+
+
+def upload_outstanding(request):
+    if request.method == 'POST':
+        form = UploadOutstandingForm(request.POST, request.FILES)
+        if form.is_valid():
+            excel_file = form.cleaned_data['excel_file']
+            route = form.cleaned_data['route']
+
+            file_name = default_storage.save(excel_file.name, excel_file)
+            file_path = os.path.join(settings.MEDIA_ROOT, file_name)
+
+            data = pd.read_excel(file_path)
+
+            populate_models_from_excel(data, request.user)
+
+            default_storage.delete(file_name)
+
+            messages.success(request, "Outstanding uploaded successfully.")
+            return redirect(reverse('customer_outstanding_list'))
+    else:
+        form = UploadOutstandingForm()
+
+    return render(request, 'client_management/customer_outstanding/upload.html', {'form': form})
