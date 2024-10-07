@@ -2410,6 +2410,7 @@ def outstanding_list(request):
         'page_name' : 'Customer Outstanding List',
         'page_title' : 'Customer Outstanding List',
         'customer_pk': request.GET.get("customer_pk"),
+        'date': date,
         
         'is_customer_outstanding': True,
         'is_need_datetime_picker': True,
@@ -2418,8 +2419,6 @@ def outstanding_list(request):
         'sales_type_li': sales_type_li,
         'total_outstanding_count': total_outstanding_count,  
         'product_types': dict(PRODUCT_TYPES)
-
-
     }
 
     return render(request, 'client_management/customer_outstanding/outstanding_list.html', context)

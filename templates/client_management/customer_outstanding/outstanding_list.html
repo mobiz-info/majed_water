@@ -21,30 +21,6 @@
             <div class="col-xl-12">
                 <div class="card custom-card">
                     <div class="card-header">
-<<<<<<< HEAD
-                        <div class="w-100 d-flex justify-content-end align-items-center mb-3">
-                            <div class="d-flex">
-                                <div class="me-2">
-                                    <a href="{% url 'create_customer_outstanding' %}{% if customer_pk %}?customer_pk={{ customer_pk }}{% endif %}">
-                                        <button type="button" class="btn btn-success btn-wave"><i class="bi bi-plus-circle me-1"></i>Create</button>
-                                    </a>
-                                </div>
-                                <div class="me-2">
-                                    <a href="{% url 'upload_outstanding' %}">
-                                        <button type="button" class="btn btn-primary btn-wave"><i class="bi bi-upload me-1"></i>Upload</button>
-                                    </a>
-                                </div>
-                                <div class="me-2 mr-0">
-                                    {% comment %} <a href="{% url 'print_customer_outstanding' %}?q={{ filter_data.q|default_if_none:'' }}&route_name={{ filter_data.route_name|default_if_none:'' }}" target="_blank">
-                                        <button type="button" class="btn btn-success btn-wave"><i class="fas fa-file-excel"></i> Print</button>
-                                    </a> {% endcomment %}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="w-100 d-flex justify-content-end align-items-center">
-                            <div class="d-flex">
-                                
-=======
                         <div class="card-title">Outstanding Items</div>
                         <div class="ms-auto">
                             <a href="{% url 'create_customer_outstanding' %}{% if customer_pk %}?customer_pk={{customer_pk}}{% endif %}">
@@ -107,11 +83,9 @@
 
 
                     </div>
-                    <div id="table-container">
+                    {% comment %} <div id="table-container">
                         <div class="card-body">
-                            {% comment %}
                             <div style="float:right;padding:10px 0px">
->>>>>>> d421fcf72430ee8b0ee5b51af17d82293bc3dde2
                                 <form method="GET">
                                     <div class="d-flex align-items-center">
                                         <div class="d-flex align-items-center">
@@ -138,7 +112,7 @@
                                 </form>
                             </div>
                         </div>
-                    </div>
+                    </div> {% endcomment %}
                     
                     <div id="table-container" class="card-body">
                         <table id="" class="table table-bordered text-wrap" style="width: 100%">
@@ -158,7 +132,7 @@
                                 {% load el_pagination_tags %}
                                 {% paginate 20 instances %}
                                 {% for customer in instances %}
-                                {% get_outstanding_amount customer.pk start_date product_type as outstanding_amount%}
+                                {% get_outstanding_amount customer.pk date as outstanding_amount%}
                                 {% if outstanding_amount != 0 %}
                                 <tr>
                                     <td>{{ forloop.counter }}</td>
