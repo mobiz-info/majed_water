@@ -9486,8 +9486,16 @@ class SalesmanListAPIView(APIView):
     """
 
     def get(self, request):
-        # Filter for salesmen
-        salesmen = CustomUser.objects.filter(user_type='Salesman')
+        route_id = request.data.get('route_id')
+
+        if not route_id:
+            return Response({"error": "route_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get all vans that have the given route_id
+        vans_route = Van_Routes.objects.filter(routes__route_id=route_id).values_list('van', flat=True)
+
+        # Get salesmen associated with those vans
+        salesmen = CustomUser.objects.filter(user_type='Salesman', salesman_van__van_id__in=vans_route)
 
         # Serialize the salesmen data
         serializer = SalesmanSerializer(salesmen, many=True)
