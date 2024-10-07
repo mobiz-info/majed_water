@@ -2399,6 +2399,10 @@ class Myclient_API(APIView):
             userid = request.data.get("id")
             route_id = request.data.get("route_id")
 
+            # # Ensure both 'id' and 'route_id' are provided
+            # if not userid or not route_id:
+            #     return Response({'status': False, 'message': 'User ID and Route ID are required'})
+
             # Fetch the staff user
             staff = CustomUser.objects.get(id=userid)
 
@@ -2426,6 +2430,7 @@ class Myclient_API(APIView):
             return Response({'status': False, 'message': 'User not found'})
         except Exception as e:
             return Response({'status': False, 'message': str(e)})
+
 
 class GetCustodyItem_API(APIView):
     authentication_classes = [BasicAuthentication]
