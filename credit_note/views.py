@@ -18,6 +18,7 @@ from master.models import RouteMaster
 from accounts.models import Customers
 from credit_note.forms import CreditNoteForm, CreditNoteItemsForm
 from credit_note.models import CreditNote, CreditNoteItems
+from accounts.views import log_activity
 
 @login_required
 def credit_note_info(request,pk):
