@@ -456,8 +456,10 @@ class CustomerSupply(models.Model):
             return CustomerSupplyItems.objects.filter(customer_supply=self).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
         
         def total_coupon_recieved(self):
+            valueble_leaf_count = CustomerSupplyCoupon.objects.filter(customer_supply=self).aggregate(Count('leaf'))['leaf__count'] or 0
+            free_leaf_count = CustomerSupplyCoupon.objects.filter(customer_supply=self).aggregate(Count('free_leaf'))['free_leaf__count'] or 0
             return {
-                "manual_coupon": CustomerSupplyCoupon.objects.filter(customer_supply=self).aggregate(Count('leaf'))['leaf__count'],
+                "manual_coupon": valueble_leaf_count + free_leaf_count,
                 "digital_coupon": CustomerSupplyDigitalCoupon.objects.filter(customer_supply=self).aggregate(total_count=Sum('count'))['total_count'] or 0
             }
             

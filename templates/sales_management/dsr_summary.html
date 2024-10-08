@@ -308,6 +308,7 @@
                             </table>
                         </div>
                     </div>
+
                     <div id="table-container">
                         <div class="card-body">
                             <table  class="table table-bordered text-wrap" style="width: 100%">
@@ -335,6 +336,7 @@
                             </table>
                         </div>
                     </div>
+                    
                     <div id="table-container">
                         <div class="card-body">
                             <table  class="table table-bordered text-wrap" style="width: 100%">
@@ -355,7 +357,10 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for sale in cash_sales %}
+                                    <tr>
+                                        <td colspan="8" style="text-align: center;">5 Gallon</td>
+                                    </tr>
+                                    {% for sale in five_gallon_cash_sales %}
                                     <tr>
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{forloop.counter}}</td>
                                         <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.reference_number}}</td>
@@ -368,6 +373,49 @@
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.amount_recieved}}</td>
                                     </tr>
                                     {% endfor %}
+                                    {% if five_gallon_cash_sales %}
+                                    <tr>
+                                        <td colspan="3" style="text-align: right;">5 Gallon Total:</td>
+                                        <td style="text-align:center;">{{ five_gallon_cash_total_quantity }}</td>
+                                        <td style="text-align:center;">-</td>
+                                        <td style="text-align:center;">{{ five_gallon_cash_total_subtotal }}</td>
+                                        <td style="text-align:center;">{{ five_gallon_cash_total_net_taxable }}</td>
+                                        <td style="text-align:center;">{{ five_gallon_cash_total_received }}</td>
+                                    </tr>
+                                    {% endif %}
+                                    {% if other_cash_sales %}
+                                    <tr>
+                                        <td colspan="8" style="text-align: center;">Other</td>
+                                    </tr>
+                                    {% endif %}
+                                    {% for sale in other_cash_sales %}
+                                    <tr>
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{forloop.counter}}</td>
+                                        <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.reference_number}}</td>
+                                        <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.customer_name}}</td>
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}" >{{sale.get_total_supply_qty}}</td>
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.get_water_rate}}</td>
+                                        {% comment %} <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.vat}}</td> {% endcomment %}
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.subtotal}}</td>
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.net_payable}}</td>
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.amount_recieved}}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% if other_cash_sales %}
+                                    <tr>
+                                        <td colspan="3" style="text-align: right;">Other Total:</td>
+                                        <td style="text-align:center;">{{ other_cash_total_quantity }}</td>
+                                        <td style="text-align:center;">-</td>
+                                        <td style="text-align:center;">{{ other_cash_total_subtotal }}</td>
+                                        <td style="text-align:center;">{{ other_cash_total_net_taxable }}</td>
+                                        <td style="text-align:center;">{{ other_cash_total_received }}</td>
+                                    </tr>
+                                    {% endif %}
+                                    {% if recharge_cash_sales %}
+                                    <tr>
+                                        <td colspan="8" style="text-align: center;">Coupon Recharge</td>
+                                    </tr>
+                                    {% endif %}
                                     {% for sale in recharge_cash_sales %}
                                     <tr>
                                         <td style="text-align:center;background-color:#ff9a44 !important;">{{forloop.counter}}</td>
@@ -380,12 +428,22 @@
                                         <td style="text-align:center;background-color:#ff9a44 !important;">{{sale.net_amount}}</td>
                                         <td style="text-align:center;background-color:#ff9a44 !important;">{{sale.amount_recieved}}</td>
                                     </tr>
-                                {% endfor %}  
+                                    {% endfor %}
+                                    {% if recharge_cash_sales %}
+                                    <tr>
+                                        <td colspan="3" style="text-align: right;">Coupon Recharge Total:</td>
+                                        <td style="text-align:center;">{{ coupon_cash_total_qty }}</td>
+                                        <td style="text-align:center;">-</td>
+                                        <td style="text-align:center;">{{ cash_sale_recharge_grand_total }}</td>
+                                        <td style="text-align:center;">{{ cash_sale_recharge_net_payeble }}</td>
+                                        <td style="text-align:center;">{{ cash_sale_recharge_amount_recieved }}</td>
+                                    </tr> 
+                                    {% endif %}
                                 </tbody>
                                 <!-- Table Footer -->
                                 <tfoot>
                                     <tr>
-                                        <td colspan="3" style="text-align: right;">Total:</td>
+                                        <td colspan="3" style="text-align: right;">Grand Total:</td>
                                         <td style="text-align:center;">{{ cash_total_qty }}</td>
                                         <td style="text-align:center;">-</td>
                                         <td style="text-align:center;">{{ cash_total_subtotal }}</td>
@@ -418,23 +476,69 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for sale in credit_sales %}
+                                    <tr>
+                                        <td colspan="8" style="text-align: center;">5 Gallon</td>
+                                    </tr>
+                                    {% for sale in five_gallon_credit_sales %}
                                     <tr>
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{forloop.counter}}</td>
                                         <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.reference_number}}</td>
                                         <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.customer_name}}</td>
-                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.get_total_supply_qty}}</td>
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}" >{{sale.get_total_supply_qty}}</td>
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.get_water_rate}}</td>
                                         {% comment %} <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.vat}}</td> {% endcomment %}
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.subtotal}}</td>
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.net_payable}}</td>
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.amount_recieved}}</td>
                                     </tr>
-                                {% endfor %} 
-                                {% for sale in recharge_credit_sales %}
+                                    {% endfor %}
+                                    {% if five_gallon_credit_sales %}
+                                    <tr>
+                                        <td colspan="3" style="text-align: right;">5 Gallon Total:</td>
+                                        <td style="text-align:center;">{{ five_gallon_credit_total_quantity }}</td>
+                                        <td style="text-align:center;">-</td>
+                                        <td style="text-align:center;">{{ five_gallon_credit_total_subtotal }}</td>
+                                        <td style="text-align:center;">{{ five_gallon_credit_total_net_taxable }}</td>
+                                        <td style="text-align:center;">{{ five_gallon_credit_total_received }}</td>
+                                    </tr>
+                                    {% endif %}
+                                    {% if other_credit_sales %}
+                                    <tr>
+                                        <td colspan="8" style="text-align: center;">Other</td>
+                                    </tr>
+                                    {% endif %}
+                                    {% for sale in other_credit_sales %}
+                                    <tr>
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{forloop.counter}}</td>
+                                        <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.reference_number}}</td>
+                                        <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.customer_name}}</td>
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}" >{{sale.get_total_supply_qty}}</td>
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.get_water_rate}}</td>
+                                        {% comment %} <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.vat}}</td> {% endcomment %}
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.subtotal}}</td>
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.net_payable}}</td>
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.amount_recieved}}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% if other_credit_sales %}
+                                    <tr>
+                                        <td colspan="3" style="text-align: right;">Other Total:</td>
+                                        <td style="text-align:center;">{{ other_credit_total_quantity }}</td>
+                                        <td style="text-align:center;">-</td>
+                                        <td style="text-align:center;">{{ other_credit_total_subtotal }}</td>
+                                        <td style="text-align:center;">{{ other_credit_total_net_taxable }}</td>
+                                        <td style="text-align:center;">{{ other_credit_total_received }}</td>
+                                    </tr>
+                                    {% endif %}
+                                    {% if recharge_credit_sales %}
+                                    <tr>
+                                        <td colspan="8" style="text-align: center;">Coupon Recharge</td>
+                                    </tr>
+                                    {% endif %}
+                                    {% for sale in recharge_credit_sales %}
                                     <tr>
                                         <td style="text-align:center;background-color:#ff9a44 !important;">{{forloop.counter}}</td>
-                                        <td style="text-align:center;background-color:#ff9a44 !important;">{{sale.reference_number}}</td>
+                                        <td style="text-align:left;background-color:#ff9a44 !important;">{{sale.reference_number}}</td>
                                         <td style="background-color:#ff9a44 !important;">{{sale.customer.customer_name}}</td>
                                         <td style="text-align:center;background-color:#ff9a44 !important;">1</td>
                                         <td style="text-align:center;background-color:#ff9a44 !important;">{{sale.display_coupon_rates}}</td>
@@ -443,15 +547,24 @@
                                         <td style="text-align:center;background-color:#ff9a44 !important;">{{sale.net_amount}}</td>
                                         <td style="text-align:center;background-color:#ff9a44 !important;">{{sale.amount_recieved}}</td>
                                     </tr>
-                                {% endfor %} 
+                                    {% endfor %}
+                                    {% if recharge_credit_sales %}
+                                    <tr>
+                                        <td colspan="3" style="text-align: right;">Coupon Recharge Total:</td>
+                                        <td style="text-align:center;">{{ coupon_credit_total_qty }}</td>
+                                        <td style="text-align:center;">-</td>
+                                        <td style="text-align:center;">{{ credit_sale_recharge_grand_total }}</td>
+                                        <td style="text-align:center;">{{ credit_sale_recharge_net_payeble }}</td>
+                                        <td style="text-align:center;">{{ credit_sale_recharge_amount_recieved }}</td>
+                                    </tr> 
+                                    {% endif %}
                                 </tbody>
                                 <!-- Table Footer -->
                                 <tfoot>
                                     <tr>
-                                        <td colspan="3" style="text-align: right;">Total:</td>
+                                        <td colspan="3" style="text-align: right;">Grand Total:</td>
                                         <td style="text-align:center;">{{ credit_total_qty }}</td>
                                         <td style="text-align:center;">-</td>
-                                        {% comment %} <td style="text-align:center;">{{ credit_total_vat }}</td> {% endcomment %}
                                         <td style="text-align:center;">{{ credit_total_subtotal }}</td>
                                         <td style="text-align:center;">{{ credit_total_net_taxable }}</td>
                                         <td style="text-align:center;">{{ credit_total_amount_recieved }}</td>
@@ -535,7 +648,7 @@
                             <table  class="table table-bordered text-wrap" style="width: 100%">
                                 <thead>
                                     <tr>
-                                        <th class="text-center text-bold" colspan="3">5 Gallon Supplied Retes</th>
+                                        <th class="text-center text-bold" colspan="4">5 Gallon Supplied Retes</th>
                                     </tr>
                                     <tr>
                                         <th style="text-align:center;" scope="col">Rate</th>
@@ -553,8 +666,16 @@
                                         <td style="text-align:center;">{{ ratewise_count.debit_amount_count }}</td>
                                         <td style="text-align:center;">{{ ratewise_count.coupon_amount_count }}</td>
                                     </tr>
-                                {% endfor %} 
+                                    {% endfor %}
                                 </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td style="text-align:right;">Total</td>
+                                        <td style="text-align:center;">{{ total_credit_amount_count }}</td>
+                                        <td style="text-align:center;">{{ total_debit_amount_count }}</td>
+                                        <td style="text-align:center;">{{ total_coupon_amount_count }}</td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                     </div>
