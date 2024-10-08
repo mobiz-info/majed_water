@@ -34,6 +34,7 @@ from django.urls import reverse
 
 from .forms import BottleAllocationForm
 from django.db.models import Max
+from accounts.views import log_activity
 
 
 

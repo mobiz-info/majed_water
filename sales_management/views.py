@@ -63,6 +63,7 @@ from invoice_management.models import *
 from van_management.models import Expense
 from reportlab.lib.styles import getSampleStyleSheet
 import openpyxl
+from accounts.views import log_activity
 
 class TransactionHistoryListView(ListView):
     model = Transaction

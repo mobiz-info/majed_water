@@ -12,6 +12,7 @@ from . models import *
 from . forms import  *
 from tax_settings.models import Tax
 from tax_settings.forms import TaxTypesForm
+from accounts.views import log_activity
 
 
 # Create your views here.

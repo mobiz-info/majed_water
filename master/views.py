@@ -40,6 +40,7 @@ from coupon_management.models import CouponStock, CouponLeaflet
 from product.models import WashedUsedProduct
 from apiservices.views import find_customers
 import json
+from accounts.views import log_activity
 
 
 # Create your views here.
@@ -146,6 +147,7 @@ class Branch_List(View):
     def get(self, request, *args, **kwargs):
         branch_li = BranchMaster.objects.all().order_by("-created_date")
         context = {'branch_li': branch_li}
+        log_activity(request.user, "Viewed branch list.")
         return render(request, self.template_name, context)
 
 class Branch_Create(View):
@@ -155,6 +157,7 @@ class Branch_Create(View):
     @method_decorator(login_required)
     def get(self, request, *args, **kwargs):
         context = {'form': self.form_class}
+        log_activity(request.user, "Accessed branch creation page.")
         return render(request, self.template_name, context)
 
     @method_decorator(login_required)
@@ -172,6 +175,7 @@ class Branch_Create(View):
             user_name=data.name
             branch_data=CustomUser.objects.create(password=hashed_password,username=username,first_name=user_name,email=email,user_type='Branch User',branch_id=branch)
             data.save()
+            log_activity(request.user, f"Created new branch: {data.name}")
             messages.success(request, 'Branch Successfully Added.', 'alert-success')
             return redirect('branch')
         else:
@@ -204,6 +208,10 @@ class Branch_Edit(View):
             data.modified_by = str(request.user.id)
             data.modified_date = datetime.now()
             data.save()
+            log_activity(
+                        created_by=request.user,
+                        description=f"Branch ID {rec.name} successfully edited by User ID {request.user}"
+                    )
             messages.success(request, 'Branch Data Successfully Updated', 'alert-success')
             return redirect('branch')
         else:
@@ -219,6 +227,10 @@ class Branch_Details(View):
     def get(self, request, pk, *args, **kwargs):
         branch_det = BranchMaster.objects.get(branch_id=pk)
         context = {'branch_det': branch_det}
+        log_activity(
+                created_by=request.user,
+                description=f"Viewed details for Branch ID {pk} by  User ID {request.user}"
+            )
         return render(request, self.template_name, context)    
 class Branch_Delete(View):
 
@@ -229,6 +241,10 @@ class Branch_Delete(View):
     def post(self, request, pk, *args, **kwargs):
         rec = get_object_or_404(BranchMaster, branch_id=pk)
         rec.delete()
+        log_activity(
+                created_by=request.user,
+                description=f"Branch ID {pk} deleted by User ID {request.user}"
+            )
         messages.success(request, 'Route Deleted Successfully', 'alert-success')
         return redirect('branch')    
 

@@ -18,6 +18,7 @@ from openpyxl.styles import Font, Alignment
 from .forms import OrderForm
 from django.shortcuts import get_object_or_404
 from datetime import date as dt
+from accounts.views import log_activity
 
 # class CustomerOrder(APIView):
 #     def post(self, request, *args, **kwargs):

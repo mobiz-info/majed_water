@@ -30,6 +30,7 @@ from invoice_management.models import Invoice, InvoiceItems
 from product.models import Product, Product_Default_Price_Level
 from invoice_management.forms import InvoiceForm, InvoiceItemsForm
 from invoice_management.serializers import BuildingNameSerializers, ProductSerializers,CustomersSerializers
+from accounts.views import log_activity
 
 # Create your views here.
 @api_view(['GET'])
