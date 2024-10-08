@@ -2381,7 +2381,8 @@ def outstanding_list(request):
         filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
     if route_filter:
-            instances = instances.filter(customer__routes__route_name=route_filter)
+        instances = instances.filter(customer__routes__route_name=route_filter)
+        filter_data['route_name'] = route_filter
     route_li = RouteMaster.objects.all()
     
     if sales_type_filter:
@@ -2422,6 +2423,70 @@ def outstanding_list(request):
     }
 
     return render(request, 'client_management/customer_outstanding/outstanding_list.html', context)
+def print_outstanding_report(request):
+    """
+    Print Customer Outstanding Report
+    :param request:
+    :return: A printable view of Customer Outstanding list
+    """
+    filter_data = {}
+    instances = CustomerOutstanding.objects.all().order_by('-created_date')
+    
+    query = request.GET.get("q")
+    date = request.GET.get('date')
+    route_filter = request.GET.get('route_name')
+    
+    sales_type_filter = request.GET.get('sales_type')
+    product_type_filter = request.GET.get('product_type')
+
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    # Filter by route
+    if route_filter:
+        instances = instances.filter(customer__routes__route_name=route_filter)
+        filter_data['route_name'] = route_filter
+
+    route_li = RouteMaster.objects.all()
+    
+    # Filter by sales type
+    if sales_type_filter:
+        instances = instances.filter(customer__sales_type=sales_type_filter)
+        filter_data['sales_type'] = sales_type_filter
+    sales_type_li = Customers.objects.values_list('sales_type', flat=True).distinct()
+    
+    # Filter by product type
+    if product_type_filter:
+        instances = instances.filter(product_type=product_type_filter)
+        filter_data['product_type'] = product_type_filter
+
+    # Search functionality
+    if query:
+        instances = instances.filter(
+            Q(product_type__icontains=query) |
+            Q(invoice_no__icontains=query)
+        )
+        filter_data['q'] = query
+
+    # Calculate total outstanding count
+    total_outstanding_count = sum([item.get_outstanding_count() for item in instances])
+    
+    context = {
+        'instances': instances,
+        'date': date,
+        'route_li': route_li,
+        'sales_type_li': sales_type_li,
+        'filter_data': filter_data,
+        'total_outstanding_count': total_outstanding_count,
+        'product_types': dict(PRODUCT_TYPES)
+    }
+
+    return render(request, 'client_management/customer_outstanding/print_outstanding_report.html', context)
+
 
 @login_required
 def create_customer_outstanding(request):
