@@ -5222,6 +5222,8 @@ class DashboardAPI(APIView):
         
         balance_in_hand = total_sales_amount_collected - expences
         
+        total_fivegallon_supplied = CustomerSupplyItems.objects.filter(customer_supply__customer__routes__pk=route_id,customer_supply__created_date__date=date).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+        
         data = {
             'date': date_str,
             'today_schedule': {
@@ -5246,6 +5248,7 @@ class DashboardAPI(APIView):
                 'credit_sale_amount_recieved': credit_sales_amount_collected,
             },
             'expences': expences,
+            'total_fivegallon_supplied': total_fivegallon_supplied,
         }
         
         return Response({'status': True, 'data': data}, status=status.HTTP_200_OK)
