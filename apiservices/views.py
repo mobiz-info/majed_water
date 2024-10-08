@@ -9361,39 +9361,32 @@ class CustomersOutstandingAmountsAPI(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
-        
-        if start_date:
-            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        if end_date:
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
         else:
-            start_date = date.today()
             end_date = date.today()
-
-        filter_start_date = start_date.strftime('%Y-%m-%d')
         filter_end_date = end_date.strftime('%Y-%m-%d')
-        
         route = Van_Routes.objects.filter(van__salesman=request.user).first().routes
-        instances = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__gte=start_date,customer_outstanding__created_date__date__lte=end_date,customer_outstanding__customer__routes=route)        
-        serializer = CustomersOutstandingAmountsSerializer(instances, many=True, context={'user_id': request.user.pk})
         
-        total_amount = instances.aggregate(total_amout_recieved=Sum('amount'))['total_amout_recieved'] or 0
+        customer_outstanding_customer_ids = CustomerOutstandingReport.objects.filter(customer__routes=route,product_type="amount").exclude(value=0).values_list("customer__pk")
+        customer_instances = Customers.objects.filter(pk__in=customer_outstanding_customer_ids)
+               
+        serializer = CustomersOutstandingAmountsSerializer(customer_instances, many=True, context={'user_id': request.user.pk,'end_date':end_date})
         
-        customer_ids = instances.values_list('customer_outstanding__customer__pk')
-        dialy_collections = CollectionPayment.objects.filter(customer__pk__in=customer_ids,created_date__date__gte=start_date,created_date__date__lte=end_date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        outstanding_amounts = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__lte=end_date,customer_outstanding__customer__pk__in=customer_outstanding_customer_ids).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        dialy_collections = CollectionPayment.objects.filter(customer__pk__in=customer_outstanding_customer_ids,created_date__date__lte=end_date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         
         return Response({
             'status': True,
             'message': 'Success',
             'data': 
                 {
-                    'filter_start_date': filter_start_date,
                     'filter_end_date': filter_end_date,
                     'data': serializer.data,
-                    'total_amount': total_amount,
+                    'total_amount': outstanding_amounts,
                     'total_collected_amount': dialy_collections,
-                    'total_balance_amount': total_amount - dialy_collections,
+                    'total_balance_amount': outstanding_amounts - dialy_collections,
                 },
         })
         

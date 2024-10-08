@@ -2196,7 +2196,7 @@ class ProductSalesReportSerializer(serializers.ModelSerializer):
         start_date = self.context.get('start_date')
         end_date = self.context.get('end_date')
         
-        cash_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gt=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved__gt=0).exclude(customer_supply__customer__sales_type="CASH COUPON")
+        cash_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gte=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved__gt=0).exclude(customer_supply__customer__sales_type="CASH COUPON")
         cash_total_quantity = cash_sales.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         return cash_total_quantity
 
@@ -2271,28 +2271,45 @@ class CustomersSupplysSerializer(serializers.ModelSerializer):
         return obj.customer.custom_id
     
 class CustomersOutstandingAmountsSerializer(serializers.ModelSerializer):
-    customer_name = serializers.CharField(source='customer_outstanding.customer.customer_name', read_only=True)
-    mode = serializers.CharField(source='customer_outstanding.customer.sales_type', read_only=True)
-    invoice_number = serializers.CharField(source='customer_outstanding.invoice_no', read_only=True)
+    mode = serializers.CharField(source='customer.sales_type', read_only=True)
+    invoice_number = serializers.SerializerMethodField()
     building_room_no = serializers.SerializerMethodField()
+    amount = serializers.SerializerMethodField()
     collected_amount = serializers.SerializerMethodField()
     balance_amount = serializers.SerializerMethodField()
     
     class Meta:
-        model = OutstandingAmount
+        model = Customers
         fields = ['customer_name','building_room_no','invoice_number','mode','amount','collected_amount','balance_amount']
     
     def get_building_room_no(self, obj):
-        return f"{obj.customer_outstanding.customer.building_name} {obj.customer_outstanding.customer.door_house_no}"
+        return f"{obj.building_name} {obj.door_house_no}"
+    
+    def get_amount(self, obj):
+        end_date = self.context.get('end_date')
+        return OutstandingAmount.objects.filter(customer_outstanding__customer=obj,customer_outstanding__created_date__date=end_date).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+    
+    def get_invoice_number(self,obj):
+        end_date = self.context.get('end_date')
+        return ""
         
     def get_collected_amount(self, obj):
-        dialy_collections = CollectionPayment.objects.filter(customer=obj.customer_outstanding.customer,created_date__date=obj.customer_outstanding.created_date.date()).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        end_date = self.context.get('end_date')
+        dialy_collections = CollectionPayment.objects.filter(customer=obj,created_date__date__lte=end_date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         
         return dialy_collections
     
     def get_balance_amount(self, obj):
-        dialy_collections = CollectionPayment.objects.filter(customer=obj.customer_outstanding.customer,created_date__date=obj.customer_outstanding.created_date.date()).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
-        balance_amount = obj.amount - dialy_collections
+        end_date = self.context.get('end_date')
+        total_amount = OutstandingAmount.objects.filter(customer_outstanding__customer=obj,customer_outstanding__created_date__date=end_date).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        dialy_collections = CollectionPayment.objects.filter(customer=obj,created_date__date__lte=end_date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        balance_amount = total_amount
+        
+        if total_amount != 0:
+            if total_amount > dialy_collections:
+               balance_amount = total_amount - dialy_collections
+            else:
+                balance_amount = dialy_collections - total_amount
         return balance_amount
     
 

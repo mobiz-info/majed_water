@@ -1315,19 +1315,15 @@ def product_route_salesreport(request):
     products = ProdutItemMaster.objects.all()
     # today = datetime.today().date()
     
-    start_date = datetime.today().date()
-    end_date = datetime.today().date() + timedelta(days=1)
-
-    # Apply date range filter if both start_date and end_date are provided
     if request.GET.get('start_date') and request.GET.get('end_date'):
         start_date = datetime.strptime(request.GET.get('start_date'), '%Y-%m-%d').date()
         end_date = datetime.strptime(request.GET.get('end_date'), '%Y-%m-%d').date()
 
     customersupplyitems = customersupplyitems.filter(
-        customer_supply__created_date__range=[start_date, end_date]
+        customer_supply__created_date__date__gte=start_date, customer_supply__created_date__date__lte=end_date
     )
     coupons_collected = coupons_collected.filter(
-        customer_supply__created_date__range=[start_date, end_date],
+        customer_supply__created_date__date__gte=start_date, customer_supply__created_date__date__lte=end_date,
         customer_supply__customer__sales_type='CASH COUPON'
     )
 
