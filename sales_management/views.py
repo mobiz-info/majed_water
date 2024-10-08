@@ -5879,14 +5879,57 @@ def print_dsr(request):
     return render(request, 'sales_management/new_dsr_summary_print.html', context)
 
 
+from django.core.paginator import Paginator
+
 def collection_list_view(request):
-    instances = CollectionPayment.objects.all().order_by("-created_date")
     
+    filter_data = {}
+
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    query = request.GET.get("q")
+    route_filter = request.GET.get('route_name')
+
+    # Initialize queryset
+    instances = CollectionPayment.objects.select_related('customer', 'salesman').all().order_by("-created_date")
+
+    if route_filter:
+        instances = instances.filter(customer__routes__route_name=route_filter)
+
+    if query:
+        instances = instances.filter(
+            Q(customer__customer_name__icontains=query) |
+            Q(receipt_number__icontains=query) |
+            Q(payment_method__icontains=query)
+        )
+        
+    
+    today = datetime.today().date()
+    if start_date and end_date:
+        instances = instances.filter(created_date__range=[start_date, end_date])
+        filter_data['start_date'] = start_date
+        filter_data['end_date'] = end_date
+    
+
+   
+    # Fetch all routes for the dropdown
+    route_li = RouteMaster.objects.all()
+
+    # # Implement pagination (optional if using el_pagination_tags)
+    # paginator = Paginator(instances, 20)  # Show 20 records per page
+    # page_number = request.GET.get('page')
+    # page_obj = paginator.get_page(page_number)
+
     context = {
-        'instances': instances
+        'instances': instances, 
+        'today': today,
+        'filter_data': filter_data,
+        'route_li': route_li,
     }
 
     return render(request, 'sales_management/collection_list.html', context)
+
 
 def delete_collection_payment(request, receipt_number, customer_id):
     

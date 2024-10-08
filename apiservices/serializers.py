@@ -2358,10 +2358,32 @@ class CustomersOutstandingBottlesSerializer(serializers.ModelSerializer):
     
 class SalesmanSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
+    routes = serializers.SerializerMethodField()
+
 
     class Meta:
         model = CustomUser
-        fields = ['id', 'staff_id', 'username', 'first_name', 'last_name', 'full_name']
+        fields = ['id', 'staff_id', 'username', 'first_name', 'last_name', 'full_name', 'routes']
 
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}".strip()
+
+    def get_routes(self, obj):
+        """
+        Get all routes associated with the salesman.
+        """
+        routes = []
+        # Filter for the van associated with the salesman
+        vans = Van.objects.filter(salesman=obj)
+
+        # Iterate through each van and get the routes associated with it
+        for van in vans:
+            van_routes = Van_Routes.objects.filter(van=van)
+            for van_route in van_routes:
+                if van_route.routes:
+                    routes.append({
+                        "id": str(van_route.routes.route_id),
+                        "name": van_route.routes.route_name
+                    })
+
+        return routes if routes else [{"id": None, "name": "No Routes Assigned"}]

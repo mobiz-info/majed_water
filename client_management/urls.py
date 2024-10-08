@@ -62,6 +62,8 @@ urlpatterns = [
         re_path(r'^customer-outstanding-details/(?P<customer_pk>.*)/$', customer_outstanding_details, name='customer_outstanding_details'),
         re_path(r'^delete-customer-outstanding/(?P<pk>.*)/$', delete_outstanding, name='delete_outstanding'),
         path('upload-outstanding/', upload_outstanding, name='upload_outstanding'),
+        
+        path('print_outstanding_report/', print_outstanding_report, name='print_outstanding_report'),
 
         # Customer count
         path('customer_count', customer_count, name="customer_count"),
