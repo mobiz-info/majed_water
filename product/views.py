@@ -26,6 +26,7 @@ from van_management.models import *
 from django.template.loader import get_template
 import pandas as pd
 from xhtml2pdf import pisa
+from accounts.views import log_activity
 
 def get_coupon_bookno(request):
     request_id = request.GET.get("request_id")

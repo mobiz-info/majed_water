@@ -4673,7 +4673,6 @@ class customer_outstanding(APIView):
         if route_id:
             customers = customers.filter(routes__pk=route_id)
 
-        # Filter out customers whose outstanding amounts are all zero
         customers_with_outstanding = []
         for customer in customers:
             amount = CustomerOutstandingReport.objects.filter(customer=customer, product_type="amount").aggregate(
@@ -4688,23 +4687,28 @@ class customer_outstanding(APIView):
 
         serialized_data = CustomerOutstandingSerializer(customers_with_outstanding, many=True)
 
-        # Aggregate the total amounts for all customers
         customer_outstanding = CustomerOutstandingReport.objects.filter(customer__in=customers_with_outstanding)
         total_amount = customer_outstanding.filter(product_type="amount").aggregate(
-            total=Sum('value', output_field=DecimalField()))['total']
+            total=Sum('value', output_field=DecimalField()))['total'] or 0
         total_coupons = customer_outstanding.filter(product_type="coupons").aggregate(
-            total=Sum('value', output_field=DecimalField()))['total']
+            total=Sum('value', output_field=DecimalField()))['total'] or 0
         total_emptycan = customer_outstanding.filter(product_type="emptycan").aggregate(
-            total=Sum('value', output_field=DecimalField()))['total']
+            total=Sum('value', output_field=DecimalField()))['total'] or 0
+
+        formatted_total_amount = "{:.2f}".format(total_amount)
+
+        formatted_total_coupons = int(total_coupons)
+        formatted_total_emptycan = int(total_emptycan)
 
         return Response({
             'status': True,
             'data': serialized_data.data,
-            "total_amount": total_amount,
-            "total_coupons": total_coupons,
-            "total_emptycan": total_emptycan,
+            "total_amount": formatted_total_amount,
+            "total_coupons": formatted_total_coupons,
+            "total_emptycan": formatted_total_emptycan,
             'message': 'success'
         })
+
 
 class CustomerCouponListAPI(APIView):
     authentication_classes = [BasicAuthentication]
@@ -5218,6 +5222,8 @@ class DashboardAPI(APIView):
         
         balance_in_hand = total_sales_amount_collected - expences
         
+        total_fivegallon_supplied = CustomerSupplyItems.objects.filter(customer_supply__customer__routes__pk=route_id,customer_supply__created_date__date=date).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+        
         data = {
             'date': date_str,
             'today_schedule': {
@@ -5242,6 +5248,7 @@ class DashboardAPI(APIView):
                 'credit_sale_amount_recieved': credit_sales_amount_collected,
             },
             'expences': expences,
+            'total_fivegallon_supplied': total_fivegallon_supplied,
         }
         
         return Response({'status': True, 'data': data}, status=status.HTTP_200_OK)
@@ -5261,7 +5268,7 @@ class CollectionReportAPI(APIView):
             start_date = datetime.today().date()
             end_date = datetime.today().date()
         salesman=request.user
-        print("salesman",salesman)    
+        # print("salesman",salesman)    
         instances = CollectionPayment.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,salesman=request.user)
         serialized_data = CollectionReportSerializer(instances, many=True).data
         
@@ -5394,9 +5401,9 @@ class CouponConsumptionReport(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request, *args, **kwargs):
             start_date = request.data.get('start_date')  
-            print("start_date",start_date)
             end_date = request.data.get('end_date')  
-            print("end_date",end_date)
+            # print("start_date",start_date)
+            # print("end_date",end_date)
             
             if start_date and end_date:
                 start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -5404,11 +5411,13 @@ class CouponConsumptionReport(APIView):
             else:
                 start_date = date.today()
                 end_date = date.today()
-
+            
+            van_route = Van_Routes.objects.get(van__salesman=request.user).routes
             supply_instance = CustomerSupply.objects.filter(
                 created_date__date__gte=start_date,
                 created_date__date__lte=end_date,
-                customer__sales_type="CASH COUPON"
+                customer__sales_type="CASH COUPON",
+                customer__routes=van_route
             )
             
             serializer = CouponConsumptionSerializer(supply_instance, many=True)
@@ -9320,9 +9329,11 @@ class SalesInvoicesAPIView(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
     
 class CustomerSupplyListAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
     
     def get(self, request, *args, **kwargs):
-        instances = CustomerSupply.objects.all().order_by("-created_date")
+        instances = CustomerSupply.objects.filter(salesman=request.user).order_by("-created_date")
         
         product_id = request.GET.get('product_id', None)
         filter_date_str = request.GET.get('filter_date', None)
@@ -9352,39 +9363,32 @@ class CustomersOutstandingAmountsAPI(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
-        
-        if start_date:
-            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        if end_date:
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
         else:
-            start_date = date.today()
             end_date = date.today()
-
-        filter_start_date = start_date.strftime('%Y-%m-%d')
         filter_end_date = end_date.strftime('%Y-%m-%d')
-        
         route = Van_Routes.objects.filter(van__salesman=request.user).first().routes
-        instances = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__gte=start_date,customer_outstanding__created_date__date__lte=end_date,customer_outstanding__customer__routes=route)        
-        serializer = CustomersOutstandingAmountsSerializer(instances, many=True, context={'user_id': request.user.pk})
         
-        total_amount = instances.aggregate(total_amout_recieved=Sum('amount'))['total_amout_recieved'] or 0
+        customer_outstanding_customer_ids = CustomerOutstandingReport.objects.filter(customer__routes=route,product_type="amount").exclude(value=0).values_list("customer__pk")
+        customer_instances = Customers.objects.filter(pk__in=customer_outstanding_customer_ids)
+               
+        serializer = CustomersOutstandingAmountsSerializer(customer_instances, many=True, context={'user_id': request.user.pk,'end_date':end_date})
         
-        customer_ids = instances.values_list('customer_outstanding__customer__pk')
-        dialy_collections = CollectionPayment.objects.filter(customer__pk__in=customer_ids,created_date__date__gte=start_date,created_date__date__lte=end_date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        outstanding_amounts = OutstandingAmount.objects.filter(customer_outstanding__created_date__date__lte=end_date,customer_outstanding__customer__pk__in=customer_outstanding_customer_ids).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        dialy_collections = CollectionPayment.objects.filter(customer__pk__in=customer_outstanding_customer_ids,created_date__date__lte=end_date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         
         return Response({
             'status': True,
             'message': 'Success',
             'data': 
                 {
-                    'filter_start_date': filter_start_date,
                     'filter_end_date': filter_end_date,
                     'data': serializer.data,
-                    'total_amount': total_amount,
+                    'total_amount': outstanding_amounts,
                     'total_collected_amount': dialy_collections,
-                    'total_balance_amount': total_amount - dialy_collections,
+                    'total_balance_amount': outstanding_amounts - dialy_collections,
                 },
         })
         

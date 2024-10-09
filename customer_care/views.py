@@ -29,6 +29,7 @@ import calendar
 from datetime import date, timedelta
 from django.db.models import Max
 from apiservices.notification import *
+from accounts.views import log_activity
 
 
 

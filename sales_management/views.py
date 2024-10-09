@@ -63,6 +63,7 @@ from invoice_management.models import *
 from van_management.models import Expense
 from reportlab.lib.styles import getSampleStyleSheet
 import openpyxl
+from accounts.views import log_activity
 
 class TransactionHistoryListView(ListView):
     model = Transaction
@@ -1315,19 +1316,15 @@ def product_route_salesreport(request):
     products = ProdutItemMaster.objects.all()
     # today = datetime.today().date()
     
-    start_date = datetime.today().date()
-    end_date = datetime.today().date() + timedelta(days=1)
-
-    # Apply date range filter if both start_date and end_date are provided
     if request.GET.get('start_date') and request.GET.get('end_date'):
         start_date = datetime.strptime(request.GET.get('start_date'), '%Y-%m-%d').date()
         end_date = datetime.strptime(request.GET.get('end_date'), '%Y-%m-%d').date()
 
     customersupplyitems = customersupplyitems.filter(
-        customer_supply__created_date__range=[start_date, end_date]
+        customer_supply__created_date__date__gte=start_date, customer_supply__created_date__date__lte=end_date
     )
     coupons_collected = coupons_collected.filter(
-        customer_supply__created_date__range=[start_date, end_date],
+        customer_supply__created_date__date__gte=start_date, customer_supply__created_date__date__lte=end_date,
         customer_supply__customer__sales_type='CASH COUPON'
     )
 
@@ -3834,12 +3831,49 @@ def dsr_summary(request):
     digital_coupon_total = 0
     total_coupon_sales_count = 0
     coupon_total_qty = 0
+    total_debit_amount_count = 0
+    total_credit_amount_count = 0
+    total_coupon_amount_count = 0
+    
+    five_gallon_cash_total_net_taxable = 0
+    five_gallon_cash_total_vat = 0
+    five_gallon_cash_total_subtotal = 0
+    five_gallon_cash_total_received = 0
+    five_gallon_cash_total_quantity = 0
+    other_cash_total_net_taxable = 0
+    other_cash_total_vat = 0
+    other_cash_total_subtotal = 0
+    other_cash_total_received = 0
+    other_cash_total_quantity = 0
+    cash_sale_recharge_net_payeble = 0
+    cash_sale_recharge_vat_total = 0
+    cash_sale_recharge_grand_total = 0
+    cash_sale_recharge_amount_recieved = 0
+    
+    five_gallon_credit_total_net_taxable = 0
+    five_gallon_credit_total_vat = 0
+    five_gallon_credit_total_subtotal = 0
+    five_gallon_credit_total_received = 0
+    five_gallon_credit_total_quantity = 0
+    other_credit_total_net_taxable = 0
+    other_credit_total_vat = 0
+    other_credit_total_subtotal = 0
+    other_credit_total_received = 0
+    other_credit_total_quantity = 0
+    credit_sale_recharge_net_payeble = 0
+    credit_sale_recharge_vat_total = 0
+    credit_sale_recharge_grand_total = 0
+    credit_sale_recharge_amount_recieved = 0
    
     van_instances = Van.objects.none
     van_route = Van_Routes.objects.none
     salesman_id =  ""
     cash_sales = CustomerSupply.objects.none
     credit_sales = CustomerSupply.objects.none
+    five_gallon_cash_sales = CustomerSupply.objects.none
+    five_gallon_credit_sales = CustomerSupply.objects.none
+    other_cash_sales = CustomerSupply.objects.none
+    other_credit_sales = CustomerSupply.objects.none
     coupon_sales = CustomerSupply.objects.none
     recharge_cash_sales = CustomerCoupon.objects.none
     recharge_credit_sales = CustomerCoupon.objects.none
@@ -3901,19 +3935,40 @@ def dsr_summary(request):
         #### coupon sales count ####
         customer_coupons=CustomerCoupon.objects.filter(salesman=salesman,created_date__date=date)
         
-        ### cash sales ####
-        cash_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
-        cash_total_net_taxable = cash_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
-        cash_total_vat = cash_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
-        cash_total_subtotal = cash_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
-        cash_total_received = cash_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
-        cash_total_quantity = cash_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        five_gallon_supply = CustomerSupplyItems.objects.filter(customer_supply__created_date__date=date,customer_supply__salesman=salesman,product__product_name="5 Gallon").values_list('customer_supply__pk', flat=True)
+        other_supply = CustomerSupplyItems.objects.exclude(customer_supply__created_date__date=date,customer_supply__salesman=salesman,product__product_name="5 Gallon").values_list('customer_supply__pk', flat=True)
+        ### Cash Sales Start ###
+        five_gallon_cash_sales = CustomerSupply.objects.filter(pk__in=five_gallon_supply,created_date__date=date,salesman=salesman,amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
+        other_cash_sales = CustomerSupply.objects.filter(pk__in=other_supply,created_date__date=date,salesman=salesman,amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
+
+        # Aggregating for five_gallon_cash_sales
+        five_gallon_cash_total_net_taxable = five_gallon_cash_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
+        five_gallon_cash_total_vat = five_gallon_cash_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
+        five_gallon_cash_total_subtotal = five_gallon_cash_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
+        five_gallon_cash_total_received = five_gallon_cash_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        five_gallon_cash_total_quantity = five_gallon_cash_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+
+        # Aggregating for other_cash_sales (corrected to use other_cash_sales)
+        other_cash_total_net_taxable = other_cash_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
+        other_cash_total_vat = other_cash_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
+        other_cash_total_subtotal = other_cash_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
+        other_cash_total_received = other_cash_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        other_cash_total_quantity = other_cash_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+
+        # Combining both cash sales querysets
+        cash_sales = five_gallon_cash_sales.union(other_cash_sales)
+        cash_total_net_taxable = five_gallon_cash_total_net_taxable + other_cash_total_net_taxable
+        cash_total_vat = five_gallon_cash_total_vat + other_cash_total_vat
+        cash_total_subtotal = five_gallon_cash_total_subtotal + other_cash_total_subtotal
+        cash_total_received = five_gallon_cash_total_received + other_cash_total_received
+        cash_total_quantity = five_gallon_cash_total_quantity + other_cash_total_quantity
         
         recharge_cash_sales = CustomerCoupon.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__gt=0)
         cash_sale_recharge_net_payeble = recharge_cash_sales.aggregate(total_net_amount=Sum('net_amount'))['total_net_amount'] or 0
         cash_sale_recharge_vat_total = 0
         cash_sale_recharge_grand_total = recharge_cash_sales.aggregate(total_grand_total=Sum('grand_total'))['total_grand_total'] or 0
         cash_sale_recharge_amount_recieved = recharge_cash_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        
         cash_total_net_taxable = cash_total_net_taxable + cash_sale_recharge_net_payeble 
         cash_total_vat = cash_total_vat + cash_sale_recharge_vat_total 
         cash_total_subtotal = cash_total_subtotal + cash_sale_recharge_grand_total 
@@ -3923,22 +3978,40 @@ def dsr_summary(request):
         
         cash_sale_recharge_count = recharge_cash_sales.count()
         cash_total_qty = cash_total_quantity + cash_sale_recharge_count
+        ### Cash Sales End ###
         
-        ### credit sales ####
-        credit_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
+        ### credit sales Start ####
+        five_gallon_credit_sales = CustomerSupply.objects.filter(pk__in=five_gallon_supply,created_date__date=date,salesman=salesman,amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
+        other_credit_sales = CustomerSupply.objects.filter(pk__in=other_supply,created_date__date=date,salesman=salesman,amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
+        
+        # Aggregating for five_gallon_credit_sales
+        five_gallon_credit_total_net_taxable = five_gallon_credit_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
+        five_gallon_credit_total_vat = five_gallon_credit_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
+        five_gallon_credit_total_subtotal = five_gallon_credit_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
+        five_gallon_credit_total_received = five_gallon_credit_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        five_gallon_credit_total_quantity = five_gallon_credit_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
 
-        credit_total_net_taxable = credit_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
-        credit_total_vat = credit_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
-        credit_total_subtotal = credit_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
-        credit_total_received = credit_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
-        credit_total_quantity = credit_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        # Aggregating for other_credit_sales (corrected to use other_credit_sales)
+        other_credit_total_net_taxable = other_credit_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
+        other_credit_total_vat = other_credit_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
+        other_credit_total_subtotal = other_credit_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
+        other_credit_total_received = other_credit_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        other_credit_total_quantity = other_credit_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        
+        # Combining both cash sales querysets
+        credit_sales = five_gallon_credit_sales.union(other_credit_sales)
+        credit_total_net_taxable = five_gallon_credit_total_net_taxable + other_credit_total_net_taxable
+        credit_total_vat = five_gallon_credit_total_vat + other_credit_total_vat
+        credit_total_subtotal = five_gallon_credit_total_subtotal + other_credit_total_subtotal
+        credit_total_received = five_gallon_credit_total_received + other_credit_total_received
+        credit_total_quantity = five_gallon_credit_total_quantity + other_credit_total_quantity
         
         recharge_credit_sales = CustomerCoupon.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__lte=0)
         credit_sale_recharge_net_payeble = recharge_credit_sales.aggregate(total_net_amount=Sum('net_amount'))['total_net_amount'] or 0
         credit_sale_recharge_vat_total = 0
-        
         credit_sale_recharge_grand_total = recharge_credit_sales.aggregate(total_grand_total=Sum('grand_total'))['total_grand_total'] or 0
         credit_sale_recharge_amount_recieved = recharge_credit_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        
         credit_total_net_taxable = credit_total_net_taxable + credit_sale_recharge_net_payeble 
         credit_total_vat = credit_total_vat + credit_sale_recharge_vat_total 
         credit_total_subtotal = credit_total_subtotal + credit_sale_recharge_grand_total
@@ -3947,6 +4020,7 @@ def dsr_summary(request):
         total_credit_sales_count = credit_sales.count() + recharge_credit_sales.count()
         credit_sale_recharge_count = recharge_credit_sales.count()
         credit_total_qty = credit_total_quantity + credit_sale_recharge_count
+        ### credit sales End ####
         
         # Coupon sales
         coupon_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,customer__sales_type="CASH COUPON")
@@ -3988,11 +4062,14 @@ def dsr_summary(request):
         pending_bottle_customer_instances = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,allocate_bottle_to_pending__gt=0)
         # 5 gallon rate based
         unique_amounts = set(CustomerSupplyItems.objects.filter(customer_supply__created_date__date=date,customer_supply__salesman_id=salesman,product__product_name="5 Gallon").values_list('customer_supply__customer__rate', flat=True))
+        five_gallon_rate_wise_instances = CustomerSupplyItems.objects.filter(customer_supply__created_date__date=date,customer_supply__salesman_id=salesman,product__product_name="5 Gallon")
+        total_debit_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__amount_recieved__gt=0).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+        total_credit_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__amount_recieved=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"]).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+        total_coupon_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__customer__sales_type="CASH COUPON").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         
         # cash sales amount collected
-        supply_amount_collected = cash_sales.aggregate(total_amount=Sum('amount_recieved'))['total_amount'] or 0
-        coupon_amount_collected = CustomerCoupon.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__gt=0).aggregate(total_amount=Sum('amount_recieved'))['total_amount'] or 0
-        cash_sales_amount_collected = supply_amount_collected + coupon_amount_collected
+        supply_amount_collected = cash_total_amount_recieved
+        cash_sales_amount_collected = supply_amount_collected
         
         dialy_collections = dialy_collections.filter(created_date__date=date)
         credit_sales_amount_collected = dialy_collections.aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
@@ -4007,8 +4084,6 @@ def dsr_summary(request):
         
         
         foc_customers = CustomerSupply.objects.filter(created_date__date=date, customer__sales_type='FOC', salesman=salesman)
-
-        
         
     context = {
         'data_filter': data_filter,
@@ -4037,17 +4112,47 @@ def dsr_summary(request):
         'total_count': total_count,
         #coupon book sale
         'customer_coupons':customer_coupons,
+        # five gallon cash sales
+        'five_gallon_cash_sales': five_gallon_cash_sales or [],
+        'five_gallon_cash_total_net_taxable': five_gallon_cash_total_net_taxable,
+        'five_gallon_cash_total_vat': five_gallon_cash_total_vat,
+        'five_gallon_cash_total_subtotal': five_gallon_cash_total_subtotal,
+        'five_gallon_cash_total_received': five_gallon_cash_total_received,
+        'five_gallon_cash_total_quantity': five_gallon_cash_total_quantity,
+        # other cash sales
+        'other_cash_sales': other_cash_sales,
+        'other_cash_total_net_taxable': other_cash_total_net_taxable,
+        'other_cash_total_vat': other_cash_total_vat,
+        'other_cash_total_subtotal': other_cash_total_subtotal,
+        'other_cash_total_received': other_cash_total_received,
+        'other_cash_total_quantity': other_cash_total_quantity,
         #cash sales
-        'cash_sales': cash_sales,
         'recharge_cash_sales': recharge_cash_sales,
+        'cash_sale_recharge_net_payeble': cash_sale_recharge_net_payeble,
+        'cash_sale_recharge_vat_total': cash_sale_recharge_vat_total,
+        'cash_sale_recharge_grand_total': cash_sale_recharge_grand_total,
+        'cash_sale_recharge_amount_recieved': cash_sale_recharge_amount_recieved,
+        
         'cash_total_net_taxable':cash_total_net_taxable,
         'cash_total_vat':cash_total_vat,
         'cash_total_subtotal': cash_total_subtotal,
         'cash_total_amount_recieved': cash_total_amount_recieved,
         'cash_total_qty': cash_total_qty,
+        # five gallon credit sales
+        'five_gallon_credit_sales': five_gallon_credit_sales,
+        'five_gallon_credit_total_net_taxable': five_gallon_credit_total_net_taxable,
+        'five_gallon_credit_total_vat': five_gallon_credit_total_vat,
+        'five_gallon_credit_total_subtotal': five_gallon_credit_total_subtotal,
+        'five_gallon_credit_total_received': five_gallon_credit_total_received,
+        'five_gallon_credit_total_quantity': five_gallon_credit_total_quantity,
         # credit sales
         'credit_sales': credit_sales,
         'recharge_credit_sales': recharge_credit_sales,
+        'credit_sale_recharge_net_payeble': credit_sale_recharge_net_payeble,
+        'credit_sale_recharge_vat_total': credit_sale_recharge_vat_total,
+        'credit_sale_recharge_grand_total': credit_sale_recharge_grand_total,
+        'credit_sale_recharge_amount_recieved': credit_sale_recharge_amount_recieved,
+        
         'credit_total_net_taxable':credit_total_net_taxable,
         'credit_total_vat':credit_total_vat,
         'credit_total_subtotal':credit_total_subtotal,
@@ -4073,6 +4178,9 @@ def dsr_summary(request):
         'outstanding_total_amount_collected':outstanding_total_amount_collected,
         # 5 gallon rate based
         'five_gallon_rates': unique_amounts,
+        'total_debit_amount_count': total_debit_amount_count,
+        'total_credit_amount_count': total_credit_amount_count,
+        'total_coupon_amount_count': total_coupon_amount_count,
         # dialy collections
         'dialy_collections': dialy_collections,
         # sales amount collected
@@ -4148,12 +4256,49 @@ def print_dsr_summary(request):
     digital_coupon_total = 0
     total_coupon_sales_count = 0
     coupon_total_qty = 0
+    total_debit_amount_count = 0
+    total_credit_amount_count = 0
+    total_coupon_amount_count = 0
+    
+    five_gallon_cash_total_net_taxable = 0
+    five_gallon_cash_total_vat = 0
+    five_gallon_cash_total_subtotal = 0
+    five_gallon_cash_total_received = 0
+    five_gallon_cash_total_quantity = 0
+    other_cash_total_net_taxable = 0
+    other_cash_total_vat = 0
+    other_cash_total_subtotal = 0
+    other_cash_total_received = 0
+    other_cash_total_quantity = 0
+    cash_sale_recharge_net_payeble = 0
+    cash_sale_recharge_vat_total = 0
+    cash_sale_recharge_grand_total = 0
+    cash_sale_recharge_amount_recieved = 0
+    
+    five_gallon_credit_total_net_taxable = 0
+    five_gallon_credit_total_vat = 0
+    five_gallon_credit_total_subtotal = 0
+    five_gallon_credit_total_received = 0
+    five_gallon_credit_total_quantity = 0
+    other_credit_total_net_taxable = 0
+    other_credit_total_vat = 0
+    other_credit_total_subtotal = 0
+    other_credit_total_received = 0
+    other_credit_total_quantity = 0
+    credit_sale_recharge_net_payeble = 0
+    credit_sale_recharge_vat_total = 0
+    credit_sale_recharge_grand_total = 0
+    credit_sale_recharge_amount_recieved = 0
    
     van_instances = Van.objects.none
     van_route = Van_Routes.objects.none
     salesman_id =  ""
     cash_sales = CustomerSupply.objects.none
     credit_sales = CustomerSupply.objects.none
+    five_gallon_cash_sales = CustomerSupply.objects.none
+    five_gallon_credit_sales = CustomerSupply.objects.none
+    other_cash_sales = CustomerSupply.objects.none
+    other_credit_sales = CustomerSupply.objects.none
     coupon_sales = CustomerSupply.objects.none
     recharge_cash_sales = CustomerCoupon.objects.none
     recharge_credit_sales = CustomerCoupon.objects.none
@@ -4215,19 +4360,40 @@ def print_dsr_summary(request):
         #### coupon sales count ####
         customer_coupons=CustomerCoupon.objects.filter(salesman=salesman,created_date__date=date)
         
-        ### cash sales ####
-        cash_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
-        cash_total_net_taxable = cash_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
-        cash_total_vat = cash_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
-        cash_total_subtotal = cash_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
-        cash_total_received = cash_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
-        cash_total_quantity = cash_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        five_gallon_supply = CustomerSupplyItems.objects.filter(customer_supply__created_date__date=date,customer_supply__salesman=salesman,product__product_name="5 Gallon").values_list('customer_supply__pk', flat=True)
+        other_supply = CustomerSupplyItems.objects.exclude(customer_supply__created_date__date=date,customer_supply__salesman=salesman,product__product_name="5 Gallon").values_list('customer_supply__pk', flat=True)
+        ### Cash Sales Start ###
+        five_gallon_cash_sales = CustomerSupply.objects.filter(pk__in=five_gallon_supply,created_date__date=date,salesman=salesman,amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
+        other_cash_sales = CustomerSupply.objects.filter(pk__in=other_supply,created_date__date=date,salesman=salesman,amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
+
+        # Aggregating for five_gallon_cash_sales
+        five_gallon_cash_total_net_taxable = five_gallon_cash_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
+        five_gallon_cash_total_vat = five_gallon_cash_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
+        five_gallon_cash_total_subtotal = five_gallon_cash_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
+        five_gallon_cash_total_received = five_gallon_cash_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        five_gallon_cash_total_quantity = five_gallon_cash_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+
+        # Aggregating for other_cash_sales (corrected to use other_cash_sales)
+        other_cash_total_net_taxable = other_cash_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
+        other_cash_total_vat = other_cash_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
+        other_cash_total_subtotal = other_cash_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
+        other_cash_total_received = other_cash_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        other_cash_total_quantity = other_cash_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+
+        # Combining both cash sales querysets
+        cash_sales = five_gallon_cash_sales.union(other_cash_sales)
+        cash_total_net_taxable = five_gallon_cash_total_net_taxable + other_cash_total_net_taxable
+        cash_total_vat = five_gallon_cash_total_vat + other_cash_total_vat
+        cash_total_subtotal = five_gallon_cash_total_subtotal + other_cash_total_subtotal
+        cash_total_received = five_gallon_cash_total_received + other_cash_total_received
+        cash_total_quantity = five_gallon_cash_total_quantity + other_cash_total_quantity
         
         recharge_cash_sales = CustomerCoupon.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__gt=0)
         cash_sale_recharge_net_payeble = recharge_cash_sales.aggregate(total_net_amount=Sum('net_amount'))['total_net_amount'] or 0
         cash_sale_recharge_vat_total = 0
         cash_sale_recharge_grand_total = recharge_cash_sales.aggregate(total_grand_total=Sum('grand_total'))['total_grand_total'] or 0
         cash_sale_recharge_amount_recieved = recharge_cash_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        
         cash_total_net_taxable = cash_total_net_taxable + cash_sale_recharge_net_payeble 
         cash_total_vat = cash_total_vat + cash_sale_recharge_vat_total 
         cash_total_subtotal = cash_total_subtotal + cash_sale_recharge_grand_total 
@@ -4237,22 +4403,40 @@ def print_dsr_summary(request):
         
         cash_sale_recharge_count = recharge_cash_sales.count()
         cash_total_qty = cash_total_quantity + cash_sale_recharge_count
+        ### Cash Sales End ###
         
-        ### credit sales ####
-        credit_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
+        ### credit sales Start ####
+        five_gallon_credit_sales = CustomerSupply.objects.filter(pk__in=five_gallon_supply,created_date__date=date,salesman=salesman,amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
+        other_credit_sales = CustomerSupply.objects.filter(pk__in=other_supply,created_date__date=date,salesman=salesman,amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
+        
+        # Aggregating for five_gallon_credit_sales
+        five_gallon_credit_total_net_taxable = five_gallon_credit_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
+        five_gallon_credit_total_vat = five_gallon_credit_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
+        five_gallon_credit_total_subtotal = five_gallon_credit_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
+        five_gallon_credit_total_received = five_gallon_credit_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        five_gallon_credit_total_quantity = five_gallon_credit_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
 
-        credit_total_net_taxable = credit_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
-        credit_total_vat = credit_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
-        credit_total_subtotal = credit_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
-        credit_total_received = credit_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
-        credit_total_quantity = credit_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        # Aggregating for other_credit_sales (corrected to use other_credit_sales)
+        other_credit_total_net_taxable = other_credit_sales.aggregate(total_net_taxable=Sum('net_payable'))['total_net_taxable'] or 0
+        other_credit_total_vat = other_credit_sales.aggregate(total_vat=Sum('vat'))['total_vat'] or 0
+        other_credit_total_subtotal = other_credit_sales.aggregate(total_subtotal=Sum('subtotal'))['total_subtotal'] or 0
+        other_credit_total_received = other_credit_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        other_credit_total_quantity = other_credit_sales.aggregate(total_quantity=Sum('customersupplyitems__quantity'))['total_quantity'] or 0
+        
+        # Combining both cash sales querysets
+        credit_sales = five_gallon_credit_sales.union(other_credit_sales)
+        credit_total_net_taxable = five_gallon_credit_total_net_taxable + other_credit_total_net_taxable
+        credit_total_vat = five_gallon_credit_total_vat + other_credit_total_vat
+        credit_total_subtotal = five_gallon_credit_total_subtotal + other_credit_total_subtotal
+        credit_total_received = five_gallon_credit_total_received + other_credit_total_received
+        credit_total_quantity = five_gallon_credit_total_quantity + other_credit_total_quantity
         
         recharge_credit_sales = CustomerCoupon.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__lte=0)
         credit_sale_recharge_net_payeble = recharge_credit_sales.aggregate(total_net_amount=Sum('net_amount'))['total_net_amount'] or 0
         credit_sale_recharge_vat_total = 0
-        
         credit_sale_recharge_grand_total = recharge_credit_sales.aggregate(total_grand_total=Sum('grand_total'))['total_grand_total'] or 0
         credit_sale_recharge_amount_recieved = recharge_credit_sales.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        
         credit_total_net_taxable = credit_total_net_taxable + credit_sale_recharge_net_payeble 
         credit_total_vat = credit_total_vat + credit_sale_recharge_vat_total 
         credit_total_subtotal = credit_total_subtotal + credit_sale_recharge_grand_total
@@ -4261,6 +4445,7 @@ def print_dsr_summary(request):
         total_credit_sales_count = credit_sales.count() + recharge_credit_sales.count()
         credit_sale_recharge_count = recharge_credit_sales.count()
         credit_total_qty = credit_total_quantity + credit_sale_recharge_count
+        ### credit sales End ####
         
         # Coupon sales
         coupon_sales = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,customer__sales_type="CASH COUPON")
@@ -4302,11 +4487,14 @@ def print_dsr_summary(request):
         pending_bottle_customer_instances = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,allocate_bottle_to_pending__gt=0)
         # 5 gallon rate based
         unique_amounts = set(CustomerSupplyItems.objects.filter(customer_supply__created_date__date=date,customer_supply__salesman_id=salesman,product__product_name="5 Gallon").values_list('customer_supply__customer__rate', flat=True))
+        five_gallon_rate_wise_instances = CustomerSupplyItems.objects.filter(customer_supply__created_date__date=date,customer_supply__salesman_id=salesman,product__product_name="5 Gallon")
+        total_debit_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__amount_recieved__gt=0).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+        total_credit_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__amount_recieved=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"]).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+        total_coupon_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__customer__sales_type="CASH COUPON").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         
         # cash sales amount collected
-        supply_amount_collected = cash_sales.aggregate(total_amount=Sum('amount_recieved'))['total_amount'] or 0
-        coupon_amount_collected = CustomerCoupon.objects.filter(created_date__date=date,salesman=salesman,amount_recieved__gt=0).aggregate(total_amount=Sum('amount_recieved'))['total_amount'] or 0
-        cash_sales_amount_collected = supply_amount_collected + coupon_amount_collected
+        supply_amount_collected = cash_total_amount_recieved
+        cash_sales_amount_collected = supply_amount_collected
         
         dialy_collections = dialy_collections.filter(created_date__date=date)
         credit_sales_amount_collected = dialy_collections.aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
@@ -4351,17 +4539,47 @@ def print_dsr_summary(request):
         'total_count': total_count,
         #coupon book sale
         'customer_coupons':customer_coupons,
+        # five gallon cash sales
+        'five_gallon_cash_sales': five_gallon_cash_sales or [],
+        'five_gallon_cash_total_net_taxable': five_gallon_cash_total_net_taxable,
+        'five_gallon_cash_total_vat': five_gallon_cash_total_vat,
+        'five_gallon_cash_total_subtotal': five_gallon_cash_total_subtotal,
+        'five_gallon_cash_total_received': five_gallon_cash_total_received,
+        'five_gallon_cash_total_quantity': five_gallon_cash_total_quantity,
+        # other cash sales
+        'other_cash_sales': other_cash_sales,
+        'other_cash_total_net_taxable': other_cash_total_net_taxable,
+        'other_cash_total_vat': other_cash_total_vat,
+        'other_cash_total_subtotal': other_cash_total_subtotal,
+        'other_cash_total_received': other_cash_total_received,
+        'other_cash_total_quantity': other_cash_total_quantity,
         #cash sales
-        'cash_sales': cash_sales,
         'recharge_cash_sales': recharge_cash_sales,
+        'cash_sale_recharge_net_payeble': cash_sale_recharge_net_payeble,
+        'cash_sale_recharge_vat_total': cash_sale_recharge_vat_total,
+        'cash_sale_recharge_grand_total': cash_sale_recharge_grand_total,
+        'cash_sale_recharge_amount_recieved': cash_sale_recharge_amount_recieved,
+        
         'cash_total_net_taxable':cash_total_net_taxable,
         'cash_total_vat':cash_total_vat,
         'cash_total_subtotal': cash_total_subtotal,
         'cash_total_amount_recieved': cash_total_amount_recieved,
         'cash_total_qty': cash_total_qty,
+        # five gallon credit sales
+        'five_gallon_credit_sales': five_gallon_credit_sales,
+        'five_gallon_credit_total_net_taxable': five_gallon_credit_total_net_taxable,
+        'five_gallon_credit_total_vat': five_gallon_credit_total_vat,
+        'five_gallon_credit_total_subtotal': five_gallon_credit_total_subtotal,
+        'five_gallon_credit_total_received': five_gallon_credit_total_received,
+        'five_gallon_credit_total_quantity': five_gallon_credit_total_quantity,
         # credit sales
         'credit_sales': credit_sales,
         'recharge_credit_sales': recharge_credit_sales,
+        'credit_sale_recharge_net_payeble': credit_sale_recharge_net_payeble,
+        'credit_sale_recharge_vat_total': credit_sale_recharge_vat_total,
+        'credit_sale_recharge_grand_total': credit_sale_recharge_grand_total,
+        'credit_sale_recharge_amount_recieved': credit_sale_recharge_amount_recieved,
+        
         'credit_total_net_taxable':credit_total_net_taxable,
         'credit_total_vat':credit_total_vat,
         'credit_total_subtotal':credit_total_subtotal,
@@ -4387,6 +4605,9 @@ def print_dsr_summary(request):
         'outstanding_total_amount_collected':outstanding_total_amount_collected,
         # 5 gallon rate based
         'five_gallon_rates': unique_amounts,
+        'total_debit_amount_count': total_debit_amount_count,
+        'total_credit_amount_count': total_credit_amount_count,
+        'total_coupon_amount_count': total_coupon_amount_count,
         # dialy collections
         'dialy_collections': dialy_collections,
         # sales amount collected
@@ -4402,6 +4623,8 @@ def print_dsr_summary(request):
         'balance_in_hand': balance_in_hand,
         'net_payble': net_payble,
         
+        'filter_data': filter_data,
+        # FOC customer
         'foc_customers':foc_customers,
         
         'filter_data': filter_data,
@@ -5043,6 +5266,9 @@ def dsr(request):
     total_sale_qty= 0
     total_cash_sale_amount=0
     total_sale_amount=0
+    total_debit_amount_count = 0
+    total_credit_amount_count = 0
+    total_coupon_amount_count = 0
    
     van_instances = Van.objects.none
     van_route = Van_Routes.objects.none
@@ -5194,6 +5420,10 @@ def dsr(request):
         pending_bottle_customer_instances = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,allocate_bottle_to_pending__gt=0)
         # 5 gallon rate based
         unique_amounts = set(CustomerSupplyItems.objects.filter(customer_supply__created_date__date=date,customer_supply__salesman_id=salesman,product__product_name="5 Gallon").values_list('customer_supply__customer__rate', flat=True))
+        five_gallon_rate_wise_instances = CustomerSupplyItems.objects.filter(customer_supply__created_date__date=date,customer_supply__salesman_id=salesman,product__product_name="5 Gallon")
+        total_debit_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__amount_recieved__gt=0).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0,
+        total_credit_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__amount_recieved=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"]).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0,
+        total_coupon_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__customer__sales_type="CASH COUPON").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         
         # cash sales amount collected
         supply_amount_collected = cash_sales.aggregate(total_amount=Sum('amount_recieved'))['total_amount'] or 0
@@ -5280,6 +5510,9 @@ def dsr(request):
         'outstanding_total_amount_collected':outstanding_total_amount_collected,
         # 5 gallon rate based
         'five_gallon_rates': unique_amounts,
+        'total_debit_amount_count': total_debit_amount_count,
+        'total_credit_amount_count': total_credit_amount_count,
+        'total_coupon_amount_count': total_coupon_amount_count,
         # dialy collections
         'dialy_collections': dialy_collections,
         # sales amount collected
@@ -5362,6 +5595,9 @@ def print_dsr(request):
     total_cash_sale_amount=0
     total_sale_amount=0
     outstanding_credit_notes_total_amount_received=0
+    total_debit_amount_count = 0
+    total_credit_amount_count = 0
+    total_coupon_amount_count = 0
    
     van_instances = Van.objects.none
     van_route = Van_Routes.objects.none
@@ -5513,6 +5749,10 @@ def print_dsr(request):
         pending_bottle_customer_instances = CustomerSupply.objects.filter(created_date__date=date,salesman=salesman,allocate_bottle_to_pending__gt=0)
         # 5 gallon rate based
         unique_amounts = set(CustomerSupplyItems.objects.filter(customer_supply__created_date__date=date,customer_supply__salesman_id=salesman,product__product_name="5 Gallon").values_list('customer_supply__customer__rate', flat=True))
+        five_gallon_rate_wise_instances = CustomerSupplyItems.objects.filter(customer_supply__created_date__date=date,customer_supply__salesman_id=salesman,product__product_name="5 Gallon")
+        total_debit_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__amount_recieved__gt=0).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0,
+        total_credit_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__amount_recieved=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"]).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0,
+        total_coupon_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__customer__sales_type="CASH COUPON").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         
         # cash sales amount collected
         supply_amount_collected = cash_sales.aggregate(total_amount=Sum('amount_recieved'))['total_amount'] or 0
@@ -5602,6 +5842,9 @@ def print_dsr(request):
         'outstanding_total_amount_collected':outstanding_total_amount_collected,
         # 5 gallon rate based
         'five_gallon_rates': unique_amounts,
+        'total_debit_amount_count': total_debit_amount_count,
+        'total_credit_amount_count': total_credit_amount_count,
+        'total_coupon_amount_count': total_coupon_amount_count,
         # dialy collections
         'dialy_collections': dialy_collections,
         # sales amount collected

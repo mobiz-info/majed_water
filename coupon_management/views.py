@@ -24,6 +24,7 @@ from django.views import View
 from datetime import datetime
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse, HttpResponse
+from accounts.views import log_activity
 
 # Create your views here.
 def get_next_coupon_bookno(request):
