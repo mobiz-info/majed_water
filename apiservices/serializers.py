@@ -655,13 +655,13 @@ class CustomerOutstandingSerializer(serializers.ModelSerializer):
         result = 0
         if (instances:=CustomerOutstandingReport.objects.filter(customer=obj,product_type="emptycan")).exists():
             result = instances.first().value
-        return result
+        return int(result)
     
     def get_coupons(self,obj):
         result = 0
         if (instances:=CustomerOutstandingReport.objects.filter(customer=obj,product_type="coupons")).exists():
             result = instances.first().value
-        return result
+        return int(result)
     
     def get_route_id(self,obj):
         return obj.routes.route_id
