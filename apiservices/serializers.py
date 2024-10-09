@@ -2205,7 +2205,7 @@ class ProductSalesReportSerializer(serializers.ModelSerializer):
         start_date = self.context.get('start_date')
         end_date = self.context.get('end_date')
         
-        credit_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gt=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved__lte=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"])
+        credit_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gte=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"])
         credit_total_quantity = credit_sales.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         return credit_total_quantity
     
@@ -2223,10 +2223,10 @@ class ProductSalesReportSerializer(serializers.ModelSerializer):
         start_date = self.context.get('start_date')
         end_date = self.context.get('end_date')
         
-        cash_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gt=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved__gt=0).exclude(customer_supply__customer__sales_type="CASH COUPON")
+        cash_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gte=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved__gt=0).exclude(customer_supply__customer__sales_type="CASH COUPON")
         cash_total_quantity = cash_sales.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         
-        credit_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gt=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved__lte=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"])
+        credit_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gte=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"])
         credit_total_quantity = credit_sales.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         
         coupon_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gt=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__customer__sales_type="CASH COUPON")
