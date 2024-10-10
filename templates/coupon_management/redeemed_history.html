@@ -57,6 +57,7 @@
                                 <thead>
                                     <tr>
                                         <th rowspan="2">Sl No</th>
+                                        <th rowspan="2">Supply Date</th>
                                         <th rowspan="2">Customer</th>
                                         <th rowspan="2">Mobile No</th>
                                         <th rowspan="2">Building No</th>
@@ -69,14 +70,15 @@
                                     </thead>
                                     <body>
                                      <tbody>
-                                        {% for instance in instances_coupon %}
+                                        {% for instance in instances %}
                                         <tr>
                                             <td>{{ forloop.counter }}</td>
-                                            <td>{{ instance.customer_supply.customer.customer_name }}</td>
-                                            <td>{{ instance.customer_supply.customer.mobile_no }}</td>
-                                            <td>{{ instance.customer_supply.customer.building_name }}</td>
-                                            <td>{{ instance.manual_coupons_count }}</td>
-                                            <td>{{ instance.digital_coupons_count }}</td>
+                                            <td>{{ instance.created_date }}</td>
+                                            <td>{{ instance.customer.customer_name }}</td>
+                                            <td>{{ instance.customer.mobile_no }}</td>
+                                            <td>{{ instance.customer.building_name }}</td>
+                                            <td>{{ instance.total_coupon_recieved.manual_coupon }}</td>
+                                            <td>{{ instance.total_coupon_recieved.digital_coupon }}</td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>

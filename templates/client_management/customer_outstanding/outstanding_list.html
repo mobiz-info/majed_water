@@ -132,8 +132,8 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% load el_pagination_tags %}
-                                    {% paginate 20 instances %}
+                                    {% comment %} {% load el_pagination_tags %} {% endcomment %}
+                                    {% comment %} {% paginate 20 instances %} {% endcomment %}
                                     {% for item in instances %}
                                     <tr>
                                         <td style="text-align:center;">{{ forloop.counter }}</td>

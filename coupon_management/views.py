@@ -523,85 +523,24 @@ def customer_stock_pdf(request):
         return HttpResponse('No customer stock data available.')
     
 
-
-
-
-
-# def get_supplied_manual_coupons_count():
-    
-#     supplied_coupons = CustomerSupplyCoupon.objects.annotate(
-#         manual_coupons_count=Count('leaf__coupon__coupon_type', filter=Q(leaf__coupon__coupon_method='manual'))
-#     ).values('customer_supply').annotate(total_manual_coupons=Sum('manual_coupons_count'))
-
-   
-#     supplied_coupons_count = {supply['customer_supply']: supply['total_manual_coupons'] for supply in supplied_coupons}
-
-#     return supplied_coupons_count
-
-# def redeemed_history(request):
-#     instances = CustomerSupplyCoupon.objects.all().order_by("-created_date")
-
-#     start_date_str = request.GET.get('start_date')
-#     end_date_str = request.GET.get('end_date')
-    
-#     if start_date_str and end_date_str:
-#         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-#         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-#         instances = instances.filter(created_date__range=[start_date, end_date])
-    
-#     supplied_coupons_count = get_supplied_manual_coupons_count()
-#     print(supplied_coupons_count,"supplied_coupons_count")
-
-#     context = {
-#         'instances': instances,
-#         'supplied_coupons_count': supplied_coupons_count
-#     }
-
-#     return render(request, 'client_management/redeemed_history.html', context)
-from django.db.models import Count, Q
-
-def get_customer_coupon_counts():
-    
-    customer_coupon_counts = CustomerSupplyCoupon.objects.values('customer_supply__customer').annotate(
-        manual_coupons_count=Count('leaf__coupon__coupon_type', filter=Q(leaf__coupon__coupon_method='manual')),
-        digital_coupons_count=Count('leaf__coupon__coupon_type', filter=Q(leaf__coupon__coupon_method='digital'))
-    )
-    manual_coupons_count=Count('leaf__coupon__coupon_type', filter=Q(leaf__coupon__coupon_method='manual'))
-
-    digital_coupons_count=Count('leaf__coupon__coupon_type', filter=Q(leaf__coupon__coupon_method='digital'))
-    print("customer_coupon_counts",customer_coupon_counts)
-
-    customer_coupons = {}
-    for coupon_count in customer_coupon_counts:
-        customer_id = coupon_count['customer_supply__customer']
-        customer_coupons[customer_id] = {
-            'manual_coupons': coupon_count['manual_coupons_count'],
-            'digital_coupons': coupon_count['digital_coupons_count']
-        }
-
-    return customer_coupons
-
 def redeemed_history(request):
+    filter_data = {}
+    start_date = date.today()
+    end_date = date.today()
     
-    instances = CustomerSupply.objects.all().order_by("-created_date")
-
-    instances_coupon = CustomerSupplyCoupon.objects.filter(customer_supply__in=instances).order_by("-customer_supply__created_date")
-
-    start_date_str = request.GET.get('start_date')
-    end_date_str = request.GET.get('end_date')
+    if request.GET.get('start_date'):
+        start_date = datetime.strptime(request.GET.get('start_date'), '%Y-%m-%d').date()
+    if request.GET.get('end_date'):
+        end_date = datetime.strptime(request.GET.get('end_date'), '%Y-%m-%d').date()
     
-    if start_date_str and end_date_str:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-        instances_coupon = instances_coupon.filter(customer_supply__created_date__range=[start_date, end_date])
+    filter_data["start_date"] = start_date
+    filter_data["end_date"] = end_date
     
-    customer_coupon_counts = get_customer_coupon_counts()
-    print(customer_coupon_counts,'customer_coupon_counts')
+    instances = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lt=end_date,customer__sales_type="CASH COUPON").order_by("-created_date")
 
     context = {
         'instances': instances,
-        'instances_coupon': instances_coupon,  
-        'customer_coupon_counts': customer_coupon_counts
+        "filter_data": filter_data,
     }
 
     return render(request, 'coupon_management/redeemed_history.html', context)
