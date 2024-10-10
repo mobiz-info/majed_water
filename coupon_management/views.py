@@ -533,10 +533,10 @@ def redeemed_history(request):
     if request.GET.get('end_date'):
         end_date = datetime.strptime(request.GET.get('end_date'), '%Y-%m-%d').date()
     
-    filter_data["start_date"] = start_date
-    filter_data["end_date"] = end_date
+    filter_data["start_date"] = start_date.strftime('%Y-%m-%d')
+    filter_data["end_date"] = end_date.strftime('%Y-%m-%d')
     
-    instances = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lt=end_date,customer__sales_type="CASH COUPON").order_by("-created_date")
+    instances = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,customer__sales_type="CASH COUPON").order_by("-created_date")
 
     context = {
         'instances': instances,

@@ -32,11 +32,11 @@
                                         
                                         <div class="col-md-5">
                                             <label for="start_date">From Date:</label>
-                                            <input name="start_date" type="date" class="form-select"  value="{% if start_date %}{{ start_date }}{% endif %}">
+                                            <input name="start_date" type="date" class="form-select"  value="{{ filter_data.start_date }}">
                                         </div>
                                         <div class="col-md-5">
                                             <label for="end_date">To Date:</label>
-                                            <input name="end_date" type="date" class="form-select"  value="{% if end_date %}{{ end_date }}{% endif %}">
+                                            <input name="end_date" type="date" class="form-select"  value="{{ filter_data.end_date }}">
                                         </div>
                                     </div>
                                 </div>
@@ -58,6 +58,7 @@
                                     <tr>
                                         <th rowspan="2">Sl No</th>
                                         <th rowspan="2">Supply Date</th>
+                                        <th rowspan="2">Invoice Number</th>
                                         <th rowspan="2">Customer</th>
                                         <th rowspan="2">Mobile No</th>
                                         <th rowspan="2">Building No</th>
@@ -74,6 +75,7 @@
                                         <tr>
                                             <td>{{ forloop.counter }}</td>
                                             <td>{{ instance.created_date }}</td>
+                                            <td>{{ instance.invoice_no }}</td>
                                             <td>{{ instance.customer.customer_name }}</td>
                                             <td>{{ instance.customer.mobile_no }}</td>
                                             <td>{{ instance.customer.building_name }}</td>
