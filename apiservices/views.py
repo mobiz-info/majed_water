@@ -4697,8 +4697,8 @@ class customer_outstanding(APIView):
         formatted_total_amount = "{:.2f}".format(total_amount)
 
         # Convert totals to integers
-        formatted_total_coupons = int(total_coupons) if total_coupons is not None else 0
-        formatted_total_emptycan = int(total_emptycan) if total_emptycan is not None else 0
+        formatted_total_coupons = int(total_coupons)
+        formatted_total_emptycan = int(total_emptycan)
 
         return Response({
             'status': True,
