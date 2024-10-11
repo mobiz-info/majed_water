@@ -25,6 +25,8 @@ from datetime import datetime
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse, HttpResponse
 from accounts.views import log_activity
+from django.db.models import Count, Q
+
 
 # Create your views here.
 def get_next_coupon_bookno(request):
@@ -524,84 +526,108 @@ def customer_stock_pdf(request):
     
 
 
-
-
-
-# def get_supplied_manual_coupons_count():
-    
-#     supplied_coupons = CustomerSupplyCoupon.objects.annotate(
-#         manual_coupons_count=Count('leaf__coupon__coupon_type', filter=Q(leaf__coupon__coupon_method='manual'))
-#     ).values('customer_supply').annotate(total_manual_coupons=Sum('manual_coupons_count'))
-
-   
-#     supplied_coupons_count = {supply['customer_supply']: supply['total_manual_coupons'] for supply in supplied_coupons}
-
-#     return supplied_coupons_count
-
-# def redeemed_history(request):
-#     instances = CustomerSupplyCoupon.objects.all().order_by("-created_date")
-
-#     start_date_str = request.GET.get('start_date')
-#     end_date_str = request.GET.get('end_date')
-    
-#     if start_date_str and end_date_str:
-#         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-#         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-#         instances = instances.filter(created_date__range=[start_date, end_date])
-    
-#     supplied_coupons_count = get_supplied_manual_coupons_count()
-#     print(supplied_coupons_count,"supplied_coupons_count")
-
-#     context = {
-#         'instances': instances,
-#         'supplied_coupons_count': supplied_coupons_count
-#     }
-
-#     return render(request, 'client_management/redeemed_history.html', context)
-from django.db.models import Count, Q
-
-def get_customer_coupon_counts():
-    
-    customer_coupon_counts = CustomerSupplyCoupon.objects.values('customer_supply__customer').annotate(
-        manual_coupons_count=Count('leaf__coupon__coupon_type', filter=Q(leaf__coupon__coupon_method='manual')),
-        digital_coupons_count=Count('leaf__coupon__coupon_type', filter=Q(leaf__coupon__coupon_method='digital'))
-    )
-    manual_coupons_count=Count('leaf__coupon__coupon_type', filter=Q(leaf__coupon__coupon_method='manual'))
-
-    digital_coupons_count=Count('leaf__coupon__coupon_type', filter=Q(leaf__coupon__coupon_method='digital'))
-    print("customer_coupon_counts",customer_coupon_counts)
-
-    customer_coupons = {}
-    for coupon_count in customer_coupon_counts:
-        customer_id = coupon_count['customer_supply__customer']
-        customer_coupons[customer_id] = {
-            'manual_coupons': coupon_count['manual_coupons_count'],
-            'digital_coupons': coupon_count['digital_coupons_count']
-        }
-
-    return customer_coupons
-
 def redeemed_history(request):
-    
-    instances = CustomerSupply.objects.all().order_by("-created_date")
+    filter_data = {}
+    query = request.GET.get("q", "").strip()  # Get the search query
 
-    instances_coupon = CustomerSupplyCoupon.objects.filter(customer_supply__in=instances).order_by("-customer_supply__created_date")
-
-    start_date_str = request.GET.get('start_date')
-    end_date_str = request.GET.get('end_date')
+    start_date = date.today()
+    end_date = date.today()
+    route_name =request.GET.get('route_name')
     
-    if start_date_str and end_date_str:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-        instances_coupon = instances_coupon.filter(customer_supply__created_date__range=[start_date, end_date])
     
-    customer_coupon_counts = get_customer_coupon_counts()
-    print(customer_coupon_counts,'customer_coupon_counts')
-
+    if request.GET.get('start_date'):
+        start_date = datetime.strptime(request.GET.get('start_date'), '%Y-%m-%d').date()
+    if request.GET.get('end_date'):
+        end_date = datetime.strptime(request.GET.get('end_date'), '%Y-%m-%d').date()
+    
+    filter_data["start_date"] = start_date.strftime('%Y-%m-%d')
+    filter_data["end_date"] = end_date.strftime('%Y-%m-%d')
+    
+    instances = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,customer__sales_type="CASH COUPON").order_by("-created_date")
+    
+    if route_name:
+        instances = instances.filter(customer__routes__route_name=route_name)
+        filter_data['route_name'] = route_name
+    # Apply search filter to instances if a query exists
+    if query:
+        instances = instances.filter(
+            Q(customer__custom_id__icontains=query) |
+            Q(customer__customer_name__icontains=query) |
+            Q(customer__mobile_no__icontains=query) |
+            Q(customer__location__location_name__icontains=query) |
+            Q(customer__building_name__icontains=query)
+        )
+        filter_data['q'] = query
+        
+    # Calculate totals for manual and digital coupons manually
+    total_manual_coupons = 0
+    total_digital_coupons = 0
+    for instance in instances:
+        total_coupons = instance.total_coupon_recieved()  # Using the method from the model
+        total_manual_coupons += total_coupons.get('manual_coupon', 0)
+        total_digital_coupons += total_coupons.get('digital_coupon', 0)
+        
+    # Get all route names for the dropdown
+    route_li = RouteMaster.objects.all()
     context = {
         'instances': instances,
-        'instances_coupon': instances_coupon,  
-        'customer_coupon_counts': customer_coupon_counts
+        "filter_data": filter_data,
+        "route_li": route_li,
+        "total_manual_coupons": total_manual_coupons,
+        "total_digital_coupons": total_digital_coupons,
     }
 
     return render(request, 'coupon_management/redeemed_history.html', context)
+
+def print_redeemed_history(request):
+    filter_data = {}
+    query = request.GET.get("q", "").strip()  # Get the search query
+
+    start_date = date.today()
+    end_date = date.today()
+    route_name =request.GET.get('route_name')
+    
+    
+    if request.GET.get('start_date'):
+        start_date = datetime.strptime(request.GET.get('start_date'), '%Y-%m-%d').date()
+    if request.GET.get('end_date'):
+        end_date = datetime.strptime(request.GET.get('end_date'), '%Y-%m-%d').date()
+    
+    filter_data["start_date"] = start_date.strftime('%Y-%m-%d')
+    filter_data["end_date"] = end_date.strftime('%Y-%m-%d')
+    
+    instances = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,customer__sales_type="CASH COUPON").order_by("-created_date")
+    
+    if route_name:
+        instances = instances.filter(customer__routes__route_name=route_name)
+        filter_data['route_name'] = route_name
+    # Apply search filter to instances if a query exists
+    if query:
+        instances = instances.filter(
+            Q(customer__custom_id__icontains=query) |
+            Q(customer__customer_name__icontains=query) |
+            Q(customer__mobile_no__icontains=query) |
+            Q(customer__location__location_name__icontains=query) |
+            Q(customer__building_name__icontains=query)
+        )
+        filter_data['q'] = query
+        
+    # Calculate totals for manual and digital coupons manually
+    total_manual_coupons = 0
+    total_digital_coupons = 0
+    for instance in instances:
+        total_coupons = instance.total_coupon_recieved()  # Using the method from the model
+        total_manual_coupons += total_coupons.get('manual_coupon', 0)
+        total_digital_coupons += total_coupons.get('digital_coupon', 0)
+        
+    # Get all route names for the dropdown
+    route_li = RouteMaster.objects.all()
+    context = {
+        'instances': instances,
+        "filter_data": filter_data,
+        "route_li": route_li,
+        "total_manual_coupons": total_manual_coupons,
+        "total_digital_coupons": total_digital_coupons,
+    }
+
+    return render(request, 'coupon_management/print_redeemed_history.html', context)
