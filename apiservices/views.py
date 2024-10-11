@@ -9271,7 +9271,7 @@ class ProductRouteSalesReportAPIView(APIView):
         else:
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
 
-        instances = ProdutItemMaster.objects.all()
+        instances = ProdutItemMaster.objects.exclude(category__category_name="Coupons")
         
         if product_id:
             instances = instances.filter(id=product_id)

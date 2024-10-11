@@ -41,6 +41,20 @@
                                                 <option value="{{ route.route_name }}" {% if route.route_name == filter_data.route_name %}selected{% endif %}>{{ route.route_name }}</option>
                                             {% endfor %}
                                         </select>
+                            <div class="row mt-3">
+                                <div class="row col-md-6" >
+                                    <div id="datePeriodDiv" class="row col-12" style="flex-direction: row;
+                                    justify-content: space-around;
+                                    align-items: flex-end;">
+                                        
+                                        <div class="col-md-5">
+                                            <label for="start_date">From Date:</label>
+                                            <input name="start_date" type="date" class="form-select"  value="{{ filter_data.start_date }}">
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label for="end_date">To Date:</label>
+                                            <input name="end_date" type="date" class="form-select"  value="{{ filter_data.end_date }}">
+                                        </div>
                                     </div>
                                     <div class="col">
                                         <label for="q">Search:</label>
@@ -77,19 +91,17 @@
                                         <th>Manual</th>
                                         <th>Digital</th>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    {% paginate 50 instances %}
-                                    {% for instance in instances %}
+                                    </thead>
+                                    <body>
+                                     <tbody>
+                                        {% for instance in instances %}
                                         <tr>
                                             <td>{{ forloop.counter }}</td>
-                                            <td>{{ instance.created_date|date:'d-m-Y' }}</td>
+                                            <td>{{ instance.created_date }}</td>
                                             <td>{{ instance.invoice_no }}</td>
                                             <td>{{ instance.customer.customer_name }}</td>
-                                            <td>{{ instance.customer.custom_id }}</td>
                                             <td>{{ instance.customer.mobile_no }}</td>
                                             <td>{{ instance.customer.building_name }}</td>
-                                            <td>{{ instance.customer.routes.route_name }}</td>
                                             <td>{{ instance.total_coupon_recieved.manual_coupon }}</td>
                                             <td>{{ instance.total_coupon_recieved.digital_coupon }}</td>
                                         </tr>
