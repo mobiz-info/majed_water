@@ -79,8 +79,8 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% load el_pagination_tags %}
-                                    {% paginate 20 customersupplyitems %}
+                                    {% comment %} {% load el_pagination_tags %}
+                                    {% paginate 20 customersupplyitems %} {% endcomment %}
                                     {% for customersupplyitem in customersupplyitems %}
                                         <tr>
                                             <td style="text-align:center;">{{ forloop.counter }}</td>

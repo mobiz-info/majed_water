@@ -1316,9 +1316,14 @@ def product_route_salesreport(request):
     products = ProdutItemMaster.objects.all()
     # today = datetime.today().date()
     
-    if request.GET.get('start_date') and request.GET.get('end_date'):
+    if request.GET.get('start_date'):
         start_date = datetime.strptime(request.GET.get('start_date'), '%Y-%m-%d').date()
+    else:
+        start_date = datetime.today().date()
+    if request.GET.get('end_date'):
         end_date = datetime.strptime(request.GET.get('end_date'), '%Y-%m-%d').date()
+    else:
+        end_date = datetime.today().date()
 
     customersupplyitems = customersupplyitems.filter(
         customer_supply__created_date__date__gte=start_date, customer_supply__created_date__date__lte=end_date

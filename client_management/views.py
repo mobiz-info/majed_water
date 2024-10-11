@@ -2588,10 +2588,7 @@ def outstanding_list(request):
         filter_data['q'] = query
     # Calculate the total sum of outstanding counts
     total_outstanding_count = sum([item.get_outstanding_count() for item in instances])
-    log_activity(
-        created_by=request.user if request.user.is_authenticated else None,
-        description=f"Viewed outstanding list with filters: date={date}, route_name={route_filter}, sales_type={sales_type_filter}, query={query}. Total outstanding count: {total_outstanding_count}."
-    )
+    
     context = {
         'instances': instances,
         'page_name' : 'Customer Outstanding List',
@@ -2660,6 +2657,14 @@ def print_outstanding_report(request):
 
     # Calculate total outstanding count
     total_outstanding_count = sum([item.get_outstanding_count() for item in instances])
+    
+    # Log user activity
+    log_activity(
+        created_by=request.user if request.user.is_authenticated else None,
+        description=f"Viewed outstanding list Print with filters: date={date},  Route: {route_filter}, Sales Type: {sales_type_filter}, "
+                f"Product Type: {product_type_filter}, Query: {query}"
+    )
+    
     
     context = {
         'instances': instances,

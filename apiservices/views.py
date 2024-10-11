@@ -9318,7 +9318,7 @@ class ProductRouteSalesReportAPIView(APIView):
         else:
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
 
-        instances = ProdutItemMaster.objects.all()
+        instances = ProdutItemMaster.objects.exclude(category__category_name="Coupons")
         
         if product_id:
             instances = instances.filter(id=product_id)
@@ -9376,9 +9376,11 @@ class SalesInvoicesAPIView(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
     
 class CustomerSupplyListAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
     
     def get(self, request, *args, **kwargs):
-        instances = CustomerSupply.objects.all().order_by("-created_date")
+        instances = CustomerSupply.objects.filter(salesman=request.user).order_by("-created_date")
         
         product_id = request.GET.get('product_id', None)
         filter_date_str = request.GET.get('filter_date', None)

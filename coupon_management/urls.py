@@ -28,7 +28,8 @@ urlpatterns = [
     path('generate_excel/', generate_excel, name='generate_excel'),
     path('customer_stock_pdf/', customer_stock_pdf, name='customer_stock_pdf'),
 
-    path('redeemed_history/', redeemed_history, name='redeemed_history')
+    path('redeemed_history/', redeemed_history, name='redeemed_history'),
+    path('print_redeemed_history/', print_redeemed_history, name='print_redeemed_history'),
 
 
 
