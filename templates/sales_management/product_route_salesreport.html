@@ -96,6 +96,15 @@
                                         </tr>
                                     {% endfor %}
                                 </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <th colspan="6" style="text-align:right !important;">Total:</th>
+                                        <th style="text-align:right !important;">{{ totals.total_quantity|default:0 }}</th>
+                                        <th style="text-align:right !important;">{{ totals.total_empty_bottle|default:0 }}</th>
+                                        <th style="text-align:right !important;">{{ totals.total_coupon_collected|default:0 }}</th>
+                                        <th style="text-align:right !important;">{{ totals.total_amount_collected|default:0 }}</th>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                         {% comment %} {% get_pages %}
