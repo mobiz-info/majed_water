@@ -80,6 +80,7 @@
                                     <tr>
                                         <th scope="col" class="text-center">Sl.No</th>
                                         <th scope="col" class="text-center">Created Date</th>
+                                        <th scope="col" class="text-center">Customer Id</th>
                                         <th scope="col" class="text-center">Customer Name</th>
                                         <th scope="col" class="text-center">Mobile No</th>
                                         <th scope="col" class="text-center">Building Name</th>
@@ -97,6 +98,7 @@
                                         <tr>
                                             <td style="text-align:center;">{{ forloop.counter }}</td>
                                             <td style="text-align:center;">{{ data.custody_custom__created_date|date:"Y-m-d" }}</td>
+                                            <td style="text-align:center;">{{ data.custody_custom__customer__custom_id }}</td>
                                             <td style="text-align:center;">{{ data.custody_custom__customer__customer_name }}</td>
                                             <td style="text-align:center;">{{ data.custody_custom__customer__mobile_no }}</td>
                                             <td style="text-align:center;">{{ data.custody_custom__customer__building_name }}</td>

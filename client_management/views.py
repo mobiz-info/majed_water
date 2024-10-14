@@ -423,7 +423,14 @@ class CustomerCustodyList(View):
 
         # Aggregating the product counts for each customer
         aggregated_data = (
-            user_li.values('custody_custom__created_date','custody_custom__customer__customer_name', 'custody_custom__customer__mobile_no', 'custody_custom__customer__building_name', 'custody_custom__customer__routes__route_name')
+            user_li.values(
+                'custody_custom__created_date',
+                'custody_custom__customer__customer_name',
+                'custody_custom__customer__mobile_no',
+                'custody_custom__customer__building_name',
+                'custody_custom__customer__routes__route_name',
+                'custody_custom__customer__custom_id'
+            )
             .annotate(
                 five_gallon_count=Sum('quantity', filter=Q(product__product_name='5 Gallon')),
                 dispenser_count=Sum('quantity', filter=Q(product__product_name='Dispenser')),
