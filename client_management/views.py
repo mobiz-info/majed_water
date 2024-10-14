@@ -1872,8 +1872,13 @@ def custody_issue(request):
         created_by=request.user if request.user.is_authenticated else None,
         description=f"Viewed custody issue report for date range {start_date_str} to {end_date_str}."
     )
-    return render(request, 'client_management/custody_issue.html', {'customer_product_counts': customer_product_counts})
+    context = {
+        'customer_product_counts': customer_product_counts,
+        'start_date': start_date_str,
+        'end_date': end_date_str,
+    }
 
+    return render(request, 'client_management/custody_issue.html', context)
 
 
 def get_customercustody(request, customer_id):
