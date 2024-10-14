@@ -69,16 +69,19 @@
                                     <thead>
                                         <tr>
                                             <th scope="col" class="text-center">Sl.No</th>
-                                            <th>Date</th>
-                                            <th>Customer</th>
-                                            <th>Salesman</th>
-                                            <th>Route</th>
-                                            <th>Payment<br> Method</th>
-                                            <th>Receipt Number</th>
-                                            <th>Total Amount</th>
-                                            <th>Collected Amount</th>
-                                            <th>Action</th>
+                                            <th scope="col" class="text-center">Date</th>
+                                            <th scope="col" class="text-center">Customer Name</th>
+                                            <th scope="col" class="text-center">Building Name/<br>House No</th>
+                                            <th scope="col" class="text-center">Customer ID</th>
+                                            <th scope="col" class="text-center">Salesman</th>
+                                            <th scope="col" class="text-center">Route</th>
+                                            <th scope="col" class="text-center">Payment<br> Method</th>
+                                            <th scope="col" class="text-center">Receipt Number</th>
+                                            <th scope="col" class="text-center">Total Amount</th>
+                                            <th scope="col" class="text-center">Collected Amount</th>
+                                            <th scope="col" class="text-center">Action</th>
                                         </tr>
+
                                     </thead>
                                     <tbody>
                                         {% load el_pagination_tags %}
@@ -86,14 +89,16 @@
                                         {% for instance in instances %}
                                         <tr>
                                             <td class="text-center">{{ forloop.counter }}</td>
-                                            <td>{{ instance.created_date|date:"d/m/Y"}}</td>
-                                            <td>{{ instance.customer }}</td>
-                                            <td>{{ instance.salesman }}</td>
-                                            <td>{{ instance.customer.routes.route_name }}</td>
-                                            <td>{{ instance.payment_method }}</td>
-                                            <td>{{ instance.receipt_number }}</td>
-                                            <td>{{ instance.total_amount }}</td>
-                                            <td>{{ instance.collected_amount }}</td>
+                                            <td style="text-align:left;">{{ instance.created_date|date:"d/m/Y" }}</td>
+                                            <td style="text-align:left;">{{ instance.customer }}</td>
+                                            <td style="text-align:left;">{{ instance.customer.building_name }}<br>{{ instance.door_house_no }}</td>
+                                            <td style="text-align:left;">{{ instance.customer.custom_id }}</td>
+                                            <td style="text-align:left;">{{ instance.salesman }}</td>
+                                            <td style="text-align:left;">{{ instance.customer.routes.route_name }}</td>
+                                            <td style="text-align:left;">{{ instance.payment_method }}</td>
+                                            <td style="text-align:center;">{{ instance.receipt_number }}</td>
+                                            <td style="text-align:center;">{{ instance.total_amount }}</td>
+                                            <td style="text-align:center;">{{ instance.collected_amount }}</td>
                                             <td>
                                                 <a aria-label="anchor" class="action-button remove btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete"
                                                     data-id="{{ instance.receipt_number }}" data-text="{{ confirm_delete_message }}" data-title="Are you sure?" 

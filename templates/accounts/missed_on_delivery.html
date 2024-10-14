@@ -31,6 +31,8 @@
                                 <tr>
                                     <th style="text-align:center; width:5%;">Sl.No</th>
                                     <th style="text-align:center;">Customer Name</th>
+                                    <th style="text-align:center;">Customer ID</th>
+                                    <th style="text-align:center;">Building Name/<br>House No</th>
                                     <th style="text-align:center;">Customer Type</th>
                                     <th style="text-align:center;">Default Bottle</th>
                                     <th style="text-align:center;">Last Sold Date</th>
@@ -42,6 +44,8 @@
                                     <tr>
                                         <td style="text-align:center;">{{ forloop.counter }}</td>
                                         <td style="text-align:center;">{{ customer.customer_name }}</td>
+                                        <td style="text-align:center;">{{ customer.custom_id }}</td>
+                                        <td style="text-align:center;">{{ customer.building_name }}{{ customer.door_house_no }}</td>
                                         <td style="text-align:center;">{{ customer.customer_type }}</td>
                                         <td style="text-align:center;">{{ customer.no_of_bottles }}</td>
                                         <td style="text-align:center;">
