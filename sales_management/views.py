@@ -1351,13 +1351,30 @@ def product_route_salesreport(request):
             customer_supply__customer__sales_type='CASH COUPON'
         )
         filter_data["route_name"] = route_filter
+        
+    totals = customersupplyitems.aggregate(
+        total_quantity=Sum('quantity'),
+        total_empty_bottle=Sum('customer_supply__collected_empty_bottle'),
+        total_amount_collected=Sum('amount'),
+    )
     
+    total_coupon_collected = CustomerSupplyCoupon.objects.filter(
+        customer_supply__in=customersupplyitems.values('customer_supply')
+    ).annotate(leaf_count=Count('leaf')).aggregate(total=Sum('leaf_count'))['total'] or 0
+
+    totals['total_coupon_collected'] = total_coupon_collected
+    
+    log_activity(
+        created_by=request.user,
+        description=f"Generated product route sales report with filters: {filter_data}"
+    )
     context = {
         'customersupplyitems': customersupplyitems.order_by("-customer_supply__created_date"),
         'products': products,
         'filter_data': filter_data,
         'coupons_collected': coupons_collected,
         'route_li': route_li,
+        'totals':totals,
     }
     return render(request, template, context)
 

@@ -64,6 +64,7 @@
                                         <th style="text-align:center;width:5%;" scope="col">Sl.No</th>
                                         <th style="text-align:center;" scope="col">Date</th>
                                         <th style="text-align:center;" scope="col">Customer/<br>Mobile No</th>
+                                        <th style="text-align:center;" scope="col">Customer ID</th>
                                         <th style="text-align:center;" scope="col">Route</th>
                                         <th style="text-align:center;" scope="col">Building Name<br>No</th>
                                         <th style="text-align:center;" scope="col">Receipt No/<br>Reference No</th>
@@ -82,6 +83,7 @@
                                             <td style="text-align:right;">{{ forloop.counter }}</td>
                                             <td style="text-align:right;">{{ data.collection_payment.created_date|date }}</td>
                                             <td style="text-align:left;">{{ data.collection_payment.customer.customer_name }}<br>{{ data.collection_payment.customer.mobile_no }}</td>
+                                            <td style="text-align:left;">{{ data.collection_payment.customer.custom_id }}</td>
                                             <td style="text-align:left;">{{ data.collection_payment.customer.routes.route_name }}</td>
                                             <td style="text-align:left;">{{ data.collection_payment.customer.building_name }}<br>{{ data.collection_payment.customer.door_house_no }}</td>
                                             <td style="text-align:right;">{{ data.invoice.reference_no }}</td>
@@ -128,6 +130,7 @@
                 <th style="text-align:center;width:5%;" scope="col" style="border-bottom: 1; max-width: 5em;">Sl No</th>
                 <th style="text-align:center;" scope="col" style="border-bottom: 1; ">Date & Time</th>
                 <th style="text-align:center;" scope="col" style="border-bottom: 1;">Customer/<br>Mobile No</th>
+                <th style="text-align:center;" scope="col" style="border-bottom: 1;">Customer ID</th>
                 <th style="text-align:center;" scope="col" style="border-bottom: 1;">Route</th>
                 <th style="text-align:center;" scope="col" style="border-bottom: 1;">Building Name<br>No</th>
                 <th style="text-align:center;" scope="col" style="border-bottom: 1;">Receipt No/<br>Reference No</th>
@@ -144,6 +147,7 @@
                 <td style="text-align:right;" >{{ forloop.counter }}</td>
                 <td style="text-align:right;" >{{ data.collection_payment.created_date }}</td>
                 <td style="text-align:left;" >{{ data.collection_payment.customer.customer_name }}<br>{{ data.collection_payment.customer.mobile_no }}</td>
+                <td style="text-align:left;" >{{ data.collection_payment.customer.custom_id }}</td>
                 <td style="text-align:left;" >{{ data.collection_payment.customer.routes.route_name }}</td>
                 <td style="text-align:left;" >{{ data.collection_payment.customer.building_name }}<br>{{ data.collection_payment.customer.door_house_no }}</td>
                 <td style="text-align:right;" >{{ data.invoice.reference_no }}</td>
