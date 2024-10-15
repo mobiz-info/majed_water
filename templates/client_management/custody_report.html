@@ -58,6 +58,7 @@
                                     <tr>
                                         <th rowspan="2">Sl No</th>
                                         <th rowspan="2">Customer</th>
+                                        <th rowspan="2">Customer Id</th>
                                         <th rowspan="2">Building No</th>
                                         <th rowspan="2">Room No/Floor No</th>
                                         <th rowspan="2">Item Name</th>
@@ -77,6 +78,7 @@
                                         <tr>
                                             <td>{{ forloop.counter }}</td>
                                             <td>{{ item.custody_custom.customer.customer_name }}</td>
+                                            <td>{{ item.custody_custom.customer.custom_id }}</td>
                                             <td>{{ item.custody_custom.customer.building_name }}</td>
                                             <td>{{ item.custody_custom.customer.door_house_no }}</td>
                                             <td>{{ item.product.product_name }}</td>
