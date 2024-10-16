@@ -64,6 +64,9 @@ urlpatterns = [
         path('upload-outstanding/', upload_outstanding, name='upload_outstanding'),
         
         path('print_outstanding_report/', print_outstanding_report, name='print_outstanding_report'),
+        re_path(r'^customer_transaction_list/$', customer_transaction_list, name='customer_transaction_list'),
+        re_path(r'^customer_transaction_detail/(?P<customer_pk>.*)/$', customer_transaction_detail, name='customer_transaction_detail'),
+
 
         # Customer count
         path('customer_count', customer_count, name="customer_count"),

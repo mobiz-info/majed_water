@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% block title %}Customer Transaction Detail{% endblock %}
+{% block content %}
+<div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between">
+    <h4 class="fw-medium mb-0">Customer Transaction Detail</h4>
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{% url 'customer_transaction_list' %}" class="text-white-30">Customer Transactions</a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">Customer Transaction Detail</li>
+    </ol>
+</div>
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-xl-12">
+                <div class="card custom-card">
+                    <div class="card-header">
+                        <h5>Transaction Details for Customer: {{ customer.customer_name }} (Custom ID: {{ customer.custom_id }})</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Tab links for selecting outstanding details -->
+                        
+                        <div class="radio-tab">
+                            <input type="radio" id="amount" name="tab" class="tablinks" onclick="openTab(event, 'Amount')" checked>
+                            <label for="amount">Amount</label>
+
+                            <input type="radio" id="empty_bottle" name="tab" class="tablinks" onclick="openTab(event, 'EmptyBottle')">
+                            <label for="empty_bottle">Empty Bottle</label>
+
+                            <input type="radio" id="coupons" name="tab" class="tablinks" onclick="openTab(event, 'Coupons')">
+                            <label for="coupons">Coupons</label>
+                        </div>
+
+                        <!-- Tab content for Amount -->
+                        <div id="Amount" class="tabcontent" style="display: block;">
+                            <h6>Outstanding Amount Details</h6>
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Invoice No</th>
+                                        <th>Amount</th>
+                                        <th>Created Date</th>
+                                        <th>Modified Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for outstanding in outstanding_instances %}
+                                        <tr>
+                                            <td>{{ outstanding.invoice_no }}</td>
+                                            <td>{{ outstanding.get_outstanding_count }}</td>
+                                            <td>{{ outstanding.created_date|date:'Y-m-d' }}</td>
+                                            <td>{{ outstanding.modified_date }}</td>
+                                        </tr>
+                                    {% empty %}
+                                        <tr>
+                                            <td colspan="4">No outstanding records found for this customer.</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Tab content for EmptyBottle -->
+                        <div id="EmptyBottle" class="tabcontent" style="display: none;">
+
+                            <h6>Supply Details with Collected Empty Bottles</h6>
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Invoice No</th>
+                                        <th>Collected Empty Bottles</th>
+                                        <th>Grand Total</th>
+                                        <th>Discount</th>
+                                        <th>Net Payable</th>
+                                        <th>VAT</th>
+                                        <th>Subtotal</th>
+                                        <th>Amount Received</th>
+                                        <th>Reference Number</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for supply in supplies %}
+                                        <tr>
+                                            <td>{{ supply.invoice_no }}</td>
+                                            <td>{{ supply.collected_empty_bottle }}</td>
+                                            <td>{{ supply.grand_total }}</td>
+                                            <td>{{ supply.discount }}</td>
+                                            <td>{{ supply.net_payable }}</td>
+                                            <td>{{ supply.vat }}</td>
+                                            <td>{{ supply.subtotal }}</td>
+                                            <td>{{ supply.amount_recieved }}</td>
+                                            <td>{{ supply.reference_number }}</td>
+                                            <td>{{ supply.created_date|date:'Y-m-d' }}</td>
+                                        </tr>
+                                    {% empty %}
+                                        <tr>
+                                            <td colspan="10">No supply records found for this customer.</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Tab content for Coupons -->
+                        <div id="Coupons" class="tabcontent" style="display: none;">
+                            <h6>Coupons Details</h6>
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th rowspan="2">Sl No</th>
+                                        <th rowspan="2">Supply Date</th>
+                                        <th rowspan="2">Invoice Number</th>
+                                        <th colspan="2">No of Coupons</th>
+                                    </tr>
+                                    <tr>
+                                        <th>Manual</th>
+                                        <th>Digital</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for outstanding in outstanding_instances %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>{{ outstanding.created_date|date:'Y-m-d' }}</td>
+                                            <td>{{ outstanding.invoice_no }}</td>
+                                            <td>{{ coupon_summary.manual_coupons }}</td>
+                                            <td>{{ coupon_summary.digital_coupons }}</td>
+                                        </tr>
+                                    {% empty %}
+                                        <tr>
+                                            <td colspan="10">No coupon records found for this customer.</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Back Button -->
+                            <div class="col-12 text-end mt-5">
+                            <button class="btn btn-success   me-md-2  mb-2" type="button"
+                                    onClick="javascript:history.go(-1);">
+                                    <i class="bi bi-backspace-fill pe-1"></i>Back
+                            </button>
+
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openTab(evt, tabName) {
+        var tabcontent = document.getElementsByClassName("tabcontent");
+        for (var i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+
+        var tablinks = document.getElementsByClassName("tablinks");
+        for (var i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
+
+    // Set the default tab to open
+    document.getElementById("defaultOpen").click();
+</script>
+{% endblock %}

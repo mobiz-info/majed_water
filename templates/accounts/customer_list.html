@@ -114,6 +114,11 @@
                                                         <a href="{% url 'customer_outstanding_list' %}?customer_pk={{ data.customer_id }}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Outstanding">
                                                             <span class="bi bi-cart fs-14"></span>
                                                         </a>
+                                                        <a href="{% url 'customer_transaction_list' %}?customer_pk={{ data.customer_id }}" aria-label="anchor" class="btn btn-success btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Customer Transaction">
+                                                            <span class="bi bi-wallet2 fs-14"></span>
+                                                        </a>
+
+                                                        
                                                         {% comment %} <a href="" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Coupons"> {% endcomment %}
                                                         <a href="{% url 'coupon_count_list' data.customer_id %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Coupons">
                                                             {% comment %} <a href="{% url 'coupon_count_list' data.customer_id %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Coupons"> {% endcomment %}
