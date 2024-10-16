@@ -35,6 +35,7 @@ class BranchMaster(models.Model):
     website = models.CharField(max_length=50, null=True, blank=True)
     emirate = models.ForeignKey(EmirateMaster, on_delete=models.SET_NULL, null=True, blank=False)
     email = models.CharField(max_length=30, null=True, blank=True)
+    user_id = models.ForeignKey('accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True)
     logo = models.ImageField(null=True, blank=True, upload_to='master')
 
     class Meta:

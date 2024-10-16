@@ -157,25 +157,44 @@ class Branch_Create(View):
     @method_decorator(login_required)
     def get(self, request, *args, **kwargs):
         context = {'form': self.form_class}
-        log_activity(request.user, "Accessed branch creation page.")
         return render(request, self.template_name, context)
 
     @method_decorator(login_required)
     def post(self, request, *args, **kwargs):
+        username=request.POST.get('username')
+        password=request.POST.get('pswd')
+        hashed_password=make_password(password)
+        
         form = self.form_class(request.POST, request.FILES)
         if form.is_valid():
-            data = form.save(commit=False)
-            data.created_by = str(request.user.id)
-            data.save()
-            branch = BranchMaster.objects.get(branch_id=data.branch_id) 
-            username=request.POST.get('username')
-            password=request.POST.get('pswd')
-            hashed_password=make_password(password)
-            email=data.email
-            user_name=data.name
-            branch_data=CustomUser.objects.create(password=hashed_password,username=username,first_name=user_name,email=email,user_type='Branch User',branch_id=branch)
-            data.save()
-            log_activity(request.user, f"Created new branch: {data.name}")
+            
+            try:
+                with transaction.atomic():
+                    auth_data=CustomUser.objects.create(
+                    username=username,
+                    first_name=username,
+                    password=hashed_password,
+                    user_type='Branch User')
+                    
+                    data = form.save(commit=False)
+                    data.created_by = str(request.user.id)
+                    data.user_id = auth_data
+                    data.save()
+                    
+            except IntegrityError as e:
+                # Handle database integrity error
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": str(e),
+                }
+            except Exception as e:
+                # Handle other exceptions
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": str(e),
+                }
             messages.success(request, 'Branch Successfully Added.', 'alert-success')
             return redirect('branch')
         else:
