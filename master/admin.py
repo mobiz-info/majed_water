@@ -5,6 +5,7 @@ from master.models import *
 
 # Register your models here.
 admin.site.register(CategoryMaster)
+admin.site.register(BranchMaster)
 class EmiratesAdmin(admin.ModelAdmin):
     list_display = ['created_by','created_date','name']
 admin.site.register(EmirateMaster,EmiratesAdmin)

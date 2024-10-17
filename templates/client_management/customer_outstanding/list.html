@@ -41,7 +41,7 @@
                                     </a>
                                 </div>
                                 <div class="me-2">
-                                    <a href="{% url 'excel_customer_outstanding' %}?product_type={{ filter_data.product_type }}&q={{ filter_data.q|default_if_none:'' }}&route_name={{ filter_data.route_name|default_if_none:'' }}&date={{ filter_data.filter_date }}{% if customer_pk %}&customer_pk={{ customer_pk }}{% endif %}" target="_blank">
+                                    <a href="{% url 'excel_customer_outstanding' %}?product_type={{ filter_data.product_type }}&q={{ filter_data.q|default_if_none:'' }}&route_name={{ filter_data.route_name|default_if_none:'' }}&date={{ filter_data.filter_date }}{% if customer_pk %}&customer_pk={{ customer_pk }}{% endif %}&export=excel" target="_blank">
                                         <button type="button" class="btn btn-warning btn-wave">
                                             <i class="fas fa-file-excel"></i>Excel
                                         </button>

@@ -54,7 +54,7 @@ urlpatterns = [
          #customer outstanding
         re_path(r'^customer-outstanding/$', customer_outstanding_list, name='customer_outstanding_list'),
         path('print_customer_outstanding/', print_customer_outstanding, name='print_customer_outstanding'),
-        path('excel_customer_outstanding/', excel_customer_outstanding, name='excel_customer_outstanding'),
+        path('excel_customer_outstanding/', export_customer_outstanding_to_excel, name='excel_customer_outstanding'),
         re_path(r'^edit_customer_outstanding/(?P<outstanding_pk>.*)/$', edit_customer_outstanding, name='edit_customer_outstanding'),
 
         re_path(r'outstanding_list/$', outstanding_list, name='outstanding_list'),

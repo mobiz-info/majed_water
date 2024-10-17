@@ -5,6 +5,7 @@ import datetime
 import openpyxl
 
 from apiservices.views import delete_coupon_recharge
+from client_management.templatetags.client_templatetags import get_outstanding_amount, get_outstanding_bottles, get_outstanding_coupons
 from customer_care.models import DiffBottlesModel
 from invoice_management.models import Invoice, InvoiceDailyCollection, InvoiceItems
 from van_management.models import *
@@ -2066,17 +2067,22 @@ def delete_count(request, pk):
     return redirect('coupon_count_list')
 
 # @login_required
+import openpyxl
+from openpyxl.styles import Font
+from django.http import HttpResponse
+from datetime import datetime
+
 def customer_outstanding_list(request):
     """
-    Customer Outstanding List
+    Customer Outstanding List with Excel Export
     :param request:
-    :return: Customer Outstanding list view
+    :return: Customer Outstanding list view or Excel file
     """
     filter_data = {}
-    route_name = request.GET.get('route_name', '')
     q = request.GET.get('q', '')  
+    route_name = request.GET.get('route_name', '')
     date = request.GET.get('date')
-    
+
     if request.GET.get('product_type'):
         product_type = request.GET.get('product_type')
     else:
@@ -2091,87 +2097,124 @@ def customer_outstanding_list(request):
         date = datetime.today().date()
         filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
-            
-    # if not start_date:
-    #     start_date = datetime.today().date()
-    # else:
-    #     start_date = datetime.strptime(start_date, '%Y-%m-%d').date()    
-    # filter_data['start_date']=start_date
-
-    route_li = RouteMaster.objects.all()
-    
     outstanding_instances = CustomerOutstanding.objects.filter(created_date__date__lte=date)
 
     if request.GET.get("customer_pk"):
         outstanding_instances = outstanding_instances.filter(customer__pk=request.GET.get("customer_pk"))
+        filter_data['customer_pk'] = request.GET.get("customer_pk")
 
     if route_name:
         outstanding_instances = outstanding_instances.filter(customer__routes__route_name=route_name)
+        filter_data['route_name'] = request.GET.get("route_name")
 
     if q:
         outstanding_instances = outstanding_instances.filter(customer__customer_name__icontains=q)
+        filter_data['q'] = request.GET.get("q")
         
     customer_ids = outstanding_instances.values_list('customer__pk', flat=True).distinct()
 
-    # Filter customers based on their outstanding amounts, empty bottles, and coupons
-    instances = Customers.objects.filter(pk__in=customer_ids).annotate(
-    total_outstanding=Sum('customeroutstanding__outstandingamount__amount'),
-    total_empty_bottle=Sum('customeroutstanding__outstandingproduct__empty_bottle'),
-    total_coupon_count=Sum('customeroutstanding__outstandingcoupon__count')
-    ).filter(
-        Q(total_outstanding__gt=0) | Q(total_empty_bottle__gt=0) | Q(total_coupon_count__gt=0)
-    )
-
-        
-    total_outstanding = OutstandingAmount.objects.filter(
-        customer_outstanding__customer__in=customer_ids,
-        customer_outstanding__created_date__date__lte=date
-    ).aggregate(total=Sum('amount'))['total'] or 0
-
-    # Calculate total collection amount
-    total_collection = CollectionPayment.objects.filter(
-        customer__in=customer_ids,
-        created_date__date__lte=date
-    ).aggregate(total=Sum('amount_received'))['total'] or 0 
-
-    # Compute net total outstanding
-    net_total_outstanding = total_outstanding - total_collection
+    instances = Customers.objects.filter(pk__in=customer_ids)
     
-    # Sum total outstanding bottles and coupons for all customers
-    total_outstanding_bottles = OutstandingProduct.objects.filter(
-        customer_outstanding__customer__in=customer_ids,
-        customer_outstanding__created_date__date__lte=date
-    ).aggregate(total=Sum('empty_bottle'))['total'] or 0
+    route_li = RouteMaster.objects.all()
 
-    total_outstanding_coupons = OutstandingCoupon.objects.filter(
-        customer_outstanding__customer__in=customer_ids,
-        customer_outstanding__created_date__date__lte=date
-    ).aggregate(total=Sum('count'))['total'] or 0
+    # Initialize totals
+    total_outstanding_amount = 0
+    total_outstanding_bottles = 0
+    total_outstanding_coupons = 0
 
-    filter_data = {
-        'filter_date': date.strftime('%Y-%m-%d'),
-        'route_name': route_name,
-        'product_type': product_type,
-    }
+    # Loop through each customer to calculate totals
+    for customer in instances:
+        outstanding_amount = OutstandingAmount.objects.filter(
+            customer_outstanding__customer__pk=customer.pk, 
+            customer_outstanding__created_date__date__lte=date
+        ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        
+        collection_amount = CollectionPayment.objects.filter(
+            customer__pk=customer.pk, 
+            created_date__date__lte=date
+        ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+        
+        outstanding_amount = max(outstanding_amount - collection_amount, 0)
+        total_outstanding_amount += outstanding_amount
+        
+        total_bottles = OutstandingProduct.objects.filter(
+            customer_outstanding__customer__pk=customer.pk, 
+            customer_outstanding__created_date__date__lte=date
+        ).aggregate(total_bottles=Sum('empty_bottle'))['total_bottles'] or 0
+        total_outstanding_bottles += total_bottles
+
+        total_coupons = OutstandingCoupon.objects.filter(
+            customer_outstanding__customer__pk=customer.pk,
+            customer_outstanding__created_date__date__lte=date
+        ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
+        total_outstanding_coupons += total_coupons
+
+    if request.GET.get('export') == 'excel':
+        return export_to_excel(instances, date, total_outstanding_amount, total_outstanding_bottles, total_outstanding_coupons)
+
+    # Context for rendering template as usual
     context = {
         'instances': instances,
         'filter_data': filter_data,
-        'route_li':route_li,
+        'route_li': route_li,
         'date': date,
         'customer_pk': request.GET.get("customer_pk"),
-        'net_total_outstanding':net_total_outstanding,
-        'total_outstanding_bottles': total_outstanding_bottles,
-        'total_outstanding_coupons': total_outstanding_coupons,  
         'page_name': 'Customer Outstanding List',
         'page_title': 'Customer Outstanding List',
         'is_customer_outstanding': True,
         'is_need_datetime_picker': True,
+        'net_total_outstanding': total_outstanding_amount,
+        'total_outstanding_bottles': total_outstanding_bottles,
+        'total_outstanding_coupons': total_outstanding_coupons,
     }
-    log_activity(
-        created_by=request.user if request.user.is_authenticated else None,
-        description="Viewed the customer outstanding list with filters applied."
-    )
+
     return render(request, 'client_management/customer_outstanding/list.html', context)
+
+
+def export_to_excel(instances, date, total_outstanding_amount, total_outstanding_bottles, total_outstanding_coupons):
+    """
+    Export outstanding list to Excel
+    """
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=Customer_Outstanding_{}.xlsx'.format(date)
+
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = 'Customer Outstanding'
+
+    # Define header font
+    header_font = Font(bold=True)
+
+    # Write headers
+    headers = ['Sl No', 'Customer ID', 'Customer Name', 'Building No', 'Room No/Floor No', 'Route', 'Outstanding Amount', 'Empty Can', 'Coupon']
+    for col_num, header in enumerate(headers, 1):
+        sheet.cell(row=1, column=col_num, value=header).font = header_font
+
+    # Write data
+    for row_num, customer in enumerate(instances, 2):
+        outstanding_amount = get_outstanding_amount(customer.pk, date)
+        outstanding_bottles = get_outstanding_bottles(customer.pk, date)
+        outstanding_coupons = get_outstanding_coupons(customer.pk, date)
+
+        sheet.cell(row=row_num, column=1, value=row_num - 1)
+        sheet.cell(row=row_num, column=2, value=customer.custom_id)
+        sheet.cell(row=row_num, column=3, value=customer.customer_name)
+        sheet.cell(row=row_num, column=4, value=customer.building_name)
+        sheet.cell(row=row_num, column=5, value=customer.door_house_no)
+        sheet.cell(row=row_num, column=6, value=customer.routes.route_name)
+        sheet.cell(row=row_num, column=7, value=outstanding_amount)
+        sheet.cell(row=row_num, column=8, value=outstanding_bottles)
+        sheet.cell(row=row_num, column=9, value=outstanding_coupons)
+
+    # Write totals at the end
+    total_row = len(instances) + 2
+    sheet.cell(row=total_row, column=6, value='Total Outstanding Amount:').font = header_font
+    sheet.cell(row=total_row, column=7, value=total_outstanding_amount)
+    sheet.cell(row=total_row, column=8, value=total_outstanding_bottles)
+    sheet.cell(row=total_row, column=9, value=total_outstanding_coupons)
+
+    workbook.save(response)
+    return response
 
 
 
@@ -2234,10 +2277,10 @@ def print_customer_outstanding(request):
     Print view for Customer Outstanding List
     """
     filter_data = {}
-    route_name = request.GET.get('route_name', '')
     q = request.GET.get('q', '')  
+    route_name = request.GET.get('route_name', '')
     date = request.GET.get('date')
-    print("date",date)
+    
     if request.GET.get('product_type'):
         product_type = request.GET.get('product_type')
     else:
@@ -2245,16 +2288,12 @@ def print_customer_outstanding(request):
         
     filter_data['product_type'] = product_type
     
-            
     if date:
         date = datetime.strptime(date, '%Y-%m-%d').date()
         filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     else:
         date = datetime.today().date()
         filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-    
-    
-    route_li = RouteMaster.objects.all()
     
     outstanding_instances = CustomerOutstanding.objects.filter(created_date__date__lte=date)
 
@@ -2264,45 +2303,46 @@ def print_customer_outstanding(request):
     if route_name:
         outstanding_instances = outstanding_instances.filter(customer__routes__route_name=route_name)
 
-    # if q:
-    #     outstanding_instances = outstanding_instances.filter(customer__customer_name__icontains=q)
+    if q:
+        outstanding_instances = outstanding_instances.filter(customer__customer_name__icontains=q)
         
     customer_ids = outstanding_instances.values_list('customer__pk', flat=True).distinct()
 
-    # Filter customers based on their outstanding amounts, empty bottles, and coupons
-    instances = Customers.objects.filter(pk__in=customer_ids).annotate(
-    total_outstanding=Sum('customeroutstanding__outstandingamount__amount'),
-    total_empty_bottle=Sum('customeroutstanding__outstandingproduct__empty_bottle'),
-    total_coupon_count=Sum('customeroutstanding__outstandingcoupon__count')
-    ).filter(
-        Q(total_outstanding__gt=0) | Q(total_empty_bottle__gt=0) | Q(total_coupon_count__gt=0)
-    )
-
-        
-    total_outstanding = OutstandingAmount.objects.filter(
-        customer_outstanding__customer__in=customer_ids,
-        customer_outstanding__created_date__date__lte=date
-    ).aggregate(total=Sum('amount'))['total'] or 0
-
-    # Calculate total collection amount
-    total_collection = CollectionPayment.objects.filter(
-        customer__in=customer_ids,
-        created_date__date__lte=date
-    ).aggregate(total=Sum('amount_received'))['total'] or 0 
-
-    # Compute net total outstanding
-    net_total_outstanding = total_outstanding - total_collection
+    instances = Customers.objects.filter(pk__in=customer_ids)
     
-    # Sum total outstanding bottles and coupons for all customers
-    total_outstanding_bottles = OutstandingProduct.objects.filter(
-        customer_outstanding__customer__in=customer_ids,
-        customer_outstanding__created_date__date__lte=date
-    ).aggregate(total=Sum('empty_bottle'))['total'] or 0
+    route_li = RouteMaster.objects.all()
 
-    total_outstanding_coupons = OutstandingCoupon.objects.filter(
-        customer_outstanding__customer__in=customer_ids,
-        customer_outstanding__created_date__date__lte=date
-    ).aggregate(total=Sum('count'))['total'] or 0
+    # Initialize totals
+    total_outstanding_amount = 0
+    total_outstanding_bottles = 0
+    total_outstanding_coupons = 0
+
+    # Loop through each customer to calculate totals
+    for customer in instances:
+        outstanding_amount = OutstandingAmount.objects.filter(
+            customer_outstanding__customer__pk=customer.pk, 
+            customer_outstanding__created_date__date__lte=date
+        ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        
+        collection_amount = CollectionPayment.objects.filter(
+            customer__pk=customer.pk, 
+            created_date__date__lte=date
+        ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+        
+        outstanding_amount = max(outstanding_amount - collection_amount, 0)
+        total_outstanding_amount += outstanding_amount
+        
+        total_bottles = OutstandingProduct.objects.filter(
+            customer_outstanding__customer__pk=customer.pk, 
+            customer_outstanding__created_date__date__lte=date
+        ).aggregate(total_bottles=Sum('empty_bottle'))['total_bottles'] or 0
+        total_outstanding_bottles += total_bottles
+
+        total_coupons = OutstandingCoupon.objects.filter(
+            customer_outstanding__customer__pk=customer.pk,
+            customer_outstanding__created_date__date__lte=date
+        ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
+        total_outstanding_coupons += total_coupons
 
     filter_data = {
         'filter_date': date.strftime('%Y-%m-%d'),
@@ -2315,7 +2355,7 @@ def print_customer_outstanding(request):
         'route_li':route_li,
         'date': date,
         'customer_pk': request.GET.get("customer_pk"),
-        'net_total_outstanding':net_total_outstanding,
+        'net_total_outstanding':total_outstanding_amount,
         'total_outstanding_bottles': total_outstanding_bottles,
         'total_outstanding_coupons': total_outstanding_coupons, 
         'is_customer_outstanding': True,
@@ -2326,90 +2366,100 @@ def print_customer_outstanding(request):
 
     return render(request, 'client_management/customer_outstanding/print.html', context)
 
-def excel_customer_outstanding(request):
-    # Create a workbook and a worksheet
-    workbook = openpyxl.Workbook()
-    worksheet = workbook.active
-    worksheet.title = 'Customer Outstanding Report'
-
-    # Define the headers
-    headers = ['Sl No', 'Customer ID', 'Customer', 'Building No', 
-               'Room No/Floor No', 'Route', 'Outstanding Amount',
-               'Outstanding Bottles', 'Outstanding Coupons']
-    worksheet.append(headers)
-
-    # Fetching the filter parameters from the request
-    date_str = request.GET.get('date', datetime.today().date())
-    date = datetime.strptime(date_str, '%Y-%m-%d').date()  # Convert to date object
-    route_name = request.GET.get('route_name', '')
+import xlwt
+def export_customer_outstanding_to_excel(request):
+    date = request.GET.get('date')
     
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+    else:
+        date = datetime.today().date()
+
     outstanding_instances = CustomerOutstanding.objects.filter(created_date__date__lte=date)
     
     if request.GET.get("customer_pk"):
         outstanding_instances = outstanding_instances.filter(customer__pk=request.GET.get("customer_pk"))
 
-    if route_name:
+    if request.GET.get('route_name'):
+        route_name = request.GET.get('route_name')
         outstanding_instances = outstanding_instances.filter(customer__routes__route_name=route_name)
 
     customer_ids = outstanding_instances.values_list('customer__pk', flat=True).distinct()
-    # Filter customers based on their outstanding amounts, empty bottles, and coupons
-    instances = Customers.objects.filter(pk__in=customer_ids).annotate(
-    total_outstanding=Sum('customeroutstanding__outstandingamount__amount'),
-    total_empty_bottle=Sum('customeroutstanding__outstandingproduct__empty_bottle'),
-    total_coupon_count=Sum('customeroutstanding__outstandingcoupon__count')
-    ).filter(
-        Q(total_outstanding__gt=0) | Q(total_empty_bottle__gt=0) | Q(total_coupon_count__gt=0)
-    )
 
-    total_outstanding = OutstandingAmount.objects.filter(
-        customer_outstanding__customer__in=customer_ids,
-        customer_outstanding__created_date__date__lte=date
-    ).aggregate(total=Sum('amount'))['total'] or 0
+    instances = Customers.objects.filter(pk__in=customer_ids)
 
-    # Calculate total collection amount
-    total_collection = CollectionPayment.objects.filter(
-        customer__in=customer_ids,
-        created_date__date__lte=date
-    ).aggregate(total=Sum('amount_received'))['total'] or 0
-
-    # Compute net total outstanding
-    net_total_outstanding = total_outstanding - total_collection
-
-    total_outstanding_bottles = 0  # Initialize total outstanding bottles
-    total_outstanding_coupons = 0    # Initialize total outstanding coupons
-
-    for idx, customer in enumerate(instances, start=1):
-        outstanding_amount = OutstandingAmount.objects.filter(
-            customer_outstanding__customer=customer,
-            customer_outstanding__created_date__date__lte=date
-        ).aggregate(total=Sum('amount'))['total'] or 0
-        
-        outstanding_bottles = customer.total_empty_bottle or 0  # Fetch outstanding bottles
-        outstanding_coupons = customer.total_coupon_count or 0   # Fetch outstanding coupons
-
-        # Append each row of data
-        worksheet.append([idx, customer.custom_id, customer.customer_name, customer.building_name,
-                          customer.door_house_no, customer.routes.route_name, outstanding_amount,
-                          outstanding_bottles, outstanding_coupons])
-
-        # Update the total outstanding bottles and coupons
-        total_outstanding_bottles += outstanding_bottles
-        total_outstanding_coupons += outstanding_coupons
-
-    # Append the net total outstanding at the end of the worksheet
-    worksheet.append(['', '', '', '', '', 'Net Total Outstanding', net_total_outstanding,
-                      total_outstanding_bottles, total_outstanding_coupons])
-
-    # Save the workbook to a BytesIO stream
-    output = BytesIO()
-    workbook.save(output)
-    output.seek(0)  # Move to the beginning of the BytesIO stream
-
-    # Set the response for the Excel file
-    response = HttpResponse(content=output.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename=customer_outstanding_report.xlsx'
+    # Create the Excel workbook and worksheet
+    response = HttpResponse(content_type='application/ms-excel')
+    response['Content-Disposition'] = 'attachment; filename="customer_outstanding_report.xls"'
     
+    wb = xlwt.Workbook(encoding='utf-8')
+    ws = wb.add_sheet('Outstanding Report')
+
+    # Define the header row
+    row_num = 0
+    columns = ['Customer ID', 'Customer Name', 'Building No', 'Room No/Floor No', 'Route', 'Amount', 'Empty Can', 'Coupon']
+
+    for col_num, column in enumerate(columns):
+        ws.write(row_num, col_num, column)
+
+    # Variables to store total amounts
+    total_outstanding = 0
+    total_bottles = 0
+    total_coupons = 0
+
+    # Iterate over the customers and filter those with all zero values
+    for customer in instances:
+        outstanding_amount = OutstandingAmount.objects.filter(
+            customer_outstanding__customer__pk=customer.pk, 
+            customer_outstanding__created_date__date__lte=date
+        ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+
+        collection_amount = CollectionPayment.objects.filter(
+            customer__pk=customer.pk, 
+            created_date__date__lte=date
+        ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+
+        outstanding_amount = max(outstanding_amount - collection_amount, 0)
+
+        total_bottles_per_customer = OutstandingProduct.objects.filter(
+            customer_outstanding__customer__pk=customer.pk, 
+            customer_outstanding__created_date__date__lte=date
+        ).aggregate(total_bottles=Sum('empty_bottle'))['total_bottles'] or 0
+
+        total_coupons_per_customer = OutstandingCoupon.objects.filter(
+            customer_outstanding__customer__pk=customer.pk,
+            customer_outstanding__created_date__date__lte=date
+        ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
+
+        # Only write customers with non-zero outstanding values
+        if outstanding_amount == 0 and total_bottles_per_customer == 0 and total_coupons_per_customer == 0:
+            continue
+
+        row_num += 1
+        ws.write(row_num, 0, customer.custom_id)
+        ws.write(row_num, 1, customer.customer_name)
+        ws.write(row_num, 2, customer.building_name)
+        ws.write(row_num, 3, customer.door_house_no)
+        ws.write(row_num, 4, customer.routes.route_name)
+        ws.write(row_num, 5, outstanding_amount)
+        ws.write(row_num, 6, total_bottles_per_customer)
+        ws.write(row_num, 7, total_coupons_per_customer)
+
+        # Update total sums
+        total_outstanding += outstanding_amount
+        total_bottles += total_bottles_per_customer
+        total_coupons += total_coupons_per_customer
+
+    # Write the total row
+    row_num += 1
+    ws.write(row_num, 4, 'Total')  # Label for the total row
+    ws.write(row_num, 5, total_outstanding)
+    ws.write(row_num, 6, total_bottles)
+    ws.write(row_num, 7, total_coupons)
+
+    wb.save(response)
     return response
+
 
 
 def edit_customer_outstanding(request, outstanding_pk):
@@ -2615,6 +2665,7 @@ def outstanding_list(request):
     }
 
     return render(request, 'client_management/customer_outstanding/outstanding_list.html', context)
+
 def print_outstanding_report(request):
     """
     Print Customer Outstanding Report
