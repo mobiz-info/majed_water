@@ -3115,7 +3115,9 @@ class create_customer_supply(APIView):
         allocate_bottle_to_pending = request.data.get('allocate_bottle_to_pending')
         allocate_bottle_to_custody = request.data.get('allocate_bottle_to_custody')
         allocate_bottle_to_paid = request.data.get('allocate_bottle_to_paid')
+        allocate_bottle_to_free = request.data.get('allocate_bottle_to_free')
         reference_no = request.data.get('reference_number')
+        date_part = timezone.now().strftime('%Y%m%d')
         
         customer_outstanding_coupon = None
         customer_outstanding_empty_can = None
@@ -3138,6 +3140,7 @@ class create_customer_supply(APIView):
                     allocate_bottle_to_pending=allocate_bottle_to_pending,
                     allocate_bottle_to_custody=allocate_bottle_to_custody,
                     allocate_bottle_to_paid=allocate_bottle_to_paid,
+                    allocate_bottle_to_free=allocate_bottle_to_free,
                     created_by=request.user.id,
                     created_date=datetime.today()
                 )
@@ -3161,11 +3164,16 @@ class create_customer_supply(APIView):
                         vanstock.stock -= suply_items.quantity
                         if customer_supply.customer.sales_type != "FOC" :
                             vanstock.sold_count += suply_items.quantity
+                        
                         if customer_supply.customer.sales_type == "FOC" :
                             vanstock.foc += suply_items.quantity
+                        
                         if suply_items.product.product_name == "5 Gallon" :
                             total_fivegallon_qty += Decimal(suply_items.quantity)
                             vanstock.empty_can_count += collected_empty_bottle
+                            
+                            if customer_supply.customer.customer_type == "WATCHMAN" :
+                                vanstock.foc += customer_supply.allocate_bottle_to_free
                         vanstock.save()
                         
                     else:
@@ -3193,16 +3201,12 @@ class create_customer_supply(APIView):
                         custody_custom=custody_instance
                         )
                     
-                    custody_stock, created = CustomerCustodyStock.objects.get_or_create(
+                    custody_stock = CustomerCustodyStock.objects.get_or_create(
                         customer=customer_supply.customer,
                         product=ProdutItemMaster.objects.get(product_name="5 Gallon"),
                     )
-
-                    # Set the reference number and other attributes
-                    custody_stock.reference_no = f"supply {customer_supply.customer.custom_id} - {customer_supply.created_date}"
+                    custody_stock.reference_no=f"supply {customer_supply.customer.custom_id} - {customer_supply.created_date}"   
                     custody_stock.quantity = allocate_bottle_to_custody
-
-                    # Save the instance
                     custody_stock.save()
                     
                     if (bottle_count:=BottleCount.objects.filter(van=van,created_date__date=customer_supply.created_date.date())).exists():
@@ -3280,11 +3284,7 @@ class create_customer_supply(APIView):
                                         customer_supply_coupon.free_leaf.add(leaflet_instance)
                                         leaflet_instance.used=True
                                         leaflet_instance.save()
-                                        
-                                    vancouponstock,create = VanCouponStock.objects.get_or_create(coupon=leaflet_instance.coupon,created_date=datetime.today().date(),van=van)
-                                    vancouponstock.used_leaf_count = 1
-                                    vancouponstock.save()
-                                        
+                                    
                                     if CustomerCouponStock.objects.filter(customer__pk=customer_supply_data['customer'],coupon_method="manual",coupon_type_id=leaflet_instance.coupon.coupon_type).exists() :
                                         customer_stock = CustomerCouponStock.objects.get(customer__pk=customer_supply_data['customer'],coupon_method="manual",coupon_type_id=leaflet_instance.coupon.coupon_type)
                                         customer_stock.count -= 1
@@ -3478,9 +3478,27 @@ class create_customer_supply(APIView):
                             # pass
                     
                     # if customer_supply.customer.sales_type == "CASH" or customer_supply.customer.sales_type == "CREDIT":
+                    # Generate a unique receipt number
+                    try:
+                        reciept_last_no = Receipt.objects.all().latest('created_date')
+                        last_reciept_number = reciept_last_no.receipt_number
+
+                        # Validate the format of the last invoice number
+                        parts = last_reciept_number.split('-')
+                        if len(parts) == 3 and parts[0] == 'RCT' and parts[1] == date_part:
+                            prefix, old_date_part, number_part = parts
+                            r_new_number_part = int(number_part) + 1
+                            receipt_number = f'{prefix}-{date_part}-{r_new_number_part:04d}'
+                        else:
+                            # If the last invoice number is not in the expected format, generate a new one
+                            random_part = str(random.randint(1000, 9999))
+                            receipt_number = f'RCT-{date_part}-{random_part}'
+                    except Receipt.DoesNotExist:
+                        random_part = str(random.randint(1000, 9999))
+                        receipt_number = f'RCT-{date_part}-{random_part}'
+                    
                     invoice_generated = True
                     
-                    date_part = timezone.now().strftime('%Y%m%d')
                     try:
                         invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
                         last_invoice_number = invoice_last_no.invoice_no
@@ -3574,7 +3592,18 @@ class create_customer_supply(APIView):
                         assign_this_to=customer_supply.salesman_id,
                         customer=customer_supply.customer_id
                         ).update(status='supplied')
-
+                    
+                    invoice_numbers = []
+                    invoice_numbers.append(invoice.invoice_no)
+                    
+                    receipt = Receipt.objects.create(
+                        transaction_type="supply",
+                        instance_id=str(customer_supply.id),  
+                        amount_received=customer_supply.amount_recieved,
+                        receipt_number=receipt_number,
+                        customer=customer_supply.customer,
+                        invoice_number=",".join(invoice_numbers)
+                    )
                 if invoice_generated:
                     response_data = {
                         "status": "true",

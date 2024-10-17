@@ -425,43 +425,44 @@ class CustomerOutstandingReport(models.Model):
 
 
 class CustomerSupply(models.Model):
-        id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-        customer = models.ForeignKey('accounts.Customers',on_delete = models.CASCADE)
-        salesman = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE)
-        grand_total = models.DecimalField(default=0, max_digits=10, decimal_places=2)
-        discount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
-        net_payable = models.DecimalField(default=0, max_digits=10, decimal_places=2)
-        vat = models.DecimalField(default=0, max_digits=10, decimal_places=2)
-        subtotal = models.DecimalField(default=0, max_digits=10, decimal_places=2)
-        amount_recieved = models.DecimalField(default=0, max_digits=10, decimal_places=2)
-        collected_empty_bottle = models.PositiveIntegerField(default=0)
-        allocate_bottle_to_pending = models.PositiveIntegerField(default=0)
-        allocate_bottle_to_custody = models.PositiveIntegerField(default=0)
-        allocate_bottle_to_paid = models.PositiveIntegerField(default=0)
-        reference_number = models.CharField(max_length=100, null=True, blank=True)
-        invoice_no = models.CharField(max_length=100, null=True, blank=True)
-        
-        created_by = models.CharField(max_length=30, blank=True)
-        created_date = models.DateTimeField()
-        modified_by = models.CharField(max_length=20, null=True, blank=True)
-        modified_date = models.DateTimeField(auto_now=True ,blank=True, null=True)
-        is_edited = models.BooleanField(default=False)
-        
-        class Meta:
-            ordering = ('-created_date',)
-        def __str__(self):
-            return str(self.customer)
-        
-        def get_total_supply_qty(self):
-            return CustomerSupplyItems.objects.filter(customer_supply=self).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
-        
-        def total_coupon_recieved(self):
-            valueble_leaf_count = CustomerSupplyCoupon.objects.filter(customer_supply=self).aggregate(Count('leaf'))['leaf__count'] or 0
-            free_leaf_count = CustomerSupplyCoupon.objects.filter(customer_supply=self).aggregate(Count('free_leaf'))['free_leaf__count'] or 0
-            return {
-                "manual_coupon": valueble_leaf_count + free_leaf_count,
-                "digital_coupon": CustomerSupplyDigitalCoupon.objects.filter(customer_supply=self).aggregate(total_count=Sum('count'))['total_count'] or 0
-            }
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer = models.ForeignKey('accounts.Customers',on_delete = models.CASCADE)
+    salesman = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE)
+    grand_total = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    discount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    net_payable = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    vat = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    subtotal = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    amount_recieved = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    collected_empty_bottle = models.PositiveIntegerField(default=0)
+    allocate_bottle_to_pending = models.PositiveIntegerField(default=0)
+    allocate_bottle_to_custody = models.PositiveIntegerField(default=0)
+    allocate_bottle_to_paid = models.PositiveIntegerField(default=0)
+    allocate_bottle_to_free = models.PositiveIntegerField(default=0)
+    reference_number = models.CharField(max_length=100, null=True, blank=True)
+    invoice_no = models.CharField(max_length=100, null=True, blank=True)
+    
+    created_by = models.CharField(max_length=30, blank=True)
+    created_date = models.DateTimeField()
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(auto_now=True ,blank=True, null=True)
+    is_edited = models.BooleanField(default=False)
+    
+    class Meta:
+        ordering = ('-created_date',)
+    def __str__(self):
+        return str(self.customer)
+    
+    def get_total_supply_qty(self):
+        return CustomerSupplyItems.objects.filter(customer_supply=self).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+    
+    def total_coupon_recieved(self):
+        value_leaf = CustomerSupplyCoupon.objects.filter(customer_supply=self).aggregate(Count('leaf'))['leaf__count']
+        value_leaf += CustomerSupplyCoupon.objects.filter(customer_supply=self).aggregate(Count('free_leaf'))['free_leaf__count']
+        return {
+            "manual_coupon": value_leaf,
+            "digital_coupon": CustomerSupplyDigitalCoupon.objects.filter(customer_supply=self).aggregate(total_count=Sum('count'))['total_count'] or 0
+        }
             
 
 class CustomerSupplyItems(models.Model):
