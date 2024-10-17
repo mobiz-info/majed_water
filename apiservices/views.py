@@ -3115,7 +3115,7 @@ class create_customer_supply(APIView):
         allocate_bottle_to_pending = request.data.get('allocate_bottle_to_pending')
         allocate_bottle_to_custody = request.data.get('allocate_bottle_to_custody')
         allocate_bottle_to_paid = request.data.get('allocate_bottle_to_paid')
-        allocate_bottle_to_free = request.data.get('allocate_bottle_to_free')
+        allocate_bottle_to_free = int(request.data.get('allocate_bottle_to_free') or 0)
         reference_no = request.data.get('reference_number')
         date_part = timezone.now().strftime('%Y%m%d')
         
