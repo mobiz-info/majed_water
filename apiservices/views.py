@@ -54,7 +54,7 @@ from accounts.models import *
 from master.models import *
 from credit_note.models import *
 from product.models import *
-from sales_management.models import CollectionItems, CollectionPayment, SalesmanSpendingLog
+from sales_management.models import CollectionItems, CollectionPayment, Receipt, SalesmanSpendingLog
 from van_management.models import *
 from customer_care.models import *
 from order.models import *
