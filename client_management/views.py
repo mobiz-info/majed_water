@@ -3592,10 +3592,10 @@ def customer_transaction_list(request):
         'is_customer_outstanding': True,
         'is_need_datetime_picker': True,
     }
-    # log_activity(
-    #     created_by=request.user if request.user.is_authenticated else None,
-    #     description="Viewed the customer outstanding list with filters applied."
-    # )
+    log_activity(
+        created_by=request.user if request.user.is_authenticated else None,
+        description="Viewed the customer transaction list with filters applied."
+    )
     return render(request, 'client_management/customer_outstanding/customer_transaction_list.html', context)
 from django.shortcuts import get_object_or_404, render
 
@@ -3658,5 +3658,10 @@ def customer_transaction_detail(request, customer_pk):
         'page_name': 'Customer Transaction Detail',
         'page_title': 'Customer Transaction Detail'
     }
+    
+    log_activity(
+        created_by=request.user if request.user.is_authenticated else None,
+        description="Viewed the customer detail list with filters applied."
+    )
 
     return render(request, 'client_management/customer_outstanding/customer_transaction_detail.html', context)
