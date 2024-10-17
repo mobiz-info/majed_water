@@ -96,35 +96,37 @@
                                                 <td style="text-align:left;">{{total_bottle_count}}</td>
                                                 <td style="text-align:left;">{{data.sales_type}}</td>
                                                 <td style="text-align:right;">{{data.rate}}</td>
-                                            
+                                                
                                                 <td style="text-align:center;">
                                                     <div class="g-2">
-                                                        <a href="{% url 'customer_details' data.customer_id %}" aria-label="anchor" class="btn  btn-warning-light btn-sm" data-bs-toggle="tooltip" data-bs-original-title="View">
-                                                            <span class="bi bi-eye fs-14"></span>
+                                                        <a href="{% url 'customer_details' data.customer_id %}" aria-label="anchor" class="btn btn-warning-light btn-sm" data-bs-toggle="tooltip" data-bs-original-title="View">
+                                                            <span class="bi bi-eye-fill fs-14"></span> <!-- Icon updated for 'View' -->
                                                         </a>
                                                         <a href="{% url 'edit_customer' data.customer_id %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Edit">
-                                                            <span class="ri-pencil-line fs-14"></span>
+                                                            <span class="bi bi-pencil-square fs-14"></span> <!-- Icon updated for 'Edit' -->
                                                         </a>
                                                         <a href="{% url 'visit_days_assign' data.customer_id %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Assign Visit Days">
-                                                            <span class="ri-arrow-right-s-line fs-14"></span>
+                                                            <span class="bi bi-calendar-plus fs-14"></span> <!-- Icon updated for 'Assign Visit Days' -->
                                                         </a>
                                                         <a href="{% url 'customer_custody_items' data.customer_id %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Custody Item">
-                                                            <span class="bi bi-cart fs-14"></span>
+                                                            <span class="bi bi-box-seam fs-14"></span> <!-- Icon updated for 'Custody Item' -->
                                                         </a>
                                                         <a href="{% url 'customer_outstanding_list' %}?customer_pk={{ data.customer_id }}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Outstanding">
-                                                            <span class="bi bi-cart fs-14"></span>
+                                                            <span class="bi bi-cash-coin fs-14"></span> <!-- Icon updated for 'Outstanding' -->
                                                         </a>
-                                                        {% comment %} <a href="" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Coupons"> {% endcomment %}
+                                                        <a href="{% url 'customer_transaction_list' %}?customer_pk={{ data.customer_id }}" aria-label="anchor" class="btn btn-success btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Customer Transaction">
+                                                            <span class="bi bi-receipt fs-14"></span> <!-- Icon updated for 'Customer Transaction' -->
+                                                        </a>
                                                         <a href="{% url 'coupon_count_list' data.customer_id %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Coupons">
-                                                            {% comment %} <a href="{% url 'coupon_count_list' data.customer_id %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Coupons"> {% endcomment %}
-                                                            <span class="bi bi-ticket-fill fs-14"></span>
+                                                            <span class="bi bi-ticket-detailed fs-14"></span> <!-- Icon updated for 'Coupons' -->
                                                         </a>
                                                         <a aria-label="anchor" class="action-button remove btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete"
-                                                            data-id="{{data.pk}}" data-text="{{confirm_delete_message}}" data-title="Are you sure?" href="{% url 'delete_customer' pk=data.pk %}">
-                                                            <span class="ri-delete-bin-7-line fs-14"></span>
+                                                        data-id="{{data.pk}}" data-text="{{confirm_delete_message}}" data-title="Are you sure?" href="{% url 'delete_customer' pk=data.pk %}">
+                                                            <span class="bi bi-trash3 fs-14"></span> <!-- Icon updated for 'Delete' -->
                                                         </a>
                                                     </div>
                                                 </td>
+
                                             </tr>
                                         {%endfor%}
                                         </tbody>

@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}Customer Transaction List{% endblock %}
+{% block content %}
+{% load static %}
+{% load client_templatetags %}
+
+<!-- Page Header -->
+<div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between">
+    <h4 class="fw-medium mb-0">Customer Transaction List</h4>
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="javascript:void(0);" class="text-white-30">Client Management</a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">Customer Transaction List</li>
+    </ol>
+</div>
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-xl-12">
+                <div class="card custom-card">
+                    <div class="card-header">
+                        <div class="w-100 d-flex justify-content-end align-items-center">
+                            <!-- Add buttons or filters here if needed -->
+                        </div>
+                    </div>
+
+                    <div id="table-container" class="card-body">
+                        <table class="table table-bordered text-wrap" style="width: 100%">
+                            <thead>
+                                <tr>
+                                    <th>Sl No</th>
+                                    <th>Customer ID</th>
+                                    <th>Customer</th>
+                                    <th>Building No</th>
+                                    <th>Room No/Floor No</th>
+                                    <th>Route</th>
+                                    <th>Amount</th>
+                                    <th>Empty Can</th>
+                                    <th>Coupon</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% load el_pagination_tags %}
+                                {% paginate 20 instances %}
+                                {% for customer in instances %}
+                                    {% get_outstanding_amount customer.pk date as outstanding_amount %}
+                                    {% if outstanding_amount != 0 %}
+                                    {% get_outstanding_bottles customer.pk date as outstanding_bottles %}
+                                    {% get_outstanding_coupons customer.pk date as outstanding_coupons %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ customer.custom_id }}</td>
+                                        <td>{{ customer.customer_name }}</td>
+                                        <td>{{ customer.building_name }}</td>
+                                        <td>{{ customer.door_house_no }}</td>
+                                        <td>{{ customer.routes.route_name }}</td>
+                                        <td>{{ outstanding_amount }}</td>
+                                        <td>{{ outstanding_bottles }}</td>
+                                        <td>{{ outstanding_coupons }}</td>
+                                        <td class="text-center">
+                                            <a href="{% url 'customer_transaction_detail' customer.pk %}" class="btn btn-warning-light btn-sm" data-bs-toggle="tooltip" title="View Transaction">
+                                                <span class="bi bi-receipt fs-14"></span>
+                                            </a>
+
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="6" class="text-end fw-bold">Total Outstanding Amount:</td>
+                                    <td class="fw-bold">{{ net_total_outstanding }}</td>
+                                    <td class="fw-bold">{{ total_outstanding_bottles }}</td>
+                                    <td class="fw-bold">{{ total_outstanding_coupons }}</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <!-- Back Button -->
+                            <div class="col-12 text-end mt-5">
+                            <button class="btn btn-success   me-md-2  mb-2" type="button"
+                                    onClick="javascript:history.go(-1);">
+                                    <i class="bi bi-backspace-fill pe-1"></i>Back
+                            </button>
+
+                        </div>
+
+                    <div class="clearfix"></div>
+                    <div class="row pagi my-3">
+                        <div class="col-sm-6 text-start">
+                            <div class="m-t-10">
+                                Showing {{ title }} {{ pages.current_start_index }} - {{ pages.current_end_index }} of {{ pages.total_count }}
+                            </div>
+                        </div>
+                        <div class="col-sm-6 text-end">
+                            {% show_pages %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
