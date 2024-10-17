@@ -4717,31 +4717,44 @@ class customer_outstanding(APIView):
         # Filter out customers with zero amount, empty can, and coupons
         filtered_data = [customer for customer in serialized_data.data if customer['amount'] > 0 or customer['empty_can'] > 0 or customer['coupons'] > 0]
         
-        # total outstanding amount
-        outstanding_amounts = OutstandingAmount.objects.filter(
-            customer_outstanding__customer__pk__in=customers.values_list('pk'),
-            customer_outstanding__created_date__date__lte=date
-        ).aggregate(total=Sum('amount'))['total'] or 0
-        
-        collection_amount = CollectionPayment.objects.filter(
-            customer__pk__in=customers.values_list('pk'),
-            created_date__date__lte=date
-        ).aggregate(total=Sum('amount_received'))['total'] or 0
+        # Initialize totals
+        total_outstanding_amount = 0
+        total_outstanding_bottles = 0
+        total_outstanding_coupons = 0
 
-        total_amount = max(outstanding_amounts - collection_amount, 0)
-        
-        customer_outstanding = CustomerOutstandingReport.objects.filter(
-            customer__pk__in=customers.values_list('pk')
-        )
-        total_coupons = customer_outstanding.filter(product_type="coupons").aggregate(total=Sum('value', output_field=DecimalField()))['total'] or 0
-        total_emptycan = customer_outstanding.filter(product_type="emptycan").aggregate(total=Sum('value', output_field=DecimalField()))['total'] or 0
+        # Loop through each customer to calculate totals
+        for customer in customers:
+            outstanding_amount = OutstandingAmount.objects.filter(
+                customer_outstanding__customer__pk=customer.pk, 
+                customer_outstanding__created_date__date__lte=date
+            ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+            
+            collection_amount = CollectionPayment.objects.filter(
+                customer__pk=customer.pk, 
+                created_date__date__lte=date
+            ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+            
+            outstanding_amount = max(outstanding_amount - collection_amount, 0)
+            total_outstanding_amount += outstanding_amount
+            
+            total_bottles = OutstandingProduct.objects.filter(
+                customer_outstanding__customer__pk=customer.pk, 
+                customer_outstanding__created_date__date__lte=date
+            ).aggregate(total_bottles=Sum('empty_bottle'))['total_bottles'] or 0
+            total_outstanding_bottles += total_bottles
+
+            total_coupons = OutstandingCoupon.objects.filter(
+                customer_outstanding__customer__pk=customer.pk,
+                customer_outstanding__created_date__date__lte=date
+            ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
+            total_outstanding_coupons += total_coupons
         
         return Response({
             'status': True,
             'data': filtered_data,
-            "total_amount": total_amount,
-            "total_coupons": total_coupons,
-            "total_emptycan": total_emptycan,
+            "total_amount": total_outstanding_amount,
+            "total_coupons": total_outstanding_bottles,
+            "total_emptycan": total_outstanding_bottles,
             'message': 'success'
         })
 
