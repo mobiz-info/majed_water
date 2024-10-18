@@ -1696,7 +1696,7 @@ def handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty):
             
             log_activity(
                 created_by=customer_supply_instance.created_by,
-                description=f"Updated outstanding empty can report for customer {customer_supply_instance.customer.customer_name}. Deducted {total_empty_bottle} empty bottles."
+                description=f"Updated outstanding empty can report for customer {customer_supply_instance.customer.customer_name}. Deducted {balance_empty_bottle} empty bottles."
             )
         except:
             pass
@@ -1719,11 +1719,14 @@ def update_van_product_stock(customer_supply_instance, supply_items_instances, f
                 if item_data.product.product_name == "5 Gallon":
                     van_stock.empty_can_count += customer_supply_instance.collected_empty_bottle
                 van_stock.stock += item_data.quantity
-                van_stock.sold_count -= item_data.quantity
+                if van_stock.sold_count > 0:
+                    van_stock.sold_count -= item_data.quantity
+                else:
+                    van_stock.sold_count = 0 
                 van_stock.save()
                 log_activity(
                     created_by=customer_supply_instance.created_by,
-                    description=f"Updated VanProductStock for product {item_data.product.product_name}. Adjusted stock by {item_data.quantity}, empty can count by {new_empty_can_count}."
+                    description=f"Updated VanProductStock for product {item_data.product.product_name}. Adjusted stock by {item_data.quantity}, empty can count by {van_stock.empty_can_count}."
                 )
 #------------------------------REPORT----------------------------------------
 
