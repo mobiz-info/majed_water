@@ -715,7 +715,7 @@ def create_customer_supply(request,pk):
 
                         log_activity(
                             created_by=customer_suply_form_instance.created_by,
-                            description=f"Supply Item '{item_data.product.product_name}' (Qty: {item_data.quantity}) added to Customer Supply ID {customer_supply_instance.pk}"
+                            description=f"Supply Item '{item_data.product.product_name}' (Qty: {item_data.quantity}) added to Customer Supply "
                         )
                         
                         vanstock = VanProductStock.objects.get(created_date=customer_suply_form_instance.created_date.date(), product=item_data.product, van=van)
@@ -1696,7 +1696,7 @@ def handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty):
             
             log_activity(
                 created_by=customer_supply_instance.created_by,
-                description=f"Updated outstanding empty can report for customer {customer_supply_instance.customer.customer_name}. Deducted {total_empty_bottle} empty bottles."
+                description=f"Updated outstanding empty can report for customer {customer_supply_instance.customer.customer_name}."
             )
         except:
             pass
@@ -1723,7 +1723,7 @@ def update_van_product_stock(customer_supply_instance, supply_items_instances, f
                 van_stock.save()
                 log_activity(
                     created_by=customer_supply_instance.created_by,
-                    description=f"Updated VanProductStock for product {item_data.product.product_name}. Adjusted stock by {item_data.quantity}, empty can count by {new_empty_can_count}."
+                    description=f"Updated VanProductStock for product {item_data.product.product_name}. Adjusted stock by {item_data.quantity}."
                 )
 #------------------------------REPORT----------------------------------------
 
