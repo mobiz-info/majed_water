@@ -715,7 +715,7 @@ def create_customer_supply(request,pk):
 
                         log_activity(
                             created_by=customer_suply_form_instance.created_by,
-                            description=f"Supply Item '{item_data.product.product_name}' (Qty: {item_data.quantity}) added to Customer Supply ID {customer_supply_instance.pk}"
+                            description=f"Supply Item '{item_data.product.product_name}' (Qty: {item_data.quantity}) added to Customer Supply "
                         )
                         
                         vanstock = VanProductStock.objects.get(created_date=customer_suply_form_instance.created_date.date(), product=item_data.product, van=van)
