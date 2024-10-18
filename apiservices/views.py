@@ -2736,7 +2736,37 @@ class CustomerCouponRecharge(APIView):
                         salesman=request.user,
                         amount=invoice_instance.amout_recieved,
                     ) 
+                    
+                    # Generate receipt number
+                    try:
+                        receipt_last_no = Receipt.objects.all().latest('created_date')
+                        last_receipt_number = receipt_last_no.receipt_number
 
+                        # Validate the format of the last receipt number
+                        parts = last_receipt_number.split('-')
+                        if len(parts) == 3 and parts[0] == 'RCT' and parts[1] == date_part:
+                            prefix, old_date_part, number_part = parts
+                            new_number_part = int(number_part) + 1
+                            receipt_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+                        else:
+                            # If the last receipt number is not in the expected format, generate a new one
+                            random_part = str(random.randint(1000, 9999))
+                            receipt_number = f'RCT-{date_part}-{random_part}'
+                    except Receipt.DoesNotExist:
+                        random_part = str(random.randint(1000, 9999))
+                        receipt_number = f'RCT-{date_part}-{random_part}'
+
+                    invoice_numbers = []
+                    invoice_numbers.append(invoice_instance.invoice_no)
+                    
+                    receipt = Receipt.objects.create(
+                        transaction_type='coupon_rechange',
+                        instance_id=str(customer_coupon.id),  
+                        amount_received=customer_coupon.amount_recieved,
+                        receipt_number=receipt_number,
+                        invoice_number=",".join(invoice_numbers),
+                        customer=customer_coupon.customer
+                    )
                 # Create ChequeCouponPayment instanceno_of_leaflets
                 cheque_payment_instance = None
                 if coupon_data.pop("payment_type") == 'cheque':
@@ -4966,6 +4996,25 @@ class AddCollectionPayment(APIView):
         except Customers.DoesNotExist:
             return Response({"message": "Customer does not exist."}, status=status.HTTP_404_NOT_FOUND)
         
+        # Generate a unique receipt number
+        try:
+            reciept_last_no = Receipt.objects.all().latest('created_date')
+            last_reciept_number = reciept_last_no.receipt_number
+
+            # Validate the format of the last invoice number
+            parts = last_reciept_number.split('-')
+            if len(parts) == 3 and parts[0] == 'RCT' and parts[1] == date_part:
+                prefix, old_date_part, number_part = parts
+                r_new_number_part = int(number_part) + 1
+                receipt_number = f'{prefix}-{date_part}-{r_new_number_part:04d}'
+            else:
+                # If the last invoice number is not in the expected format, generate a new one
+                random_part = str(random.randint(1000, 9999))
+                receipt_number = f'RCT-{date_part}-{random_part}'
+        except Receipt.DoesNotExist:
+            random_part = str(random.randint(1000, 9999))
+            receipt_number = f'RCT-{date_part}-{random_part}'
+            
         # Use atomic transaction to ensure data consistency
         with transaction.atomic():
             # Create collection payment instance
@@ -4977,13 +5026,15 @@ class AddCollectionPayment(APIView):
             )
             
             remaining_amount = amount_received
+            
+            invoice_numbers = []
             # Iterate over invoice IDs
             for invoice_id in invoice_ids:
                 try:
                     invoice = Invoice.objects.get(pk=invoice_id, customer=customer)
                 except Invoice.DoesNotExist:
                     continue
-                
+                invoice_numbers.append(invoice.invoice_no)
                 # Calculate the amount due for this invoice
                 due_amount = invoice.amout_total - invoice.amout_recieved
                 
@@ -5020,6 +5071,14 @@ class AddCollectionPayment(APIView):
                     # Break the loop if there is no remaining amount or the current invoice is fully paid
                     break
             
+            receipt = Receipt.objects.create(
+                transaction_type="collection",
+                instance_id=str(collection_payment.id),  # Correctly assign the ID as a string
+                amount_received=amount_received,
+                receipt_number=receipt_number,
+                customer=customer,
+                invoice_number=",".join(invoice_numbers)  # Join the invoice numbers into a comma-separated string
+            )
             # If there is remaining amount after paying all invoices, adjust it with the outstanding balance
             if remaining_amount != Decimal('0'):
                 negatieve_remaining_amount = -remaining_amount
