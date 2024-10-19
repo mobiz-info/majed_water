@@ -50,7 +50,10 @@ class CustomerOutstandingAmountAdmin(admin.ModelAdmin):
 
 admin.site.register(OutstandingAmount, CustomerOutstandingAmountAdmin)
 
-admin.site.register(OutstandingCoupon)
+class OutstandingCouponAdmin(admin.ModelAdmin):
+    list_display = ('id','customer_outstanding__customer','count')
+admin.site.register(OutstandingCoupon,OutstandingCouponAdmin)
+
 class CustomerOutstandingReportAdmin(admin.ModelAdmin):
     list_display = ('id','product_type','customer','value')
 admin.site.register(CustomerOutstandingReport,CustomerOutstandingReportAdmin)
