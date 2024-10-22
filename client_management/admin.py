@@ -50,7 +50,19 @@ class CustomerOutstandingAmountAdmin(admin.ModelAdmin):
 
 admin.site.register(OutstandingAmount, CustomerOutstandingAmountAdmin)
 
-admin.site.register(OutstandingCoupon)
+class OutstandingCouponAdmin(admin.ModelAdmin):
+    list_display = ('id', 'get_customer_name', 'count')
+
+    def get_customer_name(self, obj):
+        # Access the related customer through the 'customer_outstanding' relationship
+        return obj.customer_outstanding.customer.customer_name  # Assuming 'name' is the field in Customer
+
+    # Set the column name for the admin display
+    get_customer_name.short_description = 'Customer Name'
+
+admin.site.register(OutstandingCoupon, OutstandingCouponAdmin)
+
+
 class CustomerOutstandingReportAdmin(admin.ModelAdmin):
     list_display = ('id','product_type','customer','value')
 admin.site.register(CustomerOutstandingReport,CustomerOutstandingReportAdmin)
