@@ -5024,6 +5024,7 @@ class AddCollectionPayment(APIView):
                 customer=customer,
                 salesman=request.user,
                 amount_received=amount_received,
+                receipt_number=receipt_number,
             )
             
             remaining_amount = amount_received
