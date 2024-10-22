@@ -4990,7 +4990,7 @@ class AddCollectionPayment(APIView):
         invoice_ids = request.data.get("invoice_ids")
         customer_id = request.data.get("customer_id")
         date_part = timezone.now().strftime('%Y%m%d')
-        date_part = timezone.now().strftime('%Y%m%d')
+        
         # Retrieve customer object
         try:
             customer = Customers.objects.get(pk=customer_id)
@@ -5024,6 +5024,7 @@ class AddCollectionPayment(APIView):
                 customer=customer,
                 salesman=request.user,
                 amount_received=amount_received,
+                receipt_number=receipt_number,
             )
             
             remaining_amount = amount_received
