@@ -49,6 +49,9 @@ from datetime import datetime
 from django.utils import timezone
 from apiservices.notification import *
 from accounts.views import log_activity
+from van_management.models import Van, Van_Routes
+from sales_management.models import CollectionItems
+
 
 def customer_custody_item(request,customer_id):
     customer_instance = Customers.objects.get(customer_id=customer_id)
@@ -3547,175 +3550,99 @@ def upload_outstanding(request):
 
 def customer_transaction_list(request):
     """
-    Customer Outstanding List
+    Customer Transaction List
     :param request:
-    :return: Customer Outstanding list view
+    :return: Customer Transaction list view
     """
     filter_data = {}
-    route_name = request.GET.get('route_name', '')
-    q = request.GET.get('q', '')  
+    q = request.GET.get('q', '')
     date = request.GET.get('date')
-    
-    if request.GET.get('product_type'):
-        product_type = request.GET.get('product_type')
-    else:
-        product_type = "amount"
-        
-    filter_data['product_type'] = product_type
-    
+
+    # Handle date filtering
     if date:
         date = datetime.strptime(date, '%Y-%m-%d').date()
         filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     else:
-        date = datetime.today().date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-    
-            
-    # if not start_date:
-    #     start_date = datetime.today().date()
-    # else:
-    #     start_date = datetime.strptime(start_date, '%Y-%m-%d').date()    
-    # filter_data['start_date']=start_date
+        date = None  # No date provided
 
+    # Fetch all routes
     route_li = RouteMaster.objects.all()
+
+    # Fetch customer primary key from request
+    customer_pk = request.GET.get("customer_pk")
+
+# Initialize querysets for collection payments and invoices related to the customer
+    collection_payments = CollectionItems.objects.filter(
+        collection_payment__customer__pk=customer_pk
+    ).order_by('-collection_payment__created_date')
+    # print("collection_payments",collection_payments)
+
+    invoice_items = InvoiceItems.objects.filter(
+        invoice__customer__pk=customer_pk
+    ).order_by('-invoice__created_date')
+    # print("invoice_items",invoice_items)
+
+    outstanding_instances = CustomerOutstanding.objects.filter(
+        customer__pk=customer_pk
+    ).order_by('-created_date')
+    # print("outstanding_instances",outstanding_instances)
+
+    coupon_recharge = CustomerCouponItems.objects.filter(
+        customer_coupon__customer__pk=customer_pk
+    ).order_by('-customer_coupon__created_date')  
+    # print("coupon_recharge",coupon_recharge)
     
-    outstanding_instances = CustomerOutstanding.objects.filter(created_date__date__lte=date)
+    customer_supply = CustomerSupplyItems.objects.filter(
+        customer_supply__customer__pk=customer_pk
+    ).order_by('-customer_supply__created_date')
+    # print("customer_supply",customer_supply)
 
-    if request.GET.get("customer_pk"):
-        outstanding_instances = outstanding_instances.filter(customer__pk=request.GET.get("customer_pk"))
+    customer_orders_items = CustomerOrdersItems.objects.filter(
+        customer_order__customer__pk=customer_pk
+    ).order_by('-customer_order__created_date')
+    # print("customer_orders_items",customer_orders_items)
 
-    if route_name:
-        outstanding_instances = outstanding_instances.filter(customer__routes__route_name=route_name)
+    # Apply date filter only if a date is provided
+    if date:
+        collection_payments = collection_payments.filter(collection_payment__created_date__date__gte=date)
+        # print("filtered_collection_payments",collection_payments)
+        invoice_items = invoice_items.filter(invoice__created_date__date__gte=date)
+        # print("filtered_invoice_items",invoice_items)
 
-    if q:
-        outstanding_instances = outstanding_instances.filter(customer__customer_name__icontains=q)
+        outstanding_instances = outstanding_instances.filter(created_date__date__gte=date)
+        # print("filtered_outstanding_instances",outstanding_instances)
         
-    customer_ids = outstanding_instances.values_list('customer__pk', flat=True).distinct()
+        coupon_recharge = coupon_recharge.filter(customer_coupon__created_date__date__gte=date)
+        # print("filtered_coupon_recharge",coupon_recharge)
 
-    # Filter customers based on their outstanding amounts, empty bottles, and coupons
-    instances = Customers.objects.filter(pk__in=customer_ids).annotate(
-    total_outstanding=Sum('customeroutstanding__outstandingamount__amount'),
-    total_empty_bottle=Sum('customeroutstanding__outstandingproduct__empty_bottle'),
-    total_coupon_count=Sum('customeroutstanding__outstandingcoupon__count')
-    ).filter(
-        Q(total_outstanding__gt=0) | Q(total_empty_bottle__gt=0) | Q(total_coupon_count__gt=0)
-    )
+        customer_supply = customer_supply.filter(customer_supply__created_date__date__gte=date)
+        print("filtered_customer_supply",customer_supply)
 
-        
-    total_outstanding = OutstandingAmount.objects.filter(
-        customer_outstanding__customer__in=customer_ids,
-        customer_outstanding__created_date__date__lte=date
-    ).aggregate(total=Sum('amount'))['total'] or 0
+        customer_orders_items = customer_orders_items.filter(customer_order__created_date__date__gte=date)
+        # print("filtered_customer_orders_items",customer_orders_items)
 
-    # Calculate total collection amount
-    total_collection = CollectionPayment.objects.filter(
-        customer__in=customer_ids,
-        created_date__date__lte=date
-    ).aggregate(total=Sum('amount_received'))['total'] or 0 
 
-    # Compute net total outstanding
-    net_total_outstanding = total_outstanding - total_collection
-    
-    # Sum total outstanding bottles and coupons for all customers
-    total_outstanding_bottles = OutstandingProduct.objects.filter(
-        customer_outstanding__customer__in=customer_ids,
-        customer_outstanding__created_date__date__lte=date
-    ).aggregate(total=Sum('empty_bottle'))['total'] or 0
-
-    total_outstanding_coupons = OutstandingCoupon.objects.filter(
-        customer_outstanding__customer__in=customer_ids,
-        customer_outstanding__created_date__date__lte=date
-    ).aggregate(total=Sum('count'))['total'] or 0
-
-    filter_data = {
-        'filter_date': date.strftime('%Y-%m-%d'),
-        'route_name': route_name,
-        'product_type': product_type,
-    }
     context = {
-        'instances': instances,
         'filter_data': filter_data,
-        'route_li':route_li,
+        'route_li': route_li,
         'date': date,
-        'customer_pk': request.GET.get("customer_pk"),
-        'net_total_outstanding':net_total_outstanding,
-        'total_outstanding_bottles': total_outstanding_bottles,
-        'total_outstanding_coupons': total_outstanding_coupons,  
-        'page_name': 'Customer Outstanding List',
-        'page_title': 'Customer Outstanding List',
-        'is_customer_outstanding': True,
+        'customer_pk': customer_pk,
+        'collection_payments': collection_payments,
+        'invoice_items': invoice_items,
+        'outstanding_instances': outstanding_instances,
+        'coupon_recharge': coupon_recharge,
+        'customer_supply': customer_supply,
+        'customer_orders_items': customer_orders_items,
+        'page_name': 'Customer Transaction List',
+        'page_title': 'Customer Transaction List',
+        'is_customer_transaction': True,
         'is_need_datetime_picker': True,
     }
+
     log_activity(
         created_by=request.user if request.user.is_authenticated else None,
         description="Viewed the customer transaction list with filters applied."
     )
-    return render(request, 'client_management/customer_outstanding/customer_transaction_list.html', context)
-from django.shortcuts import get_object_or_404, render
-
-def customer_transaction_detail(request, customer_pk):
-    """
-    Customer Transaction Detail View
-    :param request:
-    :param customer_id: ID of the customer
-    :return: Customer transaction details for the selected customer
-    """
-    customer = get_object_or_404(Customers, pk=customer_pk)
-
-    # Retrieve the outstanding instances for the given customer
-    outstanding_instances = CustomerOutstanding.objects.filter(customer_id=customer_pk)
-    # Get all related supplies based on matching invoice numbers
-    supplies = CustomerSupply.objects.filter(
-        customer_id=customer_pk, 
-        invoice_no__in=outstanding_instances.values_list('invoice_no', flat=True)
-    )
     
-    outstanding_amount = OutstandingAmount.objects.filter(customer_outstanding__invoice_no__in=outstanding_instances,customer_outstanding__product_type='amount').first()
-    outstanding_empty_bottles = OutstandingProduct.objects.filter(
-        customer_outstanding__in=outstanding_instances, 
-        customer_outstanding__product_type='emptycan'
-    )
-    
-    # Get collected empty bottles from the supplies
-    collected_empty_bottles = CustomerSupply.objects.filter(
-        customer_id=customer_pk, 
-        invoice_no__in=outstanding_instances.values_list('invoice_no', flat=True)
-    ).aggregate(total_collected=Sum('collected_empty_bottle'))['total_collected'] or 0
+    return render(request, 'client_management/customer_transaction/customer_transaction_list.html', context)
 
-
-    # Retrieve manual and digital coupon details associated with the customer's outstanding
-    manual_coupon_details = OutstandingCoupon.objects.filter(
-        customer_outstanding__in=outstanding_instances,
-        customer_outstanding__product_type='coupons',
-        customer_outstanding__invoice_no__in=supplies.values_list('invoice_no', flat=True)
-    ).aggregate(total_manual_coupons=Sum('count'))['total_manual_coupons'] or 0
-
-    digital_coupon_details = CustomerSupplyDigitalCoupon.objects.filter(
-        customer_supply__in=supplies
-    ).aggregate(total_digital_coupons=Sum('count'))['total_digital_coupons'] or 0
-
-    # Combine both coupon types in the response
-    coupon_summary = {
-        'manual_coupons': manual_coupon_details,
-        'digital_coupons': digital_coupon_details,
-    }
-
-    context = {
-        'customer': customer,
-        'outstanding_instances': outstanding_instances,
-        'supplies': supplies,
-        'outstanding_amount': outstanding_amount,
-        'outstanding_empty_bottles': outstanding_empty_bottles,
-        'collected_empty_bottles': collected_empty_bottles,
-        'coupon_summary': coupon_summary,
-        'customer_id': customer_pk,
-        'page_name': 'Customer Transaction Detail',
-        'page_title': 'Customer Transaction Detail'
-    }
-    
-    log_activity(
-        created_by=request.user if request.user.is_authenticated else None,
-        description="Viewed the customer detail list with filters applied."
-    )
-
-    return render(request, 'client_management/customer_outstanding/customer_transaction_detail.html', context)
