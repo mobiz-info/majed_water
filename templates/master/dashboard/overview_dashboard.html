@@ -17,13 +17,13 @@
 <div class="main-content app-content" style={{"background:white"}}>
     <div class="container-fluid">
         <!-- Tab Buttons -->
-        <div class="tab mt-5 mb-3">
-            <button class="tablinks btn btn-primary mx-2" onclick="openTab(event, 'Overview')">Overview</button>
-            <button class="tablinks btn btn-primary mx-2" onclick="openTab(event, 'Sales')">Sales</button>
-            <button class="tablinks btn btn-primary mx-2" onclick="openTab(event, 'Bottle')">Bottle</button>
-            <button class="tablinks btn btn-primary mx-2" onclick="openTab(event, 'Coupons')">Coupons</button>
-            <button class="tablinks btn btn-primary mx-2" onclick="openTab(event, 'Custormer_Statistics')">Customer Statistics</button>
-            <button class="tablinks btn btn-primary mx-2" onclick="openTab(event, 'Others')">Others</button>
+        <div class="tab mt-5 mb-3" style="border-bottom: 2px solid #bfbfbf;max-height: 40px;">
+            <button class="tablinks btn rounded-0" onclick="openTab(event, 'Overview')">Overview</button>
+            <button class="tablinks btn rounded-0" onclick="openTab(event, 'Sales')">Sales</button>
+            <button class="tablinks btn rounded-0" onclick="openTab(event, 'Bottle')">Bottle</button>
+            <button class="tablinks btn rounded-0" onclick="openTab(event, 'Coupons')">Coupons</button>
+            <button class="tablinks btn rounded-0" onclick="openTab(event, 'Custormer_Statistics')">Customer Statistics</button>
+            <button class="tablinks btn rounded-0" onclick="openTab(event, 'Others')">Others</button>
         </div>
 
         <!-- Tab Content for overview tab -->
@@ -31,69 +31,114 @@
             <div class="row">
                 <!-- Overview Cards -->
                 <div class="col-md-3">
-                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                        <div class="card-body d-flex align-items-center justify-content-between">
+                    <div class="card" style="border-radius:12px; border:1px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                        <div class="card-body p-0 d-flex justify-content-between align-items-start">
                             <div>
-                                <h5>Cash Sale</h5>
-                                <p class="fs-4 fw-bold">{{ cash_sales }}</p>
+                                <!-- Left side: Heading and value -->
+                                <h6 class="m-0" style="color:#6c757d;">Cash Sale</h6>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ cash_sales }}</p>
                             </div>
+                            <!-- Right side: Icon with background -->
+                            <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
+                                <i class="bi bi-cash" style="font-size: 35px;color:#f52dcc;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="card" style="border-radius:12px; border:1px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                        <div class="card-body p-0 d-flex justify-content-between align-items-start">
                             <div>
-                                <i class="bi bi-cash" style="font-size:32px; background:#eac3ff; padding:10px; border-radius:42px; color:#f52dcc;"></i>
+                                <!-- Left side: Heading and value -->
+                                <h6 class="m-0" style="color:#6c757d;">Credit Sale</h6>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ credit_sales }}</p>
+                            </div>
+                            <!-- Right side: Icon with background -->
+                            <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
+                                <i class="bi bi-credit-card" style="font-size: 35px;color:#f52dcc;"></i>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                        <div class="card-body">
-                            <h5>Credit Sale</h5>
-                            <p class="fs-4 fw-bold">{{ credit_sales }}</p>
+                    <div class="card" style="border-radius:12px; border:1px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                        <div class="card-body p-0 d-flex justify-content-between align-items-start">
+                            <div>
+                                <!-- Left side: Heading and value -->
+                                <h6 class="m-0" style="color:#6c757d;">Total Sale</h6>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ total_sales }}</p>
+                            </div>
+                            <!-- Right side: Icon with background -->
+                            <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
+                                <i class="bi bi-currency-dollar" style="font-size: 35px;color:#f52dcc;"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                        <div class="card-body">
-                            <h5>Total Sale</h5>
-                            <p class="fs-4 fw-bold">{{ total_sales }}</p>
+                    <div class="card" style="border-radius:12px; border:1px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                        <div class="card-body p-0 d-flex justify-content-between align-items-start">
+                            <div>
+                                <!-- Left side: Heading and value -->
+                                <h6 class="m-0" style="color:#6c757d;">Expence</h6>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ expence }}</p>
+                            </div>
+                            <!-- Right side: Icon with background -->
+                            <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
+                                <i class="bi bi-wallet" style="font-size: 35px;color:#f52dcc;"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                        <div class="card-body">
-                            <h5>Expense</h5>
-                            <p class="fs-4 fw-bold">{{ expense }}</p>
+                    <div class="card" style="border-radius:12px; border:1px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                        <div class="card-body p-0 d-flex justify-content-between align-items-start">
+                            <div>
+                                <!-- Left side: Heading and value -->
+                                <h6 class="m-0" style="color:#6c757d;">Today Collection</h6>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ todays_collection }}</p>
+                            </div>
+                            <!-- Right side: Icon with background -->
+                            <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
+                                <i class="bi bi-collection" style="font-size: 35px;color:#f52dcc;"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                        <div class="card-body">
-                            <h5>Today's Collection</h5>
-                            <p class="fs-4 fw-bold">{{ todays_collection }}</p>
+                    <div class="card" style="border-radius:12px; border:1px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                        <div class="card-body p-0 d-flex justify-content-between align-items-start">
+                            <div>
+                                <!-- Left side: Heading and value -->
+                                <h6 class="m-0" style="color:#6c757d;">Old Payments</h6>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ old_payment }}</p>
+                            </div>
+                            <!-- Right side: Icon with background -->
+                            <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
+                                <i class="bi bi-clock-history" style="font-size: 35px;color:#f52dcc;"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
+                
 
                 <div class="col-md-3">
-                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                        <div class="card-body">
-                            <h5>Old Payment</h5>
-                            <p class="fs-4 fw-bold">{{ old_payment }}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                        <div class="card-body">
-                            <h5>Total Collection</h5>
-                            <p class="fs-4 fw-bold">{{ total_collection }}</p>
+                    <div class="card" style="border-radius:12px; border:1px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                        <div class="card-body p-0 d-flex justify-content-between align-items-start">
+                            <div>
+                                <!-- Left side: Heading and value -->
+                                <h6 class="m-0" style="color:#6c757d;">Total Collection</h6>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ total_collection }}</p>
+                            </div>
+                            <!-- Right side: Icon with background -->
+                            <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
+                                <i class="bi bi-archive" style="font-size: 35px;color:#f52dcc;"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1070,4 +1115,19 @@ document.addEventListener("DOMContentLoaded", function() {
 </script>
 
 {% endblock %}
+{% block static %}
+{% load static %}
+<style>
+    .tablinks{
+        border: 0px;
+        border-bottom : 1px solid #bfbfbf !important;
+        color : #6c757d !important;
+    }
+    .tablinks.active{
+        border: 0px;
+        border-bottom : 3px solid #6ea6ed !important;
+        color : #6ea6ed !important;
+    }
+</style>
+{% endblock static %}
  

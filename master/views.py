@@ -62,78 +62,80 @@ def overview(request):
     yesterday_date_str = str(date - timedelta(days=1))
 
     # Use select_related and prefetch_related to optimize database queries
-    van_routes = Van_Routes.objects.select_related('van', 'routes').all()
-    van_ids = van_routes.values_list("van__pk", flat=True)
-    van_instances = Van.objects.filter(pk__in=van_ids).distinct()
-    route_ids = van_routes.values_list("routes__pk", flat=True)
+    # van_routes = Van_Routes.objects.select_related('van', 'routes').all()
+    # van_ids = van_routes.values_list("van__pk", flat=True)
+    # van_instances = Van.objects.filter(pk__in=van_ids).distinct()
+    # route_ids = van_routes.values_list("routes__pk", flat=True)
 
-    # Fetch all customer supplies in a single query
-    customer_supplies = CustomerSupply.objects.filter(created_date__date__in=[date, date - timedelta(days=1)])
-    today_customer_supply = customer_supplies.filter(created_date__date=date)
-    yesterday_customer_supply = customer_supplies.filter(created_date__date=date - timedelta(days=1))
+    # # Fetch all customer supplies in a single query
+    # customer_supplies = CustomerSupply.objects.filter(created_date__date__in=[date, date - timedelta(days=1)])
+    # today_customer_supply = customer_supplies.filter(created_date__date=date)
+    # yesterday_customer_supply = customer_supplies.filter(created_date__date=date - timedelta(days=1))
 
-    # Fetch related data in one go
-    customer_coupons = CustomerCoupon.objects.filter(created_date__date=date)
-    expenses_instances = Expense.objects.filter(expense_date=date, van__pk__in=van_ids)
-    collection_instances = CollectionPayment.objects.all()
-    outstanding_amount_instances = OutstandingAmount.objects.filter(customer_outstanding__customer__routes__pk__in=route_ids)
-    total_customers_instances = Customers.objects.all()
+    # # Fetch related data in one go
+    # customer_coupons = CustomerCoupon.objects.filter(created_date__date=date)
+    # expenses_instances = Expense.objects.filter(expense_date=date, van__pk__in=van_ids)
+    # collection_instances = CollectionPayment.objects.all()
+    # outstanding_amount_instances = OutstandingAmount.objects.filter(customer_outstanding__customer__routes__pk__in=route_ids)
+    # total_customers_instances = Customers.objects.all()
 
-    # Aggregations
-    supply_cash_sales_count = today_customer_supply.filter(amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON").count()
-    coupon_cash_sales_count = customer_coupons.filter(amount_recieved__gt=0).count()
-    supply_credit_sales_count = today_customer_supply.filter(amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC", "CASH COUPON"]).count()
-    coupon_credit_sales_count = customer_coupons.filter(amount_recieved__lte=0).count()
+    # # Aggregations
+    # supply_cash_sales_count = today_customer_supply.filter(amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON").count()
+    # coupon_cash_sales_count = customer_coupons.filter(amount_recieved__gt=0).count()
+    # supply_credit_sales_count = today_customer_supply.filter(amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC", "CASH COUPON"]).count()
+    # coupon_credit_sales_count = customer_coupons.filter(amount_recieved__lte=0).count()
 
-    total_sales_count = supply_cash_sales_count + coupon_cash_sales_count + supply_credit_sales_count + coupon_credit_sales_count
-    today_expenses = expenses_instances.aggregate(total_expense=Sum('amount'))['total_expense'] or 0
-    todays_collection = collection_instances.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
-    collection_upto_yesterday = outstanding_amount_instances.aggregate(total_amount=Sum('amount'))['total_amount'] or 0
-    total_collection = collection_instances.aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
-    active_vans = van_instances.count()
-    visited_customers_count = today_customer_supply.distinct().count()
+    # total_sales_count = supply_cash_sales_count + coupon_cash_sales_count + supply_credit_sales_count + coupon_credit_sales_count
+    # today_expenses = expenses_instances.aggregate(total_expense=Sum('amount'))['total_expense'] or 0
+    # todays_collection = collection_instances.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+    # collection_upto_yesterday = outstanding_amount_instances.aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+    # total_collection = collection_instances.aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+    # active_vans = van_instances.count()
+    # visited_customers_count = today_customer_supply.distinct().count()
 
-    # Cache-heavy operations like customer finding
-    def get_cached_customers(route_id, date_str):
-        cache_key = f"todays_customers_{route_id}_{date_str}"
-        customers = cache.get(cache_key)
-        if customers is None:  # Ensure customers is not None
-            customers = find_customers(request, date_str, route_id) or []  # Return an empty list if find_customers returns None
-            cache.set(cache_key, customers, timeout=60*60)  # Cache for 1 hour
-        return customers
+    # # Cache-heavy operations like customer finding
+    # def get_cached_customers(route_id, date_str):
+    #     cache_key = f"todays_customers_{route_id}_{date_str}"
+    #     customers = cache.get(cache_key)
+    #     if customers is None:  # Ensure customers is not None
+    #         customers = find_customers(request, date_str, route_id) or []  # Return an empty list if find_customers returns None
+    #         cache.set(cache_key, customers, timeout=60*60)  # Cache for 1 hour
+    #     return customers
 
-    # Now the sums can safely use len()
-    total_planned_visits_count = sum(
-        len(get_cached_customers(route_id, today_date_str)) for route_id in route_ids
-    )
+    # # Now the sums can safely use len()
+    # total_planned_visits_count = sum(
+    #     len(get_cached_customers(route_id, today_date_str)) for route_id in route_ids
+    # )
 
-    yesterday_total_planned_visits_count = sum(
-        len(get_cached_customers(route_id, yesterday_date_str)) for route_id in route_ids
-    )
+    # yesterday_total_planned_visits_count = sum(
+    #     len(get_cached_customers(route_id, yesterday_date_str)) for route_id in route_ids
+    # )
 
 
-    # Calculate missed customers
-    yesterday_visited_customers_count = yesterday_customer_supply.distinct().count()
-    yesterday_missed_customers = yesterday_total_planned_visits_count - yesterday_visited_customers_count
+    # # Calculate missed customers
+    # yesterday_visited_customers_count = yesterday_customer_supply.distinct().count()
+    # yesterday_missed_customers = yesterday_total_planned_visits_count - yesterday_visited_customers_count
 
-    # Other customer counts
-    total_customers_count = total_customers_instances.distinct().count()
-    new_customers_count = total_customers_instances.filter(created_date__date=date).distinct().count()
+    # # Other customer counts
+    # total_customers_count = total_customers_instances.distinct().count()
+    # new_customers_count = total_customers_instances.filter(created_date__date=date).distinct().count()
 
     context = {
-        "supply_cash_sales_count": supply_cash_sales_count,
-        "supply_credit_sales_count": supply_credit_sales_count,
-        "total_sales_count": total_sales_count,
-        "today_expenses": today_expenses,
-        "todays_collection": todays_collection,
-        "collection_upto_yesterday": collection_upto_yesterday,
-        "total_collection": total_collection,
-        "active_vans": active_vans,
-        "visited_customers_count": visited_customers_count,
-        "total_planned_visits_count": total_planned_visits_count,
-        "yesterday_missed_customers": yesterday_missed_customers,
-        "total_customers_count": total_customers_count,
-        "new_customers_count": new_customers_count,
+        "cash_sales": 120,
+        "credit_sales": 120,
+        "supply_cash_sales_count": 0,
+        "supply_credit_sales_count": 0,
+        "total_sales_count": 0,
+        "today_expenses": 0,
+        "todays_collection": 0,
+        "collection_upto_yesterday": 0,
+        "total_collection": 0,
+        "active_vans": 0,
+        "visited_customers_count": 0,
+        "total_planned_visits_count": 0,
+        "yesterday_missed_customers": 0,
+        "total_customers_count": 0,
+        "new_customers_count": 0,
     }
 
     return render(request, 'master/dashboard/overview_dashboard.html', context) 

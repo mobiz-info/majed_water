@@ -121,7 +121,7 @@ class CustomercreateForm(forms.ModelForm):
     class Meta:
         
         model = Customers
-        fields = ['customer_name','building_name','door_house_no','floor_no','sales_staff','routes','emirate','location','mobile_no','whats_app','email_id','gps_latitude','gps_longitude','customer_type','rate','sales_type','no_of_bottles_required','max_credit_limit','credit_days','no_of_permitted_invoices']
+        fields = ['customer_name','building_name','door_house_no','floor_no','sales_staff','routes','emirate','location','mobile_no','whats_app','email_id','gps_latitude','gps_longitude','customer_type','rate','sales_type','no_of_bottles_required','max_credit_limit','credit_days','no_of_permitted_invoices','is_calling_customer','five_g_count_limit', 'eligible_foc',]
         widgets = {
             'customer_name': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
             'building_name': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
@@ -143,19 +143,21 @@ class CustomercreateForm(forms.ModelForm):
             'max_credit_limit': forms.TextInput(attrs={'class': 'form-control', 'required': False,'type':'number'}),
             'credit_days': forms.TextInput(attrs={'class': 'form-control', 'required': False,'type':'number'}),
             'no_of_permitted_invoices': forms.TextInput(attrs={'class': 'form-control', 'required': False,'type':'number'}),
+            'five_g_count_limit': forms.TextInput(attrs={'class': 'form-control', 'required': False,'type':'number'}),
+            'eligible_foc': forms.TextInput(attrs={'class': 'form-control', 'required': False,'type':'number'}),
         }
 
 
 class CustomerEditForm(forms.ModelForm):
     def __init__(self,branch, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['sales_staff'].queryset = CustomUser.objects.filter(is_active = True,branch_id = branch,user_type = "Salesman")
+        self.fields['sales_staff'].queryset = CustomUser.objects.filter(is_active = True,branch_id = branch,designation_id__designation_name = "Sales Executive")
         self.fields['routes'].queryset = RouteMaster.objects.filter(branch_id = branch)
         self.fields['location'].queryset = LocationMaster.objects.filter(branch_id = branch)
 
     class Meta:
         model = Customers
-        fields = ['customer_name','building_name','door_house_no','floor_no','sales_staff','routes','location','mobile_no','whats_app','email_id','gps_latitude','gps_longitude','customer_type','rate','sales_type','no_of_bottles_required','max_credit_limit','credit_days','no_of_permitted_invoices','is_active']
+        fields = ['customer_name','building_name','door_house_no','floor_no','sales_staff','routes','location','mobile_no','whats_app','email_id','gps_latitude','gps_longitude','customer_type','rate','sales_type','no_of_bottles_required','max_credit_limit','credit_days','no_of_permitted_invoices','is_active','is_calling_customer','five_g_count_limit', 'eligible_foc']
         widgets = {
             'customer_name': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
             'building_name': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
@@ -177,7 +179,9 @@ class CustomerEditForm(forms.ModelForm):
             'credit_days': forms.TextInput(attrs={'class': 'form-control', 'required': False,'type':'number'}),
             'no_of_permitted_invoices': forms.TextInput(attrs={'class': 'form-control', 'required': False,'type':'number'}),
             'is_active': forms.CheckboxInput(attrs={}),
-
+            'five_g_count_limit': forms.TextInput(attrs={'class': 'form-control', 'required': False,'type':'number'}),
+            'eligible_foc': forms.TextInput(attrs={'class': 'form-control', 'required': False,'type':'number'}),
+        
         }
 
 
