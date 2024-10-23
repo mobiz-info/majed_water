@@ -31,7 +31,7 @@
             <div class="row">
                 <!-- Overview Cards -->
                 <div class="col-md-3">
-                    <div class="card" style="border-radius:12px; border:1px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                    <div class="card" style="border-radius:12px; border:2px solid rgba(245, 45, 204, 0.2); padding: 15px;">
                         <div class="card-body p-0 d-flex justify-content-between align-items-start">
                             <div>
                                 <!-- Left side: Heading and value -->
@@ -47,7 +47,7 @@
                 </div>
                 
                 <div class="col-md-3">
-                    <div class="card" style="border-radius:12px; border:1px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                    <div class="card" style="border-radius:12px; border:2px solid rgba(245, 45, 204, 0.2); padding: 15px;">
                         <div class="card-body p-0 d-flex justify-content-between align-items-start">
                             <div>
                                 <!-- Left side: Heading and value -->
@@ -63,12 +63,12 @@
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card" style="border-radius:12px; border:1px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                    <div class="card" style="border-radius:12px; border:2px solid rgba(245, 45, 204, 0.2); padding: 15px;">
                         <div class="card-body p-0 d-flex justify-content-between align-items-start">
                             <div>
                                 <!-- Left side: Heading and value -->
                                 <h6 class="m-0" style="color:#6c757d;">Total Sale</h6>
-                                <p class="fs-3 fw-bold mt-2 mb-0">{{ total_sales }}</p>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ total_sales_count }}</p>
                             </div>
                             <!-- Right side: Icon with background -->
                             <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
@@ -79,12 +79,12 @@
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card" style="border-radius:12px; border:1px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                    <div class="card" style="border-radius:12px; border:2px solid rgba(245, 45, 204, 0.2); padding: 15px;">
                         <div class="card-body p-0 d-flex justify-content-between align-items-start">
                             <div>
                                 <!-- Left side: Heading and value -->
                                 <h6 class="m-0" style="color:#6c757d;">Expence</h6>
-                                <p class="fs-3 fw-bold mt-2 mb-0">{{ expence }}</p>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ today_expenses }}</p>
                             </div>
                             <!-- Right side: Icon with background -->
                             <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
@@ -95,12 +95,12 @@
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card" style="border-radius:12px; border:1px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                    <div class="card" style="border-radius:12px; border:2px solid rgba(245, 45, 204, 0.2); padding: 15px;">
                         <div class="card-body p-0 d-flex justify-content-between align-items-start">
                             <div>
                                 <!-- Left side: Heading and value -->
                                 <h6 class="m-0" style="color:#6c757d;">Today Collection</h6>
-                                <p class="fs-3 fw-bold mt-2 mb-0">{{ todays_collection }}</p>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ total_today_collections }}</p>
                             </div>
                             <!-- Right side: Icon with background -->
                             <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
@@ -111,12 +111,12 @@
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card" style="border-radius:12px; border:1px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                    <div class="card" style="border-radius:12px; border:2px solid rgba(245, 45, 204, 0.2); padding: 15px;">
                         <div class="card-body p-0 d-flex justify-content-between align-items-start">
                             <div>
                                 <!-- Left side: Heading and value -->
                                 <h6 class="m-0" style="color:#6c757d;">Old Payments</h6>
-                                <p class="fs-3 fw-bold mt-2 mb-0">{{ old_payment }}</p>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ total_old_payment_collections }}</p>
                             </div>
                             <!-- Right side: Icon with background -->
                             <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
@@ -125,10 +125,9 @@
                         </div>
                     </div>
                 </div>
-                
 
                 <div class="col-md-3">
-                    <div class="card" style="border-radius:12px; border:1px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                    <div class="card" style="border-radius:12px; border:2px solid rgba(245, 45, 204, 0.2); padding: 15px;">
                         <div class="card-body p-0 d-flex justify-content-between align-items-start">
                             <div>
                                 <!-- Left side: Heading and value -->
@@ -142,33 +141,49 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="col-md-3">
+                    <div class="card" style="border-radius:12px; border:2px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                        <div class="card-body p-0 d-flex justify-content-between align-items-start">
+                            <div>
+                                <!-- Left side: Heading and value -->
+                                <h6 class="m-0" style="color:#6c757d;">Total Cash In Hand</h6>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ total_cash_in_hand }}</p>
+                            </div>
+                            <!-- Right side: Icon with background -->
+                            <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
+                                <i class="bi-wallet-fill" style="font-size: 35px;color:#f52dcc;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Category Table and Pie Chart -->
             <div class="row mt-4">
                 <div class="col-md-6 mb-4">
                     <div class="card h-100">
-                        <div class="card-header text-center">
+                        <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                             <h5 class="card-title">Category</h5>
                         </div>
-                        <div class="card-body">
+                        <div class="card-body p-0">
                             <table class="table table-bordered">
                                 <tbody>
                                     <tr>
                                         <td>Active Vans</td>
-                                        <td>{{ total_vans }}</td>
+                                        <td>{{ active_van_count }}</td>
                                     </tr>
                                     <tr>
                                         <td>Delivery progress</td>
-                                        <td>{{ visited_customers_count }}/{{ planned_visitors }}</td>
+                                        <td>{{delivery_progress}}</td>
                                     </tr>
                                     <tr>
                                         <td>Yesterday missed</td>
-                                        <td>{{ total_missed_customers_yesterday }}</td>
+                                        <td>{{ yesterday_missed_customers_count }}</td>
                                     </tr>
                                     <tr>
                                         <td>Total customers</td>
-                                        <td>{{ total_customers }}</td>
+                                        <td>{{ total_customers_count }}</td>
                                     </tr>
                                     <tr>
                                         <td>New customers</td>
@@ -180,11 +195,11 @@
                                     </tr>
                                     <tr>
                                         <td>Emergency</td>
-                                        <td>{{ total_emergency_customers }}</td>
+                                        <td>{{ emergency_customers_count }}</td>
                                     </tr>
                                     <tr>
                                         <td>In vacation mode</td>
-                                        <td>{{ vacation_customers_count }}</td>
+                                        <td>{{ total_vocation_customers_count }}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -194,7 +209,7 @@
 
                 <div class="col-md-6 mb-4">
                     <div class="card h-100">
-                        <div class="card-header">
+                        <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                             <h5 class="card-title">Payment Method Distribution</h5>
                         </div>
                         <div class="card-body">
@@ -254,7 +269,7 @@
             <div class="row mt-4">
                 <div class="col-md-6 mb-4">
                     <div class="card h-100">
-                        <div class="card-header">
+                        <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                             <h5 class="card-title">New Customers In Past 10 Days</h5>
                         </div>
                         <div class="card-body">
@@ -266,7 +281,7 @@
 
                 <div class="col-md-6 mb-4">
                     <div class="card h-100">
-                        <div class="card-header">
+                        <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                             <h5 class="card-title">5 Gallon Supply</h5>
                         </div>
                         <div class="card-body">
@@ -388,7 +403,7 @@
     <div class="row mt-4">
         <div class="col-md-6 mb-4">
             <div class="card h-100">
-                <div class="card-header text-center">
+                <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                     <h5 class="card-title">Sales Overview</h5>
                 </div>
                 <div class="card-body">
@@ -473,7 +488,7 @@
         <div class="row mt-4">
             <div class="col-md-6 mb-4">
                 <div class="card h-100">
-                    <div class="card-header text-center">
+                    <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                         <h5 class="card-title">Company Bottle Stock</h5>
                     </div>
                     <div class="card-body">
@@ -504,7 +519,7 @@
             <!-- Bottles in Market Stock Table -->
             <div class="col-md-6 mb-4">
                 <div class="card h-100">
-                    <div class="card-header text-center">
+                    <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                         <h5 class="card-title">Bottles in Market</h5>
                     </div>
                     <form method="GET" action="">
@@ -548,7 +563,7 @@
         <div class="row">
             <div class="col-md-6 mb-4">
                 <div class="card h-100">
-                    <div class="card-header text-center">
+                    <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                         <h5 class="card-title">Excess/Shortage</h5>
                     </div>
                     <div class="card-body">
@@ -582,7 +597,7 @@
         <div class="col-md-6 mb-4">
             <div class="card h-100">
                 <!-- Date Input Field -->
-                <div class="card-header">
+                <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                     <div class="container-fluid mt-4">
                         <div class="row">
                             <div class="col-md-4">
@@ -593,7 +608,7 @@
                     </div>
                 </div>
 
-                <div class="card-header text-center">
+                <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                     <h5 class="card-title">Coupons</h5>
                 </div>
 
@@ -652,7 +667,7 @@
                     </div>
                 </div>
 
-                <div class="card-header text-center">
+                <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                     <h5 class="card-title">Coupon Books Sold</h5>
                 </div>
 
@@ -688,7 +703,7 @@
     <!-- Coupon Sales Chart -->
     <div class="col-md-6">
         <div class="card h-100">
-            <div class="card-header text-center">
+            <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                 <h5 class="card-title">Coupon Sales</h5>
             </div>
             <div class="card-body">
@@ -700,7 +715,7 @@
     <!-- Coupon Wise Chart -->
     <div class="col-md-6">
         <div class="card h-100">
-            <div class="card-header text-center">
+            <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                 <h5 class="card-title">Coupon Wise</h5>
             </div>
             <div class="card-body">
@@ -756,7 +771,7 @@
         <!-- Monthly New Customers Chart -->
         <div class="col-md-6">
             <div class="card h-100">
-                <div class="card-header text-center">
+                <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                     <h5 class="card-title">Monthly New Customers</h5>
                 </div>
                 <div class="card-body">
@@ -768,7 +783,7 @@
         <!-- Planned Vs Actual Chart -->
         <div class="col-md-6">
             <div class="card h-100">
-                <div class="card-header text-center">
+                <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                     <h5 class="card-title">Planned Vs Actual</h5>
                 </div>
                 <div class="card-body">
@@ -782,7 +797,7 @@
         <!-- Today Supply 5G Chart -->
         <div class="col-md-6">
             <div class="card h-100">
-                <div class="card-header text-center">
+                <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                     <h5 class="card-title">Today Supply 5 Gallon</h5>
                 </div>
                 <div class="card-body">
@@ -812,7 +827,7 @@
                     </div>
                 </div>
 
-                {% comment %} <div class="card-header text-center">
+                {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                 </div> {% endcomment %}
 
                 <div class="card-body">
@@ -858,7 +873,7 @@
                     </div>
                 </div>
 
-                {% comment %} <div class="card-header text-center">
+                {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
                 </div> {% endcomment %}
 
                 <div class="card-body">
@@ -905,7 +920,7 @@
                 </div>
             </div>
 
-            {% comment %} <div class="card-header text-center">
+            {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
             </div> {% endcomment %}
 
             <div class="card-body">
@@ -956,7 +971,7 @@
                 </div>
             </div>
 {% comment %} 
-            <div class="card-header text-center">
+            <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
             </div> {% endcomment %}
 
             <div class="card-body">
@@ -1026,7 +1041,7 @@
             </div>
 
             <!-- Table Header -->
-            {% comment %} <div class="card-header text-center">
+            {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
             </div> {% endcomment %}
 
             <!-- Table Body -->

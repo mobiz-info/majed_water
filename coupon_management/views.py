@@ -380,9 +380,20 @@ def customer_stock(request):
 
     return render(request, 'coupon_management/customer_stock.html', {'coupenstock': coupenstock, 'route_li': route_li})
 
+@login_required
+def customer_stock_coupon_details(request,customer):
+    
+    customer_instance = Customers.objects.get(pk=customer)
+    
+    customer_manual_coupons = CustomerCouponItems.objects.filter(customer_coupon__customer=customer_instance)
+    
+    context = {
+        'customer_instance': customer_instance,
+        'customer_manual_coupons': customer_manual_coupons,
+    }
 
-
-
+    return render(request, 'coupon_management/available_coupon_details.html',context
+                  )
 
 
 

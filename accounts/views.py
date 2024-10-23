@@ -117,10 +117,12 @@ class User_Create(View):
 
     def post(self, request, *args, **kwargs):
         form = self.form_class(request.POST, request.FILES)
+        branch = BranchMaster.objects.get(user_id=request.user)
         if form.is_valid():
             data = form.save(commit=False)
             passw = make_password(data.password)
             data.password = passw
+            data.branch_id = branch
             data.save()
             
             log_activity(
@@ -600,7 +602,7 @@ class Customer_Details(View):
 def edit_customer(request,pk):
     branch = request.user.branch_id
     cust_Data = Customers.objects.get(customer_id = pk)
-    form = CustomerEditForm(branch,instance = cust_Data)
+    form = CustomerEditForm(branch,instance=cust_Data)
     template_name = 'accounts/edit_customer.html'
     context = {"form":form}
     try:

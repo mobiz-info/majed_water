@@ -25,6 +25,7 @@ urlpatterns = [
 
     path('delete_Newcoupon/<uuid:coupon_id>/', delete_Newcoupon, name='delete_Newcoupon'),
     path('customer_stock/', customer_stock, name='customer_stock'),
+    path('customer-stock-coupon-details/<uuid:customer>/', customer_stock_coupon_details, name='customer_stock_coupon_details'),
     path('generate_excel/', generate_excel, name='generate_excel'),
     path('customer_stock_pdf/', customer_stock_pdf, name='customer_stock_pdf'),
 

@@ -57,85 +57,86 @@ def overview(request):
         date = datetime.strptime(date, '%Y-%m-%d').date()
     else:
         date = datetime.today().date()
-
-    today_date_str = str(date)
-    yesterday_date_str = str(date - timedelta(days=1))
-
-    # Use select_related and prefetch_related to optimize database queries
-    # van_routes = Van_Routes.objects.select_related('van', 'routes').all()
-    # van_ids = van_routes.values_list("van__pk", flat=True)
-    # van_instances = Van.objects.filter(pk__in=van_ids).distinct()
-    # route_ids = van_routes.values_list("routes__pk", flat=True)
-
-    # # Fetch all customer supplies in a single query
-    # customer_supplies = CustomerSupply.objects.filter(created_date__date__in=[date, date - timedelta(days=1)])
-    # today_customer_supply = customer_supplies.filter(created_date__date=date)
-    # yesterday_customer_supply = customer_supplies.filter(created_date__date=date - timedelta(days=1))
-
-    # # Fetch related data in one go
-    # customer_coupons = CustomerCoupon.objects.filter(created_date__date=date)
-    # expenses_instances = Expense.objects.filter(expense_date=date, van__pk__in=van_ids)
-    # collection_instances = CollectionPayment.objects.all()
-    # outstanding_amount_instances = OutstandingAmount.objects.filter(customer_outstanding__customer__routes__pk__in=route_ids)
-    # total_customers_instances = Customers.objects.all()
-
-    # # Aggregations
-    # supply_cash_sales_count = today_customer_supply.filter(amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON").count()
-    # coupon_cash_sales_count = customer_coupons.filter(amount_recieved__gt=0).count()
-    # supply_credit_sales_count = today_customer_supply.filter(amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC", "CASH COUPON"]).count()
-    # coupon_credit_sales_count = customer_coupons.filter(amount_recieved__lte=0).count()
-
-    # total_sales_count = supply_cash_sales_count + coupon_cash_sales_count + supply_credit_sales_count + coupon_credit_sales_count
-    # today_expenses = expenses_instances.aggregate(total_expense=Sum('amount'))['total_expense'] or 0
-    # todays_collection = collection_instances.filter(created_date__date=date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
-    # collection_upto_yesterday = outstanding_amount_instances.aggregate(total_amount=Sum('amount'))['total_amount'] or 0
-    # total_collection = collection_instances.aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
-    # active_vans = van_instances.count()
-    # visited_customers_count = today_customer_supply.distinct().count()
-
-    # # Cache-heavy operations like customer finding
-    # def get_cached_customers(route_id, date_str):
-    #     cache_key = f"todays_customers_{route_id}_{date_str}"
-    #     customers = cache.get(cache_key)
-    #     if customers is None:  # Ensure customers is not None
-    #         customers = find_customers(request, date_str, route_id) or []  # Return an empty list if find_customers returns None
-    #         cache.set(cache_key, customers, timeout=60*60)  # Cache for 1 hour
-    #     return customers
-
-    # # Now the sums can safely use len()
-    # total_planned_visits_count = sum(
-    #     len(get_cached_customers(route_id, today_date_str)) for route_id in route_ids
-    # )
-
-    # yesterday_total_planned_visits_count = sum(
-    #     len(get_cached_customers(route_id, yesterday_date_str)) for route_id in route_ids
-    # )
-
-
-    # # Calculate missed customers
-    # yesterday_visited_customers_count = yesterday_customer_supply.distinct().count()
-    # yesterday_missed_customers = yesterday_total_planned_visits_count - yesterday_visited_customers_count
-
-    # # Other customer counts
-    # total_customers_count = total_customers_instances.distinct().count()
-    # new_customers_count = total_customers_instances.filter(created_date__date=date).distinct().count()
-
+        
+    yesterday_date = date - timedelta(days=1)
+    
+    # supply
+    supply_cash_sales_instances = CustomerSupply.objects.filter(created_date__date=date,amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
+    supply_credit_sales_instances = CustomerSupply.objects.filter(created_date__date=date,amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
+    # recharge
+    recharge_cash_sales_instances = CustomerCoupon.objects.filter(created_date__date=date,amount_recieved__gt=0)
+    recharge_credit_sales_instances = CustomerCoupon.objects.filter(created_date__date=date,amount_recieved__lte=0)
+    # total cash and credit
+    total_cash_sales_count = supply_cash_sales_instances.count() + recharge_cash_sales_instances.count()
+    total_credit_sales_count = supply_credit_sales_instances.count() + recharge_credit_sales_instances.count()
+    # total collection
+    total_today_collections = supply_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0 + recharge_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+    # old collections
+    old_payment_collections_instances = CollectionPayment.objects.filter(created_date__date=date)
+    total_old_payment_collections = old_payment_collections_instances.aggregate(total_amount_recieved=Sum('amount_received'))['total_amount_recieved'] or 0
+    # expences
+    expenses_instanses = Expense.objects.filter(expense_date=date)
+    total_expences = expenses_instanses.aggregate(total_expense=Sum('amount'))['total_expense'] or 0
+    # active vans
+    active_vans_ids = VanProductStock.objects.filter(stock__gt=0).values_list('van__pk').distinct()
+    active_van_count = Van.objects.filter(pk__in=active_vans_ids).count()
+    
+    customers_instances = Customers.objects.all()
+    vocation_customers_instances = Vacation.objects.all()
+    # scheduled customers
+    route_instances = RouteMaster.objects.all()
+    todays_customers = []
+    yesterday_customers = []
+        
+    for route in route_instances:
+        # todays
+        day_of_week = date.strftime('%A')
+        week_num = (date.day - 1) // 7 + 1
+        week_number = f'Week{week_num}'
+        
+        today_vocation_customer_ids = vocation_customers_instances.filter(start_date__gte=date,end_date__lte=date).values_list('customer__pk')
+        today_scheduled_customers = customers_instances.filter(routes=route, is_calling_customer=False).exclude(pk__in=today_vocation_customer_ids)
+        
+        for customer in today_scheduled_customers:
+            if customer.visit_schedule:
+                for day, weeks in customer.visit_schedule.items():
+                    if str(day_of_week) == str(day) and str(week_number) in weeks:
+                        todays_customers.append(customer)
+                        
+        # yesterdays
+        y_day_of_week = yesterday_date.strftime('%A')
+        y_week_num = (yesterday_date.day - 1) // 7 + 1
+        y_week_number = f'Week{y_week_num}'
+        
+        yesterday_vocation_customer_ids = vocation_customers_instances.filter(start_date__gte=yesterday_date,end_date__lte=yesterday_date).values_list('customer__pk')
+        yesterday_scheduled_customers = customers_instances.filter(routes=route, is_calling_customer=False).exclude(pk__in=yesterday_vocation_customer_ids)
+        
+        for customer in yesterday_scheduled_customers:
+            if customer.visit_schedule:
+                for day, weeks in customer.visit_schedule.items():
+                    if str(y_day_of_week) == str(day) and str(y_week_number) in weeks:
+                        yesterday_customers.append(customer)
+                        
+    door_lock_count = NonvisitReport.objects.filter(created_date__date=date,reason__reason_text="Door Lock").count()
+    emergency_customers_count = customers_instances.filter(pk__in=DiffBottlesModel.objects.filter(delivery_date=date).values_list('customer__pk')).count()
+    
     context = {
-        "cash_sales": 120,
-        "credit_sales": 120,
-        "supply_cash_sales_count": 0,
-        "supply_credit_sales_count": 0,
-        "total_sales_count": 0,
-        "today_expenses": 0,
-        "todays_collection": 0,
-        "collection_upto_yesterday": 0,
-        "total_collection": 0,
-        "active_vans": 0,
-        "visited_customers_count": 0,
-        "total_planned_visits_count": 0,
-        "yesterday_missed_customers": 0,
-        "total_customers_count": 0,
-        "new_customers_count": 0,
+        "cash_sales": total_cash_sales_count,
+        "credit_sales": total_credit_sales_count,
+        "total_sales_count": total_cash_sales_count + total_credit_sales_count,
+        "today_expenses": total_expences,
+        "total_today_collections": total_today_collections,
+        "total_old_payment_collections": total_old_payment_collections,
+        "total_collection": total_today_collections + total_old_payment_collections,
+        "total_cash_in_hand": total_today_collections + total_old_payment_collections - total_expences,
+        "active_van_count": active_van_count,
+        "delivery_progress": f'{supply_cash_sales_instances.count() + supply_credit_sales_instances.count()} / {len(todays_customers)}',
+        "total_customers_count": customers_instances.count(),
+        "new_customers_count": customers_instances.filter(created_date__date=date).count(),
+        "door_lock_count": door_lock_count,
+        "emergency_customers_count": emergency_customers_count,
+        "total_vocation_customers_count": len(vocation_customers_instances.filter(start_date__gte=date,end_date__lte=date).values_list('customer__pk').distinct()),        
+        "yesterday_missed_customers_count": len(yesterday_customers) - CustomerSupply.objects.filter(created_date__date=yesterday_date).count(),
     }
 
     return render(request, 'master/dashboard/overview_dashboard.html', context) 
