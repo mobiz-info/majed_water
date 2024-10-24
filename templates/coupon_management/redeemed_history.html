@@ -72,10 +72,11 @@
                                         <th rowspan="2">Building No</th>
                                         <th rowspan="2">Route</th>
                                         <th colspan="2">No of coupons</th>
+                                        <th rowspan="2">View Coupons</th>
                                     </tr>
                                     <tr>
-                                        <th>Manual</th>
                                         <th>Digital</th>
+                                        <th>Manual</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -90,16 +91,24 @@
                                             <td>{{ instance.customer.mobile_no }}</td>
                                             <td>{{ instance.customer.building_name }}</td>
                                             <td>{{ instance.customer.routes.route_name }}</td>
-                                            <td>{{ instance.total_coupon_recieved.manual_coupon }}</td>
                                             <td>{{ instance.total_coupon_recieved.digital_coupon }}</td>
+                                            <td>{{ instance.total_coupon_recieved.manual_coupon }}</td>
+                                            <td>
+                                                <div class="g-2">
+                                                    <a href="{% url 'redeemed_coupon_details' supply_pk=instance.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Info">
+                                                        <span class="bi bi-eye-fill fs-14"></span>
+                                                    </a>
+                                                </div>
+                                            </td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
                                 <tfoot>
                                     <tr>
                                         <td colspan="8" class="text-end"><strong>Total:</strong></td>
-                                        <td><strong>{{ total_manual_coupons }}</strong></td>
                                         <td><strong>{{ total_digital_coupons }}</strong></td>
+                                        <td><strong>{{ total_manual_coupons }}</strong></td>
+                                        <td><strong></strong></td>
                                     </tr>
                                 </tfoot>
                             </table>

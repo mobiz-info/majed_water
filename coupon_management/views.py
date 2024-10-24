@@ -626,6 +626,17 @@ def redeemed_history(request):
 
     return render(request, 'coupon_management/redeemed_history.html', context)
 
+def redeemed_coupon_details(request,supply_pk):
+    supply_instance = CustomerSupply.objects.get(pk=supply_pk)
+    coupon_instances = CustomerSupplyCoupon.objects.filter(customer_supply__pk=supply_pk)
+
+    context = {
+        'supply_instance': supply_instance,
+        'coupon_instances': coupon_instances,
+    }
+
+    return render(request, 'coupon_management/redeemed_coupon_datails.html', context)
+
 def print_redeemed_history(request):
     filter_data = {}
     query = request.GET.get("q", "").strip()  # Get the search query

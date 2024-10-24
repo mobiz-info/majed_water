@@ -3300,10 +3300,10 @@ class create_customer_supply(APIView):
                             if request.data.get('coupon_method') == "manual" :
                                 collected_coupon_ids = request.data.get('collected_coupon_ids')
                                 
+                                customer_supply_coupon = CustomerSupplyCoupon.objects.create(
+                                    customer_supply=customer_supply,
+                                )
                                 for c_id in collected_coupon_ids:
-                                    customer_supply_coupon = CustomerSupplyCoupon.objects.create(
-                                        customer_supply=customer_supply,
-                                    )
                                     if CouponLeaflet.objects.filter(pk=c_id).exists():
                                         leaflet_instance = CouponLeaflet.objects.get(pk=c_id)
                                         customer_supply_coupon.leaf.add(leaflet_instance)
