@@ -41,9 +41,12 @@ def get_coupon_designation(pk):
         }
     
     elif coupon_status == "company":
+        name = ""
+        if instance.branch_id:
+            name = instance.branch_id.name
         context = {
             "pk": "",
-            "name": f"{instance.branch_id.name}",
+            "name": name,
         }
         
     elif coupon_status == "used":
