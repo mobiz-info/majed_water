@@ -139,7 +139,11 @@ class NewCoupon(models.Model):
 
     def __str__(self):
         return str(self.book_num)
-
+    
+    def coupon_status(self):
+        coupon_status = CouponStock.objects.get(couponbook=self)
+        return coupon_status.get_coupon_stock_display()
+    
     # def save_qr_code(self):
     #     qr = qrcode.QRCode(
     #         version=1,

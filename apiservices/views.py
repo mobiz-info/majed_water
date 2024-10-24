@@ -1383,16 +1383,16 @@ class Customer_API(APIView):
                 return Response({'data': 'Successfully added'}, status=status.HTTP_201_CREATED)
             return Response({'status': False, 'data': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            print(e)
             if CustomUser.objects.filter(username=request.data['mobile_no']).exists():
                 user_obj = CustomUser.objects.get(username=request.data['mobile_no'])
                 user_obj.delete()
-            print(e)
             return Response({'status': False, 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def put(self, request, id):
         try:
             customer = Customers.objects.get(customer_id=id)
-            serializer = CustomersCreateSerializers(customer, data=request.data)
+            serializer = CustomersCreateSerializers(instance=customer, data=request.data)
             if serializer.is_valid():
                 serializer.save(modified_by=request.user.id, modified_date=datetime.now())
                 return Response(serializer.data, status=status.HTTP_200_OK)

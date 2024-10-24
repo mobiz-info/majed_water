@@ -10,7 +10,7 @@ from invoice_management.models import Invoice, InvoiceItems
 from product.models import ProdutItemMaster
 
 # Read the Excel file
-file_path = '/home/ra/Downloads/van-3 credit details.xlsx'
+file_path = '/home/ra/Downloads/CSOSVAN16.xlsx'
 data = pd.read_excel(file_path)
 print("File path:", file_path)
 print("DataFrame columns:", data.columns)
@@ -28,9 +28,9 @@ if 'amount' not in data.columns:
 
 @transaction.atomic
 def populate_models_from_excel(data):
-    user = CustomUser.objects.get(username="zeeshan")
+    user = CustomUser.objects.get(username="ramsad")
     for index, row in data.iterrows():
-        customer_id = row['customer_id']
+        customer_id = int(row['customer_id'])
         customer_name = row['customer_name']
         amount = Decimal(row['amount'])
         str_date = str(row['date'])
@@ -125,6 +125,7 @@ def populate_models_from_excel(data):
         )
 
         print(f"Processed row {index + 1} for customer {customer_name}")
+    print(f"completed")
 
 # Execute the function
 populate_models_from_excel(data)

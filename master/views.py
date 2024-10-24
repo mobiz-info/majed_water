@@ -70,7 +70,9 @@ def overview(request):
     total_cash_sales_count = supply_cash_sales_instances.count() + recharge_cash_sales_instances.count()
     total_credit_sales_count = supply_credit_sales_instances.count() + recharge_credit_sales_instances.count()
     # total collection
-    total_today_collections = supply_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0 + recharge_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+    total_supply_cash_sales = supply_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+    total_rechage_cash_sales = recharge_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+    total_today_collections = total_supply_cash_sales + total_rechage_cash_sales
     # old collections
     old_payment_collections_instances = CollectionPayment.objects.filter(created_date__date=date)
     total_old_payment_collections = old_payment_collections_instances.aggregate(total_amount_recieved=Sum('amount_received'))['total_amount_recieved'] or 0

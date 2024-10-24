@@ -168,9 +168,33 @@ def delete_couponType(request, coupon_type_id):
 
 #------------------------New Coupon
 def new_coupon(request):
-    all_coupon = NewCoupon.objects.all().order_by("-created_date")
-    coupon_stock_list = CouponStock.objects.all()  # Fetch all CouponStock instances
-    context = {'all_coupon': all_coupon, 'coupon_stock_list': coupon_stock_list}  # Add coupon_stock_list to context
+    filter_data = {}
+    
+    query = request.GET.get("q")
+    status_type = "company"
+    
+    if request.GET.get('status_type'):
+        status_type = request.GET.get('status_type')
+    
+    filter_data['status_type'] = status_type
+    
+    coupon_ids = CouponStock.objects.filter(coupon_stock=status_type).values_list("couponbook__pk")
+    instances = NewCoupon.objects.filter(pk__in=coupon_ids).order_by("-created_date")
+         
+    if query:
+
+        instances = instances.filter(
+            Q(book_num__icontains=query) |
+            Q(coupon_type__coupon_type_name__icontains=query)
+        )
+        title = "Coupon List - %s" % query
+        filter_data['q'] = query
+    
+    context = {
+        'instances': instances,
+        'filter_data': filter_data
+        }
+    
     return render(request, 'coupon_management/index_Newcoupon.html', context)
 
 def create_Newcoupon(request):
@@ -220,6 +244,18 @@ def create_Newcoupon(request):
                 couponbook=data, 
                 coupon_stock='company', 
                 created_by=str(request.user.id)
+                )
+            
+            product_instance=ProdutItemMaster.objects.get(product_name=data.coupon_type.coupon_type_name)
+            if (stock_intances:=ProductStock.objects.filter(product_name=product_instance,branch=branch)).exists():
+                stock_intance = stock_intances.first()
+                stock_intance.quantity += 1
+                stock_intance.save()
+            else:
+                ProductStock.objects.create(
+                    product_name=product_instance,
+                    branch=branch,
+                    quantity=1
                 )
 
             response_data = {
