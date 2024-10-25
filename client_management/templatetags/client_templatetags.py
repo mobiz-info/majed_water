@@ -59,6 +59,8 @@ def route_wise_customer_bottle_count(customer_pk):
         
 @register.simple_tag
 def get_outstanding_amount(customer_id,date):
+    if not customer_id:  # Ensure customer_id is not empty
+        return 0 
     outstanding_amounts = OutstandingAmount.objects.filter(customer_outstanding__customer__pk=customer_id,customer_outstanding__created_date__date__lte=date).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
     collection_amount = CollectionPayment.objects.filter(customer__pk=customer_id,created_date__date__lte=date).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
     
@@ -69,6 +71,8 @@ def get_outstanding_amount(customer_id,date):
 
 @register.simple_tag
 def get_outstanding_bottles(customer_id, date):
+    if not customer_id:  # Ensure customer_id is not empty
+        return 0 
     outstanding_bottles = OutstandingProduct.objects.filter(
         customer_outstanding__customer__pk=customer_id,
         customer_outstanding__created_date__lte=date
@@ -77,6 +81,8 @@ def get_outstanding_bottles(customer_id, date):
 
 @register.simple_tag
 def get_outstanding_coupons(customer_id, date):
+    if not customer_id:  # Ensure customer_id is not empty
+        return 0 
     outstanding_coupons = OutstandingCoupon.objects.filter(
         customer_outstanding__customer__pk=customer_id,
         customer_outstanding__created_date__lte=date,

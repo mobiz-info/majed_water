@@ -27,233 +27,176 @@
                     </div>
 
                     <div class="mt">
-                        <form method="GET" action=".">
-                            <div id="table-container" class="card-body">
-                                <div class="row align-items-center">
-                                    <div class="col-4">
-                                        <label for="date">Date:</label>
-                                        <input type="date" class="form-control" id="date" name="date" value="{{ filter_data.filter_date }}">
-                                    </div>
-                                    <input type="hidden" name="customer_pk" value="{{ customer_pk }}">
-                                    <div class="col d-flex align-items-end justify-content-end">
-                                        <input type="submit" class="btn btn-primary btn-sm mx-1" value="Apply Filter">
-                                        {% if data_filter %}
-                                            <button type="button" class="btn btn-secondary btn-sm mx-1" onclick="resetFilters()">Reset Filter</button>
-                                        {% endif %}
+                            <form method="GET" action=".">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <!-- Start Date filter input -->
+                                        <div class="col-4">
+                                            <label for="start_date">Start Date:</label>
+                                            <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_start_date|default:'' }}">
+                                        </div>
+                                        <!-- End Date filter input -->
+                                        <div class="col-4">
+                                            <label for="end_date">End Date:</label>
+                                            <input type="date" class="form-control" id="end_date" name="end_date" value="{{ filter_end_date|default:'' }}">
+                                        </div>
+                                        <!-- Hidden input for customer ID -->
+                                        <input type="hidden" name="customer_pk" value="{{ customer_pk }}">
                                     </div>
                                 </div>
-                            </div>
-                        </form>
+                                <div class="modal-footer">
+                                    <button type="submit" class="btn btn-primary">Filter</button>
+                                </div>
+                            </form>
+                        </div>
 
+                    <div id="table-container">
+                        <h3>Sales Report</h3>
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th style="text-align:center;">Sl No</th>
+                                    <th style="text-align:center;">Date</th>
+                                    <th style="text-align:center;">Reference No</th>
+                                    <th style="text-align:center;">Invoice No</th>
+                                    <th style="text-align:center;">Product Name</th>
+                                    <th style="text-align:center;">Customer Sales Type</th>
+                                    <th style="text-align:center;">Amount</th>
+                                    <th style="text-align:center;">Discount</th>
+                                    <th style="text-align:center;">Net Taxable</th>
+                                    <th style="text-align:center;">VAT Amount</th>
+                                    <th style="text-align:center;">Grand Total</th>
+                                    <th style="text-align:center;">Amount Collected</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sale in sales_report_data %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ sale.date }}</td>
+                                    <td>{{ sale.ref_invoice_no }}</td>
+                                    <td>{{ sale.invoice_number }}</td>
+                                    <td>{{ sale.product_name }}</td>
+                                    <td>{{ sale.sales_type }}</td>
+                                    <td>{{ sale.amount }}</td>
+                                    <td>{{ sale.discount }}</td>
+                                    <td>{{ sale.net_taxable }}</td>
+                                    <td>{{ sale.vat_amount }}</td>
+                                    <td>{{ sale.grand_total }}</td>
+                                    <td>{{ sale.amount_collected }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="6" style="text-align:right;"><strong>Totals</strong></td>
+                                    <td style="text-align:center;">{{ total_amount }}</td>
+                                    <td style="text-align:center;">{{ total_discount }}</td>
+                                    <td style="text-align:center;">{{ total_net_payable }}</td>
+                                    <td style="text-align:center;">{{ total_vat }}</td>
+                                    <td style="text-align:center;">{{ total_grand_total }}</td>
+                                    <td style="text-align:center;">{{ total_amount_recieved }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
                     </div>
 
                     <div id="table-container">
-                        <h3>Customer Collection Payments and Details</h3>
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>Sl No</th>
-                                    <th>Payment Method</th>
-                                    <th>Amount Received</th>
-                                    <th>Receipt Number</th>
-                                    <th>Created Date</th>
-                                    <th>Total Amount</th>
-                                    <th>Total Discounts</th>
-                                    <th>Total Net Taxable</th>
-                                    <th>Total VAT</th>
-                                    <th>Collected Amount</th>
-                                    <th>Invoice Number</th>
-                                    <th>Invoice Date</th>
-                                    <th>Invoice Amount</th>
-                                    <th>Balance</th>
-                                    <th>Amount Received for Invoice</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in collection_payments %}
-                                    <tr>
-                                        <td>{{ forloop.counter }}</td>
-                                        <td>{{ item.collection_payment.payment_method }}</td>
-                                        <td>{{ item.collection_payment.amount_received }}</td>
-                                        <td>{{ item.collection_payment.receipt_number }}</td>
-                                        <td>{{ item.collection_payment.created_date }}</td>
-                                        <td>{{ item.collection_payment.total_amount }}</td>
-                                        <td>{{ item.collection_payment.total_discounts }}</td>
-                                        <td>{{ item.collection_payment.total_net_taxable }}</td>
-                                        <td>{{ item.collection_payment.total_vat }}</td>
-                                        <td>{{ item.collection_payment.collected_amount }}</td>
-                                        <td>{{ item.invoice.invoice_number }}</td>
-                                        <td>{{ item.invoice.invoice_date }}</td>
-                                        <td>{{ item.amount }}</td>
-                                        <td>{{ item.balance }}</td>
-                                        <td>{{ item.amount_received }}</td>
-                                    </tr>
-                                {% empty %}
-                                    <tr>
-                                        <td colspan="15">No Customer Collection Payments data found.</td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-
-                        <!-- Customer Invoices and Details -->
-                        <h3>Customer Invoices and Details</h3>
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>Sl No</th>
-                                    <th>Reference No</th>
-                                    <th>Invoice No</th>
-                                    <th>Invoice Type</th>
-                                    <th>Invoice Status</th>
-                                    <th>Created Date</th>
-                                    <th>Net Taxable</th>
-                                    <th>VAT</th>
-                                    <th>Discount</th>
-                                    <th>Amount Total</th>
-                                    <th>Amount Received</th>
-                                    <th>Product</th>
-                                    <th>Rate</th>
-                                    <th>Quantity</th>
-                                    <th>Total Including VAT</th>
-                                    <th>Remarks</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for invoices in invoice_items %}
-                                    <tr>
-                                        <td>{{ forloop.counter }}</td>
-                                        <td>{{ invoices.invoice.reference_no }}</td>
-                                        <td>{{ invoices.invoice.invoice_no }}</td>
-                                        <td>{{ invoices.invoice.invoice_type }}</td>
-                                        <td>{{ invoices.invoice.invoice_status }}</td>
-                                        <td>{{ invoices.invoice.created_date }}</td>
-                                        <td>{{ invoices.invoice.net_taxable }}</td>
-                                        <td>{{ invoices.invoice.vat }}</td>
-                                        <td>{{ invoices.invoice.discount }}</td>
-                                        <td>{{ invoices.invoice.amout_total }}</td>
-                                        <td>{{ invoices.invoice.amout_recieved }}</td>
-                                        <td>{{ invoices.product_items }}</td>
-                                        <td>{{ invoices.rate }}</td>
-                                        <td>{{ invoices.qty }}</td>
-                                        <td>{{ invoices.total_including_vat }}</td>
-                                        <td>{{ invoices.remarks }}</td>
-                                    </tr>
-                                {% empty %}
-                                    <tr>
-                                        <td colspan="15">No Customer Invoices Payments data found.</td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-
-                        <!-- Customer Outstanding Table -->
                         <h3>Customer Outstanding</h3>
                         <table class="table table-bordered">
                             <thead>
                                 <tr>
-                                    <th>Sl No</th>
-                                    <th>Product Type</th>
-                                    <th>Invoice No</th>
-                                    <th>Date</th>
+                                    <th style="text-align:center;">Sl No</th>
+                                    <th style="text-align:center;">Date</th>
+                                    <th style="text-align:center;">Product Type</th>
+                                    <th style="text-align:center;">Invoice No</th>
+                                    <th style="text-align:center;">Outstanding Amount</th>
+                                    <th style="text-align:center;">Outstanding Coupons</th>
+                                    <th style="text-align:center;">Outstanding Empty Cans</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for outstanding in outstanding_instances %}
-                                    <tr>
-                                        <td>{{ forloop.counter }}</td>
-                                        <td>{{ outstanding.product_type }}</td>
-                                        <td>{{ outstanding.invoice_no }}</td>
-                                        <td>{{ outstanding.created_date }}</td>
-                                    </tr>
-                                {% empty %}
-                                    <tr>
-                                        <td colspan="4">No Customer Outstanding found.</td>
-                                    </tr>
+                                {% for outstanding in customer_outstanding_instances %}
+                                    {% get_outstanding_amount customer.pk date as outstanding_amount%}
+                                    {% get_outstanding_bottles customer.pk date as outstanding_empty_bottles%}
+                                    {% get_outstanding_coupons customer.pk date as outstanding_coupons%}
+                                    {% if outstanding_amount != 0 %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>{{ outstanding.created_date }}</td>
+                                            <td>{{ outstanding.product_type }}</td>
+                                            <td>{{ outstanding.invoice_no }}</td>
+                                            <td>{{ outstanding_amount }}</td>
+                                            <td>{{ outstanding_empty_bottles }}</td>
+                                            <td>{{ outstanding_coupons }}</td>
+                                        </tr>
+                                    {% endif %}
                                 {% endfor %}
                             </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4" style="text-align:right;"><strong>Total</strong></td>
+                                    <td style="text-align:center;">{{ total_outstanding_amount }}</td>
+                                    <td style="text-align:center;">{{ total_outstanding_coupons }}</td>
+                                    <td style="text-align:center;">{{ total_outstanding_emptycan }}</td>
+                                </tr>
+                            </tfoot>
                         </table>
+                    </div>
 
-                        <!-- Customer Coupon Table -->
-                        <h3>Customer Coupon</h3>
+                    <div id="table-container">
+                        <h3>Customer Collection Report</h3>
                         <table class="table table-bordered">
                             <thead>
                                 <tr>
-                                    <th>Sl No</th>
-                                    <th>Coupon Name</th>
-                                    <th>Coupon Type</th>
-                                    <th>Coupon Rate</th>
-                                    <th>No. of Leaflets</th>
-                                    <th>Valuable Leaflets</th>
-                                    <th>Free Leaflets</th>
-                                    <th>Payment Type</th>
-                                    <th>Amount Received</th>
-                                    <th>Grand Total</th>
-                                    <th>Discount</th>
-                                    <th>Net Amount</th>
-                                    <th>Total Payable</th>
-                                    <th>Balance</th>
-                                    <th>Coupon Method</th>
-                                    <th>Invoice No</th>
-                                    <th>Reference No</th>
-                                    <th>Created Date</th>
+                                    <th style="text-align:center;">Sl No</th>
+                                    <th style="text-align:center;">Created Date</th>
+                                    <th style="text-align:center;">Payment Method</th>
+                                    <th style="text-align:center;">Receipt Number</th>
+                                    <th style="text-align:center;">Amount Received</th>
+                                    <th style="text-align:center;">Total Discounts</th>
+                                    <th style="text-align:center;">Total Net Taxable</th>
+                                    <th style="text-align:center;">Total VAT</th>
+                                    <th style="text-align:center;">Collected Amount</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for coupon_item in coupon_recharge %}
-                                    <tr>
-                                        <td>{{ forloop.counter }}</td>
-                                        <td>{{ coupon_item.coupon.book_num }}</td>
-                                        <td>{{ coupon_item.coupon.coupon_type.coupon_type_name }}</td>
-                                        <td>{{ coupon_item.rate }}</td>
-                                        <td>{{ coupon_item.coupon.no_of_leaflets }}</td>
-                                        <td>{{ coupon_item.coupon.valuable_leaflets }}</td>
-                                        <td>{{ coupon_item.coupon.free_leaflets }}</td>
-                                        <td>{{ coupon_item.customer_coupon.payment_type }}</td>
-                                        <td>{{ coupon_item.customer_coupon.amount_recieved }}</td>
-                                        <td>{{ coupon_item.customer_coupon.grand_total }}</td>
-                                        <td>{{ coupon_item.customer_coupon.discount }}</td>
-                                        <td>{{ coupon_item.customer_coupon.net_amount }}</td>
-                                        <td>{{ coupon_item.customer_coupon.total_payeble }}</td>
-                                        <td>{{ coupon_item.customer_coupon.balance }}</td>
-                                        <td>{{ coupon_item.customer_coupon.coupon_method }}</td>
-                                        <td>{{ coupon_item.customer_coupon.invoice_no }}</td>
-                                        <td>{{ coupon_item.customer_coupon.reference_number }}</td>
-                                        <td>{{ coupon_item.customer_coupon.created_date }}</td>
-                                    </tr>
-                                {% empty %}
-                                    <tr>
-                                        <td colspan="18">No coupon data found.</td>
-                                    </tr>
+                                {% for collection_payment in collection_payment_instance %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ collection_payment.created_date }}</td>
+                                    <td>{{ collection_payment.payment_method }}</td>
+                                    <td>{{ collection_payment.receipt_number }}</td>
+                                    <td>{{ collection_payment.amount_received }}</td>
+                                    <td>{{ collection_payment.total_discounts }}</td>
+                                    <td>{{ collection_payment.total_net_taxeble }}</td>
+                                    <td>{{ collection_payment.total_vat }}</td>
+                                    <td>{{ collection_payment.collected_amount }}</td>
+                                </tr>
                                 {% endfor %}
                             </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4" style="text-align:center;"><strong>Total</strong></td>
+                                    <td>{{ total_amount_received }}</td>
+                                    <td>{{ total_discounts }}</td>
+                                    <td>{{ total_net_taxable }}</td>
+                                    <td>{{ total_collection_vat }}</td>
+                                    <td>{{ total_collected_amount }}</td>
+                                </tr>
+                            </tfoot>
                         </table>
+                    </div>
 
-                        <!-- Customer Supply Table -->
-                        <h3>Customer Supply Details</h3>
+                    <div id="table-container">
+                        <h3>Customer Redeemed Coupon</h3>
                         <table class="table table-bordered">
                             <thead>
                                 <tr>
                                     <th rowspan="2">Sl No</th>
-                                    <th rowspan="2">Supplied Product</th>
-                                    <th rowspan="2">Quantity</th>
-                                    <th rowspan="2">Amount</th>
-                                    <th rowspan="2">Grand Total</th>
-                                    <th rowspan="2">Discount</th>
-                                    <th rowspan="2">Net Payable</th>
-                                    <th rowspan="2">VAT</th>
-                                    <th rowspan="2">Subtotal</th>
-                                    <th rowspan="2">Amount Received</th>
-                                    <th rowspan="2">Collected Empty Bottles</th>
-                                    <th rowspan="2">Allocated Bottles to Pending</th>
-                                    <th rowspan="2">Allocated Bottles to Custody</th>
-                                    <th rowspan="2">Allocated Bottles to Paid</th>
-                                    <th rowspan="2">Allocated Bottles to Free</th>
-                                    <th rowspan="2">Total Supplied Quantity</th>
-                                    <th colspan="2">Total Coupons Received</th>
-                                    <th rowspan="2">Reference Number</th>
+                                    <th rowspan="2">Supply Date</th>
                                     <th rowspan="2">Invoice Number</th>
-                                    <th rowspan="2">Created Date</th>
+                                    <th colspan="2">No of coupons</th>
                                 </tr>
                                 <tr>
                                     <th>Manual</th>
@@ -261,36 +204,23 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for supply_item in customer_supply %}
-                                    <tr>
-                                        <td>{{ forloop.counter }}</td>
-                                        <td>{{ supply_item.supplied_product }}</td>
-                                        <td>{{ supply_item.quantity }}</td>
-                                        <td>{{ supply_item.amount }}</td>
-                                        <td>{{ supply_item.customer_supply.grand_total }}</td>
-                                        <td>{{ supply_item.customer_supply.discount }}</td>
-                                        <td>{{ supply_item.customer_supply.net_payable }}</td>
-                                        <td>{{ supply_item.customer_supply.vat }}</td>
-                                        <td>{{ supply_item.customer_supply.subtotal }}</td>
-                                        <td>{{ supply_item.customer_supply.amount_recieved }}</td>
-                                        <td>{{ supply_item.customer_supply.collected_empty_bottle }}</td>
-                                        <td>{{ supply_item.customer_supply.allocate_bottle_to_pending }}</td>
-                                        <td>{{ supply_item.customer_supply.allocate_bottle_to_custody }}</td>
-                                        <td>{{ supply_item.customer_supply.allocate_bottle_to_paid }}</td>
-                                        <td>{{ supply_item.customer_supply.allocate_bottle_to_free }}</td>
-                                        <td>{{ supply_item.get_total_supply_qty }}</td>
-                                        <td>{{ supply_item.total_coupon_recieved.manual_coupon|default:0 }}</td>
-                                        <td>{{ supply_item.total_coupon_recieved.digital_coupon|default:0 }}</td>
-                                        <td>{{ supply_item.customer_supply.reference_number }}</td>
-                                        <td>{{ supply_item.customer_supply.invoice_no }}</td>
-                                        <td>{{ supply_item.customer_supply.created_date }}</td>
-                                    </tr>
-                                {% empty %}
-                                    <tr>
-                                        <td colspan="12">No Customer Supply Details found.</td>
-                                    </tr>
+                                {% for redeemed_coupon in redeemed_coupon_instances %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ redeemed_coupon.created_date|date:'d-m-Y' }}</td>
+                                    <td>{{ redeemed_coupon.invoice_no }}</td>
+                                    <td>{{ redeemed_coupon.total_coupon_recieved.manual_coupon }}</td>
+                                    <td>{{ redeemed_coupon.total_coupon_recieved.digital_coupon }}</td>
+                                </tr>
                                 {% endfor %}
                             </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                    <td><strong>{{ total_manual_coupons }}</strong></td>
+                                    <td><strong>{{ total_digital_coupons }}</strong></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
@@ -298,19 +228,13 @@
         </div>
     </div>
 </div>
-{% endblock %}
+
+<script src="{% static 'js/jquery.min.js' %}"></script>
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const resetButton = document.querySelector('.btn-secondary');
-
-        resetButton.addEventListener('click', function() {
-            // Clear the date input field
-            const dateInput = document.getElementById('date');
-            dateInput.value = '';
-
-            // Optionally, reload the page to apply the reset filter
-            window.location.href = window.location.pathname; // Refresh the page to show all records
-        });
+    $(document).ready(function () {
+        $('#reset-btn').click(function () {
+            window.location.href = window.location.pathname;
+         });
     });
 </script>
-
+{% endblock %}

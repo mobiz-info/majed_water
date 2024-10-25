@@ -3586,87 +3586,181 @@ def customer_transaction_list(request):
     """
     filter_data = {}
     q = request.GET.get('q', '')
-    date = request.GET.get('date')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    # Initialize totals
+    total_amount = total_discount = total_net_payable = total_vat = 0
+    total_grand_total = total_amount_recieved = 0
+    customer_pk = request.GET.get("customer_pk")
+    
+    # Get CustomerSupply items excluding certain sales types
+    sales = CustomerSupplyItems.objects.filter(
+        customer_supply__customer__pk=customer_pk
+    ).exclude(customer_supply__customer__sales_type__in=["CASH COUPON", "CREDIT COUPON"]).order_by('-customer_supply__created_date')
+
+    # Get CustomerCoupon items
+    coupons = CustomerCouponItems.objects.filter(
+        customer_coupon__customer__pk=customer_pk
+    )
 
     # Handle date filtering
-    if date:
-        date = datetime.strptime(date, '%Y-%m-%d').date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-    else:
-        date = None  # No date provided
+    if start_date and end_date:
+        try:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            filter_data['filter_start_date'] = start_date.strftime('%Y-%m-%d')
+            filter_data['filter_end_date'] = end_date.strftime('%Y-%m-%d')
 
-    # Fetch all routes
-    route_li = RouteMaster.objects.all()
+            # Apply date filtering to sales and coupons
+            sales = sales.filter(customer_supply__created_date__date__range=(start_date, end_date))
+            coupons = coupons.filter(customer_coupon__created_date__date__range=(start_date, end_date))
+        except ValueError:
+            start_date = None  # Invalid date format, reset
+            end_date = None
 
-    # Fetch customer primary key from request
-    customer_pk = request.GET.get("customer_pk")
+    sales_report_data = []
 
-# Initialize querysets for collection payments and invoices related to the customer
-    collection_payments = CollectionItems.objects.filter(
-        collection_payment__customer__pk=customer_pk
-    ).order_by('-collection_payment__created_date')
-    # print("collection_payments",collection_payments)
+    # Process CustomerSupply data
+    for sale in sales:
+        sales_report_data.append({
+            'date': sale.customer_supply.created_date.date(),
+            'ref_invoice_no': sale.customer_supply.reference_number,
+            'invoice_number': sale.customer_supply.invoice_no,
+            'product_name': sale.product.product_name,
+            'sales_type': sale.customer_supply.customer.sales_type,
+            'amount': sale.customer_supply.grand_total,
+            'discount': sale.customer_supply.discount,
+            'net_taxable': sale.customer_supply.subtotal,
+            'vat_amount': sale.customer_supply.vat,
+            'grand_total': sale.customer_supply.grand_total,
+            'amount_collected': sale.customer_supply.amount_recieved,
+        })
 
-    invoice_items = InvoiceItems.objects.filter(
-        invoice__customer__pk=customer_pk
-    ).order_by('-invoice__created_date')
-    # print("invoice_items",invoice_items)
+        # Update totals
+        total_amount += sale.customer_supply.grand_total
+        total_discount += sale.customer_supply.discount
+        total_net_payable += sale.customer_supply.net_payable
+        total_vat += sale.customer_supply.vat
+        total_grand_total += sale.customer_supply.grand_total
+        total_amount_recieved += sale.customer_supply.amount_recieved
 
-    outstanding_instances = CustomerOutstanding.objects.filter(
+    # Process CustomerCoupon data
+    for coupon in coupons:
+        vat_rate = Tax.objects.get(name="VAT").percentage if Tax.objects.filter(name="VAT").exists() else 0
+        sales_report_data.append({
+            'date': coupon.customer_coupon.created_date.date(),
+            'ref_invoice_no': coupon.customer_coupon.reference_number,
+            'invoice_number': coupon.customer_coupon.invoice_no,
+            'product_name': coupon.coupon.book_num,
+            'sales_type': coupon.customer_coupon.customer.sales_type,
+            'amount': coupon.customer_coupon.grand_total,
+            'discount': coupon.customer_coupon.discount,
+            'net_taxable': coupon.customer_coupon.net_amount,
+            'vat_amount': vat_rate,
+            'grand_total': coupon.customer_coupon.grand_total,
+            'amount_collected': coupon.customer_coupon.amount_recieved,
+        })
+
+        # Update totals
+        total_amount += coupon.customer_coupon.grand_total
+        total_discount += coupon.customer_coupon.discount
+        total_net_payable += coupon.customer_coupon.net_amount
+        total_vat += vat_rate
+        total_grand_total += coupon.customer_coupon.grand_total
+        total_amount_recieved += coupon.customer_coupon.amount_recieved
+
+    # Fetch Customer Outstanding instances
+    customer_outstanding_instances = CustomerOutstanding.objects.filter(customer__pk=customer_pk)
+
+    # Apply date filter if provided
+    if start_date and end_date:
+        customer_outstanding_instances = customer_outstanding_instances.filter(
+            created_date__date__range=(start_date, end_date)
+        )
+
+    customer_outstanding_instances = customer_outstanding_instances.order_by('-created_date')
+
+    # Calculate totals for footer
+    total_outstanding_amount = OutstandingAmount.objects.filter(
+        customer_outstanding__in=customer_outstanding_instances
+    ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+
+    total_outstanding_coupons = OutstandingCoupon.objects.filter(
+        customer_outstanding__in=customer_outstanding_instances
+    ).aggregate(total_count=Sum('count'))['total_count'] or 0
+
+    total_outstanding_emptycan = OutstandingProduct.objects.filter(
+        customer_outstanding__in=customer_outstanding_instances
+    ).aggregate(total_empty_bottle=Sum('empty_bottle'))['total_empty_bottle'] or 0
+
+    # Filter CollectionPayment instances for the customer
+    collection_payment_instance = CollectionPayment.objects.filter(
         customer__pk=customer_pk
-    ).order_by('-created_date')
-    # print("outstanding_instances",outstanding_instances)
+    )
 
-    coupon_recharge = CustomerCouponItems.objects.filter(
-        customer_coupon__customer__pk=customer_pk
-    ).order_by('-customer_coupon__created_date')  
-    # print("coupon_recharge",coupon_recharge)
-    
-    customer_supply = CustomerSupplyItems.objects.filter(
-        customer_supply__customer__pk=customer_pk
-    ).order_by('-customer_supply__created_date')
-    # print("customer_supply",customer_supply)
+    # Apply date filter if provided
+    if start_date and end_date:
+        collection_payment_instance = collection_payment_instance.filter(
+            created_date__date__range=(start_date, end_date)
+        )
 
-    customer_orders_items = CustomerOrdersItems.objects.filter(
-        customer_order__customer__pk=customer_pk
-    ).order_by('-customer_order__created_date')
-    # print("customer_orders_items",customer_orders_items)
+    collection_payment_instance = collection_payment_instance.order_by('-created_date')
 
-    # Apply date filter only if a date is provided
-    if date:
-        collection_payments = collection_payments.filter(collection_payment__created_date__date__gte=date)
-        # print("filtered_collection_payments",collection_payments)
-        invoice_items = invoice_items.filter(invoice__created_date__date__gte=date)
-        # print("filtered_invoice_items",invoice_items)
+    # Calculate total amounts
+    total_amount_received = collection_payment_instance.aggregate(Sum('amount_received'))['amount_received__sum'] or 0
+    total_discounts = sum(payment.total_discounts() for payment in collection_payment_instance)
+    total_net_taxable = sum(payment.total_net_taxeble() for payment in collection_payment_instance)
+    total_collection_vat = sum(payment.total_vat() for payment in collection_payment_instance)
+    total_collected_amount = sum(payment.collected_amount() for payment in collection_payment_instance)
 
-        outstanding_instances = outstanding_instances.filter(created_date__date__gte=date)
-        # print("filtered_outstanding_instances",outstanding_instances)
-        
-        coupon_recharge = coupon_recharge.filter(customer_coupon__created_date__date__gte=date)
-        # print("filtered_coupon_recharge",coupon_recharge)
+    # Filter redeemed_coupon_instances for the customer and sales_type="CASH COUPON"
+    redeemed_coupon_instances = CustomerSupply.objects.filter(
+        customer__pk=customer_pk,
+        customer__sales_type="CASH COUPON"
+    )
 
-        customer_supply = customer_supply.filter(customer_supply__created_date__date__gte=date)
-        print("filtered_customer_supply",customer_supply)
+    # Apply date filter if provided
+    if start_date and end_date:
+        redeemed_coupon_instances = redeemed_coupon_instances.filter(
+            created_date__date__range=(start_date, end_date)
+        )
 
-        customer_orders_items = customer_orders_items.filter(customer_order__created_date__date__gte=date)
-        # print("filtered_customer_orders_items",customer_orders_items)
+    redeemed_coupon_instances = redeemed_coupon_instances.order_by('-created_date')
 
+    # Calculate totals for manual and digital coupons
+    total_manual_coupons = 0
+    total_digital_coupons = 0
+
+    for coupon in redeemed_coupon_instances:
+        total_coupons = coupon.total_coupon_recieved()  # Assuming this method returns a dict
+        total_manual_coupons += total_coupons.get('manual_coupon', 0)
+        total_digital_coupons += total_coupons.get('digital_coupon', 0)
 
     context = {
-        'filter_data': filter_data,
-        'route_li': route_li,
-        'date': date,
+        'sales_report_data': sales_report_data,
+        'total_amount': total_amount,
+        'total_discount': total_discount,
+        'total_net_payable': total_net_payable,
+        'total_vat': total_vat,
+        'total_grand_total': total_grand_total,
+        'total_amount_recieved': total_amount_recieved,
+        'filter_start_date': filter_data.get('filter_start_date', ''),
+        'filter_end_date': filter_data.get('filter_end_date', ''),
+        'total_outstanding_amount': total_outstanding_amount,
+        'total_outstanding_coupons': total_outstanding_coupons,
+        'total_outstanding_emptycan': total_outstanding_emptycan,
+        'customer_outstanding_instances': customer_outstanding_instances,
+        'collection_payment_instance': collection_payment_instance,
+        'total_amount_received': total_amount_received,
+        'total_discounts': total_discounts,
+        'total_net_taxable': total_net_taxable,
+        'total_collection_vat': total_collection_vat,
+        'total_collected_amount': total_collected_amount,
+        'redeemed_coupon_instances': redeemed_coupon_instances,
+        'total_manual_coupons': total_manual_coupons,
+        'total_digital_coupons': total_digital_coupons,
         'customer_pk': customer_pk,
-        'collection_payments': collection_payments,
-        'invoice_items': invoice_items,
-        'outstanding_instances': outstanding_instances,
-        'coupon_recharge': coupon_recharge,
-        'customer_supply': customer_supply,
-        'customer_orders_items': customer_orders_items,
-        'page_name': 'Customer Transaction List',
-        'page_title': 'Customer Transaction List',
-        'is_customer_transaction': True,
-        'is_need_datetime_picker': True,
     }
 
     log_activity(
