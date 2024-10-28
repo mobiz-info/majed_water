@@ -1,4 +1,5 @@
 import datetime
+from django.utils import timezone
 
 from django import template
 from django.db.models import Q, Sum
@@ -89,3 +90,50 @@ def get_outstanding_coupons(customer_id, date):
     ).aggregate(total_coupons=Sum('count'))
     
     return outstanding_coupons.get('total_coupons') or 0
+
+
+@register.simple_tag
+def get_customer_outstanding_aging(route=None):
+    aging_report = []
+    current_date = timezone.now().date()
+
+    customers = CustomerOutstanding.objects.select_related('customer')
+    if route:
+        customers = customers.filter(customer__routes=route) 
+
+    for customer in customers:
+        aging_data = {
+            'customer_name': customer.customer.customer_name,
+            'less_than_30': 0,
+            'between_31_and_60': 0,
+            'between_61_and_90': 0,
+            'between_91_and_150': 0,
+            'between_151_and_365': 0,
+            'more_than_365': 0,
+            'grand_total': 0,
+        }
+
+        outstanding_amounts = OutstandingAmount.objects.filter(customer_outstanding=customer)
+
+        for amount in outstanding_amounts:
+            days_due = (current_date - amount.customer_outstanding.created_date.date()).days
+            aging_data['grand_total'] += amount.amount
+
+            if days_due < 30:
+                aging_data['less_than_30'] += amount.amount
+            elif 31 <= days_due <= 60:
+                aging_data['between_31_and_60'] += amount.amount
+            elif 61 <= days_due <= 90:
+                aging_data['between_61_and_90'] += amount.amount
+            elif 91 <= days_due <= 150:
+                aging_data['between_91_and_150'] += amount.amount
+            elif 151 <= days_due <= 365:
+                aging_data['between_151_and_365'] += amount.amount
+            else:
+                aging_data['more_than_365'] += amount.amount
+
+        if aging_data['grand_total'] > 0:
+            aging_report.append(aging_data)
+
+    return aging_report
+

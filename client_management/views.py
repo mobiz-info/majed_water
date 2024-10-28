@@ -3770,3 +3770,23 @@ def customer_transaction_list(request):
     
     return render(request, 'client_management/customer_transaction/customer_transaction_list.html', context)
 
+def ageing_report_view(request): 
+    
+    route_name = request.GET.get('route', None)
+    selected_route = None
+
+    routes = RouteMaster.objects.all()
+
+    if route_name:
+        try:
+            selected_route = RouteMaster.objects.get(route_name=route_name)
+        except RouteMaster.DoesNotExist:
+            selected_route = None 
+
+    context = {
+        'selected_route': selected_route,
+        'routes': routes,
+    }
+    
+    return render(request, 'client_management/ageing_report.html', context)
+   

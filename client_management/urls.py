@@ -81,4 +81,6 @@ urlpatterns = [
         path('delete_nonvisitreason/<uuid:id>/', delete_nonvisitreason, name='delete_nonvisitreason'),
         
         path('upload-outstanding/', upload_outstanding, name='upload_outstanding'),
+        
+        path('ageing_report/', ageing_report_view, name='ageing_report'),
 ]

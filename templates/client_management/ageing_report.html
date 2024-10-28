@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block title %} Ageing Report {% endblock %}
+{% block content %}
+{% load client_templatetags %}
+
+<!-- Page Header -->
+<div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between">
+    <h4 class="fw-medium mb-0">Ageing Report</h4>
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-30">Client Management</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Ageing Report</li>
+    </ol>
+</div>
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+        <!-- Start:: row-2 -->
+        <div class="row">
+            <div class="col-xl-12">
+                <div class="card custom-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            Ageing Report
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        
+                        <div class="mt">
+                            <form method="GET" action="{% url 'ageing_report' %}">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        
+                                        <div class="col-3">
+                                            <label for="route_name">Routes:</label>
+                                            <select id="route" name="route" class="form-control">
+                                                <option value="">Select a Route</option>
+                                                {% for route in routes %}
+                                                    <option value="{{ route.route_name }}" {% if selected_route and route.route_name == selected_route.route_name %}selected{% endif %}>
+                                                        {{ route.route_name }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-3 pt-3">
+                                            <input type="submit" class="btn btn-primary btn-sm mx-1" value="Apply Filter">
+                                            <button type="button" class="btn btn-secondary btn-sm mx-1" onclick="resetFilters()" style="width:max-content">Reset Filter</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    
+
+                        {% if selected_route %}
+                        <div class="row mt-4">
+                            <div class="col-xl-12">
+                                <div class="card custom-card">
+                                    
+
+                                    <div id="table-container" style="overflow-x:auto;">
+                                        <div class="card-body">
+                                            <table id="responsiveDataTable" class="table table-bordered text-wrap" style="width: 100%">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="text-align:center;width:5%;" scope="col">Sl.No</th>
+                                                        <th style="text-align:center;" scope="col">Customer Name</th>
+                                                        <th style="text-align:center;" scope="col">&lt; 30 days</th>
+                                                        <th style="text-align:center;" scope="col">31 - 60 days</th>
+                                                        <th style="text-align:center;" scope="col">61 - 90 days</th>
+                                                        <th style="text-align:center;" scope="col">91 - 150 days</th>
+                                                        <th style="text-align:center;" scope="col">151 - 365 days</th>
+                                                        <th style="text-align:center;" scope="col">More than 365</th>
+                                                        <th style="text-align:center;" scope="col">Grand Total</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% get_customer_outstanding_aging selected_route as ageing_data %}
+                                                    {% for data in ageing_data %}
+                                                        <tr>
+                                                            <td style="text-align:center;">{{ forloop.counter }}</td>
+                                                            <td>{{ data.customer_name }}</td>
+                                                            <td>{{ data.less_than_30 }}</td>
+                                                            <td>{{ data.between_31_and_60 }}</td>
+                                                            <td>{{ data.between_61_and_90 }}</td>
+                                                            <td>{{ data.between_91_and_150 }}</td>
+                                                            <td>{{ data.between_151_and_365 }}</td>
+                                                            <td>{{ data.more_than_365 }}</td>
+                                                            <td>{{ data.grand_total }}</td>
+                                                        </tr>
+                                                    {% empty %}
+                                                        <tr>
+                                                            <td colspan="9" style="text-align:center;">No data available</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    function resetFilters() {
+        location.href = "{% url 'ageing_report' %}";
+    }
+</script>
+
+{% endblock %}
