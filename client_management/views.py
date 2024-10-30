@@ -3770,15 +3770,20 @@ def customer_transaction_list(request):
         'total_digital_coupons': total_digital_coupons,
         'customer_pk': customer_pk,
     }
+    
+    log_activity(
+        created_by=request.user if request.user.is_authenticated else None,
+        description="Viewed the customer transaction List with filters applied."
+    )
 
     return render(request, 'client_management/customer_transaction/customer_transaction_list.html', context)
 
 
 def customer_transaction_print(request):
     """
-    Customer Transaction List
+    Customer Transaction Print
     :param request:
-    :return: Customer Transaction list view
+    :return: Customer Transaction Print view
     """
     filter_data = {}
     q = request.GET.get('q', '')
@@ -3967,6 +3972,10 @@ def customer_transaction_print(request):
         'total_digital_coupons': total_digital_coupons,
         'customer_pk': customer_pk,
     }
+    log_activity(
+        created_by=request.user if request.user.is_authenticated else None,
+        description="Viewed the customer transaction Print with filters applied."
+    )
     return render(request, 'client_management/customer_transaction/customer_transaction_print.html', context)
 
 
