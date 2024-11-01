@@ -6204,6 +6204,8 @@ def receipt_list_view(request):
     receipts = Receipt.objects.all().order_by('-created_date')
     if route_filter:
         receipts = receipts.filter(customer__routes__route_name=route_filter)
+        filter_data['route_name'] = route_filter
+
 
     if query:
         receipts = receipts.filter(
@@ -6233,6 +6235,49 @@ def receipt_list_view(request):
     }
 
     return render(request, 'sales_management/receipt_list.html', context)
+def receipt_list_print(request):
+    filter_data = {}
+
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    query = request.GET.get("q")
+    route_filter = request.GET.get('route_name')
+
+    receipts = Receipt.objects.all().order_by('-created_date')
+    if route_filter:
+        receipts = receipts.filter(customer__routes__route_name=route_filter)
+        filter_data['route_name'] = route_filter
+
+
+    if query:
+        receipts = receipts.filter(
+            Q(customer__customer_name__icontains=query) |
+            Q(receipt_number__icontains=query) |
+            Q(customer__custom_id__icontains=query)|
+            Q(invoice_number__icontains=query)
+        )
+        
+    
+    today = datetime.today().date()
+    if start_date and end_date:
+        receipts = receipts.filter(created_date__range=[start_date, end_date])
+        filter_data['start_date'] = start_date
+        filter_data['end_date'] = end_date
+    
+
+   
+    # Fetch all routes for the dropdown
+    route_li = RouteMaster.objects.all()
+
+    context = {
+        'receipts': receipts, 
+        'today': today,
+        'filter_data': filter_data,
+        'route_li': route_li,
+    }
+
+    return render(request, 'sales_management/receipt_list_print.html', context)
 
 def delete_receipt(request, receipt_number, customer_id):
     
