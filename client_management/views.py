@@ -3794,7 +3794,8 @@ def customer_transaction_print(request):
     total_amount = total_discount = total_net_payable = total_vat = 0
     total_grand_total = total_amount_recieved = 0
     customer_pk = request.GET.get("customer_pk")
-    
+    customer = get_object_or_404(Customers, pk=customer_pk)
+
     # Get CustomerSupply items excluding certain sales types
     sales = CustomerSupplyItems.objects.filter(
         customer_supply__customer__pk=customer_pk
@@ -3971,11 +3972,17 @@ def customer_transaction_print(request):
         'total_manual_coupons': total_manual_coupons,
         'total_digital_coupons': total_digital_coupons,
         'customer_pk': customer_pk,
-    }
+        'customer_name':customer.customer_name,
+        'building_name':customer.building_name,
+        'door_house_no':customer.door_house_no,
+        'floor_no':customer.floor_no,
+        }
+    
     log_activity(
         created_by=request.user if request.user.is_authenticated else None,
         description="Viewed the customer transaction Print with filters applied."
     )
+    
     return render(request, 'client_management/customer_transaction/customer_transaction_print.html', context)
 
 
