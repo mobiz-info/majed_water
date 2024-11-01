@@ -3999,10 +3999,163 @@ def ageing_report_view(request):
         except RouteMaster.DoesNotExist:
             selected_route = None 
 
+    totals = {
+        'total_less_than_30': 0,
+        'total_between_31_and_60': 0,
+        'total_between_61_and_90': 0,
+        'total_between_91_and_150': 0,
+        'total_between_151_and_365': 0,
+        'total_more_than_365': 0,
+        'total_grand_total': 0,
+    }
+
+    if selected_route:
+        ageing_data = get_customer_outstanding_aging(selected_route)
+        
+        # Calculate totals from ageing data
+        for item in ageing_data:
+            totals['total_less_than_30'] += item['less_than_30']
+            totals['total_between_31_and_60'] += item['between_31_and_60']
+            totals['total_between_61_and_90'] += item['between_61_and_90']
+            totals['total_between_91_and_150'] += item['between_91_and_150']
+            totals['total_between_151_and_365'] += item['between_151_and_365']
+            totals['total_more_than_365'] += item['more_than_365']
+            totals['total_grand_total'] += item['grand_total']
+            
+    context = {
+        'selected_route': selected_route,
+        'routes': routes,
+        'totals':totals,
+    }
+    
+    return render(request, 'client_management/ageing_report.html', context)
+
+def print_ageing_report_view(request):
+    route_name = request.GET.get('route', None)
+    selected_route = None
+
+    routes = RouteMaster.objects.all()
+
+    if route_name:
+        try:
+            selected_route = RouteMaster.objects.get(route_name=route_name)
+        except RouteMaster.DoesNotExist:
+            selected_route = None 
+
     context = {
         'selected_route': selected_route,
         'routes': routes,
     }
+
+    return render(request, 'client_management/print_ageing_report.html', context)
+
+from .templatetags.client_templatetags import get_customer_outstanding_aging
+  
+def ageing_report_excel(request):
+    route_name = request.GET.get('route', None)
+    selected_route = RouteMaster.objects.get(route_name=route_name) if route_name else None
+    aging_report = get_customer_outstanding_aging(selected_route)
     
-    return render(request, 'client_management/ageing_report.html', context)
-   
+    # Create DataFrame from the aging report data
+    df = pd.DataFrame(aging_report)
+    
+    # Create the HttpResponse object with the appropriate Excel header.
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="ageing_report.xlsx"'
+    
+    # Use Pandas Excel writer
+    with pd.ExcelWriter(response, engine='xlsxwriter') as writer:
+        df.to_excel(writer, sheet_name='Ageing Report', index=False)
+    
+    return response
+
+@login_required
+def customer_outstanding_detail(request,customer_id):
+    """
+    Customer Outstanding details List
+    :param request:
+    :return: Customer Outstanding list view
+    """
+    filter_data = {}
+    instances = CustomerOutstanding.objects.filter(customer__pk=customer_id,product_type='amount')
+    
+    query = request.GET.get("q")
+    date = request.GET.get('date')
+    route_filter = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    if route_filter:
+            instances = instances.filter(customer__routes__route_name=route_filter)
+    route_li = RouteMaster.objects.all()
+    
+    if query:
+
+        instances = instances.filter(
+            Q(product_type__icontains=query) |
+            Q(invoice_no__icontains=query) 
+        )
+        title = "Outstanding List - %s" % query
+        filter_data['q'] = query
+    
+    context = {
+        'instances': instances,
+        'page_name' : 'Customer Outstanding List',
+        'page_title' : 'Customer Outstanding List',
+        'customer_id': customer_id,
+        'is_customer_outstanding': True,
+        'is_need_datetime_picker': True,
+        'filter_data': filter_data,
+        'route_li':route_li,
+    }
+
+    return render(request, 'client_management/customer_outstanding/customer_outstanding_list.html', context)
+
+def customer_outstanding_to_excel(request, customer_id):
+    instances = CustomerOutstanding.objects.filter(customer__pk=customer_id, product_type='amount')
+    
+    # Prepare data for the Excel file
+    data = []
+    for item in instances:
+        # Convert created_date to timezone-naive
+        if item.created_date.tzinfo is not None:
+            created_date_naive = item.created_date.astimezone(timezone.utc).replace(tzinfo=None)
+        else:
+            created_date_naive = item.created_date  # Already naive
+
+        data.append([
+            created_date_naive,  # Use the naive datetime
+            item.invoice_no,
+            item.customer.customer_name,
+            item.customer.building_name,
+            item.customer.routes.route_name,
+            item.get_outstanding_count()
+        ])
+    
+    # Create a DataFrame
+    df = pd.DataFrame(data, columns=['Created Date', 'Invoice No', 'Customer', 'Building No', 'Route', 'Count'])
+    
+    # Create the HttpResponse object with the appropriate Excel headers
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="customer_outstanding_report.xlsx"'
+    
+    # Use pandas to write to the response
+    with pd.ExcelWriter(response, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Outstanding Report')
+    
+    return response
+
+def print_customer_outstandings(request, customer_id):
+    instances = CustomerOutstanding.objects.filter(customer__pk=customer_id, product_type='amount')
+    context = {
+        'instances': instances,
+        'page_title': 'Customer Outstanding Print',
+    }
+    return render(request, 'client_management/customer_outstanding/customer_outstanding_print.html', context)
+

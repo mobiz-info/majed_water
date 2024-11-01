@@ -49,44 +49,32 @@
                     
 
 
-                    <table class="table table-bordered">
+                    <table  id="datatable-basic" class="table table-bordered text-wrap" style="width: 100%">
                         <thead>
                             <tr>
-                                <th style="text-align:center; width:5%;">Sl No</th>
-                                <th style="text-align:center;">Created Date</th>
-                                <th style="text-align:center;">Invoice No</th>
-                                <th style="text-align:center;">Customer ID</th>
-                                <th style="text-align:center;">Customer</th>
-                                <th style="text-align:center;">Customer Type</th>
-                                <th style="text-align:center;">Building No</th>
-                                <th style="text-align:center;">Route</th>
-                                {% comment %} <th style="text-align:center;">Outstanding Type</th> {% endcomment %}
-                                <th style="text-align:center;">Count</th>
-                            
+                                <th>Sl No</th>
+                                <th>Created Date</th>
+                                <th>Invoice No</th>
+                                <th>Customer</th>
+                                <th>Building No</th>
+                                <th>Route</th>
+                                <th>Count</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for item in instances %}
                             <tr>
                                 <td>{{ forloop.counter }}</td>
-                                <td style="text-align:center;">{{ item.created_date|date:'d-m-Y' }}</td>
-                                <td style="text-align:center;">{{ item.invoice_no }}</td>
-                                <td style="text-align:center;">{{ item.customer.custom_id }}</td>
-                                <td style="text-align:center;">{{ item.customer.customer_name }}</td>
-                                <td style="text-align:center;">{{ item.customer.sales_type }}</td>
-                                <td style="text-align:center;">{{ item.customer.building_name }}</td>
-                                <td style="text-align:center;">{{ item.customer.routes.route_name }}</td>
-                                {% comment %} <td style="text-align:center;">{{ item.get_product_type_display }}</td> {% endcomment %}
-                                <td style="text-align:center;">{{ item.get_outstanding_count }}</td>
+                                <td>{{ item.created_date }}</td>
+                                <td>{{ item.invoice_no }}</td>
+                                <td>{{ item.customer.customer_name }}</td>
+                                <td>{{ item.customer.building_name }}</td>
+                                <td>{{ item.customer.routes.route_name}}</td>
+                                <td>{{ item.get_outstanding_count }}</td>
+                                
                             </tr>
                             {% endfor %}
                         </tbody>
-                        <tfoot>
-                            <tr>
-                                <td colspan="5"><strong>Total Outstanding Count:</strong></td>
-                                <td><strong>{{ total_outstanding_count }}</strong></td>
-                            </tr>
-                        </tfoot>
                     </table>
                 </div>
             </div>
