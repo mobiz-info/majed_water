@@ -6279,6 +6279,61 @@ def receipt_list_print(request):
 
     return render(request, 'sales_management/receipt_list_print.html', context)
 
+def receipt_list_excel(request):
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    query = request.GET.get("q")
+    route_filter = request.GET.get('route_name')
+
+    receipts = Receipt.objects.all().order_by('-created_date')
+    
+    if route_filter:
+        receipts = receipts.filter(customer__routes__route_name=route_filter)
+
+    if query:
+        receipts = receipts.filter(
+            Q(customer__customer_name__icontains=query) |
+            Q(receipt_number__icontains=query) |
+            Q(customer__custom_id__icontains=query) |
+            Q(invoice_number__icontains=query)
+        )
+
+    if start_date and end_date:
+        receipts = receipts.filter(created_date__range=[start_date, end_date])
+
+    # Prepare data for the Excel file
+    data = []
+    for receipt in receipts:
+        data.append({
+            'Date Time': receipt.created_date.astimezone(timezone.utc).replace(tzinfo=None).strftime('%d-%m-%Y'),
+            'Customer Name': receipt.customer.customer_name,
+            'Customer Code': receipt.customer.custom_id,
+            'Building Name': receipt.customer.building_name,
+            'Room No': receipt.customer.door_house_no,
+            'Route': receipt.customer.routes.route_name,  # Adjust if needed
+            'Receipt Number': receipt.receipt_number,
+            'Amount': receipt.amount_received,
+            'Against Invoice': receipt.invoice_number,
+        })
+
+    # Create a Pandas DataFrame
+    df = pd.DataFrame(data)
+
+    # Create an Excel file in memory
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        df.to_excel(writer, sheet_name='Receipts', index=False)
+
+    # Prepare response
+    buffer.seek(0)
+    filename = "Receipt_List.xlsx"
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
 def delete_receipt(request, receipt_number, customer_id):
     
     response_data = {

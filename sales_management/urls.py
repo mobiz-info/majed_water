@@ -124,6 +124,7 @@ urlpatterns = [
 
     path('receipt_list/', receipt_list_view, name='receipt_list'),
     path('receipt_list_print/', receipt_list_print, name='receipt_list_print'),
+    path('receipt_list_excel/', receipt_list_excel, name='receipt_list_excel'),
 
     path('delete_receipt/<str:receipt_number>/<uuid:customer_id>/', delete_receipt, name='delete_receipt'),
 
