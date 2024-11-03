@@ -643,7 +643,10 @@ class CustomerOutstandingSerializer(serializers.ModelSerializer):
         outstanding_amounts = OutstandingAmount.objects.filter(customer_outstanding__customer=obj,customer_outstanding__created_date__date__lte=date_str).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
         collection_amount = CollectionPayment.objects.filter(customer=obj,created_date__date__lte=date_str).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
         
-        return max(outstanding_amounts - collection_amount, 0)
+        if outstanding_amounts > collection_amount:
+            return outstanding_amounts - collection_amount
+        else:
+            return collection_amount - outstanding_amounts
     
     def get_empty_can(self,obj):
         date_str = self.context.get('date_str')
@@ -2400,3 +2403,11 @@ class SalesmanSerializer(serializers.ModelSerializer):
                     })
 
         return routes if routes else [{"id": None, "name": "No Routes Assigned"}]
+    
+
+class CustomerRegistrationRequestSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = CustomerRegistrationRequest
+        fields = ['id','name','phone_no','building_name','room_or_flat_no','location','emirate','status',"visit_schedule","no_of_bottles_required"]
+        read_only_field = ['id','status']
