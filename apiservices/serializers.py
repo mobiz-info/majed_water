@@ -448,9 +448,13 @@ class SupplyItemCustomersSerializer(serializers.ModelSerializer):
         leafs = []
 
         # Get the count of pending coupons from CustomerOutstandingReport
-        if CustomerOutstandingReport.objects.filter(product_type="coupons", customer=obj).exists():
-            pending_coupons = CustomerOutstandingReport.objects.get(product_type="coupons", customer=obj).value
+        # if CustomerOutstandingReport.objects.filter(product_type="coupons", customer=obj).exists():
+        #     pending_coupons = CustomerOutstandingReport.objects.get(product_type="coupons", customer=obj).value
 
+        pending_coupons_record = CustomerOutstandingReport.objects.filter(product_type="coupons", customer=obj).first()
+        if pending_coupons_record:
+            pending_coupons = int(pending_coupons_record.value or 0)
+            
         # Get the count of digital and manual coupons from CustomerCouponStock
         if CustomerCouponStock.objects.filter(customer=obj).exists():
             customer_coupon_stock = CustomerCouponStock.objects.filter(customer=obj)

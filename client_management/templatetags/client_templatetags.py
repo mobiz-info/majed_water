@@ -1,4 +1,5 @@
 import datetime
+from django.utils import timezone
 
 from django import template
 from django.db.models import Q, Sum
@@ -59,6 +60,8 @@ def route_wise_customer_bottle_count(customer_pk):
         
 @register.simple_tag
 def get_outstanding_amount(customer_id,date):
+    if not customer_id:  # Ensure customer_id is not empty
+        return 0 
     outstanding_amounts = OutstandingAmount.objects.filter(customer_outstanding__customer__pk=customer_id,customer_outstanding__created_date__date__lte=date).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
     collection_amount = CollectionPayment.objects.filter(customer__pk=customer_id,created_date__date__lte=date).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
     
@@ -69,6 +72,8 @@ def get_outstanding_amount(customer_id,date):
 
 @register.simple_tag
 def get_outstanding_bottles(customer_id, date):
+    if not customer_id:  # Ensure customer_id is not empty
+        return 0 
     outstanding_bottles = OutstandingProduct.objects.filter(
         customer_outstanding__customer__pk=customer_id,
         customer_outstanding__created_date__lte=date
@@ -77,9 +82,108 @@ def get_outstanding_bottles(customer_id, date):
 
 @register.simple_tag
 def get_outstanding_coupons(customer_id, date):
+    if not customer_id:  # Ensure customer_id is not empty
+        return 0 
     outstanding_coupons = OutstandingCoupon.objects.filter(
         customer_outstanding__customer__pk=customer_id,
         customer_outstanding__created_date__lte=date,
     ).aggregate(total_coupons=Sum('count'))
     
     return outstanding_coupons.get('total_coupons') or 0
+
+
+from django.db.models import Sum, F, Case, When, IntegerField
+
+
+@register.simple_tag
+def get_customer_outstanding_aging(route=None):
+    aging_report = []
+    current_date = timezone.now().date()
+
+    # Aggregate outstanding amounts by customer and apply date ranges
+    outstanding_data = (
+        OutstandingAmount.objects
+        .filter(customer_outstanding__customer__routes__route_name=route if route else '')
+        .values('customer_outstanding__customer__customer_id', 'customer_outstanding__customer__customer_name')
+        .annotate(
+            total_amount=Sum('amount'),
+            less_than_30=Sum(
+                Case(
+                    When(customer_outstanding__created_date__gte=current_date - timezone.timedelta(days=30), then=F('amount')),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            ),
+            between_31_and_60=Sum(
+                Case(
+                    When(
+                        customer_outstanding__created_date__gte=current_date - timezone.timedelta(days=60),
+                        customer_outstanding__created_date__lt=current_date - timezone.timedelta(days=30),
+                        then=F('amount')
+                    ),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            ),
+            between_61_and_90=Sum(
+                Case(
+                    When(
+                        customer_outstanding__created_date__gte=current_date - timezone.timedelta(days=90),
+                        customer_outstanding__created_date__lt=current_date - timezone.timedelta(days=60),
+                        then=F('amount')
+                    ),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            ),
+            between_91_and_150=Sum(
+                Case(
+                    When(
+                        customer_outstanding__created_date__gte=current_date - timezone.timedelta(days=150),
+                        customer_outstanding__created_date__lt=current_date - timezone.timedelta(days=90),
+                        then=F('amount')
+                    ),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            ),
+            between_151_and_365=Sum(
+                Case(
+                    When(
+                        customer_outstanding__created_date__gte=current_date - timezone.timedelta(days=365),
+                        customer_outstanding__created_date__lt=current_date - timezone.timedelta(days=150),
+                        then=F('amount')
+                    ),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            ),
+            more_than_365=Sum(
+                Case(
+                    When(customer_outstanding__created_date__lt=current_date - timezone.timedelta(days=365), then=F('amount')),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            )
+        )
+    )
+
+    # Build the aging report
+    for data in outstanding_data:
+        aging_data = {
+            'customer_id': data['customer_outstanding__customer__customer_id'],
+            'customer_name': data['customer_outstanding__customer__customer_name'],
+            'less_than_30': data['less_than_30'],
+            'between_31_and_60': data['between_31_and_60'],
+            'between_61_and_90': data['between_61_and_90'],
+            'between_91_and_150': data['between_91_and_150'],
+            'between_151_and_365': data['between_151_and_365'],
+            'more_than_365': data['more_than_365'],
+            'grand_total': data['total_amount'],
+        }
+
+        # Only add to report if there's a total outstanding amount
+        if aging_data['grand_total'] > 0:
+            aging_report.append(aging_data)
+
+    return aging_report

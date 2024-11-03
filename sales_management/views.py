@@ -6204,6 +6204,8 @@ def receipt_list_view(request):
     receipts = Receipt.objects.all().order_by('-created_date')
     if route_filter:
         receipts = receipts.filter(customer__routes__route_name=route_filter)
+        filter_data['route_name'] = route_filter
+
 
     if query:
         receipts = receipts.filter(
@@ -6233,6 +6235,104 @@ def receipt_list_view(request):
     }
 
     return render(request, 'sales_management/receipt_list.html', context)
+def receipt_list_print(request):
+    filter_data = {}
+
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    query = request.GET.get("q")
+    route_filter = request.GET.get('route_name')
+
+    receipts = Receipt.objects.all().order_by('-created_date')
+    if route_filter:
+        receipts = receipts.filter(customer__routes__route_name=route_filter)
+        filter_data['route_name'] = route_filter
+
+
+    if query:
+        receipts = receipts.filter(
+            Q(customer__customer_name__icontains=query) |
+            Q(receipt_number__icontains=query) |
+            Q(customer__custom_id__icontains=query)|
+            Q(invoice_number__icontains=query)
+        )
+        
+    
+    today = datetime.today().date()
+    if start_date and end_date:
+        receipts = receipts.filter(created_date__range=[start_date, end_date])
+        filter_data['start_date'] = start_date
+        filter_data['end_date'] = end_date
+    
+
+   
+    # Fetch all routes for the dropdown
+    route_li = RouteMaster.objects.all()
+
+    context = {
+        'receipts': receipts, 
+        'today': today,
+        'filter_data': filter_data,
+        'route_li': route_li,
+    }
+
+    return render(request, 'sales_management/receipt_list_print.html', context)
+
+def receipt_list_excel(request):
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    query = request.GET.get("q")
+    route_filter = request.GET.get('route_name')
+
+    receipts = Receipt.objects.all().order_by('-created_date')
+    
+    if route_filter:
+        receipts = receipts.filter(customer__routes__route_name=route_filter)
+
+    if query:
+        receipts = receipts.filter(
+            Q(customer__customer_name__icontains=query) |
+            Q(receipt_number__icontains=query) |
+            Q(customer__custom_id__icontains=query) |
+            Q(invoice_number__icontains=query)
+        )
+
+    if start_date and end_date:
+        receipts = receipts.filter(created_date__range=[start_date, end_date])
+
+    # Prepare data for the Excel file
+    data = []
+    for receipt in receipts:
+        data.append({
+            'Date Time': receipt.created_date.astimezone(timezone.utc).replace(tzinfo=None).strftime('%d-%m-%Y'),
+            'Customer Name': receipt.customer.customer_name,
+            'Customer Code': receipt.customer.custom_id,
+            'Building Name': receipt.customer.building_name,
+            'Room No': receipt.customer.door_house_no,
+            'Route': receipt.customer.routes.route_name,  # Adjust if needed
+            'Receipt Number': receipt.receipt_number,
+            'Amount': receipt.amount_received,
+            'Against Invoice': receipt.invoice_number,
+        })
+
+    # Create a Pandas DataFrame
+    df = pd.DataFrame(data)
+
+    # Create an Excel file in memory
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        df.to_excel(writer, sheet_name='Receipts', index=False)
+
+    # Prepare response
+    buffer.seek(0)
+    filename = "Receipt_List.xlsx"
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 def delete_receipt(request, receipt_number, customer_id):
     
@@ -6408,3 +6508,123 @@ def delete_receipt(request, receipt_number, customer_id):
     }
 
     return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+
+
+def monthly_sales_report(request):
+    month = int(request.GET.get('month', datetime.now().month))
+    year = datetime.now().year  
+    monthly_sales = (
+        CustomerSupply.objects
+        .filter(created_date__year=year, created_date__month=month)
+        .values('salesman__id', 'salesman__username')
+        .annotate(
+            total_grand_total=Sum('grand_total'),
+            total_discount=Sum('discount'),
+            total_net_payable=Sum('net_payable'),
+            total_vat=Sum('vat'),
+            total_subtotal=Sum('subtotal'),
+            total_amount_received=Sum('amount_recieved'),
+        )
+        .order_by('salesman__username')
+    )
+
+    sales_data = []
+    for sale in monthly_sales:
+        salesman_id = sale['salesman__id']
+
+        total_supply_qty = CustomerSupplyItems.objects.filter(
+            customer_supply__salesman_id=salesman_id,
+            customer_supply__created_date__year=year,
+            customer_supply__created_date__month=month
+        ).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+
+        manual_coupon_count = CustomerSupplyCoupon.objects.filter(
+            customer_supply__salesman_id=salesman_id,
+            customer_supply__created_date__year=year,
+            customer_supply__created_date__month=month
+        ).aggregate(total_leaf=Count('leaf') + Count('free_leaf'))['total_leaf'] or 0
+
+        digital_coupon_count = CustomerSupplyDigitalCoupon.objects.filter(
+            customer_supply__salesman_id=salesman_id,
+            customer_supply__created_date__year=year,
+            customer_supply__created_date__month=month
+        ).aggregate(total_count=Sum('count'))['total_count'] or 0
+
+        sale['total_supply_qty'] = total_supply_qty
+        sale['total_coupon_received'] = {
+            "manual_coupon": manual_coupon_count,
+            "digital_coupon": digital_coupon_count
+        }
+
+        sales_data.append(sale)
+
+    month_choices = [
+        (1, 'January'), (2, 'February'), (3, 'March'), (4, 'April'),
+        (5, 'May'), (6, 'June'), (7, 'July'), (8, 'August'),
+        (9, 'September'), (10, 'October'), (11, 'November'), (12, 'December')
+    ]
+
+    context = {
+        'month': month,
+        'sales_data': sales_data,
+        'month_choices': month_choices,  
+    }
+    return render(request, 'sales_management/salesman_monthly_sales.html', context)
+
+import calendar
+def monthly_sales_report_print(request):
+    month = int(request.GET.get('month', datetime.now().month))
+    year = datetime.now().year  
+
+    month_name = calendar.month_name[month]
+
+    monthly_sales = (
+        CustomerSupply.objects
+        .filter(created_date__year=year, created_date__month=month)
+        .values('salesman__id', 'salesman__username')
+        .annotate(
+            total_grand_total=Sum('grand_total'),
+            total_discount=Sum('discount'),
+            total_net_payable=Sum('net_payable'),
+            total_vat=Sum('vat'),
+            total_subtotal=Sum('subtotal'),
+            total_amount_received=Sum('amount_recieved'),
+        )
+        .order_by('salesman__username')
+    )
+
+    sales_data = []
+    for sale in monthly_sales:
+        salesman_id = sale['salesman__id']
+
+        total_supply_qty = CustomerSupplyItems.objects.filter(
+            customer_supply__salesman_id=salesman_id,
+            customer_supply__created_date__year=year,
+            customer_supply__created_date__month=month
+        ).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+
+        manual_coupon_count = CustomerSupplyCoupon.objects.filter(
+            customer_supply__salesman_id=salesman_id,
+            customer_supply__created_date__year=year,
+            customer_supply__created_date__month=month
+        ).aggregate(total_leaf=Count('leaf') + Count('free_leaf'))['total_leaf'] or 0
+
+        digital_coupon_count = CustomerSupplyDigitalCoupon.objects.filter(
+            customer_supply__salesman_id=salesman_id,
+            customer_supply__created_date__year=year,
+            customer_supply__created_date__month=month
+        ).aggregate(total_count=Sum('count'))['total_count'] or 0
+
+        sale['total_supply_qty'] = total_supply_qty
+        sale['total_coupon_received'] = {
+            "manual_coupon": manual_coupon_count,
+            "digital_coupon": digital_coupon_count
+        }
+
+        sales_data.append(sale)
+
+    context = {
+        'month': month_name,  
+        'sales_data': sales_data,
+    }
+    return render(request, 'sales_management/salesman_monthly_sales_print.html', context)

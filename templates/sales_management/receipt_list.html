@@ -56,8 +56,10 @@
                                         <div class="col d-flex align-items-end justify-content-end">
                                             <input type="submit" class="btn btn-primary btn-sm mx-1" value="Apply Filter">
                                             <button type="button" class="btn btn-secondary btn-sm mx-1" onclick="resetFilters()" style="width:max-content">Reset Filter</button>
-                                            {% comment %} <a href="{% url 'bottle_transactions_excel' %}?start_date={{ filter_data.start_date }}&end_date={{ filter_data.end_date }}&route_name={{ filter_data.route_name }}" class="btn btn-outline-success"><i class="fas fa-file-excel"></i>Excel</a>
-                                            <a href="{% url 'bottle_transactions_pdf' %}?start_date={{ filter_data.start_date }}&end_date={{ filter_data.end_date }}&route_name={{ filter_data.route_name }}" class="btn btn-outline-success"><i class="fas fa-file-excel"></i>Print</a> {% endcomment %}
+                                            <a href="{% url 'receipt_list_excel' %}?start_date={{ filter_data.start_date }}&end_date={{ filter_data.end_date }}&route_name={{ filter_data.route_name }}&q={{ request.GET.q }}"
+                                             class="btn btn-outline-success"><i class="fas fa-file-excel"></i>Excel</a>
+                                            <a href="{% url 'receipt_list_print' %}?start_date={{ filter_data.start_date }}&end_date={{ filter_data.end_date }}&route_name={{ filter_data.route_name }}&q={{ request.GET.q }}"
+                                             class="btn btn-outline-success"> <i class="fas fa-file-print"></i>Print</a>
                                         </div>
                                     </div>
                                 </div>

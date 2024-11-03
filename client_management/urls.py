@@ -65,6 +65,7 @@ urlpatterns = [
         
         path('print_outstanding_report/', print_outstanding_report, name='print_outstanding_report'),
         re_path(r'^customer_transaction_list/$', customer_transaction_list, name='customer_transaction_list'),
+        re_path(r'^customer_transaction_print/$', customer_transaction_print, name='customer_transaction_print'),
 
 
         # Customer count
@@ -81,4 +82,12 @@ urlpatterns = [
         path('delete_nonvisitreason/<uuid:id>/', delete_nonvisitreason, name='delete_nonvisitreason'),
         
         path('upload-outstanding/', upload_outstanding, name='upload_outstanding'),
+        
+        path('ageing_report/', ageing_report_view, name='ageing_report'),
+        path('ageing_report_print/', print_ageing_report_view, name='print_ageing_report'),
+        path('ageing_report_excel/',ageing_report_excel, name='ageing_report_excel'),
+        path('customer-outstanding-detail/<uuid:customer_id>/', customer_outstanding_detail, name='customer_outstanding_detail'),
+        path('customer_outstanding_excel/<uuid:customer_id>/', customer_outstanding_to_excel, name='customer_outstanding_excel'),
+        path('print_customer_outstandings/<uuid:customer_id>/', print_customer_outstandings, name='print_customer_outstandings'),
+        
 ]
