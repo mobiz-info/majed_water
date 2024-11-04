@@ -3216,7 +3216,7 @@ class create_customer_supply(APIView):
                         return Response(response_data, status=status_code)
                         
                 
-                if allocate_bottle_to_custody > 0 :
+                if allocate_bottle_to_custody > 0:
                     custody_instance = CustodyCustom.objects.create(
                         customer=customer_supply.customer,
                         created_by=request.user.id,
@@ -3224,22 +3224,22 @@ class create_customer_supply(APIView):
                         deposit_type="non_deposit",
                         reference_no=f"supply {customer_supply.customer.custom_id} - {customer_supply.created_date}"
                     )
-                    
+
                     CustodyCustomItems.objects.create(
                         product=ProdutItemMaster.objects.get(product_name="5 Gallon"),
                         quantity=allocate_bottle_to_custody,
                         custody_custom=custody_instance
-                        )
+                    )
                     
-                    custody_stock = CustomerCustodyStock.objects.get_or_create(
+                    custody_stock, created = CustomerCustodyStock.objects.get_or_create(
                         customer=customer_supply.customer,
                         product=ProdutItemMaster.objects.get(product_name="5 Gallon"),
                     )
-                    custody_stock.reference_no=f"supply {customer_supply.customer.custom_id} - {customer_supply.created_date}"   
+                    custody_stock.reference_no = f"supply {customer_supply.customer.custom_id} - {customer_supply.created_date}"   
                     custody_stock.quantity = allocate_bottle_to_custody
                     custody_stock.save()
                     
-                    if (bottle_count:=BottleCount.objects.filter(van=van,created_date__date=customer_supply.created_date.date())).exists():
+                    if (bottle_count := BottleCount.objects.filter(van=van, created_date__date=customer_supply.created_date.date())).exists():
                         bottle_count = bottle_count.first()
                         bottle_count.custody_issue += allocate_bottle_to_custody
                         bottle_count.save()
