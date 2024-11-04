@@ -4728,6 +4728,7 @@ class customer_outstanding(APIView):
     def get(self, request, *args, **kwargs):
         date = request.GET.get('date')
         route_id = request.GET.get("route_id")
+        customer_id = request.query_params.get("customer_id")
         
         if date:
             date = datetime.strptime(date, '%Y-%m-%d').date()
@@ -4742,6 +4743,9 @@ class customer_outstanding(APIView):
             
         customers = Customers.objects.filter(routes__pk=route_id)
 
+        if customer_id:
+            customers = customers.filter(pk=customer_id)
+            
         serialized_data = CustomerOutstandingSerializer(customers, many=True, context={"request": request, "date_str": date})
 
         # Filter out customers with zero amount, empty can, and coupons
@@ -4764,7 +4768,14 @@ class customer_outstanding(APIView):
                 created_date__date__lte=date
             ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
             
-            outstanding_amount = max(outstanding_amount - collection_amount, 0)
+            # outstanding_amount = max(outstanding_amount - collection_amount, 0)
+            outstanding_amount = outstanding_amount - collection_amount
+            
+            # if outstanding_amount > collection_amount:
+            #     outstanding_amount = outstanding_amount - collection_amount
+            # else:
+            #     outstanding_amount = collection_amount - outstanding_amount
+            
             total_outstanding_amount += outstanding_amount
             
             total_bottles = OutstandingProduct.objects.filter(
@@ -9671,3 +9682,59 @@ class SalesmanListAPIView(APIView):
 
         # Return the serialized data with a 200 OK response
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class CustomerRegistrationRequestView(APIView):
+    def get(self, request, *args, **kwargs):
+        instances = CustomerRegistrationRequest.objects.all()
+        serializer = CustomerRegistrationRequestSerializer(instances,many=True)
+        
+        status_code = status.HTTP_200_OK
+        response_data = {
+            "status": status_code,
+            "data": serializer.data,
+        }
+        
+        return Response(response_data, status=status_code)
+    
+    def post(self, request, *args, **kwargs):
+        serializer = CustomerRegistrationRequestSerializer(data=request.data, context={'request': request})
+        try:
+            with transaction.atomic():
+                if serializer.is_valid():
+                    instance = serializer.save(
+                        created_date=datetime.today(),
+                    )                    
+                    status_code = status.HTTP_201_CREATED
+                    response_data = {
+                        "StatusCode": status_code,
+                        "status": status_code,
+                        "data": serializer.data,
+                    }
+                else:
+                    status_code = status.HTTP_400_BAD_REQUEST
+                    response_data = {
+                        "StatusCode": status_code,
+                        "status": status_code,
+                        "message": serializer.errors,
+                    }
+                        
+        except IntegrityError as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "StatusCode": 400,
+                "status": status_code,
+                "title": "Failed",
+                "message": str(e),
+            }
+
+        except Exception as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "StatusCode": 400,
+                "status": status_code,
+                "title": "Failed",
+                "message": str(e),
+            }
+        
+        return Response(response_data, status=status_code)

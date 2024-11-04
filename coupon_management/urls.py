@@ -33,6 +33,7 @@ urlpatterns = [
     path('redeemed-coupon-details/<uuid:supply_pk>/', redeemed_coupon_details, name='redeemed_coupon_details'),
     path('print_redeemed_history/', print_redeemed_history, name='print_redeemed_history'),
 
+    path('coupon_recharge/', coupon_recharge_list, name='coupon_recharge'),
 
 
 

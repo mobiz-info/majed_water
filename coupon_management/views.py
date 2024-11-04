@@ -689,3 +689,51 @@ def print_redeemed_history(request):
     }
 
     return render(request, 'coupon_management/print_redeemed_history.html', context)
+
+
+def coupon_recharge_list(request):
+    # Get start and end dates from request parameters if available
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    query = request.GET.get("q")
+    payment_type = request.GET.get('payment_type', '')
+    coupon_method = request.GET.get('coupon_method', '')
+
+    
+    coupon_customer =CustomerCoupon.objects.all().order_by('-created_date')
+    
+    if start_date and end_date:
+        # If both dates are provided, filter between them
+        coupon_customer = coupon_customer.filter(created_date__range=(start_date, end_date))
+    if query:
+        coupon_customer = coupon_customer.filter(
+            Q(customer__custom_id__icontains=query) |
+            Q(customer__customer_name__icontains=query) |
+            Q(customer__mobile_no__icontains=query) |
+            Q(customer__location__location_name__icontains=query) |
+            Q(customer__building_name__icontains=query)
+        )
+    # Apply payment_type and coupon_method filters
+    if payment_type:
+        coupon_customer = coupon_customer.filter(payment_type=payment_type)
+    if coupon_method:
+        coupon_customer = coupon_customer.filter(coupon_method=coupon_method)
+
+    # Pass filter_data to keep the form values intact
+    filter_data = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'q': query,
+        'payment_type': payment_type,
+        'coupon_method': coupon_method,
+
+    }
+    context={
+        'coupon_customer':coupon_customer,
+        'filter_data': filter_data,
+
+}
+
+    return render(request,'coupon_management/coupon_recharge_list.html', context)
+
+

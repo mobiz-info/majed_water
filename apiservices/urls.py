@@ -322,5 +322,9 @@ urlpatterns = [
     path('customer-outstandings-coupon-report/', CustomersOutstandingCouponsAPI.as_view(), name='customers_outstandings_coupons_reports'),
    
     path('salesman/', SalesmanListAPIView.as_view(), name='salesman-list'),
+    
+    ############################# Customer App ##############################################
+    path('customer-registration-request/', CustomerRegistrationRequestView.as_view(), name='customer_registration_request'),
+    
 
 ]

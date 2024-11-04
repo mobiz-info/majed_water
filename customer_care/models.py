@@ -4,6 +4,11 @@ from accounts.models import *
 from product.models import *
 from client_management.models import *
 
+CUSTOMER_REQUEST_CHOICES = [
+        ('requested', 'Requested'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
 
 
 class RequestTypeMaster(models.Model):
@@ -132,6 +137,31 @@ class CustomerComplaint(models.Model):
     
     def __str__(self):
         return f"{self.id}"
+    
+
+class CustomerRegistrationRequest(models.Model):
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=50,default=0)
+    phone_no = models.CharField(max_length=50,default=0)
+    building_name = models.CharField(max_length=50,default=0)
+    room_or_flat_no = models.CharField(max_length=50,default=0)
+    visit_schedule = models.JSONField()
+    no_of_bottles_required = models.IntegerField(default=0)
+    status = models.CharField(max_length=50,default="requested",choices=CUSTOMER_REQUEST_CHOICES)
+    
+    location = models.ForeignKey('master.LocationMaster', on_delete=models.CASCADE)
+    emirate = models.ForeignKey('master.EmirateMaster', on_delete=models.CASCADE)
+    
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        ordering = ('-created_date',)
+
+    def __str__(self):
+        return str(self.name)
 
     
     
