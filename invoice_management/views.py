@@ -133,33 +133,39 @@ def invoice_list(request):
     :return: Invoices list view
     """
     filter_date = request.GET.get('filter_date')
-    instances = Invoice.objects.filter(is_deleted=False).order_by("-created_date")
-         
-    if filter_date:
-        filter_date = datetime.datetime.strptime(filter_date, '%m/%d/%Y').date()
-        instances = instances.filter(date=filter_date)
-        filter_data['filter_date'] = filter_date.strftime('%Y-%m-%d')
-    
-    filter_data = {}
+    route_name = request.GET.get('route_name')
     query = request.GET.get("q")
     
-    if query:
+    filter_data = {}
+    instances = Invoice.objects.filter(is_deleted=False).order_by("-created_date")
 
+    if filter_date:
+        filter_date = datetime.datetime.strptime(filter_date, '%Y-%m-%d').date()
+        instances = instances.filter(created_date=filter_date)
+        filter_data['filter_date'] = filter_date.strftime('%Y-%m-%d')
+
+    if query:
         instances = instances.filter(
             Q(invoice_no__icontains=query) |
-            Q(customer__customer_name__icontains=query) 
+            Q(customer__customer_name__icontains=query)
         )
-        title = "Invoice List - %s" % query
         filter_data['q'] = query
+
+    if route_name:
+        instances = instances.filter(customer__routes__route_name=route_name)
+        filter_data['route_name'] = route_name
+
     for instance in instances:
         instance.can_edit = (timezone.now().date() - instance.created_date.date()).days <= 3
 
+    route_li = RouteMaster.objects.all()  
+    
     context = {
         'instances': instances,
-        'page_name' : 'Invoice List',
-        'page_title' : 'Invoice List',
-        'filter_data' :filter_data,
-        
+        'page_name': 'Invoice List',
+        'page_title': 'Invoice List',
+        'filter_data': filter_data,
+        'route_li': route_li,
         'is_invoice': True,
         'is_need_datetime_picker': True,
     }
