@@ -34,6 +34,8 @@ from invoice_management.forms import InvoiceForm, InvoiceItemsForm
 from invoice_management.serializers import BuildingNameSerializers, ProductSerializers,CustomersSerializers
 from accounts.views import log_activity
 from van_management.models import VanCouponStock
+from sales_management.models import Receipt
+from sales_management.views import delete_receipt
 
 # Create your views here.
 @api_view(['GET'])
