@@ -14,8 +14,9 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apiservices.views import delete_coupon_recharge
-from client_management.models import CustomerCoupon, CustomerOutstanding, CustomerOutstandingReport, CustomerSupply, CustomerSupplyItems
+from client_management.models import ChequeCouponPayment, CustomerCoupon, CustomerCouponItems, CustomerCouponStock, CustomerOutstanding, CustomerOutstandingReport, CustomerSupply, CustomerSupplyItems
 from client_management.views import handle_coupons, handle_invoice_deletion, handle_outstanding_amounts, update_van_product_stock
+from coupon_management.models import CouponStock
 from customer_care.models import DiffBottlesModel
 from rest_framework import status
 from rest_framework.response import Response
@@ -26,11 +27,12 @@ from rest_framework.decorators import api_view,renderer_classes, permission_clas
 from accounts.models import Customers
 from master.functions import generate_form_errors
 from master.models import CategoryMaster, RouteMaster
-from invoice_management.models import Invoice, InvoiceItems
+from invoice_management.models import Invoice, InvoiceItems,InvoiceDailyCollection
 from product.models import Product, Product_Default_Price_Level
 from invoice_management.forms import InvoiceForm, InvoiceItemsForm
 from invoice_management.serializers import BuildingNameSerializers, ProductSerializers,CustomersSerializers
 from accounts.views import log_activity
+from van_management.models import VanCouponStock
 
 # Create your views here.
 @api_view(['GET'])
@@ -420,64 +422,132 @@ def delete_invoice(request, pk):
     :param pk:
     :return:
     """
-    # try:
-    #     with transaction.atomic():
-    invoice = Invoice.objects.get(pk=pk)
-    if CustomerSupply.objects.filter(invoice_no=invoice.invoice_no).exists():
-        customer_supply_instance = get_object_or_404(CustomerSupply, invoice_no=invoice.invoice_no)
-        supply_items_instances = CustomerSupplyItems.objects.filter(customer_supply=customer_supply_instance)
-        five_gallon_qty = supply_items_instances.filter(product__product_name="5 Gallon").aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
-        
-        DiffBottlesModel.objects.filter(
-            delivery_date__date=customer_supply_instance.created_date.date(),
-            assign_this_to=customer_supply_instance.salesman,
-            customer=customer_supply_instance.customer_id
-            ).update(status='pending')
-        
-        # Handle outstanding amount adjustments
-        handle_outstanding_amounts(customer_supply_instance, five_gallon_qty)
-        
-        # Handle coupon deletions and adjustments
-        handle_coupons(customer_supply_instance, five_gallon_qty)
-        
-        # Update van product stock and empty bottle counts
-        update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty)
-        
-        # Mark customer supply and items as deleted
-        customer_supply_instance.delete()
-        supply_items_instances.delete()
-        
-    if CustomerCoupon.objects.filter(invoice_no=invoice.invoice_no).exists():
-        instance = CustomerCoupon.objects.get(invoice_no=invoice.invoice_no)
-        delete_coupon_recharge(instance.invoice_no)
-        
-    if CustomerOutstanding.objects.filter(invoice_no=invoice.invoice_no).exists():
-        # Retrieve outstanding linked to the invoice
-        outstanding = CustomerOutstanding.objects.get(invoice_no=invoice.invoice_no)
-        
-        # Reverse the outstanding invoice creation
-        outstanding.invoice_no = None
-        outstanding.save()
-        
-        # Adjust CustomerOutstandingReport
-        report = CustomerOutstandingReport.objects.get(customer=outstanding.customer, product_type='amount')
-        report.value -= invoice.amout_total  # Adjust based on your invoice amount field
-        report.save()
+    try:
+        with transaction.atomic():
+            invoice = Invoice.objects.get(pk=pk)
+            if CustomerSupply.objects.filter(invoice_no=invoice.invoice_no).exists():
+                customer_supply_instance = get_object_or_404(CustomerSupply, invoice_no=invoice.invoice_no)
+                supply_items_instances = CustomerSupplyItems.objects.filter(customer_supply=customer_supply_instance)
+                five_gallon_qty = supply_items_instances.filter(product__product_name="5 Gallon").aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+                
+                DiffBottlesModel.objects.filter(
+                    delivery_date__date=customer_supply_instance.created_date.date(),
+                    assign_this_to=customer_supply_instance.salesman,
+                    customer=customer_supply_instance.customer_id
+                    ).update(status='pending')
+                
+                # Handle outstanding amount adjustments
+                handle_outstanding_amounts(customer_supply_instance, five_gallon_qty)
+                
+                # Handle coupon deletions and adjustments
+                handle_coupons(customer_supply_instance, five_gallon_qty)
+                
+                # Update van product stock and empty bottle counts
+                update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty)
+                
+                # Mark customer supply and items as deleted
+                customer_supply_instance.delete()
+                supply_items_instances.delete()
+                
+            if CustomerCoupon.objects.filter(invoice_no=invoice.invoice_no).exists():
+                customer_coupons = CustomerCoupon.objects.filter(invoice_no=invoice.invoice_no)
+                
+                for customer_coupon in customer_coupons:
+                    coupon_items = CustomerCouponItems.objects.filter(customer_coupon=customer_coupon)
+                    for item in coupon_items:
+                        coupon_stock = CustomerCouponStock.objects.get(customer=customer_coupon.customer,coupon_type_id=item.coupon.coupon_type)
+                        print(int(item.coupon.coupon_type.no_of_leaflets))
+                        if coupon_stock.count >= int(item.coupon.coupon_type.no_of_leaflets):
+                            coupon_stock.count -= int(item.coupon.coupon_type.no_of_leaflets)
+                        else:
+                            coupon_stock.count = 0
+                        coupon_stock.save()
+                        if invoice.created_date.date() == datetime.datetime.today().date():
+                            van_coupon_stock = VanCouponStock.objects.get(coupon=item.coupon,created_date=invoice.created_date.date())
+                        else:
+                            van_coupon_stock = VanCouponStock.objects.create(
+                                coupon=item.coupon,
+                                created_date=datetime.datetime.today().date()
+                                )
+                        van_coupon_stock.stock += 1
+                        van_coupon_stock.save()
+                        item.delete()
+                        
+                        
+                        coupon_stock_status = CouponStock.objects.get(couponbook=item.coupon)
+                        coupon_stock_status.coupon_stock = "van"
+                        coupon_stock_status.save()
+
+                    InvoiceDailyCollection.objects.filter(invoice=invoice).delete()
+
+                    ChequeCouponPayment.objects.filter(customer_coupon=customer_coupon).delete()
+                    
+                    balance_amount = invoice.amout_total - invoice.amout_recieved
+                        
+                    if invoice.amout_total > invoice.amout_recieved:
+                        if CustomerOutstandingReport.objects.filter(customer=customer_coupon.customer, product_type="amount").exists():
+                            customer_outstanding_report_instance = CustomerOutstandingReport.objects.get(customer=customer_coupon.customer, product_type="amount")
+                            customer_outstanding_report_instance.value -= Decimal(balance_amount)
+                            customer_outstanding_report_instance.save()
+                            
+                    elif invoice.amout_total < invoice.amout_recieved:
+                        customer_outstanding_report_instance = CustomerOutstandingReport.objects.get(customer=customer_coupon.customer, product_type="amount")
+                        customer_outstanding_report_instance.value += Decimal(balance_amount)
+                        customer_outstanding_report_instance.save()
+                    
+                    customer_coupon.delete()
+                
+            if CustomerOutstanding.objects.filter(invoice_no=invoice.invoice_no).exists():
+                # Retrieve outstanding linked to the invoice
+                outstanding = CustomerOutstanding.objects.get(invoice_no=invoice.invoice_no)
+                
+                # Reverse the outstanding invoice creation
+                outstanding.invoice_no = None
+                outstanding.save()
+                
+                # Adjust CustomerOutstandingReport
+                # report = CustomerOutstandingReport.objects.get(customer=outstanding.customer, product_type='amount')
+                # report.value -= invoice.amout_total  # Adjust based on your invoice amount field
+                # report.save()
+                    
+            invoice.is_deleted=True
+            invoice.save()
             
-        invoice.is_deleted=True
-        invoice.save()
-        
-        InvoiceItems.objects.filter(invoice=invoice).update(is_deleted=True)
-        
-    response_data = {
-        "status": "true",
-        "title": "Successfully Deleted",
-        "message": "Invoice and associated data successfully deleted and reversed.",
-        "redirect": "true",
-        "redirect_url": reverse('invoice:invoice_list'),
-    }
-    
-    return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+            InvoiceItems.objects.filter(invoice=invoice).update(is_deleted=True)
+                
+            response_data = {
+                "status": "true",
+                "title": "Successfully Deleted",
+                "message": "Invoice and associated data successfully deleted and reversed.",
+                "redirect": "true",
+                "redirect_url": reverse('invoice:invoice_list'),
+            }
+            
+            return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+
+    except Invoice.DoesNotExist:
+        response_data = {
+            "status": "false",
+            "title": "Failed",
+            "message": "Invoice not found.",
+        }
+        return HttpResponse(json.dumps(response_data), status=status.HTTP_404_NOT_FOUND, content_type='application/javascript')
+
+    except CustomerOutstanding.DoesNotExist:
+        response_data = {
+            "status": "false",
+            "title": "Failed",
+            "message": "Customer outstanding record not found.",
+        }
+        return HttpResponse(json.dumps(response_data), status=status.HTTP_404_NOT_FOUND, content_type='application/javascript')
+
+    except Exception as e:
+        response_data = {
+            "status": "false",
+            "title": "Failed",
+            "message": str(e),
+        }
+        return HttpResponse(json.dumps(response_data), status=status.HTTP_500_INTERNAL_SERVER_ERROR, content_type='application/javascript')
 
     # except Invoice.DoesNotExist:
     #     response_data = {
