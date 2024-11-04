@@ -1,3 +1,4 @@
+from decimal import Decimal
 import json
 import random
 import datetime
@@ -425,6 +426,11 @@ def delete_invoice(request, pk):
     try:
         with transaction.atomic():
             invoice = Invoice.objects.get(pk=pk)
+            
+            receipts = Receipt.objects.filter(invoice_number=invoice.invoice_no)
+            for receipt in receipts:
+                delete_receipt(request, receipt.receipt_number, receipt.customer.customer_id) 
+                
             if CustomerSupply.objects.filter(invoice_no=invoice.invoice_no).exists():
                 customer_supply_instance = get_object_or_404(CustomerSupply, invoice_no=invoice.invoice_no)
                 supply_items_instances = CustomerSupplyItems.objects.filter(customer_supply=customer_supply_instance)
