@@ -529,6 +529,7 @@ def customerwise_invoice(request):
     if query:
             invoices = invoices.filter(
                 Q(customer__customer_name__icontains=query) |
+                Q(customer__custom_id__icontains=query) |
                 Q(customer__routes__route_name__icontains=query) 
             )
 
@@ -538,6 +539,7 @@ def customerwise_invoice(request):
     route_li = RouteMaster.objects.all()
     invoices = invoices.values(
         'customer__customer_name',
+        'customer__custom_id',
         'customer__routes__route_name',
         'customer__customer_id'
     ).distinct()

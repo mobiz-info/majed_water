@@ -60,6 +60,7 @@
                                 <th scope="col" class="text-center">Sl.No</th>
                                 {% comment %} <th scope="col" class="text-center">Invoice No</th> {% endcomment %}
                                 <th scope="col" class="text-left">Customer Name</th>
+                                <th scope="col" class="text-left">Customer ID</th>
                                 <th scope="col" class="text-left">Route</th>
                                 <th scope="col" class="text-right">Actions</th>
                             </tr>
@@ -72,6 +73,7 @@
                                     <td class="text-center">{{forloop.counter}}</td>
                                     {% comment %} <td class="text-left">{{instance.invoice_no}}</td> {% endcomment %}
                                     <td class="text-left">{{instance.customer__customer_name}}</td>
+                                    <td class="text-left">{{instance.customer__custom_id}}</td>
                                     <td class="text-left">{{instance.customer__routes__route_name}}</td>
                                     <td class="text-right">
                                         <div class="g-2">
