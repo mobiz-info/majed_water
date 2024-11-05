@@ -72,6 +72,7 @@
                                     <th scope="col" class="text-center">Created Date</th>
                                     <th scope="col" class="text-center">Invoice No</th>
                                     <th scope="col" class="text-left">Customer Name</th>
+                                    <th scope="col" class="text-left">Customer Id</th>
                                     <th scope="col" class="text-left">Invoice Type</th>
                                     <th scope="col" class="text-center">Net Taxeble</th>
                                     <th scope="col" class="text-center">VAT</th>
@@ -89,6 +90,7 @@
                                         <td class="text-left">{{instance.created_date}}</td>
                                         <td class="text-left">{{instance.invoice_no}}</td>
                                         <td class="text-center">{{instance.customer.customer_name}}</td>
+                                        <td class="text-center">{{instance.customer.custom_id}}</td>
                                         <td class="text-center">{{instance.get_invoice_type_display}}</td>
                                         <td class="text-center">{{instance.net_taxable}}</td>
                                         <td class="text-center">{{instance.vat}}%</td>
