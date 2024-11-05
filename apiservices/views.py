@@ -2052,8 +2052,8 @@ class Staff_New_Order(APIView):
                     new_order_number = 1
 
                 order_number = f"{new_order_number}"
-                order_date = request.GET.get('order_date')
-            
+                order_date = request.data.get('order_date')
+
                 if order_date:
                     order_date = datetime.strptime(order_date, '%Y-%m-%d').date()
                 else:
