@@ -85,7 +85,8 @@
                                     <th style="text-align:center;">Sl No</th>
                                     <th style="text-align:center;">Date</th>
                                     <th style="text-align:center;">Ref No</th>
-                                    <th>Customer</th>
+                                    <th style="text-align:center;">Customer</th>
+                                    <th style="text-align:center;">Customer Id</th>
                                     <th style="text-align:center;">Coupon Details</th>
                                     <th style="text-align:center;">Total</th>
                                     <th style="text-align:center;">Discount</th>
@@ -101,7 +102,8 @@
                                     <td style="text-align:center;">{{ customer_coupon.created_date|date:'d/m/Y' }}</td>
 
                                     <td style="text-align:center;">{{ customer_coupon.reference_number }}</td>
-                                    <td>{{ customer_coupon.customer.customer_name }}</td>
+                                    <td style="text-align:center;">{{ customer_coupon.customer.customer_name }}</td>
+                                    <td style="text-align:center;">{{ customer_coupon.customer.custom_id }}</td>
                                     <td class="p-0">
                                         <table class="table table-bordered" style="width: 100%">
                                             <tr>
