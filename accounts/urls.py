@@ -27,6 +27,7 @@ urlpatterns = [
     
     path('latest_customers', Latest_Customer_List.as_view(), name='latest_customers'),
     path('inactive_customers', Inactive_Customer_List.as_view(), name='inactive_customers'),
+    path('print_inactive_customers', PrintInactiveCustomerList.as_view(), name='print_inactive_customers'),
     path('non_visited_customers', NonVisitedCustomersView.as_view(), name="non_visited_customers"),
     
     path('change-password/<int:user_id>/', change_password, name='change_password'),
