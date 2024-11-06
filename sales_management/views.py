@@ -1716,6 +1716,7 @@ def customerSales_report(request):
             'ref_invoice_no': sale.reference_number,
             'invoice_number': sale.invoice_no,
             'customer_name': sale.customer.customer_name,
+            'custom_id': sale.customer.custom_id,
             'building_name': sale.customer.building_name,
             'sales_type': sale.customer.sales_type,
             'route_name': sale.customer.routes.route_name,
@@ -1742,6 +1743,7 @@ def customerSales_report(request):
             'ref_invoice_no': coupon.reference_number,
             'invoice_number': coupon.invoice_no,
             'customer_name': coupon.customer.customer_name,
+            'custom_id': coupon.customer.custom_id,
             'building_name': coupon.customer.building_name,
             'sales_type': coupon.customer.sales_type,
             'route_name': coupon.customer.routes.route_name,
@@ -1832,7 +1834,7 @@ def customerSales_Excel_report(request):
 
     # Define column headers
     headers = [
-        'Date', 'Reference Invoice No', 'Invoice Number', 'Customer Name',
+        'Date', 'Reference Invoice No', 'Invoice Number', 'Customer Name','Customer Id',
         'Building Name', 'Sales Type', 'Route Name', 'Salesman',
         'Amount', 'Discount', 'Net Taxable', 'VAT Amount', 'Grand Total', 'Amount Collected'
     ]
@@ -1845,6 +1847,7 @@ def customerSales_Excel_report(request):
             sale.reference_number,
             sale.invoice_no,
             sale.customer.customer_name,
+            sale.customer.custom_id,
             sale.customer.building_name,
             sale.customer.sales_type,
             sale.customer.routes.route_name,
@@ -1872,6 +1875,7 @@ def customerSales_Excel_report(request):
             coupon.reference_number,
             coupon.invoice_no,
             coupon.customer.customer_name,
+            coupon.customer.custom_id,
             coupon.customer.building_name,
             coupon.customer.sales_type,
             coupon.customer.routes.route_name,
@@ -1894,7 +1898,7 @@ def customerSales_Excel_report(request):
 
     # Add totals row
     totals_row = [
-        '', '', '', '', '', '', '', '',  # Empty cells for non-applicable columns
+        '', '', '', '', '', '', '', '','',  # Empty cells for non-applicable columns
         total_amount, total_discount, total_net_payable, total_vat, total_grand_total, total_amount_recieved
     ]
     sheet.append(totals_row)
@@ -1968,6 +1972,7 @@ def customerSales_Print_report(request):
             'ref_invoice_no': sale.reference_number,
             'invoice_number': sale.invoice_no,
             'customer_name': sale.customer.customer_name,
+            'custom_id': sale.customer.custom_id,
             'building_name': sale.customer.building_name,
             'sales_type': sale.customer.sales_type,
             'route_name': sale.customer.routes.route_name,
@@ -1994,6 +1999,7 @@ def customerSales_Print_report(request):
             'ref_invoice_no': coupon.reference_number,
             'invoice_number': coupon.invoice_no,
             'customer_name': coupon.customer.customer_name,
+            'custom_id': coupon.customer.custom_id,
             'building_name': coupon.customer.building_name,
             'sales_type': coupon.customer.sales_type,
             'route_name': coupon.customer.routes.route_name,
