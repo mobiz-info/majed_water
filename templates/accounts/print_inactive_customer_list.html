@@ -66,6 +66,8 @@
                                             <th>Route</th>
                                             <th>Mobile No</th>
                                             <th>Sales Type</th>
+                                            <th >Last Visit Date</th>
+                                            <th>Outstanding Amount</th>
                                             <th>Inactive Days</th>
                                             <th>Status</th>
                                         </tr>
@@ -79,6 +81,11 @@
                                                 <td>{{ customer.routes.route_name }}</td>
                                                 <td>{{ customer.mobile_no }}</td>
                                                 <td>{{ customer.sales_type }}</td>
+                                                <td >{{ customer.last_supply_date|date:'d/m/Y' }}</td>
+                                                <td >
+                                                    {% get_outstanding_amount customer.pk today as outstanding_amount %}
+                                                    {{ outstanding_amount }}
+                                                </td>
                                                 <td>{{ customer.days_since_last_supply }}</td>
                                                 <td>
                                                     {% if customer.on_vacation %}
