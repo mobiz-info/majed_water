@@ -7065,12 +7065,19 @@ class CustomerWiseCouponSaleAPIView(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
     
 class TotalCouponsConsumedView(APIView):
-    def get(self, request):
+    
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
         salesman = request.user
-        
+
+        # Fetch query parameters
         start_date_str = request.data.get('start_date')
         end_date_str = request.data.get('end_date')
+        customer_id = request.data.get('customer_id', None)
         
+        # Date conversion
         if not (start_date_str and end_date_str):
             start_date = datetime.today().date()
             end_date = datetime.today().date()
@@ -7078,35 +7085,60 @@ class TotalCouponsConsumedView(APIView):
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
         
-        # Aggregate total digital coupons consumed
+        # Filter criteria for digital and manual coupons
         total_digital_leaflets = CustomerSupplyDigitalCoupon.objects.filter(
-            customer_supply__salesman=request.user,
+            customer_supply__salesman=salesman,
             customer_supply__created_date__date__gte=start_date,
             customer_supply__created_date__date__lte=end_date,
         ).aggregate(total_digital_leaflets=Sum('count'))['total_digital_leaflets'] or 0
         
+        # Aggregate manual coupons (normal and free)
+        total_manual_leaflets_normal = CustomerSupplyCoupon.objects.filter(
+            customer_supply__created_date__date__gte=start_date,
+            customer_supply__created_date__date__lte=end_date,
+            customer_supply__salesman=salesman,
+            leaf__coupon__leaflets__used=False
+        ).aggregate(total_manual_leaflets=Count('leaf'))['total_manual_leaflets'] or 0
+
+        total_manual_leaflets_free = CustomerSupplyCoupon.objects.filter(
+            customer_supply__created_date__date__gte=start_date,
+            customer_supply__created_date__date__lte=end_date,
+            customer_supply__salesman=salesman,
+            free_leaf__coupon__leaflets__used=False
+        ).aggregate(total_manual_leaflets=Count('free_leaf'))['total_manual_leaflets'] or 0
+
+        # Total manual leaflets
+        total_manual_leaflets = total_manual_leaflets_normal + total_manual_leaflets_free
         
-        # Aggregate total manual coupons consumed
-        total_manual_leaflets = CustomerSupplyCoupon.objects.filter(
-                    customer_supply__created_date__date__gte=start_date,
-                    customer_supply__created_date__date__lte=end_date,
-                    customer_supply__salesman=request.user,
-                    leaf__coupon__leaflets__used=False
-                ).annotate(total_manual_leaflets=Count('leaf'))['total_manual_leaflets'] or 0
+        # Prepare customer data list
+        customer_data = []
+        customer_supplies = CustomerSupply.objects.filter(
+            salesman=salesman,
+            created_date__date__gte=start_date,
+            created_date__date__lte=end_date
+        )
         
-        total_manual_leaflets += CustomerSupplyCoupon.objects.filter(
-                    customer_supply__created_date__date__gte=start_date,
-                    customer_supply__created_date__date__lte=end_date,
-                    customer_supply__salesman=request.user,
-                    free_leaf__coupon__leaflets__used=False
-                ).annotate(total_manual_leaflets=Count('free_leaf'))['total_manual_leaflets'] or 0
+        if customer_id:
+            customer_supplies = customer_supplies.filter(customer__customer_id=customer_id)
+
+        # Populate customer data
+        for supply in customer_supplies:
+            customer = supply.customer
+            created_date = supply.created_date
+
+            customer_data.append({
+                'created_date': created_date.date(),  
+                'customer_id': customer.customer_id,
+                'customer_name': customer.customer_name,
+                'custom_id': customer.custom_id,
+                'building_name': customer.building_name,
+                'address': customer.billing_address,
+                'total_digital_coupons_consumed': total_digital_leaflets,
+                'total_manual_coupons_consumed': total_manual_leaflets
+            })
         
-        data = {
-            'total_digital_coupons_consumed': total_digital_leaflets,
-            'total_manual_coupons_consumed': total_manual_leaflets
-        }
+        serializer = TotalCouponsSerializer(customer_data, many=True)
         
-        serializer = TotalCouponsSerializer(data)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     
