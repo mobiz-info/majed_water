@@ -372,11 +372,11 @@ class CustomerOutstanding(models.Model):
     
     def get_outstanding_count(self):
         if self.product_type == 'amount':
-            return OutstandingAmount.objects.get(customer_outstanding=self).amount
+            return OutstandingAmount.objects.filter(customer_outstanding=self).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
         if self.product_type == 'coupons':
             return OutstandingCoupon.objects.filter(customer_outstanding=self).aggregate(total_count=Sum('count'))['total_count'] or 0
         if self.product_type == 'emptycan':
-            return OutstandingProduct.objects.get(customer_outstanding=self).empty_bottle
+            return OutstandingProduct.objects.filter(customer_outstanding=self).aggregate(total_empty_bottle=Sum('empty_bottle'))['total_empty_bottle'] or 0
 
 class OutstandingAmount(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
