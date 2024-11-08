@@ -69,6 +69,7 @@
                                         <th style="text-align:center !important;">Reference No</th>
                                         <th style="text-align:center !important;">Invoice No</th>
                                         <th style="text-align:center !important;">Customer Name</th>
+                                        <th style="text-align:center !important;">Customer Id</th>
                                         <th style="text-align:center !important;">Customer Sales Type</th>
                                         <th style="text-align:center !important;">Route</th>
                                         <th style="text-align:center !important;">Salesman</th>
@@ -88,6 +89,7 @@
                                         <td style="text-align:left;">{{ data.ref_invoice_no }}</td>
                                         <td style="text-align:left;">{{ data.invoice_number }}</td>
                                         <td style="text-align:left;">{{ data.customer_name }}</td>
+                                        <td style="text-align:left;">{{ data.custom_id }}</td>
                                         <td style="text-align:left;">{{ data.sales_type }}</td>
                                         <td style="text-align:left;">{{ data.route_name }}</td>
                                         <td style="text-align:left;">{{ data.salesman }}</td>
@@ -102,7 +104,7 @@
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colspan="8" style="text-align: right;">Total:</td>
+                                        <td colspan="9" style="text-align: right;">Total:</td>
                                         <td style="text-align:right;">{{ total_amount }}</td>
                                         <td style="text-align:right;">{{ total_discount }}</td>
                                         <td style="text-align:right;">{{ total_net_payable }}</td>

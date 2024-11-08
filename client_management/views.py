@@ -1621,20 +1621,11 @@ def handle_outstanding_amounts(customer_supply_instance, five_gallon_qty):
             customer_outstanding_report_instance.value -= Decimal(balance_amount)
             customer_outstanding_report_instance.save()
             
-            log_activity(
-                created_by=customer_supply_instance.created_by,
-                description=f"Updated outstanding amount report for customer {customer_supply_instance.customer.customer_name}. Deducted balance of {balance_amount}."
-            )
-            
     elif customer_supply_instance.amount_recieved > customer_supply_instance.subtotal:
         customer_outstanding_report_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="amount")
         customer_outstanding_report_instance.value += Decimal(balance_amount)
         customer_outstanding_report_instance.save()
-        
-        log_activity(
-            created_by=customer_supply_instance.created_by,
-            description=f"Updated outstanding amount report for customer {customer_supply_instance.customer.customer_name}. Added balance of {balance_amount}."
-        )
+
 
 
 def handle_coupons(customer_supply_instance, five_gallon_qty):
@@ -1646,10 +1637,6 @@ def handle_coupons(customer_supply_instance, five_gallon_qty):
                     customer_stock.count += 1
                     customer_stock.save()
             coupon.leaf.update(used=False)
-        log_activity(
-            created_by=customer_supply_instance.created_by,
-            description=f"Updated manual coupon stock for customer {customer_supply_instance.customer.customer_name}. Coupons set to unused and deleted from supply."
-        )
         manual_coupons.delete()
         
     elif (digital_coupons := CustomerSupplyDigitalCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():
@@ -1658,10 +1645,7 @@ def handle_coupons(customer_supply_instance, five_gallon_qty):
         customer_stock = CustomerCouponStock.objects.get(customer=customer_supply_instance.customer,coupon_method="digital",coupon_type_id__coupon_type_name="Digital")
         customer_stock.count += Decimal(customer_coupon_digital.count)
         customer_stock.save()
-        log_activity(
-            created_by=customer_supply_instance.created_by,
-            description=f"Updated digital coupon stock for customer {customer_supply_instance.customer.customer_name}. Added {customer_coupon_digital.count} digital coupons."
-        )
+        
         customer_coupon_digital.delete()
     # if (digital_coupons_instances := CustomerSupplyDigitalCoupon.objects.filter(customer_supply=customer_supply_instance)).exists():
     #     digital_coupons_instance = digital_coupons_instances.first()
@@ -1754,13 +1738,10 @@ def update_van_product_stock(customer_supply_instance, supply_items_instances, f
                     van_stock.empty_can_count -= customer_supply_instance.collected_empty_bottle
                 if van_stock.sold_count > 0 :
                     van_stock.sold_count -= item_data.quantity
+                    van_stock.sold_count = max(van_stock.sold_count, 0)
+                    # van_stock.sold_count -= item_data.quantity
                 van_stock.stock += item_data.quantity
             van_stock.save()
-            
-            log_activity(
-                created_by=customer_supply_instance.created_by,
-                description=f"Updated VanProductStock for product {item_data.product.product_name}. Adjusted stock by {item_data.quantity}, empty can count by {van_stock.empty_can_count}."
-            )
 #------------------------------REPORT----------------------------------------
 
 def client_report(request):

@@ -1716,6 +1716,7 @@ def customerSales_report(request):
             'ref_invoice_no': sale.reference_number,
             'invoice_number': sale.invoice_no,
             'customer_name': sale.customer.customer_name,
+            'custom_id': sale.customer.custom_id,
             'building_name': sale.customer.building_name,
             'sales_type': sale.customer.sales_type,
             'route_name': sale.customer.routes.route_name,
@@ -1742,6 +1743,7 @@ def customerSales_report(request):
             'ref_invoice_no': coupon.reference_number,
             'invoice_number': coupon.invoice_no,
             'customer_name': coupon.customer.customer_name,
+            'custom_id': coupon.customer.custom_id,
             'building_name': coupon.customer.building_name,
             'sales_type': coupon.customer.sales_type,
             'route_name': coupon.customer.routes.route_name,
@@ -1832,7 +1834,7 @@ def customerSales_Excel_report(request):
 
     # Define column headers
     headers = [
-        'Date', 'Reference Invoice No', 'Invoice Number', 'Customer Name',
+        'Date', 'Reference Invoice No', 'Invoice Number', 'Customer Name','Customer Id',
         'Building Name', 'Sales Type', 'Route Name', 'Salesman',
         'Amount', 'Discount', 'Net Taxable', 'VAT Amount', 'Grand Total', 'Amount Collected'
     ]
@@ -1845,6 +1847,7 @@ def customerSales_Excel_report(request):
             sale.reference_number,
             sale.invoice_no,
             sale.customer.customer_name,
+            sale.customer.custom_id,
             sale.customer.building_name,
             sale.customer.sales_type,
             sale.customer.routes.route_name,
@@ -1872,6 +1875,7 @@ def customerSales_Excel_report(request):
             coupon.reference_number,
             coupon.invoice_no,
             coupon.customer.customer_name,
+            coupon.customer.custom_id,
             coupon.customer.building_name,
             coupon.customer.sales_type,
             coupon.customer.routes.route_name,
@@ -1894,7 +1898,7 @@ def customerSales_Excel_report(request):
 
     # Add totals row
     totals_row = [
-        '', '', '', '', '', '', '', '',  # Empty cells for non-applicable columns
+        '', '', '', '', '', '', '', '','',  # Empty cells for non-applicable columns
         total_amount, total_discount, total_net_payable, total_vat, total_grand_total, total_amount_recieved
     ]
     sheet.append(totals_row)
@@ -1968,6 +1972,7 @@ def customerSales_Print_report(request):
             'ref_invoice_no': sale.reference_number,
             'invoice_number': sale.invoice_no,
             'customer_name': sale.customer.customer_name,
+            'custom_id': sale.customer.custom_id,
             'building_name': sale.customer.building_name,
             'sales_type': sale.customer.sales_type,
             'route_name': sale.customer.routes.route_name,
@@ -1994,6 +1999,7 @@ def customerSales_Print_report(request):
             'ref_invoice_no': coupon.reference_number,
             'invoice_number': coupon.invoice_no,
             'customer_name': coupon.customer.customer_name,
+            'custom_id': coupon.customer.custom_id,
             'building_name': coupon.customer.building_name,
             'sales_type': coupon.customer.sales_type,
             'route_name': coupon.customer.routes.route_name,
@@ -6349,79 +6355,84 @@ def delete_receipt(request, receipt_number, customer_id):
     
     if transaction_type =="supply":
         try:
-            customer_outstanding, _ = CustomerOutstanding.objects.get_or_create(
+            
+            customer_outstanding = CustomerOutstanding.objects.filter(
                 customer=receipt.customer,
-                product_type="amount", 
-                defaults={'invoice_no': invoice_number, 'created_by': request.user, 'created_date': timezone.now()}
-            )
-            # Attempt to retrieve the OutstandingAmount
+                product_type="amount"
+            ).first()
+            if not customer_outstanding:
+                customer_outstanding = CustomerOutstanding.objects.create(
+                    customer=receipt.customer,
+                    product_type="amount",
+                    invoice_no=invoice_number,
+                    created_by=request.user,
+                    created_date=timezone.now()
+                )
+            
+            # Proceed with outstanding_amount logic
             outstanding_amount, created = OutstandingAmount.objects.get_or_create(
                 customer_outstanding=customer_outstanding,
                 customer_outstanding__customer=receipt.customer,
                 customer_outstanding__invoice_no=receipt.invoice_number,
-                defaults={'amount': 0}  # Set default amount to 0 if creating a new record
+                defaults={'amount': 0} 
             )
 
-            if created:
-                print(f"Created new OutstandingAmount for Customer ID: {receipt.customer} with initial amount: {outstanding_amount.amount}")
+            if created or outstanding_amount.amount == 0:
+                outstanding_amount.amount += receipt.amount_received
+                outstanding_amount.save()
 
-            # Adjust outstanding amounts
-            outstanding_amount.amount += receipt.amount_received
-            outstanding_amount.save()
-
-            # Retrieve the customer outstanding report
             outstanding_instance, created = CustomerOutstandingReport.objects.get_or_create(
                 customer=receipt.customer,
                 product_type="amount",
-                defaults={'value': 0}  # Set default value to 0 if creating a new record
+                defaults={'value': 0}
             )
 
             outstanding_instance.value += receipt.amount_received
             outstanding_instance.save()
-
-        except CustomerOutstandingReport.DoesNotExist:
-            response_data["message"] = "Customer outstanding report not found."
-            print(response_data["message"])
-            return HttpResponse(json.dumps(response_data), content_type='application/javascript')
-
-
-        try:
-            invoice = Invoice.objects.get(invoice_no=invoice_number, customer_id=customer_id)
-            invoice.amount_received = 0  
-            invoice.amount_total = receipt.amount_received  
+            
+            invoice = Invoice.objects.get(invoice_no=invoice_number, customer=receipt.customer)
+            invoice.amout_recieved = 0  
+            invoice.amout_total = receipt.amount_received  
             invoice.invoice_status = "non_paid"
             invoice.save()
-        except Invoice.DoesNotExist:
-            response_data["message"] = "Invoice not found."
+
+        except CustomerOutstandingReport.DoesNotExist:
+            response_data["message"] = "Customer outstanding report not found."
             return HttpResponse(json.dumps(response_data), content_type='application/javascript')
 
+
+            
     elif transaction_type == "collection":
         try:
-            customer_outstanding, _ = CustomerOutstanding.objects.get_or_create(
+            customer_outstanding = CustomerOutstanding.objects.filter(
                 customer=receipt.customer,
-                product_type="amount",  # Assuming product_type is 'amount' for this scenario
-                defaults={'invoice_no': invoice_number, 'created_by': request.user, 'created_date': timezone.now()}
-            )
-            # Attempt to retrieve the OutstandingAmount
+                product_type="amount"
+            ).first()
+            if not customer_outstanding:
+                customer_outstanding = CustomerOutstanding.objects.create(
+                    customer=receipt.customer,
+                    product_type="amount",
+                    invoice_no=invoice_number,
+                    created_by=request.user,
+                    created_date=timezone.now()
+                )
+            
+            # Proceed with outstanding_amount logic
             outstanding_amount, created = OutstandingAmount.objects.get_or_create(
                 customer_outstanding=customer_outstanding,
                 customer_outstanding__customer=receipt.customer,
                 customer_outstanding__invoice_no=receipt.invoice_number,
-                defaults={'amount': 0}  # Set default amount to 0 if creating a new record
+                defaults={'amount': 0} 
             )
 
-            if created:
-                print(f"Created new OutstandingAmount for Customer ID: {receipt.customer} with initial amount: {outstanding_amount.amount}")
+            if created or outstanding_amount.amount == 0:
+                outstanding_amount.amount += receipt.amount_received
+                outstanding_amount.save()
 
-            # Adjust outstanding amounts
-            outstanding_amount.amount += receipt.amount_received
-            outstanding_amount.save()
-
-            # Retrieve the customer outstanding report
             outstanding_instance, created = CustomerOutstandingReport.objects.get_or_create(
                 customer=receipt.customer,
                 product_type="amount",
-                defaults={'value': 0}  # Set default value to 0 if creating a new record
+                defaults={'value': 0}
             )
 
             outstanding_instance.value += receipt.amount_received
@@ -6429,54 +6440,58 @@ def delete_receipt(request, receipt_number, customer_id):
 
         except CustomerOutstandingReport.DoesNotExist:
             response_data["message"] = "Customer outstanding report not found."
-            print(response_data["message"])
             return HttpResponse(json.dumps(response_data), content_type='application/javascript')
 
         try:
-            collection_payment_id = receipt.instance_id
-            collection_payment = CollectionPayment.objects.get(id=collection_payment_id)
+            collection_payment = CollectionPayment.objects.get(receipt_number=receipt_number, customer=customer_id)
             collection_items = CollectionItems.objects.filter(collection_payment=collection_payment)
-            print("collection_payment",collection_payment)
+            
             for item in collection_items:
-                invoice = item.invoice
-                payment_amount = item.amount_received
-
-                invoice.amount_received = 0  
-                invoice.amount_total = payment_amount 
-                invoice.invoice_status = "non_paid"
-                invoice.save()
-
+                invoices = item.invoice
+                
+                if invoices:
+                    
+                    invoice = Invoice.objects.get(invoice_no=invoices.invoice_no, customer=receipt.customer)
+                        
+                    invoice.amout_recieved = 0 
+                    invoice.amout_total = item.amount_received 
+                    invoice.invoice_status = "non_paid" 
+                    invoice.save()
         except CollectionPayment.DoesNotExist:
             response_data["message"] = "Collection payment not found."
             return HttpResponse(json.dumps(response_data), content_type='application/javascript')
         
     elif transaction_type=="coupon_rechange":
         try:
-            customer_outstanding, _ = CustomerOutstanding.objects.get_or_create(
+            customer_outstanding = CustomerOutstanding.objects.filter(
                 customer=receipt.customer,
-                product_type="amount",  # Assuming product_type is 'amount' for this scenario
-                defaults={'invoice_no': invoice_number, 'created_by': request.user, 'created_date': timezone.now()}
-            )
-            # Attempt to retrieve the OutstandingAmount
+                product_type="amount"
+            ).first()
+            if not customer_outstanding:
+                customer_outstanding = CustomerOutstanding.objects.create(
+                    customer=receipt.customer,
+                    product_type="amount",
+                    invoice_no=invoice_number,
+                    created_by=request.user,
+                    created_date=timezone.now()
+                )
+            
+            # Proceed with outstanding_amount logic
             outstanding_amount, created = OutstandingAmount.objects.get_or_create(
                 customer_outstanding=customer_outstanding,
                 customer_outstanding__customer=receipt.customer,
                 customer_outstanding__invoice_no=receipt.invoice_number,
-                defaults={'amount': 0}  # Set default amount to 0 if creating a new record
+                defaults={'amount': 0} 
             )
 
-            if created:
-                print(f"Created new OutstandingAmount for Customer ID: {receipt.customer} with initial amount: {outstanding_amount.amount}")
+            if created or outstanding_amount.amount == 0:
+                outstanding_amount.amount += receipt.amount_received
+                outstanding_amount.save()
 
-            # Adjust outstanding amounts
-            outstanding_amount.amount += receipt.amount_received
-            outstanding_amount.save()
-
-            # Retrieve the customer outstanding report
             outstanding_instance, created = CustomerOutstandingReport.objects.get_or_create(
                 customer=receipt.customer,
                 product_type="amount",
-                defaults={'value': 0}  # Set default value to 0 if creating a new record
+                defaults={'value': 0}
             )
 
             outstanding_instance.value += receipt.amount_received
@@ -6484,13 +6499,12 @@ def delete_receipt(request, receipt_number, customer_id):
 
         except CustomerOutstandingReport.DoesNotExist:
             response_data["message"] = "Customer outstanding report not found."
-            print(response_data["message"])
             return HttpResponse(json.dumps(response_data), content_type='application/javascript')
  
         try:
             invoice = Invoice.objects.get(invoice_no=invoice_number, customer_id=customer_id)
-            invoice.amount_received = 0  
-            invoice.amount_total = receipt.amount_received  
+            invoice.amout_recieved = 0  
+            invoice.amout_total = receipt.amount_received  
             invoice.invoice_status = "non_paid"
             invoice.save()
         except Invoice.DoesNotExist:

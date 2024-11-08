@@ -47,6 +47,7 @@
                     <th>Reference No</th>
                     <th>Invoice No</th>
                     <th>Customer Name</th>
+                    <th>Customer Id</th>
                     <th>Building Name/Room No/Floor No</th>
                     <th>Customer Sales Type</th>
                     <th>Route</th>
@@ -67,6 +68,7 @@
                     <td>{{ data.ref_invoice_no }}</td>
                     <td>{{ data.invoice_number }}</td>
                     <td>{{ data.customer_name }}</td>
+                    <td>{{ data.custom_id }}</td>
                     <td>
                         {{ data.building_name }} 
                         {% if data.door_house_no %}/ {{ data.door_house_no }} {% endif %}
@@ -86,7 +88,7 @@
             </tbody>
             <tfoot>
                 <tr>
-                    <td colspan="9" class="total">Total:</td>
+                    <td colspan="10" class="total">Total:</td>
                     <td class="total" style="text-align: right;">{{ total_amount }}</td>
                     <td class="total" style="text-align: right;">{{ total_discount }}</td>
                     <td class="total" style="text-align: right;">{{ total_net_payable }}</td>

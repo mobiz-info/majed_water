@@ -136,6 +136,11 @@
             success: function(response) {
                 if (response.data.length > 0) {
                     var bookNumbers = response.data;
+
+                    // Sort book numbers in ascending order
+                    bookNumbers.sort(function(a, b) {
+                        return a.book_no - b.book_no;
+                    });
                     var checkboxesHtml = "";
                     for (var i = 0; i < bookNumbers.length; i++) {
                         checkboxesHtml += '<div class="form-check">' +
@@ -157,7 +162,7 @@
             }
         });
     }
-    
+
     {% comment %} function handleButtonClick(button) {
         var requestId = $(button).data("request_id");
         $("#modalRequestId").val(requestId);
