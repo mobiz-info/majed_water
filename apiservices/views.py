@@ -3090,11 +3090,16 @@ class CustodyCustomAPIView(APIView):
 class supply_product(APIView):
     def get(self, request, *args, **kwargs):
         route_id = request.GET.get("route_id")
+        customer_id = request.query_params.get("customer_id")
+
         customers = Customers.objects.all()
 
         if route_id:
             customers = customers.filter(routes__pk=route_id)
-
+            
+        if customer_id:
+            customers = customers.filter(pk=customer_id)
+            
         serializer = SupplyItemCustomersSerializer(customers, many=True, context={"request": request})
 
         status_code = status.HTTP_200_OK
@@ -4392,19 +4397,21 @@ class CustodyCustomItemListAPI(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
     
-    def get(self,request,id=None):
-        if not id:
-            custody_customer_ids = CustomerCustodyStock.objects.filter(customer__sales_staff=request.user).values_list("customer__customer_id")
-            customers =  Customers.objects.filter(pk__in=custody_customer_ids)
-        else:
-            custody_customer_ids = CustomerCustodyStock.objects.filter(customer__pk=id).values_list("customer__customer_id")
-            customers =  Customers.objects.filter(pk__in=custody_customer_ids)
+    def get(self, request):
+        customer_id = request.query_params.get('customer_id')
         
-        if customers:
-            serializer = CustomerCustodyStockSerializer(customers, many=True)
-            return Response({'status': True,'data':serializer.data,'message':'data fetched successfully'},status=status.HTTP_200_OK)
+        if customer_id:
+            custody_customer_ids = CustomerCustodyStock.objects.filter(customer__pk=customer_id).values_list("customer__customer_id", flat=True)
+            customers = Customers.objects.filter(pk__in=custody_customer_ids)
         else:
-            return Response({'status': True,'data':[],'message':'No custody items'},status=status.HTTP_200_OK)
+            custody_customer_ids = CustomerCustodyStock.objects.filter(customer__sales_staff=request.user).values_list("customer__customer_id", flat=True)
+            customers = Customers.objects.filter(pk__in=custody_customer_ids)
+        
+        if customers.exists():
+            serializer = CustomerCustodyStockSerializer(customers, many=True)
+            return Response({'status': True, 'data': serializer.data, 'message': 'Data fetched successfully'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'status': True, 'data': [], 'message': 'No custody items'}, status=status.HTTP_200_OK)
 
 
 class CustodyItemReturnAPI(APIView):
