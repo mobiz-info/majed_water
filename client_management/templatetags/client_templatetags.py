@@ -187,3 +187,4 @@ def get_customer_outstanding_aging(route=None):
             aging_report.append(aging_data)
 
     return aging_report
+
