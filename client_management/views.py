@@ -2151,7 +2151,7 @@ def customer_outstanding_list(request):
             created_date__date__lte=date
         ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
         
-        outstanding_amount = max(outstanding_amount - collection_amount, 0)
+        outstanding_amount = outstanding_amount - collection_amount
         total_outstanding_amount += outstanding_amount
         
         total_bottles = OutstandingProduct.objects.filter(
@@ -2346,7 +2346,7 @@ def print_customer_outstanding(request):
             created_date__date__lte=date
         ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
         
-        outstanding_amount = max(outstanding_amount - collection_amount, 0)
+        outstanding_amount = outstanding_amount - collection_amount
         total_outstanding_amount += outstanding_amount
         
         total_bottles = OutstandingProduct.objects.filter(
@@ -2436,7 +2436,7 @@ def export_customer_outstanding_to_excel(request):
             created_date__date__lte=date
         ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
 
-        outstanding_amount = max(outstanding_amount - collection_amount, 0)
+        outstanding_amount = outstanding_amount - collection_amount
 
         total_bottles_per_customer = OutstandingProduct.objects.filter(
             customer_outstanding__customer__pk=customer.pk, 

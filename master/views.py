@@ -1,46 +1,34 @@
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-import datetime
-from django.contrib import messages
-from django.shortcuts import render, redirect,HttpResponse
-from django.views import View
-from django.core.cache import cache
-
-from apiservices.notification import notification
-from .forms import *
-import uuid
-from accounts.models import *
-from .models import *
-from django.utils import timezone
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse, HttpResponse
-from django.contrib.auth.hashers import make_password, check_password
-from .models import *
-from datetime import timedelta
-from django.db.models import Sum, Case, When, IntegerField,Count,Q
-from . serializers import *
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.authentication import BasicAuthentication 
-from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import render, redirect, get_object_or_404
-from van_management.models import Van, VanProductStock , VanCouponStock
-from van_management.models import Expense,Van_Routes,CustomerProductReturn,CustomerProductReplace
-
-from customer_care.models import DiffBottlesModel
-from client_management.models import CustomerSupply, CustomerCoupon, OutstandingAmount, CustomerOutstandingReport, CustomerSupplyCoupon
-from client_management.models import CustomerSupplyStock,CustomerCouponStock, Vacation, NonvisitReport,CustomerSupplyItems
-
-from sales_management.models import CollectionItems,CollectionPayment
-from invoice_management.models import Invoice
-from coupon_management.models import CouponStock, CouponLeaflet
-from product.models import WashedUsedProduct
-from apiservices.views import find_customers
 import json
-from accounts.views import log_activity
+import uuid
+import datetime
+from datetime import timedelta
+from calendar import monthrange
+
+from django.views import View
+from django.shortcuts import render
+from django.contrib import messages
+from django.core.cache import cache
+from django.db.models import Sum,Count
+from django.shortcuts import render, redirect
+from django.db import transaction, IntegrityError
+from django.db.models.functions import ExtractDay
+from django.utils.decorators import method_decorator
+from django.contrib.auth.hashers import make_password
+from django.db.models.functions import ExtractWeekDay
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect, get_object_or_404
+
+from .forms import *
+from .models import *
+from . serializers import *
+from accounts.models import *
+from customer_care.models import DiffBottlesModel
+from sales_management.models import CollectionPayment
+from van_management.models import Van, VanProductStock , Expense
+from product.models import ProductStock, ScrapProductStock, WashedUsedProduct, WashingProductStock
+from client_management.models import OutstandingAmount, Vacation, NonvisitReport,CustomerSupplyItems
+from client_management.models import CustodyCustomItems, CustomerSupply,CustomerCoupon, CustomerSupplyCoupon, CustomerSupplyDigitalCoupon, OutstandingCoupon, OutstandingProduct
+
 
 
 # Create your views here.
