@@ -3090,11 +3090,16 @@ class CustodyCustomAPIView(APIView):
 class supply_product(APIView):
     def get(self, request, *args, **kwargs):
         route_id = request.GET.get("route_id")
+        customer_id = request.query_params.get("customer_id")
+
         customers = Customers.objects.all()
 
         if route_id:
             customers = customers.filter(routes__pk=route_id)
-
+            
+        if customer_id:
+            customers = customers.filter(pk=customer_id)
+            
         serializer = SupplyItemCustomersSerializer(customers, many=True, context={"request": request})
 
         status_code = status.HTTP_200_OK
@@ -4392,19 +4397,21 @@ class CustodyCustomItemListAPI(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
     
-    def get(self,request,id=None):
-        if not id:
-            custody_customer_ids = CustomerCustodyStock.objects.filter(customer__sales_staff=request.user).values_list("customer__customer_id")
-            customers =  Customers.objects.filter(pk__in=custody_customer_ids)
-        else:
-            custody_customer_ids = CustomerCustodyStock.objects.filter(customer__pk=id).values_list("customer__customer_id")
-            customers =  Customers.objects.filter(pk__in=custody_customer_ids)
+    def get(self, request):
+        customer_id = request.query_params.get('customer_id')
         
-        if customers:
-            serializer = CustomerCustodyStockSerializer(customers, many=True)
-            return Response({'status': True,'data':serializer.data,'message':'data fetched successfully'},status=status.HTTP_200_OK)
+        if customer_id:
+            custody_customer_ids = CustomerCustodyStock.objects.filter(customer__pk=customer_id).values_list("customer__customer_id", flat=True)
+            customers = Customers.objects.filter(pk__in=custody_customer_ids)
         else:
-            return Response({'status': True,'data':[],'message':'No custody items'},status=status.HTTP_200_OK)
+            custody_customer_ids = CustomerCustodyStock.objects.filter(customer__sales_staff=request.user).values_list("customer__customer_id", flat=True)
+            customers = Customers.objects.filter(pk__in=custody_customer_ids)
+        
+        if customers.exists():
+            serializer = CustomerCustodyStockSerializer(customers, many=True)
+            return Response({'status': True, 'data': serializer.data, 'message': 'Data fetched successfully'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'status': True, 'data': [], 'message': 'No custody items'}, status=status.HTTP_200_OK)
 
 
 class CustodyItemReturnAPI(APIView):
@@ -4855,11 +4862,17 @@ class CustomerCouponListAPI(APIView):
         customers = Customers.objects.filter(sales_type="CASH COUPON")
 
         route_id = request.GET.get("route_id")
+        customer_id = request.query_params.get("customer_id")
+        
         if route_id:
             customers = customers.filter(routes__pk=route_id)
+        if customer_id:
+            customers = customers.filter(pk=customer_id)
+            
         serializer = CustomerDetailSerializer(customers, many=True, context={'request': request})
 
         return Response(serializer.data)
+
 
 class ProductAndBottleAPIView(APIView):
     def get(self, request):
@@ -4901,11 +4914,12 @@ class CollectionAPI(APIView):
                 'status': False,
                 'message': 'User ID is required!'
             }, status=status.HTTP_400_BAD_REQUEST)
-
+        customer_id = request.query_params.get('customer_id')
         # Filter CustomerSupply objects based on the user
         invoices_customer_pk = Invoice.objects.filter(invoice_status="non_paid",is_deleted=False).exclude(amout_total=0).values_list("customer__pk")
         collection = Customers.objects.filter(pk__in=invoices_customer_pk,sales_staff=user)
-
+        if customer_id:
+            collection = collection.filter(pk=customer_id)
         if collection.exists():
             collection_serializer = CollectionCustomerSerializer(collection, many=True)
             return Response({
@@ -4917,6 +4931,7 @@ class CollectionAPI(APIView):
                 'status': True,
                 'data': []
             }, status=status.HTTP_200_OK)
+
 
 # class AddCollectionPayment(APIView):
 #     authentication_classes = [BasicAuthentication]
@@ -5527,6 +5542,7 @@ class RedeemedHistoryAPI(APIView):
         user_id = request.user.id
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
+        customer_id = request.query_params.get('customer_id')
         
         if start_date:
             start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -5537,6 +5553,9 @@ class RedeemedHistoryAPI(APIView):
         
         supply_instances = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,customer__sales_type="CASH COUPON")
 
+        if customer_id:
+            supply_instances = supply_instances.filter(customer__pk=customer_id)
+            
         customer_coupon_counts = []
         for supply_instance in supply_instances:
             digital_count = CustomerSupplyDigitalCoupon.objects.filter(

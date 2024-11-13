@@ -407,74 +407,51 @@ class Inactive_Customer_List(View):
     template_name = 'accounts/inactive_customer_list.html'
 
     def get(self, request, *args, **kwargs):
-        # Get filter data from request
+        # Get filters from GET parameters
         days_filter = request.GET.get('days_filter')
         from_date = request.GET.get('from_date')
         to_date = request.GET.get('to_date')
         route_name = request.GET.get('route_name')
-        query = request.GET.get("q")
+        query = request.GET.get("q", "").strip().lower()
         filter_data = {}
         inactive_customers = []
 
-        # Initialize default date values
-        today = timezone.now().date()  # Use timezone.now() instead of datetime.today()
-       
+        # Define today's date
+        today = timezone.now().date()
 
-        # Handle date filtering
+        # Handle custom and predefined date filters
         if days_filter and days_filter != 'custom':
-            # Calculate the date range based on the selected number of days
-            to_date = datetime.today().date()
-            from_date = to_date - timedelta(days=int(days_filter))
-            print("from_date",from_date)
-            filter_data['days_filter'] = days_filter
-            filter_data['from_date'] = from_date.strftime('%Y-%m-%d')
-            filter_data['to_date'] = to_date.strftime('%Y-%m-%d')
+            to_date = today
+            from_date = today - timedelta(days=int(days_filter))
+            filter_data.update(days_filter=days_filter, from_date=from_date, to_date=to_date)
         else:
-            # Handle custom date range
-            if from_date:
-                from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
-                filter_data['from_date'] = from_date.strftime('%Y-%m-%d')
-            else:
-                from_date = datetime.today().date()
-                filter_data['from_date'] = from_date.strftime('%Y-%m-%d')
+            # Use provided dates or default to today
+            from_date = datetime.strptime(from_date, '%Y-%m-%d').date() if from_date else today
+            to_date = datetime.strptime(to_date, '%Y-%m-%d').date() if to_date else today
+            filter_data.update(days_filter='custom', from_date=from_date, to_date=to_date)
 
-            if to_date:
-                to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
-                filter_data['to_date'] = to_date.strftime('%Y-%m-%d')
-            else:
-                to_date = datetime.today().date()
-                filter_data['to_date'] = to_date.strftime('%Y-%m-%d')
-
-            filter_data['days_filter'] = 'custom'
-
+        # Filter by route if specified
         if route_name:
             van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
             if van_route:
                 salesman_id = van_route.van.salesman.pk
                 filter_data['route_name'] = route_name
 
-                # Get customers who have made purchases within the date range
+                # Get customers visited in the date range and today's customers
                 visited_customers = CustomerSupply.objects.filter(
                     salesman_id=salesman_id,
                     created_date__date__range=(from_date, to_date)
                 ).values_list('customer_id', flat=True)
 
-                # Get all customers assigned to the route
                 route_customers = Customers.objects.filter(routes=van_route.routes)
+                todays_customers = find_customers(request, str(today), van_route.routes.pk)
+                todays_customer_ids = {customer['customer_id'] for customer in todays_customers}
 
-                # Filter out the visited customers
-                inactive_customers = route_customers.exclude(pk__in=visited_customers)
+                # Exclude visited and today's customers
+                inactive_customers = route_customers.exclude(pk__in=visited_customers).exclude(pk__in=todays_customer_ids)
 
-                # Get today's planned customers
-                todays_customers = find_customers(request, str(datetime.today().date()), van_route.routes.pk)
-                todays_customers = todays_customers if todays_customers else []
-                todays_customer_ids = [customer['customer_id'] for customer in todays_customers]
-
-                # Filter out today's planned customers from inactive customers
-                inactive_customers = inactive_customers.exclude(pk__in=todays_customer_ids)
-
-        if query and query != "None":
-            query = query.lower()
+        # Filter inactive customers based on search query
+        if query:
             inactive_customers = inactive_customers.filter(
                 custom_id__icontains=query
             ) | inactive_customers.filter(
@@ -483,97 +460,95 @@ class Inactive_Customer_List(View):
                 building_name__icontains=query
             )
             filter_data['q'] = query
-            
-        
-        # Calculate days since last supply and vacation status for each customer
-        def days_since_last_supply(customer_id):
-            try:
-                last_supply = CustomerSupply.objects.filter(customer_id=customer_id).order_by('-created_date').first()
-                if last_supply:
-                    last_supply_date = last_supply.created_date.date()
-                    days_since_last_supply = (today - last_supply_date).days
-                    return days_since_last_supply
-                else:
-                    return 0
-            except CustomerSupply.DoesNotExist:
-                return 0
 
-        def is_on_vacation(customer_id):
-            try:
-                vacation = Vacation.objects.filter(customer_id=customer_id, start_date__lte=today, end_date__gte=today).first()
-                return vacation is not None
-            except Vacation.DoesNotExist:
-                return False
+        # Helper function to get days since last supply
+        def get_days_since_last_supply(customer_id):
+            last_supply = CustomerSupply.objects.filter(customer_id=customer_id).order_by('-created_date').first()
+            if last_supply:
+                last_supply_date = last_supply.created_date.date()
+                return last_supply_date, (today - last_supply_date).days
+            return None, 0
 
-        # Annotate each customer with the number of days since last supply and vacation status
+        # Helper function to check if a customer is on vacation
+        def check_vacation_status(customer_id):
+            return Vacation.objects.filter(customer_id=customer_id, start_date__lte=today, end_date__gte=today).exists()
+
+        # Compile filtered customer data
         filtered_customers = []
         for customer in inactive_customers:
-            customer.days_since_last_supply = days_since_last_supply(customer.pk)
-            if customer.days_since_last_supply > 0:  # Exclude customers with days_since_last_supply == 0
-                customer.on_vacation = is_on_vacation(customer.pk)
+            last_supply_date, days_since = get_days_since_last_supply(customer.pk)
+            if days_since > 0:
+                customer.last_supply_date = last_supply_date
+                customer.days_since_last_supply = days_since
+                customer.on_vacation = check_vacation_status(customer.pk)
                 filtered_customers.append(customer)
+
+        # Log activity
         log_activity(
-            created_by=request.user,  
+            created_by=request.user,
             description=f"Viewed inactive customer list with filters: {filter_data}"
         )
+        
         context = {
             'inactive_customers': filtered_customers,
             'routes_instances': RouteMaster.objects.all(),
             'filter_data': filter_data,
             'data_filter': bool(route_name),
             'q': query,
+            'today':today
         }
 
         return render(request, self.template_name, context)
+
 
 class PrintInactiveCustomerList(View):
     template_name = 'accounts/print_inactive_customer_list.html'
 
     def get(self, request, *args, **kwargs):
-        # Get filter data from request
+        # Retrieve filters from GET parameters
         days_filter = request.GET.get('days_filter')
         from_date = request.GET.get('from_date')
         to_date = request.GET.get('to_date')
         route_name = request.GET.get('route_name')
-        query = request.GET.get("q")
+        query = request.GET.get("q", "").strip().lower()
         filter_data = {}
         inactive_customers = []
 
-        # Initialize default date values
+        # Define today's date
         today = timezone.now().date()
 
-        # Handle date filtering (similar logic as in main view)
+        # Handle days filter or custom date range
         if days_filter and days_filter != 'custom':
             to_date = today
-            from_date = to_date - timedelta(days=int(days_filter))
+            from_date = today - timedelta(days=int(days_filter))
+            filter_data.update(days_filter=days_filter, from_date=from_date, to_date=to_date)
         else:
             from_date = datetime.strptime(from_date, '%Y-%m-%d').date() if from_date else today
             to_date = datetime.strptime(to_date, '%Y-%m-%d').date() if to_date else today
+            filter_data.update(days_filter='custom', from_date=from_date, to_date=to_date)
 
+        # Filter by route if specified
         if route_name:
             van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
             if van_route:
                 salesman_id = van_route.van.salesman.pk
+                filter_data['route_name'] = route_name
 
-                # Get customers who have made purchases within the date range
+                # Retrieve customers visited within the date range and exclude today's customers
                 visited_customers = CustomerSupply.objects.filter(
                     salesman_id=salesman_id,
                     created_date__date__range=(from_date, to_date)
                 ).values_list('customer_id', flat=True)
 
-                # Get all customers assigned to the route
                 route_customers = Customers.objects.filter(routes=van_route.routes)
-
-                # Filter out the visited customers
-                inactive_customers = route_customers.exclude(pk__in=visited_customers)
-
-                # Filter out today's planned customers from inactive customers
                 todays_customers = find_customers(request, str(today), van_route.routes.pk)
-                todays_customer_ids = [customer['customer_id'] for customer in todays_customers]
-                inactive_customers = inactive_customers.exclude(pk__in=todays_customer_ids)
+                todays_customer_ids = {customer['customer_id'] for customer in todays_customers}
 
-        if query and query != "None":
-            query = query.lower()
+                # Exclude visited and today's customers
+                inactive_customers = route_customers.exclude(pk__in=visited_customers).exclude(pk__in=todays_customer_ids)
+
+        # Apply search query filter if present
+        if query:
             inactive_customers = inactive_customers.filter(
                 custom_id__icontains=query
             ) | inactive_customers.filter(
@@ -581,23 +556,31 @@ class PrintInactiveCustomerList(View):
             ) | inactive_customers.filter(
                 building_name__icontains=query
             )
-        
-        # Annotate with days since last supply and vacation status
-        def days_since_last_supply(customer_id):
+            filter_data['q'] = query
+
+        # Helper to get last supply date and days since last supply
+        def get_days_since_last_supply(customer_id):
             last_supply = CustomerSupply.objects.filter(customer_id=customer_id).order_by('-created_date').first()
-            return (today - last_supply.created_date.date()).days if last_supply else 0
+            if last_supply:
+                last_supply_date = last_supply.created_date.date()
+                return last_supply_date, (today - last_supply_date).days
+            return None, 0
 
-        def is_on_vacation(customer_id):
-            vacation = Vacation.objects.filter(customer_id=customer_id, start_date__lte=today, end_date__gte=today).first()
-            return vacation is not None
+        # Helper to check vacation status
+        def check_vacation_status(customer_id):
+            return Vacation.objects.filter(customer_id=customer_id, start_date__lte=today, end_date__gte=today).exists()
 
+        # Prepare data for each inactive customer
         filtered_customers = []
         for customer in inactive_customers:
-            customer.days_since_last_supply = days_since_last_supply(customer.pk)
-            if customer.days_since_last_supply > 0:
-                customer.on_vacation = is_on_vacation(customer.pk)
+            last_supply_date, days_since = get_days_since_last_supply(customer.pk)
+            if days_since > 0:
+                customer.last_supply_date = last_supply_date
+                customer.days_since_last_supply = days_since
+                customer.on_vacation = check_vacation_status(customer.pk)
                 filtered_customers.append(customer)
 
+        # Set context for rendering template
         context = {
             'inactive_customers': filtered_customers,
             'filter_data': filter_data,

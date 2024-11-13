@@ -1381,168 +1381,207 @@ def product_route_salesreport(request):
 
 
 def download_product_sales_excel(request):
-    # Retrieve filter parameters from the request
-    start_date = request.GET.get('start_date')
-    end_date = request.GET.get('end_date')
-    route_name = request.GET.get('route_name')
     selected_product_id = request.GET.get('selected_product_id')
+    route_filter = request.GET.get('route_name')
 
-    # Filter customer supply items based on the provided parameters
-    customer_supply_items = CustomerSupplyItems.objects.filter(
-        customer_supply__created_date__range=[start_date, end_date],
-        product_id=selected_product_id,
-        customer_supply__customer__routes__route_name=route_name
-    ).order_by("-customer_supply__created_date")
+    start_date = datetime.strptime(request.GET.get('start_date'), '%Y-%m-%d').date()
+    end_date = datetime.strptime(request.GET.get('end_date'), '%Y-%m-%d').date()
 
-    # Prepare data for Excel file
-    data = {
-        'Time of Supply': [],
-        'Ref/Invoice No': [],
-        'Route Name': [],
-        'Customer Name': [],
-        'Mode of Supply': [],
-        'Quantity': [],
-        'Empty Bottle Collected': [],
-        'Coupon Collected': [],
-        'Amount Collected': [],
-    }
+    selected_product = None
+    if selected_product_id:
+        selected_product = get_object_or_404(ProdutItemMaster, id=selected_product_id)
 
-    for item in customer_supply_items:
-        data['Time of Supply'].append(item.customer_supply.created_date.strftime('%d/%m/%Y'))
-        data['Ref/Invoice No'].append(item.customer_supply.reference_number)
-        data['Route Name'].append(item.customer_supply.customer.routes.route_name)
-        data['Customer Name'].append(item.customer_supply.customer.customer_name)
-        data['Mode of Supply'].append(item.customer_supply.customer.sales_type)
-        data['Quantity'].append(item.quantity)
-        data['Empty Bottle Collected'].append(item.customer_supply.collected_empty_bottle)
-        data['Coupon Collected'].append(item.leaf_count())
-        data['Amount Collected'].append(item.amount)
+    customersupplyitems = CustomerSupplyItems.objects.filter(
+        customer_supply__created_date__date__gte=start_date, customer_supply__created_date__date__lte=end_date
+    )
+
+    if selected_product:
+        customersupplyitems = customersupplyitems.filter(product=selected_product)
+
+    if route_filter:
+        customersupplyitems = customersupplyitems.filter(
+            customer_supply__customer__routes__route_name=route_filter
+        ).order_by("-customer_supply__created_date")
+
+    coupons_collected = CustomerSupplyCoupon.objects.filter(
+        customer_supply__in=customersupplyitems.values('customer_supply')
+    ).annotate(leaf_count=Count('leaf'))
+
+    data = []
+
+    total_quantity = 0
+    total_empty_bottle = 0
+    total_amount_collected = 0
+    total_coupon_collected = 0
+
+    for item in customersupplyitems:
+        coupon_count = coupons_collected.filter(customer_supply=item.customer_supply).count()
+
+        row = {
+            'Time of Supply': item.customer_supply.created_date.strftime('%d/%m/%Y'),
+            'Invoice No': item.customer_supply.reference_number,
+            'Route Name': item.customer_supply.customer.routes.route_name,
+            'Customer Name': item.customer_supply.customer.customer_name,
+            'Customer ID': item.customer_supply.customer.custom_id,
+            'Mode of Supply': item.customer_supply.customer.sales_type,
+            'Quantity': item.quantity,
+            'Empty Bottle Collected': item.customer_supply.collected_empty_bottle,
+            'Amount Collected': item.amount,
+            'Coupon Collected': coupon_count
+        }
+        data.append(row)
+
+        # Add to totals
+        total_quantity += item.quantity
+        total_empty_bottle += item.customer_supply.collected_empty_bottle
+        total_amount_collected += item.amount
+        total_coupon_collected += coupon_count
 
     # Create DataFrame
     df = pd.DataFrame(data)
+
+    # Add footer row with totals
+    footer = {
+        'Time of Supply': 'Total',
+        'Invoice No': '',
+        'Route Name': '',
+        'Customer Name': '',
+        'Customer ID': '',
+        'Mode of Supply': '',
+        'Quantity': total_quantity,
+        'Empty Bottle Collected': total_empty_bottle,
+        'Amount Collected': total_amount_collected,
+        'Coupon Collected': total_coupon_collected
+    }
+
+    # Convert footer to DataFrame and concatenate with original DataFrame
+    footer_df = pd.DataFrame([footer])
+    df = pd.concat([df, footer_df], ignore_index=True)
 
     # Write DataFrame to Excel buffer
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
         df.to_excel(writer, sheet_name='Product Sales', index=False)
 
+        # Accessing the workbook and worksheet
+        workbook = writer.book
+        worksheet = writer.sheets['Product Sales']
+
+        # Format the footer row
+        
+        # Apply the format to the footer row (last row)
+        worksheet.set_row(len(df), None)
+
     # Prepare HTTP response with Excel file
-    filename = f"Product_Sales_Report.xlsx"
+    filename = f"Product_Sales_Report_{start_date}_{end_date}.xlsx"
     response = HttpResponse(buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    # Log activity
+    log_activity(
+        created_by=request.user,
+        description=f"Generated product route sales Excel report and downloded{filename}"
+    )
     return response
 
 def download_product_sales_print(request):
-    # Retrieve filter parameters from the request
-    start_date = request.GET.get('start_date')
-    end_date = request.GET.get('end_date')
-    route_name = request.GET.get('route_name')
+    template = 'sales_management/product_route_sales_print.html'
+    filter_data = {}
+
     selected_product_id = request.GET.get('selected_product_id')
-    
-    if start_date and end_date:
-        customer_supply_items = CustomerSupplyItems.objects.filter(
-            customer_supply__created_date__range=[start_date, end_date],
-        )
 
-    if route_name:
-        customer_supply_items = CustomerSupplyItems.objects.filter(
-            customer_supply__customer__routes__route_name=route_name
-        )
-    
+    selected_product = None
     if selected_product_id:
-        customer_supply_items = CustomerSupplyItems.objects.filter(
-            product_id=selected_product_id
+        selected_product = get_object_or_404(ProdutItemMaster, id=selected_product_id)
+        filter_data["product_id"] = selected_product.pk
+
+    route_filter = request.GET.get('route_name')
+
+    # Start with all customers
+    user_li = Customers.objects.all()
+
+    query = request.GET.get("q")
+    if query:
+        user_li = user_li.filter(
+            Q(custom_id__icontains=query) |
+            Q(customer_name__icontains=query) |
+            Q(sales_type__icontains=query) |
+            Q(mobile_no__icontains=query) |
+            Q(routes__route_name__icontains=query) |
+            Q(location__location_name__icontains=query) |
+            Q(building_name__icontains=query)
         )
-    customer_supply_items = customer_supply_items.order_by("-customer_supply__created_date")
+
+    if route_filter:
+        user_li = user_li.filter(routes__route_name=route_filter)
+        filter_data["route_name"] = route_filter
+
+    route_li = RouteMaster.objects.all()
+    customersupplyitems = CustomerSupplyItems.objects.all()
+    coupons_collected = CustomerSupplyCoupon.objects.all()
+    products = ProdutItemMaster.objects.all()
+    # today = datetime.today().date()
     
-   # Prepare data for PDF file
-    styles = getSampleStyleSheet()
-    header_style = styles['Heading5']
-    header_style.fontSize = 14
-    header_style.textColor = colors.whitesmoke
-    header_style.alignment = 1  # Center align header text
+    if request.GET.get('start_date'):
+        start_date = datetime.strptime(request.GET.get('start_date'), '%Y-%m-%d').date()
+    else:
+        start_date = datetime.today().date()
+    if request.GET.get('end_date'):
+        end_date = datetime.strptime(request.GET.get('end_date'), '%Y-%m-%d').date()
+    else:
+        end_date = datetime.today().date()
 
-    data = [
-        [Paragraph("Sl No", header_style),
-         Paragraph("Time of Supply", header_style),
-         Paragraph("Ref/Invoice No", header_style),
-         Paragraph("Route Name", header_style),
-         Paragraph("Customer Name", header_style),
-         Paragraph("Mode of<br/>Supply", header_style),
-         Paragraph("Quantity", header_style),
-         Paragraph("Empty Bottle<br/>Collected", header_style),
-         Paragraph("Coupon<br/>Collected", header_style),
-         Paragraph("Amount<br/>Collected", header_style)]
-    ]
-    
-    for idx, item in enumerate(customer_supply_items, start=1):
-        data.append([
-            idx,
-            item.customer_supply.created_date.strftime('%d/%m/%Y'),
-            item.customer_supply.reference_number,
-            item.customer_supply.customer.routes.route_name,
-            item.customer_supply.customer.customer_name,
-            item.customer_supply.customer.sales_type,
-            item.quantity,
-            item.customer_supply.collected_empty_bottle,
-            item.leaf_count(),
-            item.amount
-        ])
+    customersupplyitems = customersupplyitems.filter(
+        customer_supply__created_date__date__gte=start_date, customer_supply__created_date__date__lte=end_date
+    )
+    coupons_collected = coupons_collected.filter(
+        customer_supply__created_date__date__gte=start_date, customer_supply__created_date__date__lte=end_date,
+        customer_supply__customer__sales_type='CASH COUPON'
+    )
 
+    # Convert to the required format for the HTML date input
+    filter_data['start_date'] = start_date.strftime('%Y-%m-%d')
+    filter_data['end_date'] = end_date.strftime('%Y-%m-%d')
 
+    # Apply product filter if selected_product is provided
+    if selected_product:
+        customersupplyitems = customersupplyitems.filter(product=selected_product)
 
-    # Create PDF document with custom tabloid size in landscape orientation
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="Product_Sales_Report.pdf"'
-    custom_tabloid = (792, 1260)
-    doc = SimpleDocTemplate(response, pagesize=landscape(custom_tabloid))  # Set orientation to landscape
-
-    # Define column widths (adjusted for larger page size)
-    col_widths = [0.5 * inch, 1.75 * inch, 1.75 * inch, 2.25 * inch, 2.75 * inch, 1.75 * inch, 
-                  1.25 * inch, 1.75 * inch, 1.75 * inch, 1.75 * inch]
-
-    table = Table(data, colWidths=col_widths)
-
-    # Add style to table
-    style = TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),  # Center align header row
-
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 14),  # Increase font size for header row
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),  # Adjust bottom padding for header row
-        ('TOPPADDING', (0, 0), (-1, 0), 12),  # Add top padding for header row
-
-        ('ALIGN', (0, 1), (-1, -1), 'CENTER'),  # Center align all data rows
-        ('ALIGN', (0, 1), (0, -1), 'CENTER'),  # Center align Sl No column
-        ('ALIGN', (1, 1), (1, -1), 'CENTER'),  # Center align Time of Supply column
-        ('ALIGN', (2, 1), (2, -1), 'CENTER'),  # Center align Ref/Invoice No column
-        ('ALIGN', (3, 1), (3, -1), 'LEFT'),    # Left align Route Name column
-        ('ALIGN', (4, 1), (4, -1), 'LEFT'),    # Left align Customer Name column
-        ('ALIGN', (5, 1), (5, -1), 'LEFT'),    # Left align Mode of Supply column
-        ('ALIGN', (6, 1), (6, -1), 'RIGHT'),   # Right align Quantity column
-        ('ALIGN', (7, 1), (7, -1), 'RIGHT'),   # Right align Empty Bottle Collected column
-        ('ALIGN', (8, 1), (8, -1), 'RIGHT'),   # Right align Coupon Collected column
-        ('ALIGN', (9, 1), (9, -1), 'RIGHT'),   # Right align Amount Collected column
+    # Apply route filter if route_filter is provided
+    if route_filter:
+        customersupplyitems = customersupplyitems.filter(
+            customer_supply__customer__routes__route_name=route_filter
+        )
+        coupons_collected = coupons_collected.filter(
+            customer_supply__customer__routes__route_name=route_filter,
+            customer_supply__customer__sales_type='CASH COUPON'
+        )
+        filter_data["route_name"] = route_filter
         
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 13),  # Increase font size for data rows
+    totals = customersupplyitems.aggregate(
+        total_quantity=Sum('quantity'),
+        total_empty_bottle=Sum('customer_supply__collected_empty_bottle'),
+        total_amount_collected=Sum('amount'),
+    )
+    
+    total_coupon_collected = CustomerSupplyCoupon.objects.filter(
+        customer_supply__in=customersupplyitems.values('customer_supply')
+    ).annotate(leaf_count=Count('leaf')).aggregate(total=Sum('leaf_count'))['total'] or 0
 
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 12),  # Adjust bottom padding for data rows
-        ('TOPPADDING', (0, 1), (-1, -1), 12),  # Add top padding for data rows
-
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    ])
-    table.setStyle(style)
-
-    # Add table to the PDF document
-    elements = []
-    elements.append(table)
-    doc.build(elements)
-
-    return response
+    totals['total_coupon_collected'] = total_coupon_collected
+    
+    log_activity(
+        created_by=request.user,
+        description=f"Generated product route sales print report and downloded{template}"
+    )
+    context = {
+        'customersupplyitems': customersupplyitems.order_by("-customer_supply__created_date"),
+        'products': products,
+        'filter_data': filter_data,
+        'coupons_collected': coupons_collected,
+        'route_li': route_li,
+        'totals':totals,
+    }
+    return render(request, template, context)
 
 # def yearmonthsalesreport(request):
 #     user_li = Customers.objects.all()
