@@ -70,6 +70,7 @@
                                     <thead>
                                         <tr>
                                             <th scope="col" style="text-align:center;">Sl No</th>
+                                            <th scope="col" style="text-align:center;">Customer Id</th>
                                             <th scope="col" style="text-align:center;">Customer Name</th>
                                             <th scope="col" style="text-align:center;">Route</th>
                                             <th scope="col" style="text-align:center;">Quantity</th>
@@ -79,6 +80,7 @@
                                         {% for foc in foc_customers %}
                                     <tr>
                                         <td style="text-align:center;">{{ forloop.counter }}</td>
+                                        <td>{{ foc.customer.custom_id }}</td>
                                         <td>{{ foc.customer.customer_name }}</td>
                                         <td style="text-align:center;">{{ foc.customer.routes.route_name }}</td>                                      
                                         <td style="text-align:center;">{{ foc.get_total_supply_qty }}</td>
