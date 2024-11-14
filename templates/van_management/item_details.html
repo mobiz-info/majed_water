@@ -27,6 +27,38 @@
                         </div>
                          
                     </div>
+                    <div class="m-3">
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <div class="page-title-box">
+                                    <form method="GET">
+                                        <div class="row">
+                                            <div class="col">
+                                                <div class="mt">
+                                                    <div class="card-body">
+                                                        <div class="row col-md-6">
+                                                            <div class="col-auto col-form-label text-end">
+                                                                <h6>Date</h6>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <input name="date" type="date" class="form-select" style="width: min-content;" value="{% if filter_data.date %}{{ filter_data.date }}{% else %}{% now 'Y-m-d' %}{% endif %}">
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <input type="submit" class="btn btn-primary btn-sm mt-1" >
+                                                            </div>
+                                                        
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div><!--end col-->
+                                            
+                                        </div><!--end row-->       
+                                    </form>                                                       
+                                </div><!-- end page-title-box -->
+                            </div><!--end col-->
+                        </div><!--end row-->
+                        
+                    </div>
                     <div class="card-body">
                         <table id="datatable-basic" class="table table-bordered text-nowrap" style="width:100%">
                             <thead>
