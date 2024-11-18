@@ -1765,10 +1765,10 @@ User = get_user_model()
 class StaffOrdersSerializer(serializers.ModelSerializer):
     staff_name = serializers.SerializerMethodField()
     route = serializers.SerializerMethodField()
-
+    status = serializers.SerializerMethodField()  # Use SerializerMethodField to fetch the status dynamically
     class Meta:
         model = Staff_Orders
-        fields = ['staff_order_id','created_date','order_date','order_number','staff_name','route']
+        fields = ['staff_order_id','created_date','order_date','order_number','staff_name','route','status']
     
     def get_staff_name(self, obj):
         try:
@@ -1784,8 +1784,15 @@ class StaffOrdersSerializer(serializers.ModelSerializer):
         except Van_Routes.DoesNotExist:
             return "--"
         
-        
-        
+    def get_status(self, obj):
+        try:
+            # Query the Staff_IssueOrders related to this Staff_Orders instance via Staff_Orders_details
+            staff_issue_order = Staff_IssueOrders.objects.filter(staff_Orders_details_id__staff_order_id=obj).first()
+            if staff_issue_order:
+                return staff_issue_order.status
+            return "No Status"
+        except Staff_IssueOrders.DoesNotExist:
+            return "No Status"
 
 
 class OrderDetailSerializer(serializers.ModelSerializer):
@@ -1946,10 +1953,13 @@ class OffloadsRequestSerializer(serializers.ModelSerializer):
 class StaffOrdersDetailsSerializer(serializers.ModelSerializer):
     product_name = serializers.SerializerMethodField()
     is_issued = serializers.SerializerMethodField()
+    item_type = serializers.SerializerMethodField()
+    empty_bottle_count = serializers.SerializerMethodField()
+
 
     class Meta:
         model = Staff_Orders_details
-        fields = ['staff_order_details_id','product_id','product_name','count','issued_qty','is_issued']
+        fields = ['staff_order_details_id','product_id','product_name','count','issued_qty','is_issued','item_type', 'empty_bottle_count']
 
     def get_product_name(self, obj):
         return obj.product_id.product_name
@@ -1959,6 +1969,32 @@ class StaffOrdersDetailsSerializer(serializers.ModelSerializer):
         if obj.count == obj.issued_qty:
             status = True
         return status
+    
+    def get_item_type(self, obj):
+        category_name = obj.product_id.category.category_name
+        if category_name == "Coupons":
+            return "Coupon"
+        elif obj.product_id.product_name == "5 Gallon":
+            return "5 Gallon"
+        else:
+            return obj.product_id.product_name
+
+    def get_empty_bottle_count(self, obj):
+        # Check if the product is "5 Gallon"
+        if obj.product_id.product_name == "5 Gallon":
+            # Fetch the van associated with the staff order
+            van = Van.objects.filter(salesman_id__id=obj.staff_order_id.created_by).first()
+            
+            if van:
+                # Query the VanProductStock for empty bottles of the 5 Gallon product
+                empty_bottle_stock = VanProductStock.objects.filter(
+                    van=van,  # Now using the correct field 'van'
+                    product=obj.product_id,
+                    empty_can_count__gt=0  # Adjust the field and condition as necessary
+                ).values_list('empty_can_count', flat=True).first()
+
+                return empty_bottle_stock if empty_bottle_stock else 0
+        return None
     #------------------------------------Location Api -----------------------------------------------------
 
 class LocationUpdateSerializer(serializers.ModelSerializer):
