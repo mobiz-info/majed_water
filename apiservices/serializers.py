@@ -1766,9 +1766,15 @@ class StaffOrdersSerializer(serializers.ModelSerializer):
     staff_name = serializers.SerializerMethodField()
     route = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()  # Use SerializerMethodField to fetch the status dynamically
+    new_stock = serializers.SerializerMethodField()
+    used_stock = serializers.SerializerMethodField()
     class Meta:
         model = Staff_Orders
-        fields = ['staff_order_id','created_date','order_date','order_number','staff_name','route','status']
+        fields = [
+            'staff_order_id', 'created_date', 'order_date', 
+            'order_number', 'staff_name', 'route', 
+            'status', 'new_stock', 'used_stock'
+        ]
     
     def get_staff_name(self, obj):
         try:
@@ -1794,6 +1800,27 @@ class StaffOrdersSerializer(serializers.ModelSerializer):
         except Staff_IssueOrders.DoesNotExist:
             return "No Status"
 
+    # Get new_stock (from ProductStock)
+    def get_new_stock(self, obj):
+        try:
+            # Assuming '5-gallon' is uniquely identifiable in ProductStock
+            product_stock = ProductStock.objects.filter(
+                product_name__product_name="5 gallon",
+
+            ).aggregate(total_quantity=models.Sum('quantity'))
+            return product_stock['total_quantity'] or 0
+        except Exception:
+            return 0
+
+    # Get used_stock (from WashedUsedProduct)
+    def get_used_stock(self, obj):
+        try:
+            washed_used_product = WashedUsedProduct.objects.filter(
+                product__product_name="5 gallon"
+            ).aggregate(total_quantity=models.Sum('quantity'))
+            return washed_used_product['total_quantity'] or 0
+        except Exception:
+            return 0
 
 class OrderDetailSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product_id.product_name')
