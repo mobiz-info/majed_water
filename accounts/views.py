@@ -512,20 +512,32 @@ class PrintInactiveCustomerList(View):
         route_name = request.GET.get('route_name')
         query = request.GET.get("q", "").strip().lower()
         filter_data = {}
-        inactive_customers = []
 
         # Define today's date
         today = timezone.now().date()
 
         # Handle days filter or custom date range
+        def parse_date(date_str):
+            try:
+                return datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                try:
+                    return datetime.strptime(date_str, '%b. %d, %Y').date()
+                except ValueError:
+                    return today  # Default to today if parsing fails
+
         if days_filter and days_filter != 'custom':
             to_date = today
             from_date = today - timedelta(days=int(days_filter))
             filter_data.update(days_filter=days_filter, from_date=from_date, to_date=to_date)
         else:
-            from_date = datetime.strptime(from_date, '%Y-%m-%d').date() if from_date else today
-            to_date = datetime.strptime(to_date, '%Y-%m-%d').date() if to_date else today
+            from_date = parse_date(from_date) if from_date else today
+            to_date = parse_date(to_date) if to_date else today
             filter_data.update(days_filter='custom', from_date=from_date, to_date=to_date)
+
+
+        # Initialize inactive_customers as an empty queryset
+        inactive_customers = Customers.objects.none()
 
         # Filter by route if specified
         if route_name:
@@ -539,9 +551,11 @@ class PrintInactiveCustomerList(View):
                     salesman_id=salesman_id,
                     created_date__date__range=(from_date, to_date)
                 ).values_list('customer_id', flat=True)
-
+                
                 route_customers = Customers.objects.filter(routes=van_route.routes)
-                todays_customers = find_customers(request, str(today), van_route.routes.pk)
+                
+                # Ensure `todays_customers` is an empty list if `find_customers` returns None
+                todays_customers = find_customers(request, str(today), van_route.routes.pk) or []
                 todays_customer_ids = {customer['customer_id'] for customer in todays_customers}
 
                 # Exclude visited and today's customers
@@ -584,6 +598,7 @@ class PrintInactiveCustomerList(View):
         context = {
             'inactive_customers': filtered_customers,
             'filter_data': filter_data,
+            'today': today
         }
         return render(request, self.template_name, context)
         
