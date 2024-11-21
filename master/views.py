@@ -174,6 +174,9 @@ class Branch_Create(View):
                     data.user_id = auth_data
                     data.save()
                     
+                    auth_data.branch_id=data
+                    auth_data.save()
+                    
             except IntegrityError as e:
                 # Handle database integrity error
                 response_data = {

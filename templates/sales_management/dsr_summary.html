@@ -115,15 +115,17 @@
                                         <th scope="col" style="text-align:center;">Opening Stock</th>
                                         {% comment %} <th scope="col" style="text-align:center;">Requested Stock</th> {% endcomment %}
                                         <th scope="col" style="text-align:center;">Issued</th>
+                                        <th scope="col" style="text-align:center;">Net Load</th>
                                         <th scope="col" style="text-align:center;">Sold</th>
                                         <th scope="col" style="text-align:center;">FOC</th>
                                         <th scope="col" style="text-align:center;">Returned</th>
                                         <th scope="col" style="text-align:center;">Damage Bottle</th>
                                         <th scope="col" style="text-align:center;">Offload</th>
                                         <th scope="col" style="text-align:center;">Empty Bottle</th>
-                                        <th scope="col" style="text-align:center;">Custody Issued</th>
+                                        {% comment %} <th scope="col" style="text-align:center;">Custody Issued</th> {% endcomment %}
                                         <th scope="col" style="text-align:center;">Fresh Stock</th>
                                         <th scope="col" style="text-align:center;">Closing</th>
+                                        <th scope="col" style="text-align:center;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -134,15 +136,23 @@
                                         <td style="text-align:center;">{{van_data.opening_count}}</td>
                                         {% comment %} <td style="text-align:center;">{{stock_details.requested_count}}</td> {% endcomment %}
                                         <td style="text-align:center;">{{stock_details.issued_count}}</td>
+                                        <td style="text-align:center;">{{van_data.opening_count|add:stock_details.issued_count}}</td>
                                         <td style="text-align:center;">{{van_data.sold_count }}</td>
                                         <td style="text-align:center;">{{van_data.foc }}</td>
                                         <td style="text-align:center;">{{van_data.return_count}}</td>
                                         <td style="text-align:center;">{{van_data.damage_count}}</td>
                                         <td style="text-align:center;">{{stock_details.offload_count}}</td>
                                         <td style="text-align:center;">{{van_data.empty_can_count}}</td>
-                                        <td style="text-align:center;"></td>
+                                        {% comment %} <td style="text-align:center;"></td> {% endcomment %}
                                         <td style="text-align:center;">{{stock_report_total}}</td>
                                         <td style="text-align:center;">{{van_data.closing_count}}</td>
+                                        <td>
+                                            <div class="g-2">
+                                                <a href="{% url 'vanstock_product_update' pk=van_data.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Edit">
+                                                    <span class="ri-pencil-line fs-14"></span>
+                                                </a>
+                                            </div>
+                                        </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -159,6 +169,7 @@
                                     </tr>
                                     <tr>
                                         <th scope="col" style="text-align:center;">Sl No</th>
+                                        <th scope="col" style="text-align:center;">Customer ID</th>
                                         <th scope="col" style="text-align:center;">Customer Name</th>
                                         <th scope="col" style="text-align:center;">Building Name /Room No</th>
                                         <th scope="col" style="text-align:center;">Mode Of Supply</th>
@@ -170,6 +181,7 @@
                                     {% for row in pending_bottle_customer_instances %}
                                     <tr>
                                         <td>{{ forloop.counter }}</td>
+                                        <td>{{ row.customer.custom_id }}</td>
                                         <td>{{ row.customer.customer_name }}</td>
                                         <td>{{ row.customer.building_name }}</td>
                                         <td style="text-align:center;">{{ row.customer.get_sales_type_display }}</td>                                      
@@ -260,8 +272,8 @@
                                     </tr>
                                     <tr>
                                         <th style="text-align:center;">Sl No</th>
-                                        <th style="text-align:center;">Ref No</th>
-                                        <th>Customer</th>
+                                        <th style="text-align:center;">Customer ID</th>
+                                        <th style="text-align:center;">Customer</th>
                                         <th style="text-align:center;">Coupon Details</th>
                                         
                                         <th style="text-align:center;">Total</th>
@@ -275,7 +287,7 @@
                                     {% for customer_coupon in customer_coupons %}
                                     <tr>
                                         <td style="text-align:center;">{{ forloop.counter }}</td>
-                                        <td style="text-align:center;">{{ customer_coupon.reference_number }}</td>
+                                        <td style="text-align:center;">{{ customer_coupon.customer.custom_id }}</td>
                                         <td>{{ customer_coupon.customer.customer_name }}</td>
                                         {% comment %} <td>{{ customer_coupon.customer.building_name }} /{{ customer_coupon.customer.door_house_no }}/
                                             {{ customer_coupon.customer.floor_no }}
@@ -320,6 +332,7 @@
                                     </tr>
                                     <tr>
                                         <th scope="col" style="text-align:center;">Sl No</th>
+                                        <th scope="col" style="text-align:center;">Customer ID</th>
                                         <th scope="col" style="text-align:center;">Customer Name</th>
                                         <th scope="col" style="text-align:center;">Route</th>
                                         <th scope="col" style="text-align:center;">Quantity</th>
@@ -329,6 +342,7 @@
                                     {% for foc in foc_customers %}
                                     <tr>
                                         <td style="text-align:center;">{{ forloop.counter }}</td>
+                                        <td>{{ foc.customer.custom_id }}</td>
                                         <td>{{ foc.customer.customer_name }}</td>
                                         <td style="text-align:center;">{{ foc.customer.routes.route_name }}</td>                                      
                                         <td style="text-align:center;">{{ foc.get_total_supply_qty }}</td>
@@ -343,12 +357,15 @@
                         <div class="card-body">
                             <table  class="table table-bordered text-wrap" style="width: 100%">
                                 <tr>
-                                    <th class="text-center text-bold" colspan="8">Cash Sales</th>
+                                    <th class="text-center text-bold" colspan="9">Cash Sales</th>
                                 </tr>
                                 <tr>
                                     <th style="text-align:center;">Sl No</th>
                                     <th style="text-align:left;" scope="col">Reference No</th>
                                     <th style="text-align:left;" scope="col">Customer Name</th>
+                                    <th style="text-align:left;" scope="col">Customer code</th>
+                                    {% comment %} <th style="text-align:center;" scope="col">QTY Sold</th>
+                                    <th style="text-align:center;" scope="col">FOC QTY</th> {% endcomment %}
                                     <th style="text-align:center;" scope="col">Total QTY</th>
                                     <th style="text-align:center;" scope="col">Rate</th>
                                     {% comment %} <th style="text-align:center;" scope="col">Vat</th> {% endcomment %}
@@ -357,13 +374,16 @@
                                     <th style="text-align:center;" scope="col">Cash Recieved</th>
                                 </tr>
                                 <tr>
-                                    <td colspan="8" style="text-align: center;font-weight: bold;">A. 5 Gallon Sale</td>
+                                    <td colspan="9" style="text-align: center;font-weight: bold;">A. 5 Gallon Sale</td>
                                 </tr>
                                 {% for sale in five_gallon_cash_sales %}
                                 <tr>
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{forloop.counter}}</td>
                                     <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.reference_number}}</td>
                                     <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.customer_name}}</td>
+                                    <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.custom_id}}</td>
+                                    {% comment %} <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}" >{{van_product_stock.sold_count}}</td>
+                                    <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}" >{{van_product_stock.foc}}</td> {% endcomment %}
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}" >{{sale.get_total_supply_qty}}</td>
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.get_water_rate}}</td>
                                     {% comment %} <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.vat}}</td> {% endcomment %}
@@ -374,7 +394,7 @@
                                 {% endfor %}
                                 {% if five_gallon_cash_sales %}
                                 <tr>
-                                    <td colspan="3" style="text-align: right;font-weight: bold;">5 Gallon Total:</td>
+                                    <td colspan="4" style="text-align: right;font-weight: bold;">5 Gallon Total:</td>
                                     <td style="text-align:center;font-weight: bold;">{{ five_gallon_cash_total_quantity }}</td>
                                     <td style="text-align:center;font-weight: bold;">-</td>
                                     <td style="text-align:center;font-weight: bold;">{{ five_gallon_cash_total_subtotal }}</td>
@@ -384,7 +404,7 @@
                                 {% endif %}
                                 {% if recharge_cash_sales %}
                                 <tr>
-                                    <td colspan="8" style="text-align: center;font-weight: bold;">B. Coupon Recharge</td>
+                                    <td colspan="9" style="text-align: center;font-weight: bold;">B. Coupon Recharge</td>
                                 </tr>
                                 {% endif %}
                                 {% for sale in recharge_cash_sales %}
@@ -392,6 +412,7 @@
                                     <td style="text-align:center;background-color:#ff9a44 !important;">{{forloop.counter}}</td>
                                     <td style="text-align:left;background-color:#ff9a44 !important;">{{sale.reference_number}}</td>
                                     <td style="background-color:#ff9a44 !important;">{{sale.customer.customer_name}}</td>
+                                    <td style="background-color:#ff9a44 !important;">{{sale.customer.custom_id}}</td>
                                     <td style="text-align:center;background-color:#ff9a44 !important;">1</td>
                                     <td style="text-align:center;background-color:#ff9a44 !important;">{{sale.display_coupon_rates}}</td>
                                     {% comment %} <td style="text-align:center;">0</td> {% endcomment %}
@@ -402,7 +423,7 @@
                                 {% endfor %}
                                 {% if recharge_cash_sales %}
                                 <tr>
-                                    <td colspan="3" style="text-align: right;font-weight: bold;">Coupon Recharge Total:</td>
+                                    <td colspan="6" style="text-align: right;font-weight: bold;">Coupon Recharge Total:</td>
                                     <td style="text-align:center;font-weight: bold;">{{ coupon_cash_total_qty }}</td>
                                     <td style="text-align:center;font-weight: bold;">-</td>
                                     <td style="text-align:center;font-weight: bold;">{{ cash_sale_recharge_grand_total }}</td>
@@ -412,7 +433,7 @@
                                 {% endif %}
                                 {% if other_cash_sales %}
                                 <tr>
-                                    <td colspan="8" style="text-align: center;font-weight: bold;">C. Other</td>
+                                    <td colspan="9" style="text-align: center;font-weight: bold;">C. Other</td>
                                 </tr>
                                 {% endif %}
                                 {% for sale in other_cash_sales %}
@@ -420,6 +441,7 @@
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{forloop.counter}}</td>
                                     <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.reference_number}}</td>
                                     <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.customer_name}}</td>
+                                    <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.custom_id}}</td>
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}" >{{sale.get_total_supply_qty}}</td>
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.get_water_rate}}</td>
                                     {% comment %} <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.vat}}</td> {% endcomment %}
@@ -430,7 +452,7 @@
                                 {% endfor %}
                                 {% if other_cash_sales %}
                                 <tr>
-                                    <td colspan="3" style="text-align: right;font-weight: bold;">Other Total:</td>
+                                    <td colspan="4" style="text-align: right;font-weight: bold;">Other Total:</td>
                                     <td style="text-align:center;font-weight: bold;">{{ other_cash_total_quantity }}</td>
                                     <td style="text-align:center;font-weight: bold;">-</td>
                                     <td style="text-align:center;font-weight: bold;">{{ other_cash_total_subtotal }}</td>
@@ -439,7 +461,7 @@
                                 </tr>
                                 {% endif %}
                                 <tr>
-                                    <td colspan="3" style="text-align: right;font-weight: bold;">Grand Total:</td>
+                                    <td colspan="4" style="text-align: right;font-weight: bold;">Grand Total:</td>
                                     <td style="text-align:center;font-weight: bold;">{{ cash_total_qty }}</td>
                                     <td style="text-align:center;font-weight: bold;">-</td>
                                     <td style="text-align:center;font-weight: bold;">{{ cash_total_subtotal }}</td>
@@ -460,6 +482,7 @@
                                     <th style="text-align:center;">Sl No</th>
                                     <th style="text-align:left;" scope="col">Reference No</th>
                                     <th style="text-align:left;" scope="col">Customer Name</th>
+                                    <th style="text-align:left;" scope="col">Customer Code</th>
                                     <th style="text-align:center;" scope="col">Total QTY</th>
                                     <th style="text-align:center;" scope="col">Rate</th>
                                     {% comment %} <th style="text-align:center;" scope="col">Vat</th> {% endcomment %}
@@ -469,13 +492,14 @@
                                     
                                 </tr>
                                 <tr>
-                                    <td colspan="8" style="text-align: center;font-weight: bold;">A. 5 Gallon</td>
+                                    <td colspan="9" style="text-align: center;font-weight: bold;">A. 5 Gallon</td>
                                 </tr>
                                 {% for sale in five_gallon_credit_sales %}
                                 <tr>
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{forloop.counter}}</td>
                                     <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.reference_number}}</td>
                                     <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.customer_name}}</td>
+                                    <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.custom_id}}</td>
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}" >{{sale.get_total_supply_qty}}</td>
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.get_water_rate}}</td>
                                     {% comment %} <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.vat}}</td> {% endcomment %}
@@ -486,7 +510,7 @@
                                 {% endfor %}
                                 {% if five_gallon_credit_sales %}
                                 <tr>
-                                    <td colspan="3" style="text-align: right;font-weight: bold;">5 Gallon Total:</td>
+                                    <td colspan="4" style="text-align: right;font-weight: bold;">5 Gallon Total:</td>
                                     <td style="text-align:center;font-weight: bold;">{{ five_gallon_credit_total_quantity }}</td>
                                     <td style="text-align:center;font-weight: bold;">-</td>
                                     <td style="text-align:center;font-weight: bold;">{{ five_gallon_credit_total_subtotal }}</td>
@@ -496,7 +520,7 @@
                                 {% endif %}
                                 {% if recharge_credit_sales %}
                                 <tr>
-                                    <td colspan="8" style="text-align: center; font-weight: bold;">B. Coupon Recharge</td>
+                                    <td colspan="9" style="text-align: center; font-weight: bold;">B. Coupon Recharge</td>
                                 </tr>
                                 {% endif %}
                                 {% for sale in recharge_credit_sales %}
@@ -504,6 +528,7 @@
                                     <td style="text-align:center;background-color:#ff9a44 !important;">{{forloop.counter}}</td>
                                     <td style="text-align:left;background-color:#ff9a44 !important;">{{sale.reference_number}}</td>
                                     <td style="background-color:#ff9a44 !important;">{{sale.customer.customer_name}}</td>
+                                    <td style="background-color:#ff9a44 !important;">{{sale.customer.custom_id}}</td>
                                     <td style="text-align:center;background-color:#ff9a44 !important;">1</td>
                                     <td style="text-align:center;background-color:#ff9a44 !important;">{{sale.display_coupon_rates}}</td>
                                     {% comment %} <td style="text-align:center;">0</td> {% endcomment %}
@@ -514,7 +539,7 @@
                                 {% endfor %}
                                 {% if recharge_credit_sales %}
                                 <tr>
-                                    <td colspan="3" style="text-align: right;font-weight: bold;">Coupon Recharge Total:</td>
+                                    <td colspan="4" style="text-align: right;font-weight: bold;">Coupon Recharge Total:</td>
                                     <td style="text-align:center;font-weight: bold;">{{ coupon_credit_total_qty }}</td>
                                     <td style="text-align:center;font-weight: bold;">-</td>
                                     <td style="text-align:center;font-weight: bold;">{{ credit_sale_recharge_grand_total }}</td>
@@ -524,7 +549,7 @@
                                 {% endif %}
                                 {% if other_credit_sales %}
                                 <tr>
-                                    <td colspan="8" style="text-align: center;font-weight: bold;">C. Other</td>
+                                    <td colspan="9" style="text-align: center;font-weight: bold;">C. Other</td>
                                 </tr>
                                 {% endif %}
                                 {% for sale in other_credit_sales %}
@@ -532,6 +557,7 @@
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{forloop.counter}}</td>
                                     <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.reference_number}}</td>
                                     <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.customer_name}}</td>
+                                    <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.custom_id}}</td>
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}" >{{sale.get_total_supply_qty}}</td>
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.get_water_rate}}</td>
                                     {% comment %} <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.vat}}</td> {% endcomment %}
@@ -542,7 +568,7 @@
                                 {% endfor %}
                                 {% if other_credit_sales %}
                                 <tr>
-                                    <td colspan="3" style="text-align: right;font-weight: bold;">Other Total:</td>
+                                    <td colspan="4" style="text-align: right;font-weight: bold;">Other Total:</td>
                                     <td style="text-align:center;font-weight: bold;">{{ other_credit_total_quantity }}</td>
                                     <td style="text-align:center;font-weight: bold;">-</td>
                                     <td style="text-align:center;font-weight: bold;">{{ other_credit_total_subtotal }}</td>
@@ -551,7 +577,7 @@
                                 </tr>
                                 {% endif %}
                                 <tr>
-                                    <td colspan="3" style="text-align: right;font-weight: bold;">Grand Total:</td>
+                                    <td colspan="4" style="text-align: right;font-weight: bold;">Grand Total:</td>
                                     <td style="text-align:center;font-weight: bold;">{{ credit_total_qty }}</td>
                                     <td style="text-align:center;font-weight: bold;">-</td>
                                     <td style="text-align:center;font-weight: bold;">{{ credit_total_subtotal }}</td>
@@ -566,12 +592,13 @@
                         <div class="card-body">
                             <table  class="table table-bordered text-wrap" style="width: 100%">
                                 <tr>
-                                    <th class="text-center text-bold" colspan="8">Coupon Sales</th>
+                                    <th class="text-center text-bold" colspan="9">Coupon Sales</th>
                                 </tr>
                                 <tr>
                                     <th style="text-align:center;">Sl No</th>
                                     <th style="text-align:left;" scope="col">Reference No</th>
                                     <th style="text-align:left;" scope="col">Customer Name</th>
+                                    <th style="text-align:left;" scope="col">Customer Code</th>
                                     <th style="text-align:center;" scope="col">Total QTY</th>
                                     <th style="text-align:center;" scope="col">Rate</th>
                                     <th style="text-align:center;" scope="col">Manual Coupon Recieved</th>
@@ -583,6 +610,7 @@
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{forloop.counter}}</td>
                                     <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.reference_number}}</td>
                                     <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.customer_name}}</td>
+                                    <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.custom_id}}</td>
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.get_total_supply_qty}}</td>
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.get_water_rate}}</td>
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.total_coupon_recieved.manual_coupon}}</td>
@@ -590,7 +618,7 @@
                                 </tr>
                                 {% endfor %} 
                                 <tr>
-                                    <td colspan="3" style="text-align: right;font-weight: bold;">Total:</td>
+                                    <td colspan="4" style="text-align: right;font-weight: bold;">Total:</td>
                                     <td style="text-align:center;font-weight: bold;">{{ coupon_total_qty }}</td>
                                     <td style="text-align:center;font-weight: bold;">-</td>
                                     <td style="text-align:center;font-weight: bold;">{{ manual_coupon_total }}</td>
@@ -670,6 +698,7 @@
                                     </tr>
                                     <tr>
                                         <th style="text-align:center;" scope="col">Sl.no</th>
+                                        <th style="text-align:center;" scope="col">Customer ID</th>
                                         <th style="text-align:center;" scope="col">Customer Name</th>
                                         <th style="text-align:center;" scope="col">Building Name/Room no</th>
                                         <th style="text-align:center;" scope="col">Customer Type</th>
@@ -681,6 +710,7 @@
                                     {% for instance in dialy_collections %}
                                     <tr>
                                         <td style="text-align:center;">{{ forloop.counter }}</td>
+                                        <td>{{ instance.customer.custom_id }}</td>
                                         <td>{{ instance.customer.customer_name }}</td>
                                         <td>{{ instance.customer.building_name }} {% if instance.customer.door_house_no %} / {{ instance.customer.door_house_no }} {% endif %}</td>
                                         <td style="text-align:center;">{{ instance.customer.customer_type }}</td>
