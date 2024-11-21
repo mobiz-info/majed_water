@@ -47,13 +47,11 @@ class Order(models.Model):
         ordering = ('-created_date',)
 
 
-
-
 class Change_Reason(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     reason_name = models.CharField(max_length=100)
     def __str__(self):
         return self.reason_name
-
 
 
 class ChangeOrReturn(models.Model):

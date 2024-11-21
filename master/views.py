@@ -28,7 +28,7 @@ from van_management.models import Van, VanProductStock , Expense
 from product.models import ProductStock, ScrapProductStock, WashedUsedProduct, WashingProductStock
 from client_management.models import OutstandingAmount, Vacation, NonvisitReport,CustomerSupplyItems
 from client_management.models import CustodyCustomItems, CustomerSupply,CustomerCoupon, CustomerSupplyCoupon, CustomerSupplyDigitalCoupon, OutstandingCoupon, OutstandingProduct
-
+from accounts.views import log_activity
 
 
 # Create your views here.

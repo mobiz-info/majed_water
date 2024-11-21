@@ -9,7 +9,7 @@ class Command(BaseCommand):
     help = 'Add credit invoice type based on customer'
 
     def handle(self, *args, **kwargs):
-        invoices = Invoice.objects.filter(invoice_no="WTR-20240923-7769")
+        invoices = Invoice.objects.filter(invoice_no="WTR-20240923-7698")
         
         for invoice in invoices:
             date_part = invoice.created_date.strftime('%Y%m%d')
