@@ -40,5 +40,4 @@ path('cancel_request/<uuid:diffbottles_id>/', CancelRequestView.as_view(), name=
 path('reassign_request/<uuid:diffbottles_id>/',ReassignRequestView.as_view(), name='reassign_request'),
 
 path('new_customer_request', new_customer_request.as_view(), name='new_customer_request'),
-
 ]

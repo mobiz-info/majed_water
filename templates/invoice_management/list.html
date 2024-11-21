@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block content %}
+{% load invoice_template_tags %}
 <!-- End::app-sidebar -->
 <!-- Page Header -->
 <div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
@@ -78,6 +79,7 @@
                                     <th scope="col" class="text-center">VAT</th>
                                     <th scope="col" class="text-center">Total Amount</th>
                                     <th scope="col" class="text-center">Amount Recieved</th>
+                                    <th scope="col" class="text-center">Status</th>
                                     <th scope="col" class="text-right">Actions</th>
                                 </tr>
                                 </thead>
@@ -96,6 +98,7 @@
                                         <td class="text-center">{{instance.vat}}%</td>
                                         <td class="text-center">{{instance.amout_total}}</td>
                                         <td class="text-center">{{instance.amout_recieved}}</td>
+                                        <td class="text-center">{{instance.get_invoice_status_display}}</td>
                                         <td class="text-right">
                                             <div class="g-2">
                                                 {% if instance.can_edit %}
@@ -112,7 +115,17 @@
                                             </div>
                                         </td>
                                     </tr>
-                                {%endfor%}
+                                    {%endfor%}
+                                    <tr>
+                                        <td class="font-weight-bold text-right" colspan="6">Grand Total: </td>
+                                        {% get_total_values instances as total_values %}
+                                        <td class="font-weight-bold text-center">{{total_values.net_taxable}}</td>
+                                        <td class="font-weight-bold text-center">{{total_values.vat}}</td>
+                                        <td class="font-weight-bold text-center">{{total_values.amout_total}}</td>
+                                        <td class="font-weight-bold text-center">{{total_values.amout_recieved}}</td>
+                                        <td class="font-weight-bold text-center"></td>
+                                        <td class="font-weight-bold text-center"></td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>

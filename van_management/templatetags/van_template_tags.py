@@ -28,12 +28,13 @@ def get_van_product_wise_stock(date,van,product):
         else:
             date = datetime.today().date()
             
-        print(date)
+        # print(date)
             
         van = Van.objects.get(pk=van)
         van_stock = VanProductStock.objects.get(created_date=date,van=van,product__pk=product)
             
-        staff_order_details = Staff_Orders_details.objects.filter(staff_order_id__created_date__date=date,product_id__pk=product,staff_order_id__created_by=van.salesman.pk)
+        staff_order_details = Staff_Orders_details.objects.filter(staff_order_id__order_date=date,product_id__pk=product,staff_order_id__created_by=van.salesman.pk)
+        # issue=Staff_IssueOrders.objects.filter(staff_Orders_details_id=staff_order_details)
         issued_count = staff_order_details.aggregate(total_count=Sum('issued_qty'))['total_count'] or 0
         
         total_stock = van_stock.stock + van_stock.opening_count
@@ -62,9 +63,7 @@ def get_five_gallon_ratewise_count(rate,date,salesman):
         "credit_amount_count": instances.filter(customer_supply__amount_recieved=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"]).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0,
         "coupon_amount_count": instances.filter(customer_supply__customer__sales_type="CASH COUPON").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
     }
-
-
-
+    
 @register.simple_tag
 def get_coupon_vanstock_count(van_pk,date,coupon_type):
     return VanCouponStock.objects.filter(created_date=date,van__pk=van_pk,coupon__coupon_type__coupon_type_name=coupon_type).aggregate(total_stock=Sum('stock'))['total_stock'] or 0
@@ -113,30 +112,3 @@ def get_van_coupon_wise_stock(date, van, coupon):
             "total_stock": total_stock
         }
     return {}
-
-
-@register.simple_tag
-def get_five_gallon_ratewise_counts(rate, from_date, to_date, salesman):
-    try:
-        from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
-        to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
-    except ValueError:
-        return {
-            "debit_amount_count": 0,
-            "credit_amount_count": 0,
-            "coupon_amount_count": 0,
-        }
-
-    instances = CustomerSupplyItems.objects.filter(
-        customer_supply__created_date__date__range=(from_date, to_date),
-        customer_supply__salesman_id=salesman,
-        product__product_name="5 Gallon",
-        customer_supply__customer__rate=rate
-    )
-
-    return {
-        
-        "debit_amount_count": instances.filter(customer_supply__amount_recieved__gt=0).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0,
-        "credit_amount_count": instances.filter(customer_supply__amount_recieved=0).exclude(customer_supply__customer__sales_type__in=["FOC", "CASH COUPON"]).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0,
-        "coupon_amount_count": instances.filter(customer_supply__customer__sales_type="CASH COUPON").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
-    }

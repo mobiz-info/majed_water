@@ -135,6 +135,25 @@
                             <!--                                <small class="form-text text-muted">Select Category.</small>-->
                         </div>
                     </div>
+                    <!-- New Conditional Fields -->
+                    <div id="additional-fields" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class='control-label'>5G Count Limit</label>
+                                    {{ form.five_g_count_limit }}
+                                    <span style="color: red;">{{ form.five_g_count_limit.errors }}</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class='control-label'>Eligible FOC</label>
+                                    {{ form.eligible_foc }}
+                                    <span style="color: red;">{{ form.eligible_foc.errors }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="col-md-6">
                         <div class="form-group required">
                             <label class='control-label'>Rate</label>
@@ -190,6 +209,7 @@
                             </div>
                         </div>    
                     </div>
+                    
 
                     <div class="col-md-6">
                         <div class="form-group required">
@@ -199,6 +219,7 @@
                             <!--                                <small class="form-text text-muted">Select Category.</small>-->
                         </div>
                     </div>
+                    
             <div class="col-12 text-end mt-5">
                 <input type="submit" class="btn btn-primary me-2 mb-2" value="Submit">
                     <button class="btn btn-success   me-md-2  mb-2" type="button" onClick="javascript:history.go(-1);">
@@ -257,6 +278,18 @@
             });
         });
     });
+
+    $("#id_customer_type").change(function() {
+        var selectedType = $(this).val();
+        if (selectedType === "CORPORATE/WATCHMAN") {
+            $("#additional-fields").show();
+        } else {
+            $("#additional-fields").hide();
+         
+        }
+    });
+
+   
 </script>
 
 {% endblock static %}

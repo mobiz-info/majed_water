@@ -29,15 +29,15 @@ urlpatterns = [
     path('inactive_customers', Inactive_Customer_List.as_view(), name='inactive_customers'),
     path('print_inactive_customers', PrintInactiveCustomerList.as_view(), name='print_inactive_customers'),
     path('non_visited_customers', NonVisitedCustomersView.as_view(), name="non_visited_customers"),
-    
+
     path('change-password/<int:user_id>/', change_password, name='change_password'),
     path('password-change-done/', TemplateView.as_view(template_name='accounts/password_change_done.html'), name='password_change_done'),
-
+    
     path('missing_customers', MissingCustomersView.as_view(), name='missing_customers'),
     path('missing_customers_pdf/', MissingCustomersPdfView.as_view(), name='missing_customers_pdf'),  
     path('missed_on_delivery/<uuid:route_id>/', MissedOnDeliveryView.as_view(), name='missed_on_delivery'),
     path('missed_on_delivery/<uuid:route_id>/print/', MissedOnDeliveryPrintView.as_view(), name='missed_on_delivery_print'),
-
+    
     path('processing_log', processing_log_list, name='processing_log'),
-
+    
 ]

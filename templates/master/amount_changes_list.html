@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block title %} Branch List {% endblock %}
+{% block content %}
+{% load static %}
+{% load bottle_customer_stock %}
+<!-- End::app-sidebar -->
+<!-- Page Header -->
+<div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
+    <h4 class="fw-medium mb-0">Amount changes</h4>
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-50">Dashboards</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Admin Dashboard</li>
+    </ol>
+</div>
+<!-- Page Header Close -->
+
+<!-- Start::app-content -->
+<div class="main-content app-content">
+    <div class="container-fluid">
+        <!-- Start:: row-2 -->
+        <div class="row">
+            <div class="col-xl-12">
+                <div class="card custom-card">
+                    <div class="card-header">
+                        <div class="card-title">Branches</div>
+                        <div class="ms-auto">
+                            <a href="{% url 'branch_create' %}">
+                                <button type="button" class="btn btn-success btn-wave text-end d-flex me-4 my-auto">
+                                    <i class="bi bi-plus-circle me-1"></i>Create
+                                </button>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+                        <table class="table table-bordered text-nowrap" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th style="text-align:center !important;" scope="col">Sl.No</th>
+                                    <th style="text-align:center !important;" scope="col">Date</th>
+                                    <th style="text-align:center !important;" scope="col">Supply</th>
+                                    <th style="text-align:center !important;" scope="col">Coupon</th>
+                                    <th style="text-align:center !important;" scope="col">Outstanding</th>
+                                    <th style="text-align:center !important;" scope="col">Invoice</th>
+                                    <th style="text-align:center !important;" scope="col">Collection</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for instance in instances %}
+                                <tr>
+                                    <td style="text-align:right;">{{ forloop.counter }}</td>
+                                    <td style="text-align:left;">{{ instance }}</td>
+                                    
+                                    {% get_supply customer instance as supplys %}
+                                    <td style="text-align:left;">
+                                        {% if supplys %}
+                                            {% for s in supplys %}
+                                                {{ s.subtotal }} - {{ s.invoice_no }} - recive: {{ s.amount_recieved }} - status :{% if s.subtotal == s.amount_recieved %} Paid {% else %} Non Paid {% endif %}<br>
+                                            {% endfor %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    
+                                    {% get_coupon customer instance as coupons %}
+                                    <td style="text-align:left;">
+                                        {% if coupons %}
+                                            {% for c in coupons %}
+                                                {{ c.total_payeble }} - {{ c.invoice_no }}<br>
+                                            {% endfor %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    
+                                    {% get_outstanding customer instance as outstanding %}
+                                    <td style="text-align:left;">
+                                        {% if outstanding %}
+                                            {% for o in outstanding %}
+                                                {{ o.get_outstanding_count }} - {{ o.invoice_no }}<br>
+                                            {% endfor %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    
+                                    {% get_invoice customer instance as invoice %}
+                                    <td style="text-align:left;">
+                                        {% if invoice %}
+                                            {% for i in invoice %}
+                                                total: {{ i.amout_total }} - Receive: {{ i.amout_recieved }} - {{ i.invoice_no }}<br>
+                                            {% endfor %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+
+                                    {% get_collected customer instance as collection %}
+                                    <td style="text-align:left;">
+                                        {% if collection %}
+                                            {% for i in collection %}
+                                                Receive: {{ i.amount_received }}<br>
+                                            {% endfor %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- End:: row-2 -->
+    </div>
+</div>
+<!-- End::app-content -->
+{% endblock %}

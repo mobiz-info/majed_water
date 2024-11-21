@@ -39,11 +39,11 @@
                                     
                                     <div class="col-2" id="from_date" {% if filter_data.days_filter != 'custom' %}style="display:none;"{% endif %}>
                                         <label for="date">From Date:</label>
-                                        <input type="date" name="from_date" class="form-control" value="{{ filter_data.from_date }}" id="from_date" {% if filter_data.days_filter != 'custom' %}style="display:none;"{% endif %}>
+                                        <input type="date" name="from_date" class="form-control" value="{{ filter_data.from_date }}" >
                                     </div>
                                     <div class="col-2" id="to_date" {% if filter_data.days_filter != 'custom' %}style="display:none;"{% endif %}>
                                         <label for="date">To Date:</label>
-                                        <input type="date" name="to_date" class="form-control" value="{{ filter_data.to_date }}" id="to_date" {% if filter_data.days_filter != 'custom' %}style="display:none;"{% endif %}>
+                                        <input type="date" name="to_date" class="form-control" value="{{ filter_data.to_date }}" >
                                     </div>
                                     <div class="col-1">
                                         <label for="product">Routes :</label>
@@ -76,7 +76,7 @@
                                 
                             </form>
                         </div>
-                        <div id="table-container" class="card-body">
+                        <div class="w-100 overflow-auto">
                             <table class="table table-bordered text-nowrap" style="width:100%">
                                 <thead>
                                     <tr>

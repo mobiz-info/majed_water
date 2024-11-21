@@ -7,6 +7,7 @@ from invoice_management.models import SuspenseCollection
 from django.forms import TextInput
 from van_management.models import VanProductStock,BottleCount
 from accounts.models import *
+from sales_management.models import *
 
 class SaleEntryFilterForm(forms.Form):
     route_name = forms.ModelChoiceField(
@@ -205,3 +206,23 @@ class VansRouteBottleCountDeductForm(forms.ModelForm):
     #             van_product_stock.save()
 
     #     return bottle_count
+    
+    
+class CashCollectionForm(forms.ModelForm):
+    class Meta:
+        model = CollectionPayment
+        fields = ['amount_received']
+        
+class ChequeCollectionForm(forms.ModelForm):
+    class Meta:
+        model = CollectionCheque
+        fields = ['bank_name', 'cheque_amount',  'cheque_no']
+        
+        
+class InvoicePaymentForm(forms.ModelForm):
+    class Meta:
+        model = Invoice
+        fields = ['invoice_no', 'amout_recieved']
+
+    # invoice_id = forms.UUIDField(widget=forms.HiddenInput())
+    # amount_received = forms.DecimalField(max_digits=10, decimal_places=2, required=True)

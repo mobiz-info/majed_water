@@ -28,11 +28,10 @@ from rest_framework.decorators import api_view,renderer_classes, permission_clas
 from accounts.models import Customers
 from master.functions import generate_form_errors
 from master.models import CategoryMaster, RouteMaster
-from invoice_management.models import Invoice, InvoiceItems,InvoiceDailyCollection
+from invoice_management.models import Invoice, InvoiceDailyCollection, InvoiceItems
 from product.models import Product, Product_Default_Price_Level
 from invoice_management.forms import InvoiceForm, InvoiceItemsForm
 from invoice_management.serializers import BuildingNameSerializers, ProductSerializers,CustomersSerializers
-from accounts.views import log_activity
 from van_management.models import VanCouponStock
 from sales_management.models import Receipt
 from sales_management.views import delete_receipt
@@ -417,7 +416,6 @@ def edit_invoice(request,pk):
 
         return render(request, 'invoice_management/create.html', context)
     
-@login_required
 def delete_invoice(request, pk):
     """
     invoice deletion, it only mark as is deleted field to true
@@ -613,8 +611,8 @@ def customerwise_invoice(request):
     if query:
             invoices = invoices.filter(
                 Q(customer__customer_name__icontains=query) |
-                Q(customer__custom_id__icontains=query) |
-                Q(customer__routes__route_name__icontains=query) 
+                Q(customer__routes__route_name__icontains=query)|
+                Q(customer__custom_id__icontains=query)
             )
 
     if route_filter:

@@ -26,11 +26,12 @@
                             <!--row 1-->
                             <div class="col-md-6">
                                 <div class="form-group required">
-                                    <label class='control-label'>Coupon Type</label>
+                                    <label class="control-label">Coupon Type</label>
                                     {{ form.coupon_type }}
                                     <span style="color: red;">{{ form.coupon_type.errors }}</span>
                                 </div>
                             </div>
+                            <input type="hidden" id="coupon_type_freeleaf_count">
                             <div class="col-md-6">
                                 <div class="form-group required">
                                     <label class='control-label'>Book No</label>
@@ -75,8 +76,8 @@
                                         <h4>Valuable Leaflets: <span id="coupon-book-num"></span></h4>
                                         <ul id="leaflet-list" class="d-flex"></ul>
                                         <textarea id="valuable_leafs_numbers" name="valuable_leafs" class="form-control d-none"></textarea>
-                                        <h4>Free Leaflets:</h4>
-                                        <ul id="free-leaflet-list" class="d-flex"></ul>
+                                        <h4 class="free-leaflet-list">Free Leaflets:</h4>
+                                        <ul id="free-leaflet-list" class="d-flex free-leaflet-list"></ul>
                                         <textarea id="free_leafs_numbers" name="free_leafs" class="form-control d-none"></textarea>
                                     </div>
                                 </div>
@@ -133,17 +134,24 @@
         leafletList.innerHTML = '';
         freeLeafletList.innerHTML = '';
         errorMessage.textContent = '';
-    
-        if (!startLeaf || !endLeaf || !freeStartLeaf || !freeEndLeaf) {
-            errorMessage.textContent = 'Please fill in all leaf numbers.';
-            return;
+
+        if ($('#coupon_type_freeleaf_count').val() > 0) {
+            if (!startLeaf || !endLeaf || !freeStartLeaf || !freeEndLeaf) {
+                errorMessage.textContent = 'Please fill in all leaf numbers.';
+                return;
+            }
+            // Generate valuable leaflets
+            generateLeafletList(startLeaf, endLeaf, leafletList, 'valuable_leafs_numbers');
+            // Generate free leaflets
+            generateLeafletList(freeStartLeaf, freeEndLeaf, freeLeafletList, 'free_leafs_numbers');
+        } else {
+            if (!startLeaf || !endLeaf) {
+                errorMessage.textContent = 'Please fill in all leaf numbers.';
+                return;
+            }
+            // Generate valuable leaflets
+            generateLeafletList(startLeaf, endLeaf, leafletList, 'valuable_leafs_numbers');
         }
-    
-        // Generate valuable leaflets
-        generateLeafletList(startLeaf, endLeaf, leafletList, 'valuable_leafs_numbers');
-    
-        // Generate free leaflets
-        generateLeafletList(freeStartLeaf, freeEndLeaf, freeLeafletList, 'free_leafs_numbers');
     
         document.getElementById('back-button').style.display = 'block';
     });
@@ -165,7 +173,7 @@
         }
     
         let leafletList = [];
-    
+
         for (let i = startNum; i <= endNum; i++) {
             const listItem = document.createElement('li');
             listItem.textContent = prefix + i;
@@ -198,6 +206,22 @@
                 $('#leaf_ending_no').val(data.end_leaf_no);
                 $('#free_leaf_starting_no').val(data.next_free_leaf_no);
                 $('#free_leaf_ending_no').val(data.end_free_leaf_no);
+                $('#coupon_type_freeleaf_count').val(data.coupon_type_freeleaf_count);
+
+                var free_leaf_count = data.coupon_type_freeleaf_count;
+                if (free_leaf_count < 1){
+                    $("#free_leaf_starting_no").attr('disabled', true);
+                    $("#free_leaf_ending_no").attr('disabled', true);
+                    $("h4.free-leaflet-list").css("display","none")
+                    $("ul.free-leaflet-list").removeClass("d-flex");
+                    $("ul.free-leaflet-list").addClass("d-none");
+                }else{
+                    $("#free_leaf_starting_no").removeAttr('disabled');
+                    $("#free_leaf_ending_no").removeAttr('disabled');
+                    $("h4.free-leaflet-list").css("display","block");
+                    $("ul.free-leaflet-list").removeClass("d-none");
+                    $("ul.free-leaflet-list").addClass("d-flex");
+                }
             }
         });
     });

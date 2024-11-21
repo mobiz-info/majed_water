@@ -111,9 +111,13 @@
                                         <td>{{ item.get_outstanding_count }}</td>
                                         <td>
                                             <div class="g-2">
+                                                <a href="{% url 'edit_customer_outstanding' item.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Edit">
+                                                    <span class="ri-pencil-line fs-14"></span>
+                                                </a>
                                                 <a aria-label="anchor" class="action-button remove btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete"
                                                     data-id="{{item.pk}}" data-text="{{confirm_delete_message}}" data-title="Are you sure?" href="{% url 'delete_outstanding' pk=item.pk %}"><span class="ri-delete-bin-7-line fs-14"></span>
                                                 </a>
+                                                
                                             </div>
                                         </td>
                                     </tr>

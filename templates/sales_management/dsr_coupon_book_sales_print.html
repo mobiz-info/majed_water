@@ -6,13 +6,17 @@
     {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> Coupon Book Sales - Print</title>
+    <title> Coupon Sales - Print</title>
+    <!-- Bootstrap CSS -->
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
+        /* Custom styles for printing */
         @media print {
+            /* Hide unnecessary elements */
             .no-print {
                 display: none !important;
             }
+            /* Set page margins and other print-specific styles */
             body {
                 margin: 0;
                 padding: 10px;
@@ -35,92 +39,96 @@
 </head>
 <body>
     <div class="container-fluid">
+        <!-- Start:: row-2 -->
         <div class="row">
             <div class="col-xl-12">
                 <div class="card custom-card">
                     <div class="card-header">
                         <div class="card-title">
-                             Coupon Book Sales
+                             Coupon Sales
                         </div>
                     </div>
+
                     <div class="card-body">
-                        <div class="row align-items-center">
-                            <div class="col-4">
-                                <p><strong>Salesman: {{van_route.van.salesman.get_fullname}}</strong></p>
-                            </div>
-                            <div class="col-4">
-                                <p><strong>Driver: {{van_route.van.driver.get_fullname}}</strong></p>
+                        <div>
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-4">
+                                        <p><strong>Salesman: {{van_route.van.salesman.get_fullname}}</strong></p>
+                                    </div>
+                                    <div class="col-4">
+                                        <p><strong>Driver: {{van_route.van.driver.get_fullname}}</strong></p>
+                                    </div>
+                                </div>
+                                <div class="row align-items-center">
+                                    <div class="col-4">
+                                        <p>Route: {{van_route.routes.route_name}}</p>
+                                    </div>
+                                    <div class="col-4">
+                                        <p>Date: {{ filter_date_formatted }}</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="row align-items-center">
-                            <div class="col-4">
-                                <p>Route: {{van_route.routes.route_name}}</p>
-                            </div>
-                            <div class="col-4">
-                                <p>Date: {{ filter_date_formatted }}</p>
-                            </div>
-                        </div>
+    
+                        
                         <div id="table-container">
                             <div class="card-body">
-                                <table class="table table-bordered text-wrap" style="width: 100%">
+                                <table  class="table table-bordered text-wrap" style="width: 100%">
                                     <thead>
                                         <tr>
-                                            <th class="text-center text-bold" colspan="5">Coupon Book Sales</th>
+                                            <th class="text-center text-bold" colspan="8">Coupon Sales</th>
                                         </tr>
                                         <tr>
                                             <th style="text-align:center;">Sl No</th>
-                                            <th style="text-align:center;">Ref No</th>
-                                            <th>Customer</th>
-                                            <th style="text-align:center;">Coupon Details</th>
-                                            <th style="text-align:center;">Total</th>
-                                            <th style="text-align:center;">Discount</th>
-                                            <th style="text-align:center;">Total Payable</th>
-                                            <th style="text-align:center;">Amount Received</th>
-                                            <th style="text-align:center;">Balance</th>
+                                            <th style="text-align:center;" scope="col">Reference No</th>
+                                            <th style="text-align:center;" scope="col">Customer Name</th>
+                                            <th style="text-align:center;" scope="col">Customer Id</th>
+                                            <th style="text-align:center;" scope="col">Total QTY</th>
+                                            <th style="text-align:center;" scope="col">Rate</th>
+                                            <th style="text-align:center;" scope="col">Manual Coupon Recieved</th>
+                                            <th style="text-align:center;" scope="col">Digital Coupon Recieved</th>
+                                            
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {% for customer_coupon in customer_coupons %}
+                                        {% for sale in coupon_sales %}
                                         <tr>
-                                            <td style="text-align:center;">{{ forloop.counter }}</td>
-                                            <td style="text-align:center;">{{ customer_coupon.reference_number }}</td>
-                                            <td>{{ customer_coupon.customer.customer_name }}</td>
-                                            <td class="p-0">
-                                                <table class="table table-bordered" style="width: 100%">
-                                                    <tr>
-                                                        <th>Coupon Type</th>
-                                                        <th style="text-align:center;">Book No.</th>
-                                                        <th style="text-align:center;">Method</th>
-                                                        <th style="text-align:center;">Rate</th>
-                                                    </tr>
-                                                    {% get_customer_coupon_details customer_coupon.pk as coupon_items %}
-                                                    {% for item in coupon_items %}
-                                                    <tr>
-                                                        <td>{{ item.coupon.coupon_type.coupon_type_name }}</td>
-                                                        <td style="text-align:center;">{{ item.coupon.book_num }}</td>
-                                                        <td>{{ item.coupon.coupon_method }}</td>
-                                                        <td style="text-align:center;">{{ item.rate }}</td>
-                                                    </tr>
-                                                    {% endfor %}
-                                                </table>
-                                            </td>
-                                            <td style="text-align:center;">{{ customer_coupon.grand_total }}</td>
-                                            <td style="text-align:center;">{{ customer_coupon.discount }}</td>
-                                            <td style="text-align:center;">{{ customer_coupon.total_payeble }}</td>
-                                            <td style="text-align:center;">{{ customer_coupon.amount_recieved }}</td>
-                                            <td style="text-align:center;">{{ customer_coupon.balance }}</td>
+                                            <td style="text-align:center;">{{forloop.counter}}</td>
+                                            <td style="text-align:center;">{{sale.reference_number}}</td>
+                                            <td style="text-align:center;">{{sale.customer.customer_name}}</td>
+                                            <td style="text-align:center;">{{sale.customer.custom_id}}</td>
+                                            <td style="text-align:center;">{{sale.get_total_supply_qty}}</td>
+                                            <td style="text-align:center;">{{sale.customer.get_water_rate}}</td>
+                                            <td style="text-align:center;">{{sale.total_coupon_recieved.manual_coupon}}</td>
+                                            <td style="text-align:center;">{{sale.total_coupon_recieved.digital_coupon}}</td>
                                         </tr>
-                                        {% endfor %}
+                                    {% endfor %} 
                                     </tbody>
+                                    <!-- Table Footer -->
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="3" style="text-align: right;">Total:</td>
+                                            <td style="text-align:center;">{{ coupon_total_qty }}</td>
+                                            <td style="text-align:center;">-</td>
+                                            <td style="text-align:center;">{{ manual_coupon_total }}</td>
+                                            <td style="text-align:center;">{{ digital_coupon_total }}</td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
                         </div>
-                    </div>
+    
+    
+
                 </div>
             </div>
         </div>
+
     </div>
 
+    <!-- Bootstrap JS (optional) -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <script>
         window.onload = function() {
             window.print();
@@ -128,4 +136,3 @@
     </script>
 </body>
 </html>
-

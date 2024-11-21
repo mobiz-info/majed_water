@@ -18,7 +18,6 @@ from openpyxl.styles import Font, Alignment
 from .forms import OrderForm
 from django.shortcuts import get_object_or_404
 from datetime import date as dt
-from accounts.views import log_activity
 
 # class CustomerOrder(APIView):
 #     def post(self, request, *args, **kwargs):
@@ -232,7 +231,7 @@ def order_change_list_excel(request, route_id):
     # Add information above the table by merging cells
     
     ws.merge_cells('A1:J2')  # Merge cells for the title
-    ws['A1'] = 'Majed Water'
+    ws['A1'] = 'Sana Water'
     ws['A1'].font = Font(size=14, bold=True)
     ws['A1'].alignment = Alignment(horizontal='center')
     ws.merge_cells('A3:J3')
@@ -457,7 +456,7 @@ def order_return_list_excel(request, route_id):
     # Add information above the table by merging cells
     
     ws.merge_cells('A1:J2')  # Merge cells for the title
-    ws['A1'] = 'Majed Water'
+    ws['A1'] = 'Sana Water'
     ws['A1'].font = Font(size=14, bold=True)
     ws['A1'].alignment = Alignment(horizontal='center')
     ws.merge_cells('A3:J3')

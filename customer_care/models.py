@@ -146,8 +146,10 @@ class CustomerRegistrationRequest(models.Model):
     phone_no = models.CharField(max_length=50,default=0)
     building_name = models.CharField(max_length=50,default=0)
     room_or_flat_no = models.CharField(max_length=50,default=0)
-    visit_schedule = models.JSONField()
-    no_of_bottles_required = models.IntegerField(default=0)
+    floor_no = models.CharField(max_length=10, default=0)  
+    email_id = models.EmailField(max_length=100, blank=True, null=True)  
+    no_of_5g_bottles_required = models.IntegerField(default=0)
+    visit_schedule = models.JSONField(null=True,blank=True)
     status = models.CharField(max_length=50,default="requested",choices=CUSTOMER_REQUEST_CHOICES)
     
     location = models.ForeignKey('master.LocationMaster', on_delete=models.CASCADE)

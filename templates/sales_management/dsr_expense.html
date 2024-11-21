@@ -1,15 +1,15 @@
 {% extends 'base.html' %}
-{% block title %}  Expense {% endblock %}
+{% block title %} Expense {% endblock %}
 {% block content %}
 {% load static %}
 {% load van_template_tags %}
 {% load sales_templatetags %}
 <!-- Page Header -->
 <div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
-    <h4 class="fw-medium mb-0"> Expense</h4>
+    <h4 class="fw-medium mb-0">Expense</h4>
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-30">Sales Management</a></li>
-        <li class="breadcrumb-item active" aria-current="page"> Expense</li>
+        <li class="breadcrumb-item active" aria-current="page">Expense</li>
     </ol>
 </div>
 <div class="main-content app-content">
@@ -20,7 +20,7 @@
                 <div class="card custom-card">
                     <div class="card-header">
                         <div class="card-title">
-                             Expense
+                            Expense
                         </div>
                     </div>
                   
@@ -28,15 +28,11 @@
                         <form method="GET" action="{% url 'dsr_expense' %}">
                             <div class="card-body">
                                 <div class="row align-items-center">
-                                    <div class="col-3">
-                                        <label for="from_date">From Date:</label>
-                                        <input type="date" class="form-control" id="from_date" name="from_date" value="{{ filter_data.from_date }}">
+                                    <div class="col-4">
+                                        <label for="date">Date:</label>
+                                        <input type="date" class="form-control" id="date" name="date" value="{{ filter_data.filter_date }}">
                                     </div>
-                                    <div class="col-3">
-                                        <label for="to_date">To Date:</label>
-                                        <input type="date" class="form-control" id="to_date" name="to_date" value="{{ filter_data.to_date }}">
-                                    </div>
-                                    <div class="col-3">
+                                    <div class="col-4">
                                         <label for="product">Routes :</label>
                                         <select name="route_name" class="form-select">
                                             <option value="">All Routes</option>

@@ -47,10 +47,10 @@
                                     
                                     <td>
                                         <div class="g-2">
-                                            <a href="{% url 'reason_edit' reason.id %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Edit">
+                                            <a href="{% url 'reason_edit' reason.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Edit">
                                                 <span class="ri-pencil-line fs-14"></span>
                                             </a>
-                                            <a href="{% url 'reason_delete' reason.id %}"  aria-label="anchor" class="btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete">
+                                            <a href="{% url 'reason_delete' reason.pk %}"  aria-label="anchor" class="btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete">
                                                 <span class="ri-delete-bin-7-line fs-14"></span>
                                             </a>
                                         </div>

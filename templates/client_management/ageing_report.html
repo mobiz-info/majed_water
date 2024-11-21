@@ -81,9 +81,9 @@
                                                 <tbody>
                                                     {% load el_pagination_tags %}
                                                     
-                                                    {% get_customer_outstanding_aging selected_route  as ageing_data %}
+                                                    {% get_customer_outstanding_aging selected_route.route_name as ageing_data %}
                                                     {% paginate 40 ageing_data %}
-                                                    {% for item in ageing_data  %}
+                                                    {% for item in ageing_data %}
                                                         <tr>
                                                             <td>{{ forloop.counter }}</td>
                                                             <td>{{ item.customer_name }}</td>
@@ -95,11 +95,14 @@
                                                             <td>{{ item.more_than_365 }}</td>
                                                             <td>{{ item.grand_total }}</td>
                                                             <td>
-                                                                <a href="{% url 'customer_outstanding_detail' item.customer_id %}" aria-label="View" class="btn btn-warning-light btn-sm" data-bs-toggle="tooltip" data-bs-original-title="View">
+                                                                <a href="{% url 'customer_outstanding_detail' item.customer_id %}" class="btn btn-warning-light btn-sm">
                                                                     <span class="bi bi-eye fs-14"></span>
                                                                 </a>
                                                             </td>
-                                                                                                                    
+                                                        </tr>
+                                                    {% empty %}
+                                                        <tr>
+                                                            <td colspan="10" style="text-align:center;">No data available</td>
                                                         </tr>
                                                     {% endfor %}
                                                     {% comment %} {% get_customer_outstanding_aging selected_route as ageing_data %}

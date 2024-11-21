@@ -39,7 +39,7 @@ from invoice_management.models import INVOICE_TYPES, Invoice, InvoiceDailyCollec
 from client_management.forms import CoupenEditForm
 from master.serializers import *
 from master.functions import generate_serializer_errors, get_custom_id, get_next_visit_date
-
+from master.models import *
 from random import randint
 from datetime import datetime as dt
 from coupon_management.models import *
@@ -52,9 +52,8 @@ from rest_framework.permissions import IsAuthenticated
 
 from accounts.models import *
 from master.models import *
-from credit_note.models import *
 from product.models import *
-from sales_management.models import CollectionItems, CollectionPayment, Receipt, SalesmanSpendingLog
+from sales_management.models import *
 from van_management.models import *
 from customer_care.models import *
 from order.models import *
@@ -76,6 +75,8 @@ from django.core.mail import EmailMessage
 import threading
 import pytz
 import datetime as datim
+
+from .serializers import CustomersOutstandingCouponSerializer
 utc=pytz.UTC
 import logging,traceback
 from logging import *
@@ -90,7 +91,14 @@ from django.db.models import Sum,Value
 from django.db.models.functions import Coalesce
 from django.utils.dateparse import parse_date
 
-
+def log_activity(created_by, description, created_date=None):
+    if created_date is None:
+        created_date = timezone.now()
+    Processing_Log.objects.create(
+        created_by=created_by,
+        description=description,
+        created_date=created_date
+    )
 
 
 def generate_random_string(length):
@@ -116,7 +124,11 @@ class Login_Api(APIView):
                             'user_type': user_obj.user_type,
                             'token': token
                         }
-                        print(data, 'data')
+                        # Log the login activity
+                        log_activity(
+                            created_by=user_obj,
+                            description=f"User '{username}' logged in."
+                        )
                     else:
                         return Response({'status': False, 'message': 'User Inactive!'})
                     return Response({'status': True, 'data': data, 'message': 'Authenticated User!'})
@@ -148,6 +160,11 @@ class StoreKeeperLoginApi(APIView):
                             'user_type': user_obj.user_type,
                             'token': token
                         }
+                        
+                        log_activity(
+                            created_by=user_obj,
+                            description=f"Store Keeper '{username}' logged in."
+                        )
                     else:
                         return Response({'status': False, 'message': 'User Inactive!'})
                     return Response({'status': True, 'data': data, 'message': 'Authenticated User!'})
@@ -159,7 +176,6 @@ class StoreKeeperLoginApi(APIView):
             return Response({'status': False, 'message': 'User does not exist!'})
         except Exception as e:
             return Response({'status': False, 'message': 'Something went wrong!'})
-
 
 class MarketingExecutiveLoginApi(APIView):
     def post(self, request, *args, **kwargs):
@@ -179,6 +195,11 @@ class MarketingExecutiveLoginApi(APIView):
                             'user_type': user_obj.user_type,
                             'token': token
                         }
+                        
+                        log_activity(
+                            created_by=user_obj,
+                            description=f"Marketing Executive '{username}' logged in."
+                        )
                     else:
                         return Response({'status': False, 'message': 'User Inactive!'})
                     return Response({'status': True, 'data': data, 'message': 'Authenticated User!'})
@@ -217,6 +238,10 @@ class RouteMaster_API(APIView):
                 branch_id=request.user.branch_id.branch_id
                 branch = BranchMaster.objects.get(branch_id=branch_id)
                 route_master=serializer.save(created_by=request.user.id,branch_id=branch)
+                log_activity(
+                    created_by=request.user,
+                    description=f"Route '{route_master.route_name}' was created by {request.user.username}."
+                )
                 data = {'data': 'successfully added'}
                 return Response(data,status=status.HTTP_201_CREATED)
             return Response({'data':serializer.errors},status=status.HTTP_400_BAD_REQUEST)
@@ -229,7 +254,13 @@ class RouteMaster_API(APIView):
             route = RouteMaster.objects.get(route_id=id)
             serializer = RouteMasterSerializers(route, data=request.data)
             if serializer.is_valid():
-                serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+                updated_route = serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+                
+                log_activity(
+                    created_by=request.user,
+                    description=f"Route '{updated_route.route_name}' was updated by {request.user.username}."
+                )
+                
                 return Response(serializer.data,status=status.HTTP_200_OK)
             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
         except  Exception as e:
@@ -240,7 +271,12 @@ class RouteMaster_API(APIView):
         try:
             # Retrieve the object to be deleted
             instance = RouteMaster.objects.get(route_id=id)
+            route_name = instance.route_name
             instance.delete()
+            log_activity(
+                created_by=request.user,
+                description=f"Route '{route_name}' was deleted by {request.user.username}."
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
         except RouteMaster.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -271,7 +307,11 @@ class LocationMaster_API(APIView):
             if serializer.is_valid():
                 branch_id=request.user.branch_id.branch_id
                 branch = BranchMaster.objects.get(branch_id=branch_id)
-                serializer.save(created_by=request.user.id,branch_id=branch)
+                location = serializer.save(created_by=request.user.id,branch_id=branch)
+                log_activity(
+                    created_by=request.user,
+                    description=f"Location '{location.location_name}' was created by {request.user.username}."
+                )
                 data = {'data': 'successfully added'}
                 return Response(data,status=status.HTTP_201_CREATED)
             return Response({'data':serializer.errors},status=status.HTTP_400_BAD_REQUEST)
@@ -284,7 +324,11 @@ class LocationMaster_API(APIView):
             route = LocationMaster.objects.get(location_id=id)
             serializer = LocationMasterSerializers(route, data=request.data)
             if serializer.is_valid():
-                serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+                updated_location = serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+                log_activity(
+                    created_by=request.user,
+                    description=f"Location '{updated_location.location_name}' was updated by {request.user.username}."
+                )
                 return Response(serializer.data,status=status.HTTP_200_OK)
             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
         except  Exception as e:
@@ -295,7 +339,13 @@ class LocationMaster_API(APIView):
         try:
             # Retrieve the object to be deleted
             instance = LocationMaster.objects.get(location_id=id)
+            location_name = instance.location_name
             instance.delete()
+            # Log the activity
+            log_activity(
+                created_by=request.user,
+                description=f"Location '{location_name}' was deleted by {request.user.username}."
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
         except LocationMaster.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -317,7 +367,11 @@ class DesignationMaster_API(APIView):
     def post(self,request):
         serializer=DesignationMasterSerializers(data=request.data)
         if serializer.is_valid():
-            serializer.save(created_by=request.user.id)
+            designation = serializer.save(created_by=request.user.id)
+            log_activity(
+                created_by=request.user,
+                description=f"Designation '{designation.designation_name}' was created by {request.user.username}."
+            )
             data = {'data': 'successfully added'}
             return Response(data,status=status.HTTP_201_CREATED)
         return Response({'data':serializer.errors},status=status.HTTP_400_BAD_REQUEST)
@@ -326,7 +380,11 @@ class DesignationMaster_API(APIView):
         route = DesignationMaster.objects.get(designation_id=id)
         serializer = DesignationMasterSerializers(route, data=request.data)
         if serializer.is_valid():
-            serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+            updated_designation = serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+            log_activity(
+                created_by=request.user,
+                description=f"Designation '{updated_designation.designation_name}' was updated by {request.user.username}."
+            )
             return Response(serializer.data,status=status.HTTP_200_OK)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
@@ -334,7 +392,13 @@ class DesignationMaster_API(APIView):
         try:
             # Retrieve the object to be deleted
             instance = DesignationMaster.objects.get(designation_id=id)
+            designation_name = instance.designation_name
             instance.delete()
+            # Log the activity
+            log_activity(
+                created_by=request.user,
+                description=f"Designation '{designation_name}' was deleted by {request.user.username}."
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
         except LocationMaster.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -367,6 +431,10 @@ class BranchMaster_API(APIView):
                 email=branch.email
                 user_name=branch.name
                 branch_data=CustomUser.objects.create(password=hashed_password,username=username,first_name=user_name,email=email,user_type='Branch User',branch_id=branch)
+                log_activity(
+                    created_by=request.user,
+                    description=f"Branch '{branch.name}' was created by {request.user.username}."
+                )
                 data = {'data': 'successfully added'}
                 return Response(data,status=status.HTTP_201_CREATED)
             return Response({'data':serializer.errors},status=status.HTTP_400_BAD_REQUEST)
@@ -375,7 +443,11 @@ class BranchMaster_API(APIView):
             route = BranchMaster.objects.get(branch_id=id)
             serializer = BranchMasterSerializers(route, data=request.data)
             if serializer.is_valid():
-                serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+                updated_branch = serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+                log_activity(
+                    created_by=request.user,
+                    description=f"Branch '{updated_branch.name}' was updated by {request.user.username}."
+                )
                 return Response(serializer.data,status=status.HTTP_200_OK)
             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
@@ -383,7 +455,12 @@ class BranchMaster_API(APIView):
             try:
                 # Retrieve the object to be deleted
                 instance = BranchMaster.objects.get(branch_id=id)
+                branch_name = instance.name 
                 instance.delete()
+                log_activity(
+                    created_by=request.user,
+                    description=f"Branch '{branch_name}' was deleted by {request.user.username}."
+                )
                 return Response(status=status.HTTP_204_NO_CONTENT)
             except BranchMaster.DoesNotExist:
                 return Response(status=status.HTTP_404_NOT_FOUND)
@@ -408,7 +485,11 @@ class CategoryMaster_API(APIView):
     def post(self,request):
         serializer=CategoryMasterSerializers(data=request.data)
         if serializer.is_valid():
-            serializer.save(created_by=request.user.id)
+            category = serializer.save(created_by=request.user.id)
+            log_activity(
+                created_by=request.user,
+                description=f"Category '{category.category_name}' was created by {request.user.username}."
+            )
             data = {'data': 'successfully added'}
             return Response(data,status=status.HTTP_201_CREATED)
         return Response({'data':serializer.errors},status=status.HTTP_400_BAD_REQUEST)
@@ -417,7 +498,11 @@ class CategoryMaster_API(APIView):
         category = CategoryMaster.objects.get(category_id=id)
         serializer = CategoryMasterSerializers(category, data=request.data)
         if serializer.is_valid():
-            serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+            updated_category = serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+            log_activity(
+                    created_by=request.user,
+                    description=f"Category '{updated_category.name}' was updated by {request.user.username}."
+                )
             return Response(serializer.data,status=status.HTTP_200_OK)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
@@ -425,7 +510,12 @@ class CategoryMaster_API(APIView):
         try:
             # Retrieve the object to be deleted
             instance = CategoryMaster.objects.get(category_id=id)
+            category_name = instance.name  
             instance.delete()
+            log_activity(
+                created_by=request.user,
+                description=f"Category '{category_name}' was deleted by {request.user.username}."
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
         except CategoryMaster.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -453,7 +543,11 @@ class EmirateMaster_API(APIView):
         try:
             serializer=EmirateMasterSerializers(data=request.data)
             if serializer.is_valid():
-                serializer.save(created_by=request.user.id)
+                emirate = serializer.save(created_by=request.user.id)
+                log_activity(
+                    created_by=request.user,
+                    description=f"Emirate '{emirate.name}' was created by {request.user.username}."
+                )
                 data = {'data': 'successfully added'}
                 return Response(data,status=status.HTTP_201_CREATED)
             return Response({'data':serializer.errors},status=status.HTTP_400_BAD_REQUEST)
@@ -466,7 +560,11 @@ class EmirateMaster_API(APIView):
             category = EmirateMaster.objects.get(emirate_id=id)
             serializer = EmirateMasterSerializers(category, data=request.data)
             if serializer.is_valid():
-                serializer.save()
+                updated_emirate = serializer.save()
+                log_activity(
+                    created_by=request.user,
+                    description=f"Emirate '{updated_emirate.name}' was updated by {request.user.username}."
+                )
                 return Response(serializer.data,status=status.HTTP_200_OK)
             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
         except  Exception as e:
@@ -477,7 +575,12 @@ class EmirateMaster_API(APIView):
         try:
             # Retrieve the object to be deleted
             instance = EmirateMaster.objects.get(emirate_id=id)
+            emirate_name = instance.name  
             instance.delete()
+            log_activity(
+                created_by=request.user,
+                description=f"Emirate '{emirate_name}' was deleted by {request.user.username}."
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
         except EmirateMaster.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -509,7 +612,11 @@ class Product_API(APIView):
             if serializer.is_valid():
                 branch_id=request.user.branch_id.branch_id
                 branch = BranchMaster.objects.get(branch_id=branch_id)
-                serializer.save(created_by=request.user.id,branch_id=branch)
+                product = serializer.save(created_by=request.user.id,branch_id=branch)
+                log_activity(
+                    created_by=request.user,
+                    description=f"Product '{product.product_name}' was created by {request.user.username}."
+                )
                 data = {'data': 'successfully added'}
                 return Response(data,status=status.HTTP_201_CREATED)
             return Response({'data':serializer.errors},status=status.HTTP_400_BAD_REQUEST)
@@ -522,7 +629,11 @@ class Product_API(APIView):
             product = Product.objects.get(product_id=id)
             serializer = ProductSerializers(product, data=request.data)
             if serializer.is_valid():
-                serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+                updated_product = serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+                log_activity(
+                    created_by=request.user,
+                    description=f"Product '{updated_product.product_name}' was updated by {request.user.username}."
+                )
                 return Response(serializer.data,status=status.HTTP_200_OK)
             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
         except  Exception as e:
@@ -533,7 +644,13 @@ class Product_API(APIView):
         try:
             # Retrieve the object to be deleted
             instance = Product.objects.get(product_id=id)
+            product_name = instance.product_name  
             instance.delete()
+            
+            log_activity(
+                created_by=request.user,
+                description=f"Product '{product_name}' was deleted by {request.user.username}."
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Product.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -557,7 +674,11 @@ class Product_Default_Price_API(APIView):
     def post(self,request):
         serializer=Product_Default_Price_Level_Serializers(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            default_price_level = serializer.save()
+            log_activity(
+                created_by=request.user,
+                description=f"Default Price Level '{default_price_level.def_price_id}' was created by {request.user.username}."
+            )
             data = {'data': 'successfully added'}
             return Response(data,status=status.HTTP_201_CREATED)
         return Response({'data':serializer.errors},status=status.HTTP_400_BAD_REQUEST)
@@ -567,7 +688,11 @@ class Product_Default_Price_API(APIView):
         product = Product_Default_Price_Level.objects.get(def_price_id=id)
         serializer = Product_Default_Price_Level_Serializers(product, data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            updated_price_level = serializer.save()
+            log_activity(
+                    created_by=request.user,
+                    description=f"Default Price Level '{updated_price_level.def_price_id}' was updated by {request.user.username}."
+                )
             return Response(serializer.data,status=status.HTTP_200_OK)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
@@ -575,7 +700,13 @@ class Product_Default_Price_API(APIView):
         try:
             # Retrieve the object to be deleted
             instance = Product_Default_Price_Level.objects.get(def_price_id=id)
+            instance_name = instance.def_price_id  
             instance.delete()
+            log_activity(
+                created_by=request.user,
+                description=f"Default Price Level '{instance_name}' was deleted by {request.user.username}."
+            )
+            
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Product_Default_Price_Level.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -616,7 +747,11 @@ class Van_API(APIView):
                 user=CustomUser.objects.get(api_token=username)
                 branch_id=user.branch_id.branch_id
                 branch = BranchMaster.objects.get(branch_id=branch_id)
-                serializer.save(created_by=request.user.id,branch_id=branch)
+                new_van = serializer.save(created_by=request.user.id,branch_id=branch)
+                log_activity(
+                    created_by=request.user,
+                    description=f"Van '{new_van.van_make}' was created by {request.user.username}."
+                )
                 data = {'data': 'successfully added'}
                 return Response(data,status=status.HTTP_201_CREATED)
         return Response({'data':serializer.errors},status=status.HTTP_400_BAD_REQUEST)
@@ -626,7 +761,11 @@ class Van_API(APIView):
         product = Van.objects.get(van_id=id)
         serializer = VanSerializers(product, data=request.data)
         if serializer.is_valid():
-            serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+            updated_van = serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+            log_activity(
+                created_by=request.user,
+                description=f"Van '{updated_van.van_make}' was updated by {request.user.username}."
+            )
             return Response(serializer.data,status=status.HTTP_200_OK)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
@@ -634,7 +773,13 @@ class Van_API(APIView):
         try:
             # Retrieve the object to be deleted
             instance = Van.objects.get(van_id=id)
+            instance_name = instance.van_make  
             instance.delete()
+
+            log_activity(
+                created_by=request.user,
+                description=f"Van '{instance_name}' was deleted by {request.user.username}."
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Van.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -663,7 +808,11 @@ class Route_Assign(APIView):
                 return Response(data,status=status.HTTP_200_OK)
             else :
                 user=CustomUser.objects.get(username=username)
-                serializer.save(created_by=user.id)
+                new_route = serializer.save(created_by=user.id)
+                log_activity(
+                    created_by=user.id,
+                    description=f"Route '{new_route.routes.route_name}' assigned to van '{van_data.van_make}' by {username}."
+                    )
                 data = {'data':'Route is assigned'}
                 return Response(data,status=status.HTTP_200_OK)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
@@ -673,7 +822,13 @@ class Route_Assign(APIView):
         try:
             # Retrieve the object to be deleted
             instance = Van_Routes.objects.get(van_route_id=id)
+            instance_name = instance.routes.route_name 
             instance.delete()
+
+            log_activity(
+                created_by=request.user.id,
+                description=f"Route '{instance_name}' deleted."
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Van_Routes.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -699,7 +854,11 @@ class Licence_API(APIView):
                 data = {'data':'Licence is already assigned to this van from this emirate'}
                 return Response(data,status=status.HTTP_200_OK)
             else :
-                serializer.save(created_by=request.user.id)
+                van_data = serializer.save(created_by=request.user.id)
+                log_activity(
+                    created_by=request.user.id,
+                    description=f"Licence created for van '{van_data.van.van_make}' from emirate '{request.data['emirate']}'."
+                    )
                 data = {'data':'Licence is created'}
                 return Response(data,status=status.HTTP_200_OK)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
@@ -709,7 +868,13 @@ class Licence_API(APIView):
         try:
             # Retrieve the object to be deleted
             instance = Van_License.objects.get(van_route_id=id)
+            instance_name = instance.emirate.name 
             instance.delete()
+
+            log_activity(
+                created_by=request.user.id,
+                description=f"Licence for emirate '{instance_name}' deleted."
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Van_License.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -741,7 +906,7 @@ def find_customers(request, def_date, route_id):
                 if day in str(day_of_week) and week_number in str(weeks):
                     todays_customers.append(customer)
                     buildings.append(customer.building_name)
-                        
+    # log_activity(f"Found {len(todays_customers)} customers for the day: {date_str} on route: {route.route_name}.")                    
     # Emergency customers
     special_customers = DiffBottlesModel.objects.filter(delivery_date=date)
     emergency_customers = []
@@ -858,6 +1023,7 @@ def find_customers(request, def_date, route_id):
                             trip_customer['rate'] = customer.rate
 
                         trip_customers.append(trip_customer)
+        # log_activity(f"Created trip details for {len(trip_customers)} customers.")     
         return trip_customers
 
 # def find_customers(request, def_date, route_id):
@@ -1065,7 +1231,11 @@ class ExpenseHeadListAPI(APIView):
     def post(self, request):
         serializer = ExpenseHeadSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            expense_head = serializer.save()
+            log_activity(
+                created_by=request.user.id,  
+                description=f'Created expense head: {expense_head.name}' 
+            )
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1085,13 +1255,22 @@ class ExpenseHeadDetailAPI(APIView):
         expense_head = self.get_object(pk)
         serializer = ExpenseHeadSerializer(expense_head, data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            updated_expense_head = serializer.save()
+            log_activity(
+                created_by=request.user.id,  
+                description=f'Updated expense head: {updated_expense_head.name}'
+            )
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
         expense_head = self.get_object(pk)
+        expense_head_name = expense_head.name  
         expense_head.delete()
+        log_activity(
+            created_by=request.user.id,  
+            description=f'Deleted expense head: {expense_head_name}' 
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ExpenseListAPI(APIView):
@@ -1103,15 +1282,9 @@ class ExpenseListAPI(APIView):
             date = datetime.strptime(date, '%Y-%m-%d').date()
         else:
             date = datetime.today().date()
-
-        try:
-            # Try to get the van route for the authenticated salesman
-            van_route = Van_Routes.objects.get(van__salesman=request.user)
-        except Van_Routes.DoesNotExist:
-            return Response({"detail": "No van route assigned for this salesman."}, status=status.HTTP_404_NOT_FOUND)
-
-        # Filter expenses by van route and expense date
-        expenses = Expense.objects.filter(route=van_route.routes, van=van_route.van, expense_date=date)
+        
+        van_route = Van_Routes.objects.get(van__salesman=request.user,expense_date=date)
+        expenses = Expense.objects.filter(route=van_route.routes,van=van_route.van)
         serializer = ExpenseSerializer(expenses, many=True)
         return Response(serializer.data)
 
@@ -1144,6 +1317,11 @@ class ExpenseListAPI(APIView):
         )
 
         expense.save()
+        
+        log_activity(
+            created_by=request.user.id,  
+            description=f'Created expense of type {expense_type.name} with amount {amount}' 
+        )
 
         # Serialize the saved expense instance for the response
         serializer = ExpenseSerializer(expense)
@@ -1160,12 +1338,20 @@ class ExpenseDetailAPI(APIView):
         serializer = ExpenseSerializer(expense, data=request.data)
         if serializer.is_valid():
             serializer.save()
+            log_activity(
+                created_by=request.user.id, 
+                description=f'Updated expense ID {expense_id} with new data: {serializer.validated_data}'  
+            )
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, expense_id):
         expense = Expense.objects.get(expense_id = expense_id)
         expense.delete()
+        log_activity(
+            created_by=request.user.id, 
+            description=f'Deleted expense ID {expense_id}' 
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
  ####################################Order####################################
@@ -1175,12 +1361,16 @@ class ChangeReasonListAPI(APIView):
     def get(self, request):
         change_reason = Change_Reason.objects.all()
         serializer = ChangeReasonSerializer(change_reason, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
         serializer = ChangeReasonSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            change_reason = serializer.save()
+            log_activity(
+                created_by=request.user.id,  
+                description=f'Created a new change reason: {change_reason.reason_name}' 
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1196,12 +1386,20 @@ class ChangeReasonDetailAPI(APIView):
         serializer = ChangeReasonSerializer(change_reason, data=request.data)
         if serializer.is_valid():
             serializer.save()
+            log_activity(
+                created_by=request.user.id, 
+                description=f'Updated change reason: {change_reason.reason_name}' 
+            )
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, change_reason_id):
         change_reason = Change_Reason.objects.get(id = change_reason_id)
         change_reason.delete()
+        log_activity(
+            created_by=request.user.id, 
+            description=f'Deleted change reason : {change_reason.reason_name}'
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1219,7 +1417,11 @@ class OrderChangeListAPI(APIView):
         serializer = OrderChangeSerializer(data=request.data)
         print(request.data)
         if serializer.is_valid():
-            serializer.save()
+            order_change_instance = serializer.save()
+            log_activity(
+                created_by=request.user.id,  
+                description=f'Created new order change: {order_change_instance}'  
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1241,13 +1443,21 @@ class OrderChangeDetailAPI(APIView):
         serializer = OrderChangeSerializer(order_change, data=request.data, partial=True)
         print(request.data)
         if serializer.is_valid():  
-            serializer.save()  
+            updated_order_change_instance = serializer.save()  
+            log_activity(
+                created_by=request.user.id,  
+                description=f'Updated order change: {updated_order_change_instance}'  
+            )
             return Response(serializer.data)  
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST) 
 
     def delete(self, request, order_change_id):
         order_change = self.get_object(order_change_id)
         order_change.delete()
+        log_activity(
+            created_by=request.user.id,  
+            description=f'Deleted order change: {order_change}'  
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 # Return
@@ -1261,7 +1471,11 @@ class OrderReturnListAPI(APIView):
     def post(self, request):
         serializer = OrderReturnSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            order_return_instance = serializer.save()
+            log_activity(
+                created_by=request.user.id,  
+                description=f'Created order return: {order_return_instance}' 
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1282,13 +1496,21 @@ class OrderReturnDetailAPI(APIView):
         order_return = self.get_object(order_return_id)
         serializer = OrderReturnSerializer(order_return, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            updated_order_return_instance = serializer.save()
+            log_activity(
+                created_by=request.user.id, 
+                description=f'Updated order return: {updated_order_return_instance}' 
+            )
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, order_return_id):
         order_return = self.get_object(order_return_id)
         order_return.delete()
+        log_activity(
+            created_by=request.user.id, 
+            description=f'Deleted order return: {order_return}'
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 ####################################Account####################################
@@ -1301,9 +1523,17 @@ class UserSignUpView(APIView):
         if id :
             queryset=Customers.objects.get(customer_id=id)
             serializer=CustomersSerializers(queryset)
+            log_activity(
+                created_by=request.user.id,
+                description=f"Fetched details for customer {queryset.customer_name}"
+            )
             return Response(serializer.data)
         queryset = CustomUser.objects.all()
         serializer = CustomUserSerializers(queryset,many=True)
+        log_activity(
+            created_by=request.user.id,
+            description="Fetched all users"
+        )
         return Response({'data':serializer.data})
 
     def post(self, request, *args, **kwargs):
@@ -1311,7 +1541,11 @@ class UserSignUpView(APIView):
         if serializer.is_valid():
 
             passw = make_password(request.data['password'])
-            serializer.save(password=passw)
+            user_instance = serializer.save(password=passw)
+            log_activity(
+                created_by=request.user.id,
+                description=f"Registered new user: {user_instance}"
+            )
             data = {'data':"Succesfully registerd"}
             return Response(data,status=status.HTTP_201_CREATED)
         else:
@@ -1323,6 +1557,10 @@ class UserSignUpView(APIView):
         serializer = CustomUserSerializers(product, data=request.data)
         if serializer.is_valid():
             serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+            log_activity(
+                created_by=request.user.id,
+                description=f"Updated user details for ID {id}"
+            )
             return Response(serializer.data,status=status.HTTP_200_OK)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
@@ -1338,9 +1576,17 @@ class Customer_API(APIView):
             if id:
                 queryset = Customers.objects.get(customer_id=id)
                 serializer = CustomersSerializers(queryset)
+                log_activity(
+                    created_by=request.user.id,
+                    description=f"Fetched details for customer  {queryset.customer_name}"
+                )
                 return Response(serializer.data, status=status.HTTP_200_OK)
             queryset = Customers.objects.all()
             serializer = CustomersSerializers(queryset, many=True)
+            log_activity(
+                created_by=request.user.id,
+                description="Fetched all customers"
+            )
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Customers.DoesNotExist:
             return Response({'status': False, 'message': 'Customer not found!'}, status=status.HTTP_404_NOT_FOUND)
@@ -1380,20 +1626,28 @@ class Customer_API(APIView):
                     data.save()
                     
                 Staff_Day_of_Visit.objects.create(customer=data)
+                log_activity(
+                    created_by=request.user.id,
+                    description=f"Added new customer {data.customer_name}"
+                )
                 return Response({'data': 'Successfully added'}, status=status.HTTP_201_CREATED)
             return Response({'status': False, 'data': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            print(e)
             if CustomUser.objects.filter(username=request.data['mobile_no']).exists():
                 user_obj = CustomUser.objects.get(username=request.data['mobile_no'])
                 user_obj.delete()
+            print(e)
             return Response({'status': False, 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def put(self, request, id):
         try:
             customer = Customers.objects.get(customer_id=id)
-            serializer = CustomersCreateSerializers(instance=customer, data=request.data)
+            serializer = CustomersCreateSerializers(customer, data=request.data)
             if serializer.is_valid():
+                log_activity(
+                    created_by=request.user.id,
+                    description=f"Updated customer details for {customer.customer_name}"
+                )
                 serializer.save(modified_by=request.user.id, modified_date=datetime.now())
                 return Response(serializer.data, status=status.HTTP_200_OK)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1412,6 +1666,11 @@ class Customer_Custody_Item_API(APIView):
         custodyitems = CustodyCustomItems.objects.filter(customer=customer).all()
         cus_list=list(custodyitems)
         customerser=CustomerCustodyItemSerializers(cus_list,many=True).data
+        
+        log_activity(
+            created_by=request.user.id,
+            description=f"Fetched custody items for customer  {custodyitems.custody_custom.customer.customer_name}"
+        )
         return JsonResponse({'customerser':customerser})
 
 
@@ -1425,6 +1684,10 @@ class CouponType_API(APIView):
     def get(self,request):
         queryset = CouponType.objects.all()
         serializer = couponTypeserializers(queryset,many=True)
+        log_activity(
+            created_by=request.user.id,
+            description="Retrieved all coupon types"
+        )
         return Response(serializer.data)
 
     def post(self,request):
@@ -1439,6 +1702,10 @@ class CouponType_API(APIView):
                 return Response(data,status=status.HTTP_200_OK)
             else :
                 serializer.save(created_by=request.user.id)
+                log_activity(
+                    created_by=request.user.id,
+                    description=f"Created a new coupon type with ID {serializer.data['coupon_type_id']}"
+                )
                 data = {'data':'Coupon Type created successfully!'}
                 return Response(data,status=status.HTTP_200_OK)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
@@ -1448,6 +1715,10 @@ class CouponType_API(APIView):
             serializer = couponTypeCreateserializers(coupon_TYPE, data=request.data)
             if serializer.is_valid():
                 serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+                log_activity(
+                    created_by=request.user.id,
+                    description=f"Updated coupon type with ID {id}"
+                )
                 return Response(serializer.data,status=status.HTTP_200_OK)
             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
@@ -1456,6 +1727,10 @@ class CouponType_API(APIView):
             # Retrieve the object to be deleted
             instance = CouponType.objects.get(coupon_type_id=id)
             instance.delete()
+            log_activity(
+                created_by=request.user.id,
+                description=f"Deleted coupon type with ID {id}"
+            )
             data={"data":"successfully deleted"}
             return Response(data,status=status.HTTP_204_NO_CONTENT)
         except CouponType.DoesNotExist:
@@ -1470,6 +1745,10 @@ class Coupon_API(APIView):
     def get(self,request):
         queryset = Coupon.objects.all()
         serializer = couponserializers(queryset,many=True)
+        log_activity(
+            created_by=request.user.id,
+            description="Retrieved all coupons"
+        )
         return Response(serializer.data)
 
     def post(self,request):
@@ -1484,6 +1763,10 @@ class Coupon_API(APIView):
                 return Response(data,status=status.HTTP_200_OK)
             else :
                 serializer.save(created_by=request.user.id)
+                log_activity(
+                    created_by=request.user.id,
+                    description=f"Created a new coupon with ID {serializer.data['coupon_id']}"
+                )
                 data = {'data':'Coupon created successfully!'}
                 return Response(data,status=status.HTTP_200_OK)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
@@ -1493,6 +1776,10 @@ class Coupon_API(APIView):
         serializer = couponTypeserializers(coupon, data=request.data)
         if serializer.is_valid():
             serializer.save(modified_by=request.user.id,modified_date = datetime.now())
+            log_activity(
+                    created_by=request.user.id,
+                    description=f"Updated coupon with ID {id}"
+                )
             return Response(serializer.data,status=status.HTTP_200_OK)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
@@ -1501,6 +1788,10 @@ class Coupon_API(APIView):
             # Retrieve the object to be deleted
             instance = Coupon.objects.get(coupon_id=id)
             instance.delete()
+            log_activity(
+                created_by=request.user.id,
+                description=f"Deleted coupon with ID {id}"
+            )
             data={"data":"successfully deleted"}
 
             return Response(data,status=status.HTTP_204_NO_CONTENT)
@@ -1515,6 +1806,10 @@ class CouponRequest_API(APIView):
     def get(self,request):
             queryset = CouponRequest.objects.all()
             serializer = couponRequestserializers(queryset,many=True)
+            log_activity(
+                created_by=request.user.id,
+                description="Retrieved all coupon requests"
+            )
             return Response(serializer.data)
     def post(self,request):
         print("HIIIIIIIIIIIIIIII",request.data)
@@ -1528,6 +1823,10 @@ class CouponRequest_API(APIView):
             'quantity': quantity,
             'coupon_type_id': coupon_type_id,
         }
+        log_activity(
+            created_by=request.user.id,
+            description=f"Attempting to create a coupon request with quantity {quantity} and coupon_type_id {coupon_type_id}"
+        )
         # Use the serializer to create a new CouponRequest instance
         serializer=couponRequestserializers(data=request.data)
         print("serializerDATAAAAAAAAAAAAA",serializer)
@@ -1536,14 +1835,26 @@ class CouponRequest_API(APIView):
             coupon_request_exists = CouponRequest.objects.filter(quantity=quantity, coupon_type_id=coupon_type_id).exists()
 
             if coupon_request_exists:
+                log_activity(
+                    created_by=request.user.id,
+                    description=f"Duplicate coupon request with quantity {quantity} and coupon_type_id {coupon_type_id} found"
+                )
                 data = {'detail': 'CouponRequest already exists with the same quantity and coupon_type_id.'}
                 return Response(data, status=status.HTTP_200_OK)
             else:
                 # Save the new CouponRequest
                 serializer.save()
+                log_activity(
+                    created_by=request.user.id,
+                    description=f"Created new coupon request with quantity {quantity} and coupon_type_id {coupon_type_id}"
+                )
                 data = {'detail': 'CouponRequest created successfully!'}
                 return Response(data, status=status.HTTP_201_CREATED)
         else:
+            log_activity(
+                created_by=request.user.id,
+                description=f"Failed to create coupon request due to validation errors: {serializer.errors}"
+            )
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class AssignStaffCoupon_API(APIView):
@@ -1590,6 +1901,10 @@ class AssignStaffCoupon_API(APIView):
                 # Save the new CouponRequest
                 serializer.save()
                 data = {'detail': ' created successfully!'}
+                log_activity(
+                    created_by=request.user.id,
+                    description="Assigned staff coupon created"
+                )
                 return Response(data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1624,9 +1939,6 @@ class AssigntoCustomer_API(APIView):
         print("status_value",status_value)
         initial_status = status_value  # Set the initial status value
 
-
-
-
         data ={
             'staff_coupon_assign':staff_coupon_assign,
             'to_customer':to_customer,
@@ -1642,8 +1954,11 @@ class AssigntoCustomer_API(APIView):
         if serializer.is_valid():
                 # Save the new CouponRequest
                 serializer.save()
-                print("VALID")
                 data = {'detail': ' created successfully!'}
+                log_activity(
+                    created_by=request.user.id,
+                    description=f"Coupon assigned to customer with status: {status_value}"
+                )
                 return Response(data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1666,6 +1981,10 @@ class PunchIn_Api(APIView):
                 data = Attendance_Log.objects.create(staff=staff, created_by=staff.first_name)
                 return_data = Attendance_Log.objects.filter(attendance_id=data.attendance_id).select_related('staff')
                 result = self.serializers(return_data, many=True)
+                log_activity(
+                    created_by=staff.id,
+                    description=f"{staff.first_name} punched in at {data.punch_in_time}"
+                )
                 return Response({'status': True, 'data': result.data, 'message': 'Successfully Logged In!'})
         except Exception as e:
             print(e)
@@ -1688,6 +2007,10 @@ class PunchOut_Api(APIView):
                 punch_out_time=datetime.now().time())
             return_data = Attendance_Log.objects.filter(punch_out_date=datetime.now().date()).select_related('staff')
             result = self.serializers(return_data, many=True)
+            log_activity(
+                created_by=staff.id,
+                description=f"{staff.first_name} punched out at {datetime.now().time()}"
+            )
             return Response({'status': True, 'data': result.data, 'message': 'Successfully Logged In!'})
         except Exception as e:
             print(e)
@@ -1702,6 +2025,10 @@ def location_based_on_emirates(request):
         return Response({'error': 'Emirate parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
     location_list = LocationMaster.objects.filter(emirate=emirate).all()
     locations = LocationMasterSerializers(location_list, many=True).data
+    log_activity(
+        created_by=request.user.id,
+        description=f"Retrieved locations for emirate: {emirate}"
+    )
     return Response({'locations': locations})
 
 @api_view(['GET'])
@@ -1712,6 +2039,11 @@ def emirates_based_locations(request):
         
     instances = EmirateMaster.objects.all()
     serialized_data = EmiratesBasedLocationsSerializers(instances, many=True, context={'branch_id': branch_id}).data
+    
+    log_activity(
+        created_by=request.user.id,
+        description=f"Retrieved locations for branch_id: {branch_id}"
+    )
     
     return Response({
         'status': True, 
@@ -1743,8 +2075,16 @@ class Route_Assign_Staff_Api(APIView):
                     'branch_id':van.branch_id.branch_id,
                     'assigned_routes':serializer.data
                 }
+                log_activity(
+                    created_by=staff.id,
+                    description=f"Assigned routes retrieved for staff ID: {userid} with van: {van.van_make}"
+                )
                 return Response({'status': True, 'data':data, 'message': 'Assigned Routes List!'})
             else:
+                log_activity(
+                    created_by=staff.id,
+                    description=f"No van found for staff ID: {userid}"
+                )
                 return Response({'status': False, 'data':[],'message': 'No van found for the given staff.'})
         # except Exception as e:
         #     print(e)
@@ -1765,6 +2105,10 @@ class Create_Customer(APIView):
 
             if serializer.is_valid():
                 serializer.save(created_by=user.id,branch_id=user.branch_id)
+                log_activity(
+                    created_by=user.id,
+                    description=f"Customer created by user: {user.username}"
+                )
                 return Response({'status':True,'message':'Customer Succesfully Created'},status=status.HTTP_201_CREATED)
             else :
                 return Response({'status':False,'message':serializer.errors},status=status.HTTP_400_BAD_REQUEST)
@@ -1792,6 +2136,11 @@ class Create_Customer(APIView):
             serializer = Create_Customers_Serializers(customers, data=request.data)
             if serializer.is_valid():
                 serializer.save(modified_by=request.user.id,branch_id=request.user.branch_id,modified_date = datetime.now())
+                log_activity(
+                    created_by=request.user.id,
+                    description=f"Fetched details for customer: {customers.customer_name}",
+                    created_date=timezone.now()
+                )
                 return Response({'status':True,'data':serializer.data,'message':'Customer Succesfully Created'},status=status.HTTP_201_CREATED)
             else:
                 return Response({'status':True,'data':[],'message':serializer.errors},status=status.HTTP_400_BAD_REQUEST)
@@ -1829,6 +2178,12 @@ class Get_Items_API(APIView):
                             data.append(serializer_1.data)
                     data2 = {'customer_id':customer_data.customer_id,'customer_name':customer_data.customer_name,
                              'default_water_rate':customer_data.rate, 'items_count':len(data)}
+                    
+                    log_activity(
+                        created_by=request.user,
+                        description=f"Fetched items for customer {customer_data.customer_name} (ID: {customer_data.customer_id})"
+                    )
+                    
                     return Response({'status': True, 'data': {'items':data,'customer':data2}, 'message': 'Data fetched Successfully'})
                 else:
                     return Response({'status': True, 'data': [], 'message': 'Data fetched Successfully'})
@@ -1918,9 +2273,18 @@ class Add_Customer_Custody_Item_API(APIView):
                         amount_collected=amount_collected
                     )
 
+                log_activity(
+                    created_by=user,
+                    description=f"Created custody item for customer {customer_id}"
+                )
+                
                 return Response({'status': True, 'message': 'Customer Custody Item Successfully Created'}, status=status.HTTP_201_CREATED)
 
         except Exception as e:
+            log_activity(
+                created_by=request.user,
+                description=f"Error creating custody item for customer {customer_id} - {str(e)}"
+            )
             return Response({'status': False, 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def get(self,request,id=None):
@@ -1931,6 +2295,10 @@ class Add_Customer_Custody_Item_API(APIView):
                 custody_list = CustomerCustodyStock.objects.filter(customer=customer)
                 if custody_list:
                     serializer = CustomerCustodyStockProductsSerializer(custody_list, many=True)
+                    log_activity(
+                        created_by=request.user,
+                        description=f"Fetched custody items for customer {id}"
+                    )
                     return Response({'status': True,'data':serializer.data,'message':'data fetched successfully'},status=status.HTTP_200_OK)
                 else:
                     return Response({'status': True,'data':[],'message':'No custody items'},status=status.HTTP_200_OK)
@@ -1951,7 +2319,10 @@ class Add_Customer_Custody_Item_API(APIView):
                 serializer = CustomerCustodyItemSerializer(obj, data=data_item, partial=True)
                 if serializer.is_valid():
                     serializer.save()
-
+            log_activity(
+                created_by=request.user,
+                description="Updated custody items for multiple customers"
+            )
             return Response({'status': True, 'message': 'Customer custody item Updated Successful'}, status=status.HTTP_200_OK)
         except Exception as e:
             print(e)
@@ -1969,6 +2340,10 @@ class Add_No_Coupons(APIView):
             serializer = self.serializer_class(data=request.data)
             if serializer.is_valid():
                 serializer.save(created_by=user.id)
+                log_activity(
+                    created_by=user.id,
+                    description=f'Added new coupon for customer '
+                )
                 return Response({'status': True,'data':serializer.data,'message':'data added Succesfully'},status=status.HTTP_201_CREATED)
             else :
                 return Response({'status': False,'message':serializer.errors},status=status.HTTP_400_BAD_REQUEST)
@@ -1985,7 +2360,10 @@ class Add_No_Coupons(APIView):
                 custody_list = Customer_Inhand_Coupons.objects.filter(customer=customer_exists.customer_id)
                 if custody_list:
                     serializer = GetCustomerInhandCouponsSerializers(custody_list, many=True)
-                    print(serializer.data)
+                    log_activity(
+                        created_by=request.user.id,
+                        description=f'Fetched coupons for customer {id}'
+                    )
                     return Response({'status': True,'data':serializer.data,'message':'data fetched successfully'},status=status.HTTP_200_OK)
                 else:
                     return Response({'status': True,'data':[],'message':'No coupons available'},status=status.HTTP_200_OK)
@@ -2002,6 +2380,10 @@ class Add_No_Coupons(APIView):
             serializer = CustomerInhandCouponsSerializers(customers_coupon,data=request.data)
             if serializer.is_valid():
                 serializer.save(modified_by=request.user.id,branch_id=request.user.branch_id,modified_date = datetime.now())
+                log_activity(
+                    created_by=request.user.id,
+                    description=f'Updated coupon with ID {id}'
+                )
                 return Response({'status':True,'data':serializer.data,'message':'Update coupons successfully'},status=status.HTTP_201_CREATED)
             else :
                 return Response({'status': False,'message':serializer.errors},status=status.HTTP_400_BAD_REQUEST)
@@ -2013,9 +2395,17 @@ from collections import defaultdict
 
 @api_view(['GET'])
 def product_items(request):
+    log_activity(
+            created_by=request.user.id,
+            description="Fetching product items"
+        )
     if (instances:=ProdutItemMaster.objects.all()).exists():
         if request.GET.get("non_coupon"):
             instances = instances.exclude(category__category_name="Coupons")
+            log_activity(
+                    created_by=request.user.id,
+                    description="Excluding coupons from the product items"
+                )
         serializer = ProdutItemMasterSerializer(instances, many=True, context={"request": request})
 
         status_code = status.HTTP_200_OK
@@ -2031,6 +2421,10 @@ def product_items(request):
             "StatusCode": 6001,
             "message": "No data",
         }
+        log_activity(
+            created_by=request.user.id,
+            description=f"Error fetching product items"
+        )
 
     return Response(response_data, status_code)
 
@@ -2043,10 +2437,14 @@ class Staff_New_Order(APIView):
     def post(self, request, *args, **kwargs):
         try:
             with transaction.atomic():
+                log_activity(
+                    created_by=request.user.id,
+                    description="Attempting to place a new staff order"
+                )
                 data_list = request.data.get('data_list', [])
-                last_order = Staff_Orders.objects.all().latest("created_date")
-                if last_order:
-                    last_order_number = last_order.order_number
+                last_order = Staff_Orders.objects.all()
+                if last_order.exists():
+                    last_order_number = last_order.latest("created_date").order_number
                     new_order_number = int(last_order_number) + 1
                 else:
                     new_order_number = 1
@@ -2054,19 +2452,32 @@ class Staff_New_Order(APIView):
                 order_number = f"{new_order_number}"
                 order_date = request.data.get('order_date')
 
+                # delivery_date = request.data.get('delivery_date')
+                
                 if order_date:
                     order_date = datetime.strptime(order_date, '%Y-%m-%d').date()
                 else:
                     order_date = datetime.today().date()
+                
+                # if delivery_date:
+                #     delivery_date = datetime.strptime(delivery_date, '%Y-%m-%d').date()
+                # else:
+                #     delivery_date = datetime.today().date()
 
                 serializer_1 = self.staff_order_serializer(data=request.data)
                 if serializer_1.is_valid(raise_exception=True):
                     order_data = serializer_1.save(
                         created_by=request.user.id,
                         order_number=order_number.upper(),
-                        order_date=order_date
+                        order_date=order_date,
+                        # delivery_date=delivery_date
                     )
                     staff_order = order_data.staff_order_id
+                    
+                    log_activity(
+                        created_by=request.user.id,
+                        description=f"Staff order {order_number} created successfully"
+                    )
 
                     # Aggregate products by ID
                     product_dict = defaultdict(int)
@@ -2089,10 +2500,22 @@ class Staff_New_Order(APIView):
 
                     if serializer_2.is_valid(raise_exception=True):
                         serializer_2.save()
+                        log_activity(
+                            created_by=request.user.id,
+                            description=f"Order details for staff order {order_number} saved successfully"
+                        )
                         return Response({'status': True, 'message': 'Order Placed Successfully'}, status=status.HTTP_201_CREATED)
                     else:
+                        log_activity(
+                            created_by=request.user.id,
+                            description=f"Error saving order details for staff order {order_number}: {serializer_2.errors}"
+                        )
                         return Response({'status': False, 'message': serializer_2.errors}, status=status.HTTP_400_BAD_REQUEST)
                 else:
+                    log_activity(
+                        created_by=request.user.id,
+                        description=f"Error creating staff order {order_number}: {serializer_1.errors}"
+                    )
                     return Response({'status': False, 'message': serializer_1.errors}, status=status.HTTP_400_BAD_REQUEST)
 
         except IntegrityError as e:
@@ -2399,10 +2822,6 @@ class Myclient_API(APIView):
             userid = request.data.get("id")
             route_id = request.data.get("route_id")
 
-            # # Ensure both 'id' and 'route_id' are provided
-            # if not userid or not route_id:
-            #     return Response({'status': False, 'message': 'User ID and Route ID are required'})
-
             # Fetch the staff user
             staff = CustomUser.objects.get(id=userid)
 
@@ -2430,7 +2849,6 @@ class Myclient_API(APIView):
             return Response({'status': False, 'message': 'User not found'})
         except Exception as e:
             return Response({'status': False, 'message': str(e)})
-
 
 class GetCustodyItem_API(APIView):
     authentication_classes = [BasicAuthentication]
@@ -2563,9 +2981,6 @@ def delete_coupon_recharge(invoice_no):
         return {"status": "error", "message": "Customer coupon not found."}
     except Exception as e:
         return {"status": "error", "message": f"An error occurred: {str(e)}"}
-    
-    
-
 
 class CustomerCouponRecharge(APIView):
     def post(self, request, *args, **kwargs):
@@ -2657,6 +3072,8 @@ class CustomerCouponRecharge(APIView):
                                 van_coupon_stock.sold_count += 1
                                 van_coupon_stock.save()
                                 
+                            CouponStock.objects.filter(couponbook=coupon).update(coupon_stock="customer")
+                                
                     elif coupon_method == "digital":
                         digital_coupon_data = request.data.get('digital_coupon', {})
                         try:
@@ -2711,7 +3128,9 @@ class CustomerCouponRecharge(APIView):
                     
                     if invoice_instance.amout_total == invoice_instance.amout_recieved:
                         invoice_instance.invoice_status = "paid"
-                        invoice_instance.save()
+                    else:
+                        invoice_instance.invoice_status = "non_paid"
+                    invoice_instance.save()
                     
                     coupon_items = CustomerCouponItems.objects.filter(customer_coupon=customer_coupon) 
                     
@@ -2767,6 +3186,7 @@ class CustomerCouponRecharge(APIView):
                         invoice_number=",".join(invoice_numbers),
                         customer=customer_coupon.customer
                     )
+
                 # Create ChequeCouponPayment instanceno_of_leaflets
                 cheque_payment_instance = None
                 if coupon_data.pop("payment_type") == 'cheque':
@@ -2798,7 +3218,7 @@ class CustomerCouponRecharge(APIView):
         """
         try:
             customer_coupon = CustomerCoupon.objects.get(pk=pk)
-            if delete_coupon_recharge(customer_coupon.invoice_no):
+            if (customer_coupon):
                 return Response({"message": "Customer coupon recharge deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
             else:
                 return Response({"message": "Failed to delete customer coupon recharge."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -3639,6 +4059,17 @@ class create_customer_supply(APIView):
                         customer=customer_supply.customer,
                         invoice_number=",".join(invoice_numbers)
                     )
+                else:
+                    if customer_supply.customer.eligible_foc > 0:
+                        foc_count = min(customer_supply.customer.eligible_foc, suply_items.quantity)
+                        sold_count = suply_items.quantity - foc_count
+                        customer_supply.customer.eligible_foc -= foc_count  
+                        customer_supply.customer.save()
+                    else:
+                        foc_count = 0
+                        sold_count = suply_items.quantity
+
+                    
                 if invoice_generated:
                     response_data = {
                         "status": "true",
@@ -4412,7 +4843,7 @@ class CustodyCustomItemListAPI(APIView):
             return Response({'status': True, 'data': serializer.data, 'message': 'Data fetched successfully'}, status=status.HTTP_200_OK)
         else:
             return Response({'status': True, 'data': [], 'message': 'No custody items'}, status=status.HTTP_200_OK)
-
+    
 
 class CustodyItemReturnAPI(APIView):
     authentication_classes = [BasicAuthentication]
@@ -4609,9 +5040,12 @@ class OutstandingAmountListAPI(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
     def get(self, request, *args, **kwargs):
-        customer=Customers.objects.filter(sales_staff=request.user)
+        id = request.user.id
+        print("id",id)
+        customer=Customers.objects.filter(sales_staff__id = id)
+        print("customer",customer)
 
-        custody_items = CustodyCustomItems.objects.filter(custody_custom__customer__in=customer)
+        custody_items = CustodyCustomItems.objects.filter(custody_custom__customer__in =customer)
         print("custody_items",custody_items)
 
         serializer =CustodyCustomItemListSerializer(custody_items, many=True)
@@ -4806,53 +5240,6 @@ class customer_outstanding(APIView):
             'message': 'success'
         })
 
-# class customer_outstanding(APIView):
-#     authentication_classes = [BasicAuthentication]
-#     permission_classes = [IsAuthenticated]
-
-#     def get(self, request, *args, **kwargs):
-#         customers = Customers.objects.filter(sales_staff=request.user)
-#         route_id = request.GET.get("route_id")
-
-#         if route_id:
-#             customers = customers.filter(routes__pk=route_id)
-
-#         customers_with_outstanding = []
-#         for customer in customers:
-#             amount = CustomerOutstandingReport.objects.filter(customer=customer, product_type="amount").aggregate(
-#                 total=Sum('value', output_field=DecimalField()))['total'] or 0
-#             coupons = CustomerOutstandingReport.objects.filter(customer=customer, product_type="coupons").aggregate(
-#                 total=Sum('value', output_field=DecimalField()))['total'] or 0
-#             empty_can = CustomerOutstandingReport.objects.filter(customer=customer, product_type="emptycan").aggregate(
-#                 total=Sum('value', output_field=DecimalField()))['total'] or 0
-
-#             if amount != 0 or coupons != 0 or empty_can != 0:
-#                 customers_with_outstanding.append(customer)
-
-#         serialized_data = CustomerOutstandingSerializer(customers_with_outstanding, many=True)
-
-#         customer_outstanding = CustomerOutstandingReport.objects.filter(customer__in=customers_with_outstanding)
-#         total_amount = customer_outstanding.filter(product_type="amount").aggregate(
-#             total=Sum('value', output_field=DecimalField()))['total'] or 0
-#         total_coupons = customer_outstanding.filter(product_type="coupons").aggregate(
-#             total=Sum('value', output_field=DecimalField()))['total'] or 0
-#         total_emptycan = customer_outstanding.filter(product_type="emptycan").aggregate(
-#             total=Sum('value', output_field=DecimalField()))['total'] or 0
-
-#         formatted_total_amount = "{:.2f}".format(total_amount)
-
-#         formatted_total_coupons = int(total_coupons)
-#         formatted_total_emptycan = int(total_emptycan)
-
-#         return Response({
-#             'status': True,
-#             'data': serialized_data.data,
-#             "total_amount": formatted_total_amount,
-#             "total_coupons": formatted_total_coupons,
-#             "total_emptycan": formatted_total_emptycan,
-#             'message': 'success'
-#         })
-
 
 class CustomerCouponListAPI(APIView):
     authentication_classes = [BasicAuthentication]
@@ -4872,7 +5259,6 @@ class CustomerCouponListAPI(APIView):
         serializer = CustomerDetailSerializer(customers, many=True, context={'request': request})
 
         return Response(serializer.data)
-
 
 class ProductAndBottleAPIView(APIView):
     def get(self, request):
@@ -4931,7 +5317,6 @@ class CollectionAPI(APIView):
                 'status': True,
                 'data': []
             }, status=status.HTTP_200_OK)
-
 
 # class AddCollectionPayment(APIView):
 #     authentication_classes = [BasicAuthentication]
@@ -5052,7 +5437,7 @@ class AddCollectionPayment(APIView):
                 amount_received=amount_received,
                 receipt_number=receipt_number,
             )
-            
+           
             remaining_amount = amount_received
             
             invoice_numbers = []
@@ -5098,7 +5483,6 @@ class AddCollectionPayment(APIView):
                 else:
                     # Break the loop if there is no remaining amount or the current invoice is fully paid
                     break
-            
             receipt = Receipt.objects.create(
                 transaction_type="collection",
                 instance_id=str(collection_payment.id),  # Correctly assign the ID as a string
@@ -5107,6 +5491,7 @@ class AddCollectionPayment(APIView):
                 customer=customer,
                 invoice_number=",".join(invoice_numbers)  # Join the invoice numbers into a comma-separated string
             )
+
             # If there is remaining amount after paying all invoices, adjust it with the outstanding balance
             if remaining_amount != Decimal('0'):
                 negatieve_remaining_amount = -remaining_amount
@@ -5137,7 +5522,6 @@ class AddCollectionPayment(APIView):
                         value=negatieve_remaining_amount,
                     )
                 
-                date_part = timezone.now().strftime('%Y%m%d')
                 try:
                     invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
                     last_invoice_number = invoice_last_no.invoice_no
@@ -5247,7 +5631,7 @@ class CustomerSalesReportAPI(APIView):
             'start_date': start_date.strftime('%Y-%m-%d'),
             'end_date': end_date.strftime('%Y-%m-%d'),
         }
-        
+
         sales = CustomerSupply.objects.select_related('customer', 'salesman').filter(
             created_date__date__gte=start_date,
             created_date__date__lte=end_date,
@@ -5362,7 +5746,9 @@ class DashboardAPI(APIView):
             
         date = datetime.strptime(date_str, '%Y-%m-%d')
         
-        today_customers_count = len(find_customers(request, date_str, route_id))
+        today_customers = find_customers(request, date_str, route_id)
+        today_customers_count = len(today_customers) if today_customers else 0
+
                 
         supplied_customers_count = CustomerSupply.objects.filter(customer__routes__pk=route_id,created_date__date=date).count()
         
@@ -5406,7 +5792,6 @@ class DashboardAPI(APIView):
         balance_in_hand = total_sales_amount_collected - expences
         
         total_fivegallon_supplied = CustomerSupplyItems.objects.filter(customer_supply__customer__routes__pk=route_id,customer_supply__created_date__date=date).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
-        
         data = {
             'date': date_str,
             'today_schedule': {
@@ -5451,7 +5836,7 @@ class CollectionReportAPI(APIView):
             start_date = datetime.today().date()
             end_date = datetime.today().date()
         salesman=request.user
-        # print("salesman",salesman)    
+        print("salesman",salesman)    
         instances = CollectionPayment.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,salesman=request.user)
         serialized_data = CollectionReportSerializer(instances, many=True).data
         
@@ -5465,8 +5850,8 @@ class CollectionReportAPI(APIView):
                 'end_date': end_date.strftime('%Y-%m-%d'),
             }
         }, status=status.HTTP_200_OK)
-
-          
+        
+        
 #----------------------Coupon Supply Report
 class CouponSupplyCountAPIView(APIView):
     authentication_classes = [BasicAuthentication]
@@ -5487,6 +5872,7 @@ class CouponSupplyCountAPIView(APIView):
         serializer = CouponSupplyCountSerializer(coupon_counts, many=True)
 
         return Response({'status': True, 'data': serializer.data}, status=status.HTTP_200_OK)
+
 
 class Coupon_Sales_APIView(APIView):
     authentication_classes = [BasicAuthentication]
@@ -5519,7 +5905,6 @@ class Coupon_Sales_APIView(APIView):
         total_per_leaf_rate = sum(
             coupon.get_per_leaf_rate() for coupon in coupon_sales if coupon.get_per_leaf_rate() is not None
         )
-
         serializer = Coupon_Sales_Serializer(coupon_sales, many=True)
 
 # Return the response with totals in the footer
@@ -5529,7 +5914,7 @@ class Coupon_Sales_APIView(APIView):
             'total_sum': {
                 'total_rate': total_rate,
                 'total_amount_collected': total_amount_collected,
-                'total_per_leaf_rate': total_per_leaf_rate,
+                'total_per_leaf_rate':total_per_leaf_rate,
                 'total_balance': total_balance
             }
         }, status=status.HTTP_200_OK)
@@ -5582,15 +5967,16 @@ class RedeemedHistoryAPI(APIView):
         serializer = CustomerCouponCountsSerializer(customer_coupon_counts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+# VisitReportAPI
 # Coupon Consumption Report
 class CouponConsumptionReport(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
     def get(self, request, *args, **kwargs):
             start_date = request.data.get('start_date')  
+            print("start_date",start_date)
             end_date = request.data.get('end_date')  
-            # print("start_date",start_date)
-            # print("end_date",end_date)
+            print("end_date",end_date)
             
             if start_date and end_date:
                 start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -5598,13 +5984,11 @@ class CouponConsumptionReport(APIView):
             else:
                 start_date = date.today()
                 end_date = date.today()
-            
-            van_route = Van_Routes.objects.get(van__salesman=request.user).routes
+
             supply_instance = CustomerSupply.objects.filter(
                 created_date__date__gte=start_date,
                 created_date__date__lte=end_date,
-                customer__sales_type="CASH COUPON",
-                customer__routes=van_route
+                customer__sales_type="CASH COUPON"
             )
             
             serializer = CouponConsumptionSerializer(supply_instance, many=True)
@@ -5636,7 +6020,6 @@ class CouponConsumptionReport(APIView):
                 'total_no_of_leaflet_collected': total_no_of_leaflet_collected,
                 'total_pending_leaflet': total_pending_leaflet,
             }, status=status.HTTP_200_OK)
-
 
 from django.utils.timezone import make_aware
 from django.db.models import Sum, Count, Case, When, IntegerField
@@ -6540,7 +6923,7 @@ class FreshcanVsCouponView(APIView):
             return Response(customers_serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
 
 class CustomerCartAPIView(APIView):
     authentication_classes = [BasicAuthentication]
@@ -6692,7 +7075,6 @@ class CustomerCartAPIView(APIView):
             
             return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
 
-
 class CustomerOrdersAPIView(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
@@ -6738,6 +7120,9 @@ class CustomerOrdersAPIView(APIView):
                 
                 customer_order_instance.grand_total += customer_order_item_instance.total_amount
                 customer_order_instance.save()
+                
+            customer_cart.order_status = True
+            customer_cart.save()
                 
             customer_cart.order_status = True
             customer_cart.save()
@@ -7156,6 +7541,7 @@ class TotalCouponsConsumedView(APIView):
                 'total_manual_coupons_consumed': total_manual_leaflets
             })
         
+        # Serialize the data (do not use `many=True` with a dict)
         serializer = TotalCouponsSerializer(customer_data, many=True)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -8315,7 +8701,9 @@ class StaffIssueOrdersAPIView(APIView):
         for detail_data in staff_orders_details_data:
             staff_order_details_id = detail_data.get('staff_order_details_id')
             product_id = detail_data.get('product_id')
-            count = int(detail_data.get('count', 0))  # Ensure count is an integer
+            count = int(detail_data.get('count', 0))
+            used_stock = int(detail_data.get('used_stock', 0))
+            new_stock = int(detail_data.get('new_stock', 0))
 
             try:
                 product_id = convert_to_uuid(product_id)
@@ -8426,7 +8814,7 @@ class StaffIssueOrdersAPIView(APIView):
                     if van_limit:
                         try:
                             with transaction.atomic():
-                                product_stock = get_object_or_404(ProductStock, product_name=issue.product_id)
+                                product_stock = get_object_or_404(ProductStock, product_name=issue.product_id,branch=van.branch_id)
                                 stock_quantity = issue.count
 
                                 if 0 < int(quantity_issued) <= int(product_stock.quantity):
@@ -8461,16 +8849,13 @@ class StaffIssueOrdersAPIView(APIView):
 
                                     if VanProductStock.objects.filter(created_date=datetime.today().date(), product=issue.product_id, van=van).exists():
                                         van_product_stock = VanProductStock.objects.get(created_date=datetime.today().date(), product=issue.product_id, van=van)
-                                        van_product_stock.stock += int(quantity_issued)
-                                        van_product_stock.save()
                                     else:
-                                        VanProductStock.objects.create(
+                                        van_product_stock = VanProductStock.objects.create(
                                             created_date=datetime.now().date(),
                                             product=issue.product_id,
                                             van=van,
-                                            stock=int(quantity_issued)
-                                        )
-                                        
+                                            stock=int(quantity_issued))
+
                                     if issue.product_id.product_name == "5 Gallon":
                                         if (bottle_count:=BottleCount.objects.filter(van=van_product_stock.van,created_date__date=van_product_stock.created_date)).exists():
                                             bottle_count = bottle_count.first()
@@ -8496,14 +8881,49 @@ class StaffIssueOrdersAPIView(APIView):
                                         "title": "Failed",
                                         "message": f"No stock available in {product_stock.product_name}, only {product_stock.quantity} left",
                                     }
+                                if used_stock > 0:
+                                    WashedUsedProduct.objects.create(
+                                        product=issue.product_id,
+                                        quantity=used_stock
+                                    )
 
-                        except IntegrityError as e:
-                            status_code = status.HTTP_400_BAD_REQUEST
-                            response_data = {
-                                "status": "false",
-                                "title": "Failed",
-                                "message": str(e),
-                            }
+                                    # Deduct from ProductStock
+                                    product_stock = ProductStock.objects.filter(product_name=issue.product_id).first()
+                                    if product_stock and product_stock.quantity >= used_stock:
+                                        product_stock.quantity -= used_stock
+                                        product_stock.save()
+                                    else:
+                                        return Response(
+                                            {
+                                                "status": "false",
+                                                "title": "Failed",
+                                                "message": f"Insufficient stock for {product_stock.product_name}. Only {product_stock.quantity} available.",
+                                            },
+                                            status=status.HTTP_400_BAD_REQUEST
+                                        )
+
+                                    response_data["used_stock"] = f"{used_stock} units recorded as used stock successfully."
+
+                                # Handle new stock
+                                if new_stock > 0:
+                                    product_stock = ProductStock.objects.filter(product_name=issue.product_id).first()
+                                    
+                                    # If ProductStock exists, increase the quantity
+                                    if product_stock:
+                                        product_stock.quantity += new_stock
+                                        product_stock.save()
+                                    else:
+                                        # Create a new ProductStock record if none exists
+                                        ProductStock.objects.create(
+                                            product_name=issue.product_id,
+                                            quantity=new_stock,
+                                            branch=van.branch_id,
+                                            created_by=request.user.id
+                                        )
+
+                                    response_data["new_stock"] = f"{new_stock} units added to new stock successfully."
+
+                        
 
                         except Exception as e:
                             status_code = status.HTTP_400_BAD_REQUEST
@@ -8767,9 +9187,6 @@ class CreditSalesReportAPIView(APIView):
 
             return Response(data, status=status.HTTP_200_OK)
         
-        else:
-            return Response({"message": "Add a route name"}, status=status.HTTP_400_BAD_REQUEST)
-        
 #---------------------------Bottle Count API ------------------------------------------------   
 
 class VanRouteBottleCountView(APIView):
@@ -9025,8 +9442,11 @@ class addDamageBottleAPIView(APIView):
             with transaction.atomic():
                 if product_id:
                     product_item = ProdutItemMaster.objects.get(pk=product_id)
+                    # print(f"Product ID: {product_id} retrieved successfully.")
+
                 else:
                     product_item = ProdutItemMaster.objects.get(product_name="5 Gallon")
+                    # print("Product name '5 Gallon' retrieved successfully.")
                 
                 DamageBottleStock.objects.create(
                         product=product_item,
@@ -9047,7 +9467,6 @@ class addDamageBottleAPIView(APIView):
                     van_product_stock.save()
                     # print(f"VanProductStock updated: {van_product_stock} EmptyStock {van_product_stock.empty_can_count}.")
                     
-                
                 status_code = status.HTTP_200_OK
                 response_data = {
                     "status": "true",
@@ -9127,6 +9546,7 @@ class ExcessBottleCountAPIView(APIView):
             }
         
         return Response(response_data, status=status_code)
+    
     
     
 class ProductTransferChoicesAPI(APIView):
@@ -9212,6 +9632,79 @@ class ProductionDamageAPIView(APIView):
                     "status": status_code,
                     "title": "Success",
                     "message": "Production Damage Stock successfully Added",
+                }
+        
+        except IntegrityError as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "status": status_code,
+                "title": "Failed",
+                "message": str(e),
+            }
+        
+        except Exception as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "status": status_code,
+                "title": "Failed",
+                "message": str(e),
+            }
+        
+        return Response(response_data, status=status_code)
+    
+class VanSaleDamageAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, *args, **kwargs):
+        instances = VanSaleDamage.objects.all()
+        serializer = VanSaleDamageSerializer(instances,many=True)
+        
+        status_code = status.HTTP_200_OK
+        response_data = {
+            "status": status_code,
+            "data": serializer.data,
+        }
+        
+        return Response(response_data, status=status_code)
+    
+    def post(self, request, *args, **kwargs):
+        damage_from = request.data.get('from')
+        reason = request.data.get('reason')
+        quantity = request.data.get('quantity')
+        van_instance = Van.objects.get(salesman=request.user)
+        
+        try:
+            with transaction.atomic():
+                product_instance = ProdutItemMaster.objects.get(product_name="5 Gallon")
+                reason_instance = ProductionDamageReason.objects.get(pk=reason)
+                
+                VanSaleDamage.objects.create(
+                    product=product_instance,
+                    reason=reason_instance,
+                    van=van_instance,
+                    quantity=quantity,
+                    created_by=request.user.id,
+                    created_date=datetime.now(),
+                )
+                
+                vanstock = VanProductStock.objects.get(product=product_instance,created_date=datetime.now().date(),van=van_instance)
+    
+                if damage_from == "fresh_stock" :
+                    vanstock.stock -= quantity
+                    
+                if damage_from == "empty_can" :
+                    vanstock.empty_can_count -= quantity
+                
+                vanstock.damage_count += quantity
+                vanstock.save()
+                
+                
+                status_code = status.HTTP_201_CREATED
+                response_data = {
+                    "status": status_code,
+                    "title": "Success",
+                    "message": "Van Damage Stock successfully Added",
                 }
         
         except IntegrityError as e:
@@ -9405,6 +9898,7 @@ class CustomerProductReplaceAPIView(APIView):
         return Response(response_data, status=status_code)
     
 
+
 class CustomerCouponListAPIView(APIView):
     def get(self, request, customer_id):
         try:
@@ -9427,7 +9921,7 @@ class CustomerCouponListAPIView(APIView):
         except Customers.DoesNotExist:
             return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)
         
-
+        
 class CreditNoteListAPI(APIView):
     def get(self, request, *args, **kwargs):
         queryset = CreditNote.objects.filter(is_deleted=False)
@@ -9511,6 +10005,7 @@ class SalesInvoicesAPIView(APIView):
     def get(self, request):
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
+        invoice_type = request.GET.get('invoice_types')  
         
         if not start_date:
             start_date = datetime.today().date()
@@ -9523,9 +10018,17 @@ class SalesInvoicesAPIView(APIView):
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
         
         route = Van_Routes.objects.get(van__salesman=request.user).routes
-        instances = Invoice.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,customer__routes=route)
-                
-        serializer = SalesInvoiceSerializer(instances,many=True)
+        
+        instances = Invoice.objects.filter(
+            created_date__date__gte=start_date,
+            created_date__date__lte=end_date,
+            customer__routes=route
+        )
+        
+        if invoice_type:
+            instances = instances.filter(invoice_type=invoice_type)
+        
+        serializer = SalesInvoiceSerializer(instances, many=True)
         
         response_data = {
             "StatusCode": status.HTTP_200_OK,
@@ -9536,7 +10039,7 @@ class SalesInvoicesAPIView(APIView):
                 "total_vat": instances.aggregate(total_vat=Sum('vat'))['total_vat'] or 0,
                 "total_amount": instances.aggregate(total_amount=Sum('amout_total'))['total_amount'] or 0,
                 "total_amount_collected": instances.aggregate(total_amout_recieved=Sum('amout_recieved'))['total_amout_recieved'] or 0,
-                "filter_data":{
+                "filter_data": {
                     "invoice_types": [{'key': key, 'value': value} for key, value in INVOICE_TYPES],
                     "start_date": start_date,
                     "end_date": end_date,
@@ -9576,7 +10079,7 @@ class CustomerSupplyListAPIView(APIView):
 
         return Response(response_data, status=status.HTTP_200_OK)
     
-
+    
 class CustomersOutstandingAmountsAPI(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
@@ -9603,7 +10106,8 @@ class CustomersOutstandingAmountsAPI(APIView):
         
         customer_ids = instances.values_list('customer_outstanding__customer__pk')
         dialy_collections = CollectionPayment.objects.filter(customer__pk__in=customer_ids,created_date__date__gte=start_date,created_date__date__lte=end_date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
-        total_amount = max(total_amount - dialy_collections, 0)
+        # total_amount = max(total_amount - dialy_collections, 0)
+        total_amount = total_amount - dialy_collections
         
         return Response({
             'status': True,
@@ -9709,8 +10213,7 @@ class CustomersOutstandingBottlesAPI(APIView):
                     'total_pending_count': total_pending_count,
                 },
         })
-
-
+        
 class SalesmanListAPIView(APIView):
     """
     API view to list all salesmen.
@@ -9789,3 +10292,5 @@ class CustomerRegistrationRequestView(APIView):
             }
         
         return Response(response_data, status=status_code)
+    
+    

@@ -139,7 +139,7 @@ class CustomerReturnItems(models.Model):
     customer_return = models.ForeignKey(CustomerReturn, on_delete=models.CASCADE,null=True,blank=True)
     product = models.ForeignKey('product.ProdutItemMaster', on_delete=models.CASCADE,null=True,blank=True)
     quantity = models.IntegerField(blank=True,null=True)
-    serialnumber = models.CharField(max_length=500, null=True, blank=True)
+    serialnumber = models.CharField(max_length=520, null=True, blank=True)
     amount = models.IntegerField(blank=True,null=True)
 
     def _str_(self):
@@ -260,11 +260,10 @@ class CustomerCouponItems(models.Model):
     
     class Meta:
         ordering = ('-customer_coupon__created_date',)
-        
     def __str__(self):
         return str(self.customer_coupon.customer)
     
-        # Function to get count of used coupon leaflets
+    # Function to get count of used coupon leaflets
     def get_used_leaflets(self):
         """Returns the count of used coupon leaflets for this sale."""
         return CouponLeaflet.objects.filter(coupon=self.coupon, used=True).count()
@@ -291,7 +290,6 @@ class CustomerCouponItems(models.Model):
             return None
         return None
     
-    
 class CustomerCouponStock(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     coupon_type_id = models.ForeignKey(CouponType, on_delete=models.CASCADE)
@@ -305,7 +303,7 @@ class CustomerCouponStock(models.Model):
     def __str__(self):
         return str(self.customer.customer_name)
     
-    # Function to get the total sold coupon books count by type (manual and digital)
+        # Function to get the total sold coupon books count by type (manual and digital)
     @classmethod
     def get_sold_coupons_by_type(cls):
         # Get sold coupons grouped by coupon_type and coupon_method
@@ -618,7 +616,6 @@ class NonvisitReport(models.Model):
     def __str__(self):
         return f'{self.customer} - {self.salesman} - {self.reason}'
     
-    
 class CustomerCart(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     customer = models.ForeignKey(Customers, on_delete=models.CASCADE, null=True, blank=True)
@@ -644,3 +641,25 @@ class CustomerCartItems(models.Model):
     
     def __str__(self):
         return f"{self.product} - Quantity: {self.quantity}"
+    
+
+class DialyCustomers(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    date = models.DateField()
+    customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
+    route = models.ForeignKey('master.RouteMaster', on_delete=models.CASCADE)
+    qty = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    is_emergency = models.BooleanField(default=False)
+    is_supply = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return f"{self.customer.customer_name} - Quantity: {self.qty}"
+    
+
+class InactiveCustomers(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
+    inactive_days = models.IntegerField(default=0)
+    
+    def __str__(self):
+        return f"{self.customer.customer_name} - In Active Days: {self.inactive_days}"

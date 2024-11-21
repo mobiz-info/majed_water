@@ -1,5 +1,6 @@
 from django.db import models
 import uuid
+import datetime
 from django.contrib.auth.models import AbstractUser,Group,Permission
 
 from coupon_management.models import Coupon
@@ -118,6 +119,8 @@ class Customers(models.Model):
     five_g_count_limit = models.PositiveIntegerField(default=0)
     eligible_foc = models.PositiveIntegerField(default=0)
     is_calling_customer = models.BooleanField(default=False)
+    five_g_count_limit = models.IntegerField(default=0)
+    eligible_foc = models.IntegerField(default=0)
     
     def __str__(self):
         return str(self.customer_name)
@@ -245,7 +248,6 @@ class TermsAndConditions(models.Model):
 
     def __str__(self):
         return f"Terms and Conditions - {self.created_date}"
-
 
 class Processing_Log(models.Model):
     created_by = models.CharField(max_length=20,  blank=True)

@@ -6,7 +6,7 @@
     {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> Five Gallon Supplied Rates - Print</title>
+    <title>Five Gallon Supplied Rates - Print</title>
     <!-- Bootstrap CSS -->
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
@@ -45,7 +45,7 @@
                 <div class="card custom-card">
                     <div class="card-header">
                         <div class="card-title">
-                             Five Gallon Supplied Rates
+                            Five Gallon Supplied Rates
                         </div>
                     </div>
 
@@ -65,7 +65,7 @@
                                         <p>Route: {{van_route.routes.route_name}}</p>
                                     </div>
                                     <div class="col-4">
-                                        <p>From: {{ filter_data.filter_from_date }} To: {{ filter_data.filter_to_date }}</p>
+                                        <p>Date: {{ filter_date_formatted }}</p>
                                     </div>
                                 </div>
                             </div>

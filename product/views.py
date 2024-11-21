@@ -1,5 +1,6 @@
 import json
 import datetime
+from datetime import datetime, date
 
 from django.views import View
 from django.db.models import Q
@@ -7,13 +8,14 @@ from django.utils import timezone
 from django.contrib import messages
 from django.shortcuts import render,redirect,reverse
 from django.db import transaction, IntegrityError
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 
+from accounts.views import log_activity
 from coupon_management.serializers import couponStockSerializers
 from master.functions import generate_form_errors
 from .forms import *
@@ -26,7 +28,6 @@ from van_management.models import *
 from django.template.loader import get_template
 import pandas as pd
 from xhtml2pdf import pisa
-from accounts.views import log_activity
 
 def get_coupon_bookno(request):
     request_id = request.GET.get("request_id")
@@ -121,7 +122,6 @@ class Product_Item_Edit(View):
     def post(self, request, pk, *args, **kwargs):
         rec = ProdutItemMaster.objects.get(id=pk)
         pre_name = rec.product_name
-        
         form = self.form_class(request.POST, request.FILES, instance=rec)
         if form.is_valid():
             data = form.save(commit=False)
@@ -149,12 +149,30 @@ def delete_product_item(request, pk):
     :param pk:
     :return:
     """
-    instance = ProdutItemMaster.objects.get(pk=pk)
-    if instance.category.category_name == 'Coupons':
-        if (instances:=CouponType.objects.filter(coupon_type_name=instance.product_name)).exists():
-                    instances.delete()
-    instance.delete()
+    try:
+        # Validate UUID format
+        uuid_obj = uuid.UUID(str(pk))
+    except ValueError:
+        return HttpResponseBadRequest("Invalid UUID format")
     
+    try:
+        # Get the product item instance
+        instance = ProdutItemMaster.objects.get(pk=uuid_obj)
+    except ProdutItemMaster.DoesNotExist:
+        return JsonResponse({
+            "status": "false",
+            "title": "Not Found",
+            "message": "Product Item not found."
+        }, status=404)
+
+    # Check if it's a 'Coupons' category and delete related coupons
+    if instance.category and instance.category.category_name == 'Coupons':
+        CouponType.objects.filter(coupon_type_name=instance.product_name).delete()
+
+    # Delete the product item
+    instance.delete()
+
+    # Return success response
     response_data = {
         "status": "true",
         "title": "Successfully Deleted",
@@ -162,7 +180,21 @@ def delete_product_item(request, pk):
         "reload": "true",
     }
 
-    return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+    return JsonResponse(response_data)
+    # instance = ProdutItemMaster.objects.get(pk=pk)
+    # if instance.category.category_name == 'Coupons':
+    #     if (instances:=CouponType.objects.filter(coupon_type_name=instance.product_name)).exists():
+    #                 instances.delete()
+    # instance.delete()
+    
+    # response_data = {
+    #     "status": "true",
+    #     "title": "Successfully Deleted",
+    #     "message": "Product Item Successfully Deleted.",
+    #     "reload": "true",
+    # }
+
+    # return HttpResponse(json.dumps(response_data), content_type='application/javascript')
           
 class Products_List(View):
     template_name = 'products/products_list.html'
@@ -437,13 +469,13 @@ def staffIssueOrdersCreate(request, staff_order_details_id):
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    product_stock = ProductStock.objects.get(product_name=issue.product_id)
+                    product_stock = ProductStock.objects.get(branch=van.branch_id,product_name=issue.product_id)
                     stock_quantity = issue.count
                     
                     quantity_issued = form.cleaned_data.get('quantity_issued')
                     
                     if issue.product_id.product_name == "5 Gallon":
-                        if int(quantity_issued) != 0 and van.bottle_count >= int(quantity_issued) + vanstock_count:
+                        if int(quantity_issued) != 0 and van.bottle_count > int(quantity_issued) + vanstock_count:
                             van_limit=True
                         else:
                             van_limit=False
@@ -457,7 +489,7 @@ def staffIssueOrdersCreate(request, staff_order_details_id):
                             # data.created_by = request.user.id
                             data.modified_by = request.user.id
                             data.modified_date = datetime.now()
-                            data.created_date = datetime.now()
+                            data.created_date = issue.staff_order_id.order_date
                             data.product_id = issue.product_id
                             data.staff_Orders_details_id = issue
                             data.stock_quantity = stock_quantity
@@ -473,9 +505,9 @@ def staffIssueOrdersCreate(request, staff_order_details_id):
                             # van = Van.objects.get(salesman_id__id=form.cleaned_data.get('salesman_id').pk)
                             vanstock = VanStock.objects.create(
                                 created_by=request.user.id,
-                                created_date=datetime.now(),
+                                created_date=issue.staff_order_id.order_date,
                                 modified_by=request.user.id,
-                                modified_date=datetime.now(),
+                                modified_date=issue.staff_order_id.order_date,
                                 van=van,
                                 stock_type='opening_stock',
                             )
@@ -485,13 +517,13 @@ def staffIssueOrdersCreate(request, staff_order_details_id):
                                 van_stock=vanstock,
                             )
                             
-                            if VanProductStock.objects.filter(created_date=datetime.today().date(),product=issue.product_id,van=van).exists():
-                                van_product_stock = VanProductStock.objects.get(created_date=datetime.today().date(),product=issue.product_id,van=van)
+                            if VanProductStock.objects.filter(created_date=issue.staff_order_id.order_date,product=issue.product_id,van=van).exists():
+                                van_product_stock = VanProductStock.objects.get(created_date=issue.staff_order_id.order_date,product=issue.product_id,van=van)
                                 van_product_stock.stock += int(quantity_issued)
                                 van_product_stock.save()
                             else:
                                 van_product_stock = VanProductStock.objects.create(
-                                    created_date=datetime.now().date(),
+                                    created_date=issue.staff_order_id.order_date,
                                     product=issue.product_id,
                                     van=van,
                                     stock=int(quantity_issued)
@@ -511,6 +543,8 @@ def staffIssueOrdersCreate(request, staff_order_details_id):
                             
                             issue.issued_qty += int(quantity_issued)
                             issue.save()
+                            
+                            log_activity(request.user, f"Issued {quantity_issued} of {issue.product_id.product_name} to van {van.van_id}")
                             
                             response_data = {
                                 "status": "true",
