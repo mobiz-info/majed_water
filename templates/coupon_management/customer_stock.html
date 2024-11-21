@@ -80,7 +80,6 @@
                                     <th scope="col">Building Name / House No</th>
                                     <th scope="col" colspan="2">Coupon Method</th>
                                     <th scope="col">Total Count</th>
-                                    <th scope="col">Actions</th>
                                 </tr>
                                 <tr>
                                     <th></th>
@@ -103,13 +102,6 @@
                                         <td>{% if stock.coupon_method == 'digital' %}{{ stock.count }}{% endif %}</td>
                                         <td>{% if stock.coupon_method == 'manual' %}{{ stock.count }}{% endif %}</td>
                                         <td>{{ stock.count }}</td>
-                                        <td class="text-right">
-                                            <div class="g-2">
-                                                <a href="{% url 'customer_stock_coupon_details' customer=stock.customer.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Info">
-                                                    <span class="bi bi-eye-fill fs-14"></span>
-                                                </a>
-                                            </div>
-                                        </td>
                                     </tr>
 
                                 {% endfor %}

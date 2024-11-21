@@ -4,6 +4,7 @@ from django.utils.timezone import now
 
 from coupon_management.models import CouponStock
 from coupon_management.serializers import couponStockSerializers
+from master.functions import generate_form_errors
 from .models import Van, Van_Routes, Van_License, BottleAllocation
 from accounts.models import CustomUser, Customers
 from master.models import EmirateMaster, RouteMaster
@@ -34,7 +35,6 @@ from django.urls import reverse
 
 from .forms import BottleAllocationForm
 from django.db.models import Max
-from accounts.views import log_activity
 
 
 
@@ -904,7 +904,7 @@ def excel_download(request, route_id, def_date, trip):
 
         # Merge cells and write other information with borders
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 16, 'border': 1})
-        worksheet.merge_range('A1:N2', f'Majed Water', merge_format)
+        worksheet.merge_range('A1:N2', f'Sana Water', merge_format)
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
         worksheet.merge_range('A3:D3', f'Route:    {route.route_name}    {trip}', merge_format)
         worksheet.merge_range('E3:I3', f'Date: {def_date}', merge_format)
@@ -1143,6 +1143,8 @@ class VanProductStockList(View):
         filter_data = {}
         
         date = request.GET.get('date')
+        van_name = request.GET.get('van_name')
+        
         if date:
             date = datetime.strptime(date, '%Y-%m-%d').date()
             filter_data['filter_date'] = date.strftime('%Y-%m-%d')
@@ -1150,19 +1152,78 @@ class VanProductStockList(View):
             date = datetime.today().date()
             filter_data['filter_date'] = date.strftime('%Y-%m-%d')
         
-        # products = ProdutItemMaster.objects.filter()
-        # van_instances = Van.objects.all()
-        print(date)
         van_product_stock = VanProductStock.objects.filter(created_date=date)
+        
+        if van_name:
+            van_product_stock = van_product_stock.filter(van__pk=van_name)
+            filter_data['filter_van'] = van_name
+            
+        
+        van_instances = Van.objects.all()
     
         context = {
-            # 'products': products,
-            # 'van_instances': van_instances,
             'van_product_stock': van_product_stock,
+            'van_instances': van_instances,
             
             'filter_data': filter_data,
         }
         return render(request, 'van_management/van_product_stock.html', context)
+    
+class VanProductStockUpdate(View):
+    
+    def get(self, request, pk, *args, **kwargs):
+        instance = VanProductStock.objects.get(pk=pk)
+        van_stock_form = VanProductStockForm(instance=instance)
+    
+        context = {
+            'instance': instance,
+            'van_stock_form': van_stock_form,
+        }
+        return render(request, 'van_management/van_product_stock_edit.html', context)
+    
+    def post(self, request, pk, *args, **kwargs):
+        instance = VanProductStock.objects.get(pk=pk)
+        van_stock_form = VanProductStockForm(request.POST, instance=instance)
+        
+        if van_stock_form.is_valid():
+            try:
+                with transaction.atomic():
+                    
+                    stock_instance = van_stock_form.save(commit=False)
+                    stock_instance.save()
+            
+                    response_data = {
+                        "status": "true",
+                        "title": "Successfully Updated",
+                        "message": "stock updated successfully.",
+                        'redirect': 'true',
+                        "redirect_url": reverse('vanstock_product')
+                    }
+            except IntegrityError as e:
+                # Handle database integrity error
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": str(e),
+                }
+
+            except Exception as e:
+                # Handle other exceptions
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": str(e),
+                }
+        else:
+            message = generate_form_errors(van_stock_form,formset=False)
+            
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": message,
+            }
+
+        return HttpResponse(json.dumps(response_data), content_type='application/javascript')
     
     
     

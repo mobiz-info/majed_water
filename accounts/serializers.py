@@ -57,6 +57,7 @@ class CustomersSerializers(serializers.ModelSerializer):
             customer_supply__customer=obj
         ).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
         return total_quantity
+    
         
 class Create_Customers_Serializers(serializers.ModelSerializer):
     class Meta :

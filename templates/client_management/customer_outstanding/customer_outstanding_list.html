@@ -21,7 +21,7 @@
                             Transactions - Amount
                         </div>
                         <div class="ms-auto">
-                            <a href="{% url 'customer_outstanding_excel' customer_id=customer_id %}" target="_blank" class="btn btn-success">Excel</a>
+                            <a href="{% url 'export_customer_outstanding' customer_id=customer_id %}" target="_blank" class="btn btn-success">Excel</a>
                             <a href="{% url 'print_customer_outstandings' customer_id=customer_id %}" target="_blank" class="btn btn-primary">Print</a>
                         </div>
                     </div>

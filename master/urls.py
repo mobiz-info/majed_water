@@ -54,6 +54,9 @@ urlpatterns = [
     path('terms-and-conditions/edit/<uuid:pk>/', terms_and_conditions_edit, name='terms_and_conditions_edit'),
     path('terms-and-conditions/delete/<uuid:pk>/', terms_and_conditions_delete, name='terms_and_conditions_delete'),
     
+    path('amount-change-customer-list/', AmountChangesCustomersList.as_view(), name='amount_change_customer_list'),
+    path('amount-change-list/', AmountChangesList.as_view(), name='amount_change_list'),
+    
    ]
 
 

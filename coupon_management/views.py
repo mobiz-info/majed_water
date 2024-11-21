@@ -14,7 +14,7 @@ from client_management.models import *
 from competitor_analysis.forms import CompetitorAnalysisFilterForm
 from master.functions import generate_form_errors
 from product.models import Staff_Orders_details
-from .models import *
+from . models import *
 from .forms import  *
 from accounts.models import CustomUser, Customers
 from master.models import EmirateMaster, BranchMaster, RouteMaster
@@ -24,11 +24,31 @@ from django.views import View
 from datetime import datetime
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse, HttpResponse
-from accounts.views import log_activity
-from django.db.models import Count, Q
-
+from django.db.models import Q
 
 # Create your views here.
+# def increment_alphabetic_part(alphabetic_part):
+#     """Increment the alphabetic part (handles multi-character strings)."""
+#     if not alphabetic_part:
+#         return "A"
+    
+#     alphabetic_list = list(alphabetic_part)
+#     i = len(alphabetic_list) - 1
+
+#     # Traverse from the last character backward
+#     while i >= 0:
+#         if alphabetic_list[i] == "Z":
+#             alphabetic_list[i] = "A"  # Reset to 'A'
+#             i -= 1
+#         else:
+#             alphabetic_list[i] = chr(ord(alphabetic_list[i]) + 1)  # Increment
+#             break
+#     else:
+#         # If all characters are 'Z', add a new 'A' at the start
+#         alphabetic_list.insert(0, "A")
+
+#     return "".join(alphabetic_list)
+
 def get_next_coupon_bookno(request):
     coupon_type = request.GET.get("coupon_type")
     next_coupon_bookno = ""
@@ -36,54 +56,84 @@ def get_next_coupon_bookno(request):
     end_leaf_no = ""
     next_free_leaf_no = ""
     end_free_leaf_no = ""
-    
+
+    # Fetch free leaflets for the coupon type
+    coupon_type_freeleaf_count = CouponType.objects.get(pk=coupon_type).free_leaflets
+
+    # Retrieve the last coupon of the selected type
     last_coupon = NewCoupon.objects.filter(coupon_type__pk=coupon_type)
     if last_coupon.exists():
         last_coupon = last_coupon.latest("created_date")
-        # last_coupon_bookno = last_coupon.book_num
-        next_coupon_bookno = int(last_coupon.book_num) + 1
+        last_coupon_bookno = last_coupon.book_num
 
-        # Split the alphanumeric book number into alphabetic and numeric parts
-        # match = re.match(r"([a-zA-Z]+)(\d+)", last_coupon_bookno)
-        # if not match:
-        #     raise ValueError("Invalid book number format")
+        # Match and separate alphabetic and numeric parts of the book number
+        match = re.match(r"([a-zA-Z]*)(\d+)", last_coupon_bookno)
+        if match:
+            alphabetic_part, numeric_part = match.groups()
 
-        # alphabetic_part, numeric_part = match.groups()
-        # next_numeric_part = int(numeric_part) + 1
-        # next_coupon_bookno = f"{alphabetic_part}{next_numeric_part}"
-        
-        if (leaflet:=CouponLeaflet.objects.filter(coupon=last_coupon)).exists():
+            # Increment both parts
+            next_numeric_part = int(numeric_part) + 1
+            updated_alphabetic_part = alphabetic_part
+            next_coupon_bookno = f"{updated_alphabetic_part}{next_numeric_part}"
+        else:
+            # Fallback for purely numeric book numbers
+            next_coupon_bookno = str(int(last_coupon_bookno) + 1)
+
+        # Handle leaflet numbers
+        if (leaflet := CouponLeaflet.objects.filter(coupon=last_coupon)).exists():
             last_leaf_number = leaflet.latest("created_date").leaflet_name
-            
-            # Split the alphanumeric leaflet number into alphabetic and numeric parts
-            # match = re.match(r"([a-zA-Z]+)(\d+)", last_leaf_name)
-            # if not match:
-            #     raise ValueError("Invalid leaf number format")
 
-            # leaf_alphabetic_part, leaf_name_part = match.groups()
-            next_leaf_no = int(last_leaf_number) + 1
-            end_leaf_no = next_leaf_no + int(last_coupon.valuable_leaflets) - 1
-            
-            # next_leaf_no = f"{leaf_alphabetic_part}{leaf_next_numeric_part}"
-            # end_leaf_no = f"{leaf_alphabetic_part}{leaf_last_numeric_part}"
-            
-            if (freeleafs:=FreeLeaflet.objects.filter(coupon=last_coupon)).exists():
-                last_free_leaf_number = freeleafs.latest("created_date").leaflet_name
-                
-                # Split the alphanumeric leaflet number into alphabetic and numeric parts
-                # match = re.match(r"([a-zA-Z]+)(\d+)", last_free_leaf_name)
-                # if not match:
-                #     raise ValueError("Invalid leaf number format")
-
-                # free_leaf_alphabetic_part, free_leaf_name_part = match.groups()
-                free_leaf_next_number = int(last_free_leaf_number) + 1
-                if int(last_coupon.free_leaflets) > 1:
-                    free_leaf_last_number = free_leaf_next_number + int(last_coupon.free_leaflets) - 1
+            if not last_leaf_number:  # Handle empty or None cases
+                next_leaf_no = "1"  # Start with a default value if there are no prior leaflets
+                end_leaf_no = str(int(next_leaf_no) + int(last_coupon.valuable_leaflets) - 1)
+            else:
+                # Match and separate alphabetic and numeric parts of the leaflet number
+                match = re.match(r"([a-zA-Z]*)(\d+)", last_leaf_number)
+                if match:
+                    leaf_alphabetic_part, leaf_name_part = match.groups()
+                    next_leaf_number = int(leaf_name_part) + 1
+                    end_leaf_number = next_leaf_number + int(last_coupon.valuable_leaflets) - 1
+                    next_leaf_no = f"{leaf_alphabetic_part}{next_leaf_number}"
+                    end_leaf_no = f"{leaf_alphabetic_part}{end_leaf_number}"
                 else:
-                    free_leaf_last_number = free_leaf_next_number
-                
-                next_free_leaf_no = f"{free_leaf_next_number}"
-                end_free_leaf_no = f"{free_leaf_last_number}"
+                    try:
+                        # Fallback for purely numeric leaflet numbers
+                        next_leaf_number = int(last_leaf_number) + 1
+                        end_leaf_number = next_leaf_number + int(last_coupon.valuable_leaflets) - 1
+                        next_leaf_no = str(next_leaf_number)
+                        end_leaf_no = str(end_leaf_number)
+                    except ValueError:
+                        # Fallback if last_leaf_number is invalid or unexpected
+                        next_leaf_no = "1"
+                        end_leaf_no = str(int(next_leaf_no) + int(last_coupon.valuable_leaflets) - 1)
+
+        # Handle free leaflet numbers
+        if (free_leaflet := FreeLeaflet.objects.filter(coupon=last_coupon)).exists():
+            last_free_leaf_number = free_leaflet.latest("created_date").leaflet_name
+
+            if not last_free_leaf_number:  # Handle empty or None cases for free leaflets
+                next_free_leaf_no = "1"  # Start with a default value if there are no prior free leaflets
+                end_free_leaf_no = str(int(next_free_leaf_no) + int(coupon_type_freeleaf_count) - 1)
+            else:
+                # Match and separate alphabetic and numeric parts of the free leaflet number
+                match = re.match(r"([a-zA-Z]*)(\d+)", last_free_leaf_number)
+                if match:
+                    free_leaf_alphabetic_part, free_leaf_name_part = match.groups()
+                    next_free_leaf_number = int(free_leaf_name_part) + 1
+                    end_free_leaf_number = next_free_leaf_number + int(coupon_type_freeleaf_count) - 1
+                    next_free_leaf_no = f"{free_leaf_alphabetic_part}{next_free_leaf_number}"
+                    end_free_leaf_no = f"{free_leaf_alphabetic_part}{end_free_leaf_number}"
+                else:
+                    try:
+                        # Fallback for purely numeric free leaflet numbers
+                        next_free_leaf_number = int(last_free_leaf_number) + 1
+                        end_free_leaf_number = next_free_leaf_number + int(coupon_type_freeleaf_count) - 1
+                        next_free_leaf_no = str(next_free_leaf_number)
+                        end_free_leaf_no = str(end_free_leaf_number)
+                    except ValueError:
+                        # Fallback if last_free_leaf_number is invalid or unexpected
+                        next_free_leaf_no = "1"
+                        end_free_leaf_no = str(int(next_free_leaf_no) + int(coupon_type_freeleaf_count) - 1)
 
     data = {
         'next_coupon_bookno': next_coupon_bookno,
@@ -91,7 +141,8 @@ def get_next_coupon_bookno(request):
         "end_leaf_no": end_leaf_no,
         "next_free_leaf_no": next_free_leaf_no,
         "end_free_leaf_no": end_free_leaf_no,
-        }
+        "coupon_type_freeleaf_count": coupon_type_freeleaf_count
+    }
     return JsonResponse(data, safe=False)
 
 
@@ -230,22 +281,22 @@ def create_Newcoupon(request):
                     created_by=request.user.id,
                     created_date=datetime.now(),
                 )
-                
-            for f in free_leafs.split(', '):
-                FreeLeaflet.objects.create(
-                    coupon=data,
-                    leaflet_number=data.free_leaflets,
-                    leaflet_name=f,
-                    created_by=request.user.id,
-                    created_date=datetime.now(),
-                )
+            
+            if int(data.free_leaflets) > 0:
+                for f in free_leafs.split(', '):
+                    FreeLeaflet.objects.create(
+                        coupon=data,
+                        leaflet_number=data.free_leaflets,
+                        leaflet_name=f,
+                        created_by=request.user.id,
+                        created_date=datetime.now(),
+                    )
             # Create CouponStock instance
             CouponStock.objects.create(
                 couponbook=data, 
                 coupon_stock='company', 
                 created_by=str(request.user.id)
                 )
-            
             product_instance=ProdutItemMaster.objects.get(product_name=data.coupon_type.coupon_type_name)
             if (stock_intances:=ProductStock.objects.filter(product_name=product_instance,branch=branch)).exists():
                 stock_intance = stock_intances.first()
@@ -572,7 +623,6 @@ def customer_stock_pdf(request):
         return HttpResponse('No customer stock data available.')
     
 
-
 def redeemed_history(request):
     filter_data = {}
     query = request.GET.get("q", "").strip()  # Get the search query
@@ -689,8 +739,6 @@ def print_redeemed_history(request):
     }
 
     return render(request, 'coupon_management/print_redeemed_history.html', context)
-
-
 def coupon_recharge_list(request):
     # Get start and end dates from request parameters if available
     start_date = request.GET.get('start_date')
@@ -735,5 +783,3 @@ def coupon_recharge_list(request):
 }
 
     return render(request,'coupon_management/coupon_recharge_list.html', context)
-
-

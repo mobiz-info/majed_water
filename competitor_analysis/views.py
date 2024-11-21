@@ -16,7 +16,6 @@ from .serializers import CompetitorAnalysisSerializer
 from rest_framework import viewsets
 from .models import Competitor
 from .serializers import CompetitorSerializer
-from accounts.views import log_activity
 
 class CompetitorFormView(View):
     template_name = 'competitor_analysis/add_competitor.html'

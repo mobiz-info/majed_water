@@ -29,7 +29,6 @@ import calendar
 from datetime import date, timedelta
 from django.db.models import Max
 from apiservices.notification import *
-from accounts.views import log_activity
 
 
 
@@ -188,37 +187,7 @@ class requestType(View):
 
         context = {'user_li': user_li, 'route_li': route_li}
         return render(request, self.template_name, context)
-
-
-class new_customer_request(View):
-    template_name = 'customer_care/new_request.html'
-
-    def get(self, request, *args, **kwargs):
-        # Retrieve the query parameter
-        query = request.GET.get("q")
-        route_filter = request.GET.get('route_name')
-        # Start with all customers
-        user_li = CustomerOrders.objects.all()
-
-        # Apply filters if they exist
-        if query:
-            user_li = user_li.filter(
-                Q(customer_name__icontains=query) |
-                Q(mobile_no__icontains=query) |
-                Q(routes__route_name__icontains=query) |
-                Q(location__location_name__icontains=query) |
-                Q(building_name__icontains=query)
-            )
-
-        if route_filter:
-            user_li = user_li.filter(routes__route_name=route_filter)
-
-        # Get all route names for the dropdown
-        route_li = RouteMaster.objects.all()
-
-        context = {'user_li': user_li, 'route_li': route_li}
-        return render(request, self.template_name, context)
-        
+    
 
 class new_customer_request(View):
     template_name = 'customer_care/new_request.html'
@@ -566,6 +535,25 @@ class Coupon_Purchse_Create(View):
                 data.customer = id_customer
                 data.created_by = str(request.user.id)
                 data.save()
+                
+                # Calculate the number of leaflets purchased
+                no_of_leaflets = data.number_of_books  # Assuming `no_of_leaflets` is a field in your form/model
+                
+                # Update total leaflets count for the customer
+                total_leaflets = CouponLeaflet.objects.filter(customer=id_customer).count()  # Assuming this is the correct way to get the total leaflets
+
+                # Send notification
+                try:
+                    notification_body = (
+                        f'Thank you for purchasing the coupon book. '
+                        f'Number of leaflets: {no_of_leaflets}. '
+                        f'Your total leaflets count is {total_leaflets}.'
+                    )
+                    notification(id_customer.user_id.pk, "Coupon Purchase", notification_body, "Sanawatercustomer")
+                except Exception as e:
+                    print(f"Notification error: {e}")
+                    messages.error(request, f'Error sending notification: {e}', 'alert-danger')
+
                 messages.success(request, 'Coupon purchased Successfully .', 'alert-success')
                 return redirect('requestType')
             else:
@@ -737,8 +725,8 @@ class NewRequestHome(View):
                     sales_man = customer.sales_staff
                     try:
                         salesman_body = f'A new request has been created. for {customer.customer_name}'
-                        notification(sales_man.pk, "New Water Request", salesman_body, "Nationalwaterfcm")
-                        notification(customer.user_id.pk, "New Water Request", "Your Request Created Succesfull.", "Nationalwatercustomer")
+                        notification(sales_man.pk, "New Water Request", salesman_body, "sanawater")
+                        notification(customer.user_id.pk, "New Water Request", "Your Request Created Succesfull.", "sanawater")
                     except CustomUser.DoesNotExist:
                         messages.error(request, 'Salesman does not exist.', 'alert-danger')
                     except Send_Notification.DoesNotExist:

@@ -109,15 +109,14 @@
                                         <tr>
                                             <th scope="col" style="text-align:center;">Product Name</th>
                                             <th scope="col" style="text-align:center;">Opening Stock</th>
-                                            <th scope="col" style="text-align:center;">Requested Stock</th>
                                             <th scope="col" style="text-align:center;">Issued</th>
+                                            <th scope="col" style="text-align:center;">Net Load</th>
                                             <th scope="col" style="text-align:center;">Sold</th>
                                             <th scope="col" style="text-align:center;">FOC</th>
                                             <th scope="col" style="text-align:center;">Returned</th>
-                                            <th scope="col" style="text-align:center;">Offload</th>
+                                            <th scope="col" style="text-align:center;">Damage Bottle</th>
                                             <th scope="col" style="text-align:center;">Empty Bottle</th>
-                                            <th scope="col" style="text-align:center;">Fresh Stock</th>
-                                            <th scope="col" style="text-align:center;">Closing</th>
+                                            <th scope="col" style="text-align:center;">Closing Stock</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -126,14 +125,13 @@
                                         <tr>
                                             <td style="text-align:center;">{{van_data.product.product_name}}</td>
                                             <td style="text-align:center;">{{van_data.opening_count}}</td>
-                                            <td style="text-align:center;">{{stock_details.requested_count}}</td>
                                             <td style="text-align:center;">{{stock_details.issued_count}}</td>
+                                            <td style="text-align:center;">{{van_data.opening_count|add:stock_details.issued_count }}</td>
                                             <td style="text-align:center;">{{van_data.sold_count }}</td>
                                             <td style="text-align:center;">{{van_data.foc }}</td>
                                             <td style="text-align:center;">{{van_data.return_count}}</td>
-                                            <td style="text-align:center;">{{stock_details.offload_count}}</td>
+                                            <td style="text-align:center;">{{van_data.damage_count}}</td>
                                             <td style="text-align:center;">{{van_data.empty_can_count}}</td>
-                                            <td style="text-align:center;">{{stock_report_total}}</td>
                                             <td style="text-align:center;">{{van_data.closing_count}}</td>
                                         </tr>
                                         {% endfor %}

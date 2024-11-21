@@ -1,4 +1,4 @@
-from django.db.models import Sum, Value, DecimalField
+from django.db.models import Sum, Value, DecimalField, Q
 from decimal import Decimal
 from rest_framework import serializers
 #from . models import *
@@ -16,7 +16,7 @@ from van_management.serializers import *
 from customer_care.models import *
 from coupon_management.models import *
 from accounts.models import *
-from credit_note.models import *
+from credit_note.models import CreditNote
 from product.templatetags.purchase_template_tags import get_van_current_stock
 
 
@@ -112,10 +112,12 @@ class StaffOrderDetailsSerializers(serializers.ModelSerializer):
         fields = '__all__'
 class  CustomerCartItemsSerializer(serializers.ModelSerializer):
     product_id = serializers.SerializerMethodField()
+    product_name = serializers.SerializerMethodField() 
+   
     
     class Meta:
         model = CustomerCartItems
-        fields = ['id','product','quantity','price','total_amount','product_id']
+        fields = ['id','product_name','quantity','price','total_amount','product_id']
         read_only_fields = ['id','order_status','price','total_amount','product_id']
         
     def get_product_id(self, obj):
@@ -123,7 +125,8 @@ class  CustomerCartItemsSerializer(serializers.ModelSerializer):
         if obj.product:
             product_id = obj.product.pk
         return product_id
-        
+    def get_product_name(self,obj):
+        return obj.product.product_name    
         
 class  CustomerCartSerializer(serializers.ModelSerializer):
     items = serializers.SerializerMethodField()
@@ -390,12 +393,13 @@ class CouponLeafSerializer(serializers.ModelSerializer):
     class Meta:
         model = CouponLeaflet
         fields = ['couponleaflet_id', 'leaflet_number','leaflet_name','used']
-        read_only_fields = ['id']
+        read_only_fields = ['couponleaflet_id']
         
-class FreeLeafSerializer(serializers.ModelSerializer):
+class FreeLeafletSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = FreeLeaflet
-        fields = ['couponleaflet_id', 'leaflet_number', 'leaflet_name', 'used']
+        fields = ['couponleaflet_id', 'leaflet_number','leaflet_name','used']
         read_only_fields = ['couponleaflet_id']
 
 class SupplyItemCustomersSerializer(serializers.ModelSerializer):
@@ -403,10 +407,11 @@ class SupplyItemCustomersSerializer(serializers.ModelSerializer):
     pending_to_return = serializers.SerializerMethodField()
     coupon_details = serializers.SerializerMethodField()
     is_supplied = serializers.SerializerMethodField()
-
+    total_five_gallon_quantity = serializers.SerializerMethodField()
+    
     class Meta:
         model = Customers
-        fields = ['customer_id', 'customer_name', 'routes', 'sales_type', 'products', 'pending_to_return', 'coupon_details', 'is_supplied']
+        fields = ['customer_id', 'customer_name', 'routes', 'sales_type', 'products', 'pending_to_return', 'coupon_details', 'is_supplied','total_five_gallon_quantity',]
         
     def get_products(self, obj):
         products_data = {}
@@ -446,49 +451,60 @@ class SupplyItemCustomersSerializer(serializers.ModelSerializer):
         digital_coupons = 0
         manual_coupons = 0
         leafs = []
-
-        # Get the count of pending coupons from CustomerOutstandingReport
-        # if CustomerOutstandingReport.objects.filter(product_type="coupons", customer=obj).exists():
-        #     pending_coupons = CustomerOutstandingReport.objects.get(product_type="coupons", customer=obj).value
-
+        
+        # if CustomerOutstandingReport.objects.filter(product_type="coupons",customer=obj).exists() :
+        #     pending_coupons = CustomerOutstandingReport.objects.get(product_type="coupons",customer=obj).value
         pending_coupons_record = CustomerOutstandingReport.objects.filter(product_type="coupons", customer=obj).first()
         if pending_coupons_record:
             pending_coupons = int(pending_coupons_record.value or 0)
             
-        # Get the count of digital and manual coupons from CustomerCouponStock
-        if CustomerCouponStock.objects.filter(customer=obj).exists():
+        if CustomerCouponStock.objects.filter(customer=obj).exists() :
             customer_coupon_stock = CustomerCouponStock.objects.filter(customer=obj)
-
-            if (customer_coupon_stock_digital := customer_coupon_stock.filter(coupon_method="digital")).exists():
+            
+            if (customer_coupon_stock_digital:=customer_coupon_stock.filter(coupon_method="digital")).exists() :
                 digital_coupons = customer_coupon_stock_digital.aggregate(total_count=Sum('count'))['total_count']
-            if (customer_coupon_stock_manual := customer_coupon_stock.filter(coupon_method="manual")).exists():
+            if (customer_coupon_stock_manual:=customer_coupon_stock.filter(coupon_method="manual")).exists() :
                 manual_coupons = customer_coupon_stock_manual.aggregate(total_count=Sum('count'))['total_count']
-
-        # Retrieve CouponLeaflet instances
-        coupon_ids_queryset = CustomerCouponItems.objects.filter(customer_coupon__customer=obj).values_list('coupon__pk', flat=True)
-        coupon_leafs = CouponLeaflet.objects.filter(used=False, coupon__pk__in=list(coupon_ids_queryset)).order_by("leaflet_name")
-        coupon_leafs_data = CouponLeafSerializer(coupon_leafs, many=True).data
-
-        # Retrieve FreeLeaflet instances
-        free_leaflets = FreeLeaflet.objects.filter(used=False, coupon__pk__in=list(coupon_ids_queryset)).order_by("leaflet_name")
-        free_leaflets_data = FreeLeafSerializer(free_leaflets, many=True).data
-
-        # Combine both CouponLeaflet and FreeLeaflet instances
-        leafs = coupon_leafs_data + free_leaflets_data
-
+            
+            coupon_ids_queryset = CustomerCouponItems.objects.filter(customer_coupon__customer=obj).values_list('coupon__pk', flat=True)
+            
+            coupon_leafs = CouponLeaflet.objects.filter(used=False,coupon__pk__in=list(coupon_ids_queryset)).order_by("leaflet_name")
+            coupon_leafs_data = CouponLeafSerializer(coupon_leafs, many=True).data
+            
+            free_leafs = FreeLeaflet.objects.filter(used=False,coupon__pk__in=list(coupon_ids_queryset)).order_by("leaflet_name")
+            free_leafs_data = FreeLeafletSerializer(free_leafs, many=True).data
+            
+            leafs = coupon_leafs_data + free_leafs_data
+            
         return {
             'pending_coupons': pending_coupons,
             'digital_coupons': digital_coupons,
             'manual_coupons': manual_coupons,
-            'leafs': leafs,
+            'leafs' : leafs,   
         }
-
         
     def get_is_supplied(self,obj):
         status = False
         if CustomerSupply.objects.filter(customer=obj,created_date__date=datetime.today().date()).exists() :
             status = True
         return status
+    
+    def get_total_five_gallon_quantity(self, obj):
+       
+        try:
+            customer = Customers.objects.get(pk=obj.pk)
+            base_qty = customer.no_of_bottles_required
+        except Customers.DoesNotExist:
+            base_qty = 0
+
+        additional_requests = DiffBottlesModel.objects.filter(
+            delivery_date__date=date.today(),
+            customer__pk=obj.pk,
+            product_item__product_name="5 Gallon"
+        ).aggregate(total_additional=Sum('quantity_required'))['total_additional'] or 0
+
+        total_qty = base_qty + additional_requests
+        return total_qty
 
 class CustomerSupplySerializer(serializers.ModelSerializer):
     
@@ -504,7 +520,7 @@ class CustomerSupplyItemsSerializer(serializers.ModelSerializer):
         model = CustomerSupplyItems
         fields = ['id', 'customer_supply', 'product', 'quantity', 'amount']
         read_only_fields = ['id']
-
+        
 class CustomerSupplyStockSerializer(serializers.ModelSerializer):
     product = ProductSerializer()  
     customer = CustomersSerializer()  
@@ -549,7 +565,6 @@ class OutstandingCouponSerializer(serializers.ModelSerializer):
     class Meta:
         model = OutstandingAmount
         fields = '__all__'
-        
 class OutstandingAmountSerializer(serializers.ModelSerializer):
     custodycustomitems = CustodyCustomItemSerializer
     class Meta:
@@ -643,15 +658,16 @@ class CustomerOutstandingSerializer(serializers.ModelSerializer):
         fields = ['customer_id','customer_name','building_name','route_name','route_id','door_house_no','amount','empty_can','coupons']
     
     def get_amount(self,obj):
+        outstanding_amounts = 0
         date_str = self.context.get('date_str')
         outstanding_amounts = OutstandingAmount.objects.filter(customer_outstanding__customer=obj,customer_outstanding__created_date__date__lte=date_str).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
         collection_amount = CollectionPayment.objects.filter(customer=obj,created_date__date__lte=date_str).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
         
-        return outstanding_amounts - collection_amount
-        # if outstanding_amounts > collection_amount:
-        #     return outstanding_amounts - collection_amount
-        # else:
-        #     return collection_amount - outstanding_amounts
+        
+        if outstanding_amounts > collection_amount:
+            return outstanding_amounts - collection_amount
+        else:
+            return collection_amount - outstanding_amounts
     
     def get_empty_can(self,obj):
         date_str = self.context.get('date_str')
@@ -1103,6 +1119,7 @@ class NewSalesCollectionPaymentSerializer(serializers.ModelSerializer):
         fields = '__all__'
         
         
+        
 class CustomerCustodySerializer(serializers.Serializer):
     customer = serializers.SerializerMethodField() 
     agreement_no = serializers.SerializerMethodField() 
@@ -1178,7 +1195,6 @@ class CouponSupplyCountSerializer(serializers.ModelSerializer):
         
     def get_payment_type(self,obj):
         return obj.payment_type
-
 class Coupon_Sales_Serializer(serializers.ModelSerializer):
     coupon_method = serializers.CharField(source="customer_coupon.coupon_method", read_only=True)
     book_num = serializers.CharField(source="coupon.book_num", read_only=True)
@@ -1188,7 +1204,7 @@ class Coupon_Sales_Serializer(serializers.ModelSerializer):
     no_of_leaflets = serializers.CharField(source="coupon.no_of_leaflets", read_only=True)  # Ensure this is correct
     used_leaflets_count = serializers.SerializerMethodField()
     balance_coupons = serializers.SerializerMethodField()
-    per_leaf_rate = serializers.SerializerMethodField()  
+    per_leaf_rate = serializers.SerializerMethodField()  # New field
 
     amount_collected = serializers.CharField(source="customer_coupon.amount_recieved", read_only=True)
     balance = serializers.CharField(source="customer_coupon.balance", read_only=True)
@@ -1216,7 +1232,6 @@ class Coupon_Sales_Serializer(serializers.ModelSerializer):
             return None
         return None
 
-    
 class CustomerCouponCountsSerializer(serializers.Serializer):
     customer_name = serializers.CharField(max_length=250)
     building_name = serializers.CharField(max_length=250)
@@ -1384,7 +1399,6 @@ class VanProductSerializer(serializers.ModelSerializer):
         model = VanProductStock
         fields = ['id','product','created_date','opening_count','change_count','damage_count','empty_can_count','stock','return_count','requested_count','sold_count','closing_count','pending_count']
 
-
 class CouponConsumptionSerializer(serializers.ModelSerializer):
     customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
     custom_id = serializers.CharField(source='customer.custom_id', read_only=True)
@@ -1430,6 +1444,7 @@ class CouponConsumptionSerializer(serializers.ModelSerializer):
             used=False  # Filter where used is False
         ).count()
         return pending_leaflets
+
     
 class FreshCanStockSerializer(serializers.ModelSerializer):
     van = VanSerializer(read_only=True)
@@ -1534,6 +1549,7 @@ class FreshvsCouponCustomerSerializer(serializers.ModelSerializer):
         # print("pending_cans", pending_cans)
         
         return pending_cans.get('total_pending_cans', 0) or 0
+
 
 class  CustomerOrdersSerializer(serializers.ModelSerializer):
     
@@ -1822,6 +1838,7 @@ class StaffOrdersSerializer(serializers.ModelSerializer):
         except Exception:
             return 0
 
+
 class OrderDetailSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product_id.product_name')
     current_stock = serializers.SerializerMethodField()
@@ -1917,6 +1934,7 @@ class TotalCouponsSerializer(serializers.Serializer):
     address = serializers.CharField()
     total_digital_coupons_consumed = serializers.IntegerField()
     total_manual_coupons_consumed = serializers.IntegerField()
+ 
 class CouponStockSerializer(serializers.ModelSerializer):
     class Meta:
         model = CouponStock
@@ -2184,13 +2202,13 @@ class ProductTransferChoicesSerializer(serializers.Serializer):
 
     def get_product_transfer_to_choices(self, obj):
         return [{'value': key, 'display': value} for key, value in PRODUCT_TRANSFER_TO_CHOICES]
-
+        
 class ProductionDamageReasonSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductionDamageReason
         fields = ['id','reason']
- 
+        
 class ProductionDamageSerializer(serializers.ModelSerializer):
     created_date = serializers.DateTimeField(format="%Y-%m-%d")
 
@@ -2198,7 +2216,14 @@ class ProductionDamageSerializer(serializers.ModelSerializer):
         model = ProductionDamage
         fields = '__all__'
         
+class VanSaleDamageSerializer(serializers.ModelSerializer):
+    created_date = serializers.DateTimeField(format="%Y-%m-%d")
 
+    class Meta:
+        model = VanSaleDamage
+        fields = '__all__'
+        
+        
 class CustomerProductReturnSerializer(serializers.ModelSerializer):
     # created_date = serializers.DateTimeField(format="%Y-%m-%d")
 
@@ -2212,8 +2237,7 @@ class CustomerProductReplaceSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerProductReplace
         fields = ['customer','product','reason','quantity','note']
-        
-
+ 
     
 class CouponLeafletSerializer(serializers.ModelSerializer):
     class Meta:
@@ -2237,7 +2261,7 @@ class NewCouponSerializer(serializers.ModelSerializer):
         # Filter the leaflets to include only those that are used
         balance_leaflets = CouponLeaflet.objects.filter(coupon=obj,used=False)
         return CouponLeafletSerializer(balance_leaflets, many=True).data
-    
+
 
 class CreditCustomerSerializer(serializers.ModelSerializer):
     class Meta:
@@ -2245,14 +2269,12 @@ class CreditCustomerSerializer(serializers.ModelSerializer):
         fields = ['customer_name', 'sales_type']  
 
 class CreditNoteSerializer(serializers.ModelSerializer):
-    customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
-    customer_code = serializers.CharField(source='customer.custom_id', read_only=True) 
-    sales_type = serializers.CharField(source='customer.sales_type', read_only=True) 
+    customer = CreditCustomerSerializer()  
     class Meta:
         model = CreditNote
-        fields = ['created_date','credit_note_no', 'net_taxable', 'vat', 'amout_total', 'amout_recieved' ,'customer_name','customer_code','sales_type'] 
-       
-        
+        fields = ['created_date','credit_note_no', 'net_taxable', 'vat', 'amout_total', 'amout_recieved', 'customer'] 
+            
+ 
 class ProductSalesReportSerializer(serializers.ModelSerializer):
     cash_quantity = serializers.SerializerMethodField()
     credit_quantity = serializers.SerializerMethodField()
@@ -2268,7 +2290,7 @@ class ProductSalesReportSerializer(serializers.ModelSerializer):
         start_date = self.context.get('start_date')
         end_date = self.context.get('end_date')
         
-        cash_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gte=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved__gt=0).exclude(customer_supply__customer__sales_type="CASH COUPON")
+        cash_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gt=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved__gt=0).exclude(customer_supply__customer__sales_type="CASH COUPON")
         cash_total_quantity = cash_sales.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         return cash_total_quantity
 
@@ -2277,7 +2299,7 @@ class ProductSalesReportSerializer(serializers.ModelSerializer):
         start_date = self.context.get('start_date')
         end_date = self.context.get('end_date')
         
-        credit_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gte=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"])
+        credit_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gt=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved__lte=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"])
         credit_total_quantity = credit_sales.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         return credit_total_quantity
     
@@ -2295,10 +2317,10 @@ class ProductSalesReportSerializer(serializers.ModelSerializer):
         start_date = self.context.get('start_date')
         end_date = self.context.get('end_date')
         
-        cash_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gte=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved__gt=0).exclude(customer_supply__customer__sales_type="CASH COUPON")
+        cash_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gt=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved__gt=0).exclude(customer_supply__customer__sales_type="CASH COUPON")
         cash_total_quantity = cash_sales.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         
-        credit_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gte=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"])
+        credit_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gt=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__amount_recieved__lte=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"])
         credit_total_quantity = credit_sales.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         
         coupon_sales = CustomerSupplyItems.objects.filter(product=obj,customer_supply__created_date__date__gt=start_date,customer_supply__created_date__date__lte=end_date,customer_supply__salesman__pk=user_pk,customer_supply__customer__sales_type="CASH COUPON")
@@ -2316,6 +2338,7 @@ class SalesInvoiceSerializer(serializers.ModelSerializer):
         model = Invoice
         fields = ['created_date','invoice_no','reference_no','customer_name','invoice_type','customer_code','net_taxable','vat','discount','amout_total','amout_recieved']  
         
+         
         
 class CustomersSupplysSerializer(serializers.ModelSerializer):
     
@@ -2324,11 +2347,10 @@ class CustomersSupplysSerializer(serializers.ModelSerializer):
     supplied = serializers.SerializerMethodField()
     sales_mode = serializers.CharField(source='customer.sales_type')
     customer_code = serializers.SerializerMethodField() 
-    customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
     
     class Meta:
         model = CustomerSupply
-        fields = ['customer_name','customer_code', 'building_no', 'door_house_no', 'supplied', 'sales_mode']
+        fields = ['customer_code', 'building_no', 'door_house_no', 'supplied', 'sales_mode']
 
     def get_supplied(self, obj):
         coupon_products = CustomerSupplyItems.objects.filter(customer_supply=obj).exclude(customer_supply__customer__sales_type="CASH COUPON")
@@ -2336,53 +2358,38 @@ class CustomersSupplysSerializer(serializers.ModelSerializer):
         if coupon_products:
             return obj.get_total_supply_qty() 
         else:
-            # print("Couo")
+            print("Couo")
             return obj.total_coupon_recieved().get('manual_coupon', 0) + obj.total_coupon_recieved().get('digital_coupon', 0)
     
     def get_customer_code(self, obj):
         return obj.customer.custom_id
     
+
 class CustomersOutstandingAmountsSerializer(serializers.ModelSerializer):
-    mode = serializers.CharField(source='customer.sales_type', read_only=True)
-    invoice_number = serializers.SerializerMethodField()
+    customer_name = serializers.CharField(source='customer_outstanding.customer.customer_name', read_only=True)
+    mode = serializers.CharField(source='customer_outstanding.customer.sales_type', read_only=True)
+    invoice_number = serializers.CharField(source='customer_outstanding.invoice_no', read_only=True)
     building_room_no = serializers.SerializerMethodField()
-    amount = serializers.SerializerMethodField()
     collected_amount = serializers.SerializerMethodField()
     balance_amount = serializers.SerializerMethodField()
     
     class Meta:
-        model = Customers
+        model = OutstandingAmount
         fields = ['customer_name','building_room_no','invoice_number','mode','amount','collected_amount','balance_amount']
     
     def get_building_room_no(self, obj):
-        return f"{obj.building_name} {obj.door_house_no}"
-    
-    def get_amount(self, obj):
-        end_date = self.context.get('end_date')
-        return OutstandingAmount.objects.filter(customer_outstanding__customer=obj,customer_outstanding__created_date__date=end_date).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
-    
-    def get_invoice_number(self,obj):
-        end_date = self.context.get('end_date')
-        return ""
+        return f"{obj.customer_outstanding.customer.building_name} {obj.customer_outstanding.customer.door_house_no}"
         
     def get_collected_amount(self, obj):
-        end_date = self.context.get('end_date')
-        dialy_collections = CollectionPayment.objects.filter(customer=obj,created_date__date__lte=end_date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        dialy_collections = CollectionPayment.objects.filter(customer=obj.customer_outstanding.customer,created_date__date=obj.customer_outstanding.created_date.date()).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         
         return dialy_collections
     
     def get_balance_amount(self, obj):
-        end_date = self.context.get('end_date')
-        total_amount = OutstandingAmount.objects.filter(customer_outstanding__customer=obj,customer_outstanding__created_date__date=end_date).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
-        dialy_collections = CollectionPayment.objects.filter(customer=obj,created_date__date__lte=end_date).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
-        balance_amount = total_amount
-        
-        if total_amount != 0:
-            if total_amount > dialy_collections:
-               balance_amount = total_amount - dialy_collections
-            else:
-                balance_amount = dialy_collections - total_amount
+        dialy_collections = CollectionPayment.objects.filter(customer=obj.customer_outstanding.customer,created_date__date=obj.customer_outstanding.created_date.date()).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
+        balance_amount = max(obj.amount - dialy_collections, 0)
         return balance_amount
+    
     
 
 class CustomersOutstandingCouponSerializer(serializers.ModelSerializer):
@@ -2479,8 +2486,47 @@ class SalesmanSerializer(serializers.ModelSerializer):
     
 
 class CustomerRegistrationRequestSerializer(serializers.ModelSerializer):
-    
+    visit_schedule = serializers.JSONField()
+
     class Meta:
         model = CustomerRegistrationRequest
-        fields = ['id','name','phone_no','building_name','room_or_flat_no','location','emirate','status',"visit_schedule","no_of_bottles_required"]
-        read_only_field = ['id','status']
+        fields = [
+            'id', 'name', 'phone_no', 'building_name', 'room_or_flat_no',
+            'floor_no', 'email_id', 'no_of_5g_bottles_required', 
+            'visit_schedule', 'location', 'emirate', 'status'
+        ]
+        read_only_fields = ['id', 'status']
+
+    def validate_visit_schedule(self, value):
+        # Expected days of the week
+        days_of_week = {
+            "Monday": [],
+            "Tuesday": [],
+            "Wednesday": [],
+            "Thursday": [],
+            "Friday": [],
+            "Saturday": [],
+            "Sunday": []
+        }
+        
+        # Check if the input is valid
+        if not isinstance(value, dict) or 'days' not in value:
+            raise serializers.ValidationError("visit_schedule must be a dictionary with a 'days' key.")
+
+        # Define weeks for selected days
+        selected_days = value['days']
+        for day in selected_days:
+            if day not in days_of_week:
+                raise serializers.ValidationError(f"Invalid day: {day}")
+            days_of_week[day] = ["Week1", "Week2", "Week3", "Week4", "Week5"]
+
+        return days_of_week
+
+    def create(self, validated_data):
+        # This ensures that visit_schedule is saved in the transformed format
+        visit_schedule = validated_data.pop('visit_schedule', None)
+        instance = super().create(validated_data)
+        if visit_schedule:
+            instance.visit_schedule = visit_schedule
+            instance.save()
+        return instance

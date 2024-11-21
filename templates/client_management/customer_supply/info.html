@@ -38,7 +38,7 @@
                                 <th scope="col" class="text-center">Sl.No</th>
                                 <th scope="col" class="text-center">Product</th>
                                 <th scope="col" class="text-left">Quantity</th>
-                                <th scope="col" class="text-left">Amount</th>
+                                <th scope="col" class="text-right">Amount</th>
                                 {% comment %} <th scope="col" class="text-right">Actions</th> {% endcomment %}
                             </tr>
                             </thead>
@@ -49,8 +49,8 @@
                                 <tr>
                                     <td class="text-center">{{forloop.counter}}</td>
                                     <td class="text-left">{{instance.product.product_name}}</td>
-                                    <td class="text-center">{{instance.quantity}}</td>
-                                    <td class="text-center">{{instance.amount}}</td>
+                                    <td class="text-right">{{instance.quantity}}</td>
+                                    <td class="text-right">{{instance.amount}}</td>
                                     {% comment %} <td class="text-right">
                                         <div class="g-2">
                                             <a href="{% url 'edit_customer_supply' pk=instance.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Edit">
@@ -66,9 +66,42 @@
                                     </td> {% endcomment %}
                                 </tr>
                             {%endfor%}
+                            <tr>
+                                <th scope="row" colspan="3" class="text-end">Sub Total</th>
+                                <td class="text-end">{{supply.grand_total}}</td>
+                            </tr>
+                            <!-- end tr -->
+                            <tr>
+                                <th scope="row" colspan="3" class="border-0 text-end">
+                                    Discount :</th>
+                                <td class="border-0 text-end">- {{supply.discount}}</td>
+                            </tr>
+                            <!-- end tr -->
+                            <tr>
+                                <th scope="row" colspan="3" class="border-0 text-end">
+                                    Net Payeble :</th>
+                                <td class="border-0 text-end">{{supply.net_payable}}</td>
+                            </tr>
+                            <!-- end tr -->
+                            <tr>
+                                <th scope="row" colspan="3" class="border-0 text-end">
+                                    VAT</th>
+                                <td class="border-0 text-end">{{supply.vat}}%</td>
+                            </tr>
+                            <!-- end tr -->
+                            <tr>
+                                <th scope="row" colspan="3" class="border-0 text-end">Sub Total</th>
+                                <td class="border-0 text-end"><h4 class="m-0 fw-semibold">{{supply.subtotal}}</h4></td>
+                            </tr>
+                            <tr>
+                                <th scope="row" colspan="3" class="border-0 text-end">Amount Recieved</th>
+                                <td class="border-0 text-end"><h4 class="m-0 fw-semibold">{{supply.amount_recieved}}</h4></td>
+                            </tr>
                             </tbody>
                         </table>
                     </div>
+
+                    
                     {% get_pages %}
                     <div class="clearfix"></div>
                     <div class="row pagi my-3">

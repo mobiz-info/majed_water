@@ -143,7 +143,7 @@ class NewCoupon(models.Model):
     def coupon_status(self):
         coupon_status = CouponStock.objects.get(couponbook=self)
         return coupon_status.get_coupon_stock_display()
-    
+
     # def save_qr_code(self):
     #     qr = qrcode.QRCode(
     #         version=1,
@@ -181,7 +181,7 @@ class CouponLeaflet(models.Model):
         ordering = ('leaflet_number',)
 
     def __str__(self):
-        return f"{self.coupon.book_num} - Leaflet {self.leaflet_number}"
+        return f"{self.coupon.book_num} - Leaflet {self.leaflet_number} / {self.leaflet_name}"
 
     # def save_qr_code(self):
     #     qr = qrcode.QRCode(
@@ -228,8 +228,9 @@ class FreeLeaflet(models.Model):
         ordering = ('leaflet_number',)
 
     def __str__(self):
-        return f"{self.coupon.book_num} - Leaflet {self.leaflet_number}"
-
+        return f"{self.coupon.book_num} - Leaflet {self.leaflet_number} / {self.leaflet_name}"
+    
+    
 COUPON_STOCK_CHOICES = (
     ('company', 'Company'),
     ('driver', 'Driver'),

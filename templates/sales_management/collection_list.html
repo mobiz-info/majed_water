@@ -81,7 +81,6 @@
                                             <th scope="col" class="text-center">Collected Amount</th>
                                             <th scope="col" class="text-center">Action</th>
                                         </tr>
-
                                     </thead>
                                     <tbody>
                                         {% load el_pagination_tags %}
@@ -98,7 +97,7 @@
                                             <td style="text-align:left;">{{ instance.payment_method }}</td>
                                             <td style="text-align:center;">{{ instance.receipt_number }}</td>
                                             <td style="text-align:center;">{{ instance.total_amount }}</td>
-                                            <td style="text-align:center;">{{ instance.collected_amount }}</td>
+                                            <td style="text-align:center;">{{ instance.amount_received }}</td>
                                             <td>
                                                 <a aria-label="anchor" class="action-button remove btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete"
                                                     data-id="{{ instance.receipt_number }}" data-text="{{ confirm_delete_message }}" data-title="Are you sure?" 

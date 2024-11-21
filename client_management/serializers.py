@@ -1,3 +1,4 @@
+from accounts.models import CustomUser
 from rest_framework import serializers
 from .models import Vacation
 
@@ -9,4 +10,3 @@ class VacationSerializer(serializers.ModelSerializer):
     
     def get_customer_name(self, obj):
         return obj.customer.customer_name if obj.customer else None
-    

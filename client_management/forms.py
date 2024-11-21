@@ -364,7 +364,7 @@ class CustomerOutstandingForm(forms.ModelForm):
         fields = ['customer','product_type']
 
         widgets = {
-            'customer': forms.Select(attrs={'class': 'form-control selectpicker', 'data-live-searc':'true'}),
+            'customer': forms.Select(attrs={'class': 'form-control select2', 'data-live-searc':'true'}),
             'product_type': forms.Select(attrs={'class': 'form-control'}),
         }
         
@@ -424,7 +424,6 @@ class Create_NonVisitReasonForm(forms.ModelForm):
         widgets = {
             'reason_text': forms.TextInput(attrs={'class': 'form-control','placeholder': 'Enter reason text here'}),
         }
-        
         
         
 class UploadOutstandingForm(forms.Form):

@@ -1,0 +1,111 @@
+import random
+from datetime import datetime
+
+from django.utils import timezone
+from django.core.management.base import BaseCommand
+from django.db.models import Sum, Value, DecimalField, Min
+
+from accounts.models import CustomUser, Customers
+from client_management.models import CustomerOutstanding, OutstandingAmount
+from invoice_management.models import Invoice, InvoiceItems
+from product.models import ProdutItemMaster
+
+class Command(BaseCommand):
+    help = 'Generate usernames and passwords for customers based on their name and mobile number'
+
+    def handle(self, *args, **kwargs):
+        date = datetime.strptime("2024-10-11", '%Y-%m-%d')
+        oustandings = CustomerOutstanding.objects.filter(created_date__date=date)
+        
+        for oustanding in oustandings:
+            oustanding_amount = OutstandingAmount.objects.filter(customer_outstanding=oustanding).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+            invoice = Invoice.objects.filter(invoice_no=oustanding.invoice_no,customer=oustanding.customer,amout_total=oustanding_amount)
+            
+            date_part = date.strftime('%Y%m%d')
+            if (invoice_last_no:=Invoice.objects.filter(is_deleted=False)).exists():
+                invoice_last_no = invoice_last_no.latest('created_date')
+                last_invoice_number = invoice_last_no.invoice_no
+
+                # Validate the format of the last invoice number
+                parts = last_invoice_number.split('-')
+                if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
+                    prefix, old_date_part, number_part = parts
+                    new_number_part = int(number_part) + 1
+                    invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+                else:
+                    # If the last invoice number is not in the expected format, generate a new one
+                    random_part = str(random.randint(1000, 9999))
+                    invoice_number = f'WTR-{date_part}-{random_part}'
+            else:
+                random_part = str(random.randint(1000, 9999))
+                invoice_number = f'WTR-{date_part}-{random_part}'
+            
+            invoice.update(
+                invoice_no=invoice_number
+            )
+            
+            for i in invoice:
+                if i.amout_total == i.amout_recieved:
+                    i.invoice_status = "paid"
+                else:
+                    i.invoice_status = "non_paid"
+                i.save()
+            
+            oustanding.invoice_no = invoice_number
+            oustanding.save()
+            
+            
+            # # try:
+            # date_part = date.strftime('%Y%m%d')
+            # if (invoice_last_no:=Invoice.objects.filter(is_deleted=False)).exists():
+            #     invoice_last_no = invoice_last_no.latest('created_date')
+            #     last_invoice_number = invoice_last_no.invoice_no
+
+            #     # Validate the format of the last invoice number
+            #     parts = last_invoice_number.split('-')
+            #     if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
+            #         prefix, old_date_part, number_part = parts
+            #         new_number_part = int(number_part) + 1
+            #         invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+            #     else:
+            #         # If the last invoice number is not in the expected format, generate a new one
+            #         random_part = str(random.randint(1000, 9999))
+            #         invoice_number = f'WTR-{date_part}-{random_part}'
+            # else:
+            #     random_part = str(random.randint(1000, 9999))
+            #     invoice_number = f'WTR-{date_part}-{random_part}'
+            
+            # # Create the invoice
+            # invoice = Invoice.objects.create(
+            #     invoice_no=invoice_number,
+            #     created_date=oustanding.created_date,
+            #     net_taxable=oustanding_amount,
+            #     vat=0,
+            #     discount=0,
+            #     amout_total=oustanding_amount,
+            #     amout_recieved=0,
+            #     customer=oustanding.customer,
+            #     reference_no=f"ouststanding :{oustanding.customer.custom_id}"
+            # )
+            # oustanding.invoice_no = invoice.invoice_no
+            # oustanding.save()
+            
+            # if oustanding.customer.sales_type == "CREDIT":
+            #     invoice.invoice_type = "credit_invoive"
+            #     invoice.save()
+
+            # # Create invoice items
+            # item = ProdutItemMaster.objects.get(product_name="5 Gallon")
+            # water_rate = oustanding.customer.get_water_rate()
+            # InvoiceItems.objects.create(
+            #     category=item.category,
+            #     product_items=item,
+            #     qty=0,
+            #     rate=water_rate,
+            #     invoice=invoice,
+            #     remarks='reference no : ' + invoice.reference_no
+            # )
+
+            self.stdout.write(self.style.SUCCESS(f'Successfully updated username and password for customer ID {oustanding.customer.customer_id}'))
+            # except Exception as e:
+            #     self.stdout.write(self.style.ERROR(f'Error updating customer ID {oustanding.customer.customer_id}: {e}'))

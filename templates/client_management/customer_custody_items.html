@@ -51,15 +51,16 @@
                     
                     <div class="card-body">
                         <table id="datatable-basic" class="table table-bordered text-wrap" style="width: 100%">
-                        <thead>
-                            <tr>
-                                <th>Item Name</th>
-                                <th>Date Of Issue</th>
-                                <th>Deposit/Non Deposit</th>
-                                <th>Serial Number</th>
-                                <th>Form No</th>
-                            </tr>
-                        </thead>
+                            <thead>
+                                <tr>
+                                    <th>Item Name</th>
+                                    <th>Date Of Issue</th>
+                                    <th>Deposit/Non Deposit</th>
+                                    <th>Serial Number</th>
+                                    <th>Form No</th>
+                                    <th>Quantity</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 {% for custody_item_data in custody_items_with_products %}
                                     {% for item in custody_item_data.custody_custom_items %}
@@ -69,6 +70,7 @@
                                             <td>{{ custody_item_data.custody_custom.deposit_type }}</td>
                                             <td>{{ item.serialnumber }}</td>
                                             <td>{{ custody_item_data.custody_custom.agreement_no }}</td>
+                                            <td>{{ item.quantity }}</td>
                                         </tr>
                                     {% endfor %}
                                 {% endfor %}

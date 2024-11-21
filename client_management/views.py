@@ -3,16 +3,14 @@ import uuid
 import json
 import datetime
 import openpyxl
-
 from apiservices.views import delete_coupon_recharge
-from client_management.templatetags.client_templatetags import get_outstanding_amount, get_outstanding_bottles, get_outstanding_coupons
 from customer_care.models import DiffBottlesModel
 from invoice_management.models import Invoice, InvoiceDailyCollection, InvoiceItems
 from van_management.models import *
 from decimal import Decimal
 
 from django.views import View
-from django.db.models import Q, Sum, Count, DecimalField, F
+from django.db.models import Q, Sum, Count, DecimalField, F, IntegerField, Value
 from django.urls import reverse
 from django.contrib import messages
 from django.db import transaction, IntegrityError
@@ -28,19 +26,17 @@ from accounts.models import *
 from master.functions import generate_form_errors
 from master.models import RouteMaster, LocationMaster
 from van_management.models import Van, Van_Routes
-# from sales_management.forms import CustomerCustodyForm, ProductForm
+from sales_management.models import CollectionItems
 from rest_framework import status
 
 from django.template.loader import get_template
 from xhtml2pdf import pisa
 from openpyxl import Workbook
 from openpyxl.styles import Alignment
-from io import BytesIO
-
 from competitor_analysis.forms import CompetitorAnalysisFilterForm
 from django.db.models import Q
+import openpyxl
 
-from van_management.models import Van, Van_Routes
 from django.core.files.storage import default_storage
 import os
 from django.conf import settings
@@ -49,8 +45,7 @@ from datetime import datetime
 from django.utils import timezone
 from apiservices.notification import *
 from accounts.views import log_activity
-from van_management.models import Van, Van_Routes
-from sales_management.models import CollectionItems
+from client_management.templatetags.client_templatetags import get_outstanding_amount, get_outstanding_bottles, get_outstanding_coupons
 
 
 def customer_custody_item(request,customer_id):
@@ -111,10 +106,7 @@ def customer_custody_item(request,customer_id):
                                 five_gallon_water_charge=item.five_gallon_water_charge,
                                 amount_collected=custody_custom_data.amount_collected
                             )
-                    log_activity(
-                        created_by=request.user,
-                        description=f"Custody item(s) created for customer {customer_instance.customer_id}."
-                    )      
+                        
                     response_data = {
                         "status": "true",
                         "title": "Successfully Created",
@@ -123,10 +115,7 @@ def customer_custody_item(request,customer_id):
                         "redirect_url": reverse('customers')
                     }
             except IntegrityError as e:
-                log_activity(
-                    created_by=request.user,
-                    description=f"IntegrityError while creating custody item for customer {customer_instance.customer_id}: {str(e)}"
-                )
+                # Handle database integrity error
                 response_data = {
                     "status": "false",
                     "title": "Failed",
@@ -288,10 +277,6 @@ def get_custody_items(request):
 
                    ite = {'custody_item_id':custody_item_id,'product_id': product_id, 'product_name': product_name,'product_rate':product_rate,'product_count':product_count}
                    price_list.append(ite)
-                log_activity(
-                    created_by=request.user,
-                    description=f"Custody items retrieved for customer {customer_data.customer_id}."
-                )
             dat = {'price_list': price_list}   
         return JsonResponse(dat)
     
@@ -302,10 +287,6 @@ def vacation_list(request):
     template = 'client_management/vacation_list.html'
     Vacation.objects.filter(end_date__lt= date.today()).delete()
     vacation = Vacation.objects.all()
-    log_activity(
-            created_by=request.user,
-            description="Retrieved the current vacation list."
-        )
     context = {'vacation':vacation}
     return render(request, template, context)
 
@@ -313,10 +294,6 @@ class RouteSelection(View):
     def get(self, request):
         template = 'client_management/select_route.html'
         routes = RouteMaster.objects.all()
-        log_activity(
-                created_by=request.user,
-                description="Retrieved the list of routes for selection."
-            )
         return render(request, template, {'routes': routes}) 
     
 class Vacation_Add(View):
@@ -335,10 +312,6 @@ class Vacation_Add(View):
                 Q(location__location_name__icontains=search_query) |
                 Q(building_name__icontains=search_query) 
             )
-        log_activity(
-            created_by=request.user,
-            description=f"Performed search for query: {search_query} on route: {selected_route}"
-        )
         return render(request, template, {'form': form, 'search_form': search_form, 'customers': customers, 'selected_route':selected_route})
 
     def post(self, request):
@@ -346,10 +319,6 @@ class Vacation_Add(View):
         form = Vacation_Add_Form(request.POST)
         if form.is_valid():
             form.save()
-            log_activity(
-                    created_by=request.user,
-                    description="Added a new vacation."
-                )
             return redirect(vacation_list)
         return render(request, template, {'form': form})
     
@@ -358,10 +327,6 @@ class Vacation_Edit(View):
     def get(self, request, vacation_id):
         vacation = Vacation.objects.get(vacation_id=vacation_id)
         form = Vacation_Edit_Form(instance=vacation)
-        log_activity(
-                created_by=request.user,
-                description=f"Accessed edit page for vacation ID: {vacation_id}"
-            )
         return render(request, self.template, {'form': form, 'vacation': vacation})
 
     def post(self, request, vacation_id):
@@ -369,10 +334,6 @@ class Vacation_Edit(View):
         form = Vacation_Edit_Form(request.POST, instance=vacation)
         if form.is_valid():
             form.save()
-            log_activity(
-                    created_by=request.user,
-                    description=f"Successfully edited vacation ID: {vacation_id}"
-                )
             return redirect(vacation_list)
         return render(request, self.template, {'form': form, 'vacation': vacation})
 
@@ -385,10 +346,6 @@ class Vacation_Delete(View):
     def post(self, request, vacation_id):
         vacation = Vacation.objects.get(vacation_id=vacation_id)
         vacation.delete()
-        log_activity(
-                created_by=request.user,
-                description=f"Deleted vacation ID: {vacation_id}"
-            )
         return redirect(vacation_list)
     
 
@@ -452,17 +409,12 @@ class CustomerCustodyList(View):
             }
         }
         return render(request, self.template_name, context)
-
 class AddCustodyItems(View):
     template_name = 'client_management/custody_item/add_custody_items.html'
     form_class = CustodyCustomItemForm
 
     def get(self, request):
         form = self.form_class()
-        log_activity(
-            created_by=request.user,
-            description="Accessed add custody items page"
-        )
         return render(request, self.template_name, {'form': form})
 
     def post(self, request):
@@ -477,15 +429,7 @@ class AddCustodyItems(View):
                 instance.amount = None
             instance.save()
             messages.success(request, 'Entry created successfully!')
-            log_activity(
-                created_by=request.user,
-                description=f"Added custody item with ID: {instance.id}"
-            )
             return redirect('add_custody_list')
-        log_activity(
-            created_by=request.user,
-            description="Failed to add custody item due to form validation errors"
-        )
         return render(request, self.template_name, {'form': form})
 
         
@@ -494,10 +438,7 @@ class AddCustodyList(View):
 
     def get(self, request):
         get_addedlist = CustodyCustomItems.objects.all()
-        log_activity(
-            created_by=request.user,
-            description="Accessed custody items list"
-        )
+        print(get_addedlist,'geddedlist')
         return render(request, self.template_name, {'get_addedlist': get_addedlist })
     
 class EditCustodyItem(View):
@@ -505,10 +446,7 @@ class EditCustodyItem(View):
 
     def get(self, request):
         get_addedlist = CustodyCustomItems.objects.all()
-        log_activity(
-            created_by=request.user,
-            description="Accessed edit custody item list"
-        )
+        print(get_addedlist,'geddedlist')
         return render(request, self.template_name, {'get_addedlist': get_addedlist })
 
 
@@ -520,16 +458,10 @@ class PulloutListView(View):
         # form = CustodyItemFilterForm(request.GET)
     def get(self, request, pk):
         customer = Customers.objects.get(customer_id=pk)
-        log_activity(
-            created_by=request.user,
-            description=f"Accessed pullout list for customer: {customer.customer_name} (ID: {pk})"
-        )
+        print('customer',customer)
         custody_items = CustodyCustomItems.objects.filter(customer=customer)
         # custody_pullout_list = Customer_Custody_Items.objects.all()
-        log_activity(
-            created_by=request.user,
-            description=f"Retrieved {custody_items.count()} custody items for customer: {customer.customer_name} (ID: {pk})"
-        )
+        print("custody_pullout_list",list(custody_items))
         return render(request, self.template_name, {'custody_items': custody_items,'customer': customer})
     
 
@@ -590,6 +522,10 @@ def customer_supply_list(request):
 
     return render(request, 'client_management/customer_supply/list.html', context)
 
+def view_invoice(request, invoice_no):
+    invoice = get_object_or_404(Invoice, invoice_no=invoice_no)  
+    return render(request, 'client_management/view_invoice.html', {'invoice': invoice})
+
 @login_required
 def customer_supply_info(request,pk):
     """
@@ -598,8 +534,8 @@ def customer_supply_info(request,pk):
     :return: CustomerSupplys Info view
     """
     
-    instances = CustomerSupplyItems.objects.filter(customer_supply=pk).order_by("-customer_supply__created_date")
-         
+    supply = CustomerSupply.objects.get(pk=pk)
+    instances = CustomerSupplyItems.objects.filter(customer_supply=supply).order_by("-customer_supply__created_date")
     # date_range = ""
     # date_range = request.GET.get('date_range')
     # # print(date_range)
@@ -623,6 +559,7 @@ def customer_supply_info(request,pk):
     #     filter_data['q'] = query
     
     context = {
+        'supply': supply,
         'instances': instances,
         'page_name' : 'Customer Supply List',
         'page_title' : 'Customer Supply List',
@@ -632,10 +569,7 @@ def customer_supply_info(request,pk):
         'is_customer_supply': True,
         'is_need_datetime_picker': True,
     }
-    log_activity(
-        created_by=request.user,
-        description=f"Accessed Customer Supply Info view for supply ID: {instances.customer_supply.customer.customer_name}"
-    )
+
     return render(request, 'client_management/customer_supply/info.html', context)
 
 @login_required
@@ -673,10 +607,7 @@ def customer_supply_customers(request):
         'customer_supply_page': True,
         'is_need_datetime_picker': True
     }
-    log_activity(
-        created_by=request.user,
-        description="Accessed Customer Supply Customers view"
-    )
+    
     return render(request,'client_management/customer_supply/customer_list.html',context)
 
 def create_customer_supply(request,pk):
@@ -703,11 +634,6 @@ def create_customer_supply(request,pk):
                     customer_suply_form_instance.created_date = supply_date
                     customer_suply_form_instance.save()
                     
-                    log_activity(
-                        created_by=customer_suply_form_instance.created_by,
-                        description=f"Customer Supply created for Customer  {customer_instance.customer_name} on {supply_date}"
-                    )
-                    
                     total_fivegallon_qty = 0
                     van = Van.objects.get(salesman=customer_suply_form_instance.customer.sales_staff)
                     
@@ -715,12 +641,7 @@ def create_customer_supply(request,pk):
                         item_data = form.save(commit=False)
                         item_data.customer_supply = customer_suply_form_instance  # Associate with the customer supply instance
                         item_data.save()
-
-                        log_activity(
-                            created_by=customer_suply_form_instance.created_by,
-                            description=f"Supply Item '{item_data.product.product_name}' (Qty: {item_data.quantity}) added to Customer Supply "
-                        )
-                        
+                    
                         vanstock = VanProductStock.objects.get(created_date=customer_suply_form_instance.created_date.date(), product=item_data.product, van=van)
                         if vanstock.stock >= item_data.quantity:
                             vanstock.stock -= item_data.quantity
@@ -944,7 +865,7 @@ def create_customer_supply(request,pk):
                             reference_no = f"{customer_suply_form_instance.customer.custom_id}"
                         else:
                             reference_no = customer_suply_form_instance.reference_number
-                            
+                        print("invoice_number",invoice_number)    
                         # Create the invoice
                         invoice = Invoice.objects.create(
                             invoice_no=invoice_number,
@@ -958,7 +879,7 @@ def create_customer_supply(request,pk):
                             reference_no=reference_no
                         )
                         
-                        customer_suply_form_instance.invoice_no == invoice.invoice_no
+                        customer_suply_form_instance.invoice_no = invoice.invoice_no
                         customer_suply_form_instance.save()
                         
                         if customer_suply_form_instance.customer.sales_type == "CREDIT":
@@ -991,12 +912,23 @@ def create_customer_supply(request,pk):
                             assign_this_to=customer_suply_form_instance.salesman,
                             customer=customer_suply_form_instance.customer
                             ).update(status='supplied')
-
+                        
+                        
+                    if customer_instance.sales_staff:
+                        sales_man = customer_instance.sales_staff
+                        try:
+                            salesman_body = f'Customer Supply created successfully and Invoice generated. Fresh cans supplied: {item_data.quantity} ,Empty cans collected:{balance_empty_bottle},Amount collected:{invoice.amout_recieved}'
+                            notification(sales_man.pk, "Dear Customer", salesman_body, "Nationalwaterfcm")
+                            notification(customer_instance.user_id.pk, "New  Supply", "Your  Supply Created Succesfull.", "Nationalwatercustomer")
+                        except CustomUser.DoesNotExist:
+                            messages.error(request, 'Salesman does not exist.', 'alert-danger')
+                        except Send_Notification.DoesNotExist:
+                            messages.error(request, 'No device token found for the salesman.', 'alert-danger')
+                        except Exception as e:
+                            messages.error(request, f'Error sending notification: {e}', 'alert-danger')  
+                            
+                              
                     if invoice_generated:
-                        log_activity(
-                            created_by=customer_suply_form_instance.created_by,
-                            description=f"Invoice generated for Customer Supply ID {customer_suply_form_instance.pk} with Invoice No {invoice.invoice_no}"
-                        )
                         response_data = {
                             "status": "true",
                             "title": "Successfully Created",
@@ -1527,42 +1459,42 @@ def delete_customer_supply(request, pk):
             customer_supply_instance = get_object_or_404(CustomerSupply, pk=pk)
             supply_items_instances = CustomerSupplyItems.objects.filter(customer_supply=customer_supply_instance)
             five_gallon_qty = supply_items_instances.filter(product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity', output_field=DecimalField()))['total_quantity'] or 0
-            
+                    
             DiffBottlesModel.objects.filter(
-                delivery_date__date=customer_supply_instance.created_date.date(),
-                assign_this_to=customer_supply_instance.salesman,
-                customer=customer_supply_instance.customer_id
-                ).update(status='pending')
-            
-            # Handle invoice related deletions
+                        delivery_date__date=customer_supply_instance.created_date.date(),
+                        assign_this_to=customer_supply_instance.salesman,
+                        customer=customer_supply_instance.customer_id
+                        ).update(status='pending')
+                    
+                    # Handle invoice related deletions
             handle_invoice_deletion(customer_supply_instance)
-            
-            # Handle outstanding amount adjustments
+                    
+                    # Handle outstanding amount adjustments
             handle_outstanding_amounts(customer_supply_instance, five_gallon_qty)
-            
-            # Handle coupon deletions and adjustments
+                    
+                    # Handle coupon deletions and adjustments
             handle_coupons(customer_supply_instance, five_gallon_qty)
-            
+                    
             handle_outstanding_coupon(customer_supply_instance, five_gallon_qty)
-            
+                    
             handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty)
-            
-            # Update van product stock and empty bottle counts
+                    
+                    # Update van product stock and empty bottle counts
             update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty)
-            
+                    
             CustomerOutstanding.objects.filter(invoice_no=customer_supply_instance.invoice_no).delete()
-            
-            # Mark customer supply and items as deleted
+                    
+                    # Mark customer supply and items as deleted
             customer_supply_instance.delete()
             supply_items_instances.delete()
-            
+                    
             response_data = {
-                "status": "true",
-                "title": "Successfully Deleted",
-                "message": "Customer supply successfully deleted.",
-                "reload": "true",
-            }
-            
+                        "status": "true",
+                        "title": "Successfully Deleted",
+                        "message": "Customer supply successfully deleted.",
+                        "reload": "true",
+                    }
+                    
             return HttpResponse(json.dumps(response_data), content_type='application/javascript')
     
     except Exception as e:
@@ -1575,28 +1507,18 @@ def delete_customer_supply(request, pk):
 
 
 def handle_invoice_deletion(customer_supply_instance):
-    if Invoice.objects.filter(created_date__date=customer_supply_instance.created_date.date(), invoice_no=customer_supply_instance.invoice_no).exists():
+    if Invoice.objects.filter(created_date__date=customer_supply_instance.created_date.date(), customer=customer_supply_instance.customer, invoice_no=customer_supply_instance.invoice_no).exists():
         invoice_instance = Invoice.objects.get(created_date__date=customer_supply_instance.created_date.date(), customer=customer_supply_instance.customer, invoice_no=customer_supply_instance.invoice_no)
-        invoice_items_instances = InvoiceItems.objects.filter(invoice=invoice_instance)
-        log_activity(
-            created_by=customer_supply_instance.created_by,
-            description=f"Deleted InvoiceDailyCollection for invoice {invoice_instance.invoice_no} and customer {customer_supply_instance.customer.customer_name}"
-        )
+        if (invoice_items_instances:=InvoiceItems.objects.filter(invoice=invoice_instance)).exists():
+            invoice_items_instances.delete()
+        
         InvoiceDailyCollection.objects.filter(
             invoice=invoice_instance,
             created_date__date=customer_supply_instance.created_date.date(),
             customer=customer_supply_instance.customer,
             salesman=customer_supply_instance.salesman
             ).delete()
-        log_activity(
-            created_by=customer_supply_instance.created_by,
-            description=f"Deleted InvoiceItems for invoice {invoice_instance.invoice_no} and customer {customer_supply_instance.customer.customer_name}"
-        )
-        invoice_items_instances.delete()
-        log_activity(
-            created_by=customer_supply_instance.created_by,
-            description=f"Deleted Invoice {invoice_instance.invoice_no} for customer {customer_supply_instance.customer.customer_name}"
-        )
+        
         invoice_instance.delete()
 
 def handle_outstanding_coupon(customer_supply_instance, five_gallon_qty):
@@ -1605,10 +1527,6 @@ def handle_outstanding_coupon(customer_supply_instance, five_gallon_qty):
         outstanding_report = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer,product_type="coupons")
         outstanding_report.value -= outstanding_coupon_count
         outstanding_report.save()
-        log_activity(
-            created_by=customer_supply_instance.created_by,
-            description=f"Deleted CustomerOutstanding entries for invoice {customer_supply_instance.invoice_no} and customer {customer_supply_instance.customer.customer_name}"
-        )
         
         customet_outstanding_instances.delete()
 
@@ -1625,7 +1543,6 @@ def handle_outstanding_amounts(customer_supply_instance, five_gallon_qty):
         customer_outstanding_report_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="amount")
         customer_outstanding_report_instance.value += Decimal(balance_amount)
         customer_outstanding_report_instance.save()
-
 
 
 def handle_coupons(customer_supply_instance, five_gallon_qty):
@@ -1688,10 +1605,7 @@ def handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty):
             outstanding_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="emptycan")
             outstanding_instance.value += Decimal(balance_empty_bottle)
             outstanding_instance.save()
-            log_activity(
-                created_by=customer_supply_instance.created_by,
-                description=f"Updated outstanding empty can report for customer {customer_supply_instance.customer.customer_name}. Added balance of {balance_empty_bottle} empty bottles."
-            )
+            
     elif five_gallon_qty > Decimal(customer_supply_instance.collected_empty_bottle):
         balance_empty_bottle = five_gallon_qty - Decimal(customer_supply_instance.collected_empty_bottle)
         
@@ -1712,18 +1626,9 @@ def handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty):
             outstanding_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="emptycan")
             outstanding_instance.value -= Decimal(outstanding_product.aggregate(total_empty_bottle=Sum('empty_bottle'))['total_empty_bottle'])
             outstanding_instance.save()
-            
-            log_activity(
-                created_by=customer_supply_instance.created_by,
-                description=f"Updated outstanding empty can report for customer {customer_supply_instance.customer.customer_name}. Deducted {balance_empty_bottle} empty bottles."
-            )
         except:
             pass
         outstanding_product.delete()
-        log_activity(
-            created_by=customer_supply_instance.created_by,
-            description=f"Deleted outstanding product for customer {customer_supply_instance.customer.customer_name} with balance {balance_empty_bottle} empty bottles."
-        )
 
 
 def update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty):
@@ -1742,14 +1647,11 @@ def update_van_product_stock(customer_supply_instance, supply_items_instances, f
                     # van_stock.sold_count -= item_data.quantity
                 van_stock.stock += item_data.quantity
             van_stock.save()
+
 #------------------------------REPORT----------------------------------------
 
 def client_report(request):
     instances = Customers.objects.order_by('-created_date')  # Order by latest created date
-    log_activity(
-        created_by=request.user if request.user.is_authenticated else None,
-        description=f"Viewed client report page with {instances.count()} clients."
-    )
     return render(request, 'client_management/client_report.html', {'instances': instances})
 
 
@@ -1758,10 +1660,6 @@ def clientdownload_pdf(request, customer_id):
     template_path = 'client_management/client_report_pdf.html'
     context = {'customer': customer}
 
-    log_activity(
-        created_by=request.user if request.user.is_authenticated else None,
-        description=f"Generated PDF report for customer {customer.customer_name}."
-    )
     # Logic to generate PDF for the specific customer
     pdf_content = f"PDF content for {customer.customer_name}"
     response = HttpResponse(content_type='application/pdf')
@@ -1810,10 +1708,6 @@ def clientexport_to_csv(request, customer_id):
     # Save the workbook to the HttpResponse
     wb.save(response)
 
-    log_activity(
-        created_by=request.user if request.user.is_authenticated else None,
-        description=f"Exported CSV report for customer {customer.customer_name}."
-    )
     return response
 
 
@@ -1826,10 +1720,7 @@ def custody_items_list_report(request):
         #     end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
         #     instances = CustodyCustomItems.objects.filter(custody_custom__created_date__range=[start_date, end_date])
         # else:
-        log_activity(
-            created_by=request.user if request.user.is_authenticated else None,
-            description=f"Viewed custody items list report."
-        )
+        
         return render(request, 'client_management/custody_items_list_report.html', {'instances': instances})
 
 
@@ -1881,22 +1772,55 @@ def custody_issue(request):
                     else:
                         customer_product_counts[customer]['cooler_non_deposit'] += 1
 
+        # Sum up the total bottles issued
+        total_bottles_issued = (
+            customer_product_counts[customer]['5_gallon_deposit'] +
+            customer_product_counts[customer]['5_gallon_non_deposit'] +
+            customer_product_counts[customer]['dispenser_deposit'] +
+            customer_product_counts[customer]['dispenser_non_deposit'] +
+            customer_product_counts[customer]['cooler_deposit'] +
+            customer_product_counts[customer]['cooler_non_deposit']
+        )
+
+        # Send notification if sales staff exists
+        if customer.sales_staff:
+            sales_man = customer.sales_staff
+            try:
+                # Notification details
+                agreement_no = instance.agreement_no  
+                deposit_amount = instance.total_amount  
+                
+                # Salesman notification
+                salesman_body = (
+                    f'Customer custody issued for {customer}. Bottles issued: {total_bottles_issued}, '
+                    f'Quotation deposit amount: {deposit_amount}, Agreement number: {agreement_no}.'
+                )
+                notification(sales_man.pk, "Custody Issued", salesman_body, "Sanawaterfcm")
+                
+                # Customer notification
+                customer_body = (
+                    f'Dear customer, the following custody items have been issued: '
+                    f'\nBottles: {total_bottles_issued}, '
+                    f'\nQuotation deposit amount: {deposit_amount}, '
+                    f'\nAgreement number: {agreement_no}.'
+                )
+                notification(customer.user_id.pk, "Custody Issued", customer_body, "Sanawatercustomer")
+
+            except CustomUser.DoesNotExist:
+                messages.error(request, 'Salesman does not exist.', 'alert-danger')
+            except Send_Notification.DoesNotExist:
+                messages.error(request, 'No device token found for the salesman.', 'alert-danger')
+            except Exception as e:
+                messages.error(request, f'Error sending notification: {e}', 'alert-danger')
+
+
     for customer, counts in customer_product_counts.items():
         for key, value in counts.items():
             if value == 0:
                 customer_product_counts[customer][key] = '--'
 
-    log_activity(
-        created_by=request.user if request.user.is_authenticated else None,
-        description=f"Viewed custody issue report for date range {start_date_str} to {end_date_str}."
-    )
-    context = {
-        'customer_product_counts': customer_product_counts,
-        'start_date': start_date_str,
-        'end_date': end_date_str,
-    }
+    return render(request, 'client_management/custody_issue.html', {'customer_product_counts': customer_product_counts})
 
-    return render(request, 'client_management/custody_issue.html', context)
 
 
 def get_customercustody(request, customer_id):
@@ -1918,10 +1842,6 @@ def get_customercustody(request, customer_id):
         custody_items_with_products.append(custody_item_data)
 
     context = {'custody_items_with_products': custody_items_with_products,'customer':customer}
-    log_activity(
-        created_by=request.user if request.user.is_authenticated else None,
-        description=f"Viewed custody items for customer {customer.customer_name}."
-    )
     return render(request, 'client_management/customer_custody_items.html', context)
 
 def custody_report(request):
@@ -1950,10 +1870,7 @@ def custody_report(request):
             'products': [item.product for item in custody_custom_items]  
         }
         custody_items_with_products.append(custody_item_data)
-    log_activity(
-        created_by=request.user if request.user.is_authenticated else None,
-        description=f"Viewed custody report for date range {start_date_str} to {end_date_str}."
-    )
+
     context = {'custody_items_with_products': custody_items_with_products,'instances':instances}
     print("context",context)
     return render(request, 'client_management/custody_report.html', context)
@@ -1974,10 +1891,7 @@ class CouponCountList(View):
             'pk': pk,  # Pass pk to the template context
             'total_count': total_count,  # Pass total count to the template context
         }
-        log_activity(
-            created_by=request.user if request.user.is_authenticated else None,
-            description=f"Viewed coupon count list for customer with ID {pk}."
-        )
+
         return render(request, self.template_name, context)
 
 
@@ -2054,11 +1968,6 @@ def new_coupon_count(request,pk):
             data.count += Decimal(form.cleaned_data['count'])
             data.save()
 
-            log_activity(
-                created_by=request.user if request.user.is_authenticated else None,
-                description=f"Added {form.cleaned_data['count']} coupons of type '{coupon_type_id.coupon_type_name}' to customer with ID {pk}."
-            )
-            
             messages.success(request, 'New coupon count added successfully!')
             return redirect('coupon_count_list' ,data.customer_id)
         else:
@@ -2074,20 +1983,16 @@ def delete_count(request, pk):
     if request.method == 'POST':
         customer_pk = customer_coupon_stock.customer.pk
         customer_coupon_stock.delete()
-        log_activity(
-            created_by=request.user if request.user.is_authenticated else None,
-            description=f"Deleted coupon count for customer with ID {customer_pk}."
-        )
         messages.success(request, 'Coupon count deleted successfully!')
         return redirect('coupon_count_list', pk=customer_pk)
-    
+
     return redirect('coupon_count_list')
 
 # @login_required
-import openpyxl
-from openpyxl.styles import Font
-from django.http import HttpResponse
+
 from datetime import datetime
+from django.db.models import Q, Sum
+from django.shortcuts import render
 
 def customer_outstanding_list(request):
     """
@@ -2099,47 +2004,49 @@ def customer_outstanding_list(request):
     q = request.GET.get('q', '')  
     route_name = request.GET.get('route_name', '')
     date = request.GET.get('date')
-
-    if request.GET.get('product_type'):
-        product_type = request.GET.get('product_type')
-    else:
-        product_type = "amount"
-        
+    product_type = request.GET.get('product_type', 'amount')
+    
+    # Prepare route list
+    route_li = RouteMaster.objects.all()
+    
     filter_data['product_type'] = product_type
     
+    # Set default date if not provided
     if date:
         date = datetime.strptime(date, '%Y-%m-%d').date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     else:
         date = datetime.today().date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
-    outstanding_instances = CustomerOutstanding.objects.filter(created_date__date__lte=date)
-
-    if request.GET.get("customer_pk"):
-        outstanding_instances = outstanding_instances.filter(customer__pk=request.GET.get("customer_pk"))
-        filter_data['customer_pk'] = request.GET.get("customer_pk")
+    # Base queryset for outstanding instances
+    outstanding_instances = CustomerOutstanding.objects.filter(created_date__date__lte=date, product_type=product_type)
+    
+    # Apply additional filters
+    if customer_pk := request.GET.get("customer_pk"):
+        outstanding_instances = outstanding_instances.filter(customer__pk=customer_pk)
+        filter_data['customer_pk'] = customer_pk
 
     if route_name:
         outstanding_instances = outstanding_instances.filter(customer__routes__route_name=route_name)
-        filter_data['route_name'] = request.GET.get("route_name")
+    else:
+        route_name = route_li.first().route_name
+        outstanding_instances = outstanding_instances.filter(customer__routes__route_name=route_name)
+    filter_data['route_name'] = route_name
 
     if q:
         outstanding_instances = outstanding_instances.filter(customer__customer_name__icontains=q)
-        filter_data['q'] = request.GET.get("q")
+        filter_data['q'] = q
         
+    # Fetch unique customer IDs from filtered outstanding instances
     customer_ids = outstanding_instances.values_list('customer__pk', flat=True).distinct()
-
     instances = Customers.objects.filter(pk__in=customer_ids)
-    
-    route_li = RouteMaster.objects.all()
 
     # Initialize totals
     total_outstanding_amount = 0
     total_outstanding_bottles = 0
     total_outstanding_coupons = 0
 
-    # Loop through each customer to calculate totals
+    # Calculate totals for each customer
     for customer in instances:
         outstanding_amount = OutstandingAmount.objects.filter(
             customer_outstanding__customer__pk=customer.pk, 
@@ -2151,7 +2058,7 @@ def customer_outstanding_list(request):
             created_date__date__lte=date
         ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
         
-        outstanding_amount = outstanding_amount - collection_amount
+        outstanding_amount -= collection_amount
         total_outstanding_amount += outstanding_amount
         
         total_bottles = OutstandingProduct.objects.filter(
@@ -2166,16 +2073,17 @@ def customer_outstanding_list(request):
         ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
         total_outstanding_coupons += total_coupons
 
+    # Handle Excel export
     if request.GET.get('export') == 'excel':
         return export_to_excel(instances, date, total_outstanding_amount, total_outstanding_bottles, total_outstanding_coupons)
 
-    # Context for rendering template as usual
+    # Context for rendering template
     context = {
         'instances': instances,
         'filter_data': filter_data,
         'route_li': route_li,
         'date': date,
-        'customer_pk': request.GET.get("customer_pk"),
+        'customer_pk': customer_pk,
         'page_name': 'Customer Outstanding List',
         'page_title': 'Customer Outstanding List',
         'is_customer_outstanding': True,
@@ -2232,61 +2140,6 @@ def export_to_excel(instances, date, total_outstanding_amount, total_outstanding
 
     workbook.save(response)
     return response
-
-
-
-@login_required
-def customer_outstanding_details(request,customer_pk):
-    """
-    Customer Outstanding details List
-    :param request:
-    :return: Customer Outstanding list view
-    """
-    filter_data = {}
-    instances = CustomerOutstanding.objects.filter(customer__pk=customer_pk)
-    
-    query = request.GET.get("q")
-    date = request.GET.get('date')
-    route_filter = request.GET.get('route_name')
-    
-    if date:
-        date = datetime.strptime(date, '%Y-%m-%d').date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-
-    else:
-        date = datetime.today().date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-    
-    if route_filter:
-            instances = instances.filter(customer__routes__route_name=route_filter)
-    route_li = RouteMaster.objects.all()
-    
-    if query:
-
-        instances = instances.filter(
-            Q(product_type__icontains=query) |
-            Q(invoice_no__icontains=query) 
-        )
-        title = "Outstanding List - %s" % query
-        filter_data['q'] = query
-    
-    log_activity(
-        created_by=request.user if request.user.is_authenticated else None,
-        description=f"Viewed outstanding details for customer with ID {customer_pk} with filters: date={date}, route_name={route_filter}, query={query}."
-    )
-    context = {
-        'instances': instances,
-        'page_name' : 'Customer Outstanding List',
-        'page_title' : 'Customer Outstanding List',
-        'customer_pk': request.GET.get("customer_pk"),
-        
-        'is_customer_outstanding': True,
-        'is_need_datetime_picker': True,
-        'filter_data': filter_data,
-        'route_li':route_li,
-    }
-
-    return render(request, 'client_management/customer_outstanding/info_list.html', context)
 
 
 def print_customer_outstanding(request):
@@ -2383,99 +2236,928 @@ def print_customer_outstanding(request):
 
     return render(request, 'client_management/customer_outstanding/print.html', context)
 
-import xlwt
-def export_customer_outstanding_to_excel(request):
-    date = request.GET.get('date')
-    
-    if date:
-        date = datetime.strptime(date, '%Y-%m-%d').date()
-    else:
-        date = datetime.today().date()
+from io import BytesIO
+def excel_customer_outstanding(request):
+    # Create a workbook and a worksheet
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'Customer Outstanding Report'
 
+    # Define the headers
+    headers = ['Sl No', 'Customer ID', 'Customer', 'Building No', 
+               'Room No/Floor No', 'Route', 'Outstanding Amount']
+    worksheet.append(headers)
+
+    # Fetching the filter parameters from the request
+    date_str = request.GET.get('date', datetime.today().strftime('%Y-%m-%d'))
+    date = datetime.strptime(date_str, '%Y-%m-%d').date()  # Convert to date object
+    route_name = request.GET.get('route_name', '')
+    q = request.GET.get('q', '')
+
+    # Apply filters similar to the view
     outstanding_instances = CustomerOutstanding.objects.filter(created_date__date__lte=date)
     
     if request.GET.get("customer_pk"):
         outstanding_instances = outstanding_instances.filter(customer__pk=request.GET.get("customer_pk"))
 
-    if request.GET.get('route_name'):
-        route_name = request.GET.get('route_name')
+    if route_name:
         outstanding_instances = outstanding_instances.filter(customer__routes__route_name=route_name)
 
+    if q:
+        outstanding_instances = outstanding_instances.filter(customer__customer_name__icontains=q)
+    
     customer_ids = outstanding_instances.values_list('customer__pk', flat=True).distinct()
-
     instances = Customers.objects.filter(pk__in=customer_ids)
 
-    # Create the Excel workbook and worksheet
-    response = HttpResponse(content_type='application/ms-excel')
-    response['Content-Disposition'] = 'attachment; filename="customer_outstanding_report.xls"'
-    
-    wb = xlwt.Workbook(encoding='utf-8')
-    ws = wb.add_sheet('Outstanding Report')
+    # Calculate total outstanding and total collections for net total
+    total_outstanding = OutstandingAmount.objects.filter(
+        customer_outstanding__customer__in=customer_ids,
+        customer_outstanding__created_date__date__lte=date
+    ).aggregate(total=Sum('amount'))['total'] or 0
 
-    # Define the header row
-    row_num = 0
-    columns = ['Customer ID', 'Customer Name', 'Building No', 'Room No/Floor No', 'Route', 'Amount', 'Empty Can', 'Coupon']
+    total_collection = CollectionPayment.objects.filter(
+        customer__in=customer_ids,
+        created_date__date__lte=date
+    ).aggregate(total=Sum('amount_received'))['total'] or 0
 
-    for col_num, column in enumerate(columns):
-        ws.write(row_num, col_num, column)
+    net_total_outstanding = total_outstanding - total_collection
 
-    # Variables to store total amounts
-    total_outstanding = 0
-    total_bottles = 0
-    total_coupons = 0
-
-    # Iterate over the customers and filter those with all zero values
-    for customer in instances:
-        outstanding_amount = OutstandingAmount.objects.filter(
-            customer_outstanding__customer__pk=customer.pk, 
+    for idx, customer in enumerate(instances, start=1):
+        # Calculate Outstanding Amount
+        outstanding_sum = OutstandingAmount.objects.filter(
+            customer_outstanding__customer=customer,
             customer_outstanding__created_date__date__lte=date
-        ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        ).aggregate(total=Sum('amount'))['total'] or 0
 
-        collection_amount = CollectionPayment.objects.filter(
-            customer__pk=customer.pk, 
+        # Calculate Collection Amount
+        collection_sum = CollectionPayment.objects.filter(
+            customer=customer,
             created_date__date__lte=date
-        ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+        ).aggregate(total=Sum('amount_received'))['total'] or 0
 
-        outstanding_amount = outstanding_amount - collection_amount
+        # Compute Net Outstanding Amount
+        outstanding_amount = outstanding_sum - collection_sum
+        if outstanding_amount !=0:
+            # Append each row of data
+            worksheet.append([
+                idx,
+                customer.custom_id,
+                customer.customer_name,
+                customer.building_name,
+                customer.door_house_no,
+                customer.routes.route_name,
+                outstanding_amount
+            ])
 
-        total_bottles_per_customer = OutstandingProduct.objects.filter(
-            customer_outstanding__customer__pk=customer.pk, 
-            customer_outstanding__created_date__date__lte=date
-        ).aggregate(total_bottles=Sum('empty_bottle'))['total_bottles'] or 0
+    # Append the net total outstanding at the end of the worksheet
+    worksheet.append(['', '', '', '', '', 'Net Total Outstanding', net_total_outstanding])
 
-        total_coupons_per_customer = OutstandingCoupon.objects.filter(
-            customer_outstanding__customer__pk=customer.pk,
-            customer_outstanding__created_date__date__lte=date
-        ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
+    # Optionally, you can format the header row and the total row
+    from openpyxl.styles import Font
 
-        # Only write customers with non-zero outstanding values
-        if outstanding_amount == 0 and total_bottles_per_customer == 0 and total_coupons_per_customer == 0:
+    # Bold the header row
+    for cell in worksheet[1]:
+        cell.font = Font(bold=True)
+
+    # Bold the total row
+    for cell in worksheet[worksheet.max_row]:
+        cell.font = Font(bold=True)
+
+    # Save the workbook to a BytesIO stream
+    output = BytesIO()
+    workbook.save(output)
+    output.seek(0)  # Move to the beginning of the BytesIO stream
+
+    # Set the response for the Excel file
+    response = HttpResponse(
+        output,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename=customer_outstanding_report.xlsx'
+    
+    return response
+
+
+@login_required
+def customer_outstanding_details(request,customer_pk):
+    """
+    Customer Outstanding details List
+    :param request:
+    :return: Customer Outstanding list view
+    """
+    filter_data = {}
+    instances = CustomerOutstanding.objects.filter(customer__pk=customer_pk)
+    
+    query = request.GET.get("q")
+    date = request.GET.get('date')
+    route_filter = request.GET.get('route_name')
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    if route_filter:
+            instances = instances.filter(customer__routes__route_name=route_filter)
+    route_li = RouteMaster.objects.all()
+    
+    if query:
+
+        instances = instances.filter(
+            Q(product_type__icontains=query) |
+            Q(invoice_no__icontains=query) 
+        )
+        title = "Outstanding List - %s" % query
+        filter_data['q'] = query
+    
+    context = {
+        'instances': instances.order_by("-created_date"),
+        'page_name' : 'Customer Outstanding List',
+        'page_title' : 'Customer Outstanding List',
+        'customer_pk': request.GET.get("customer_pk"),
+        
+        'is_customer_outstanding': True,
+        'is_need_datetime_picker': True,
+        'filter_data': filter_data,
+        'route_li':route_li,
+    }
+
+    return render(request, 'client_management/customer_outstanding/info_list.html', context)
+
+@login_required
+def outstanding_list(request):
+    """
+    Customer Outstanding  List
+    :param request:
+    :return: Customer Outstanding list view
+    """
+    filter_data = {}
+    instances = CustomerOutstanding.objects.all().order_by('-created_date')
+    
+    query = request.GET.get("q")
+    date = request.GET.get('date')
+    route_filter = request.GET.get('route_name')
+    sales_type_filter = request.GET.get('sales_type')
+    product_type_filter = request.GET.get('product_type')  
+
+    
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    if route_filter:
+        instances = instances.filter(customer__routes__route_name=route_filter)
+        filter_data['route_name'] = route_filter
+    route_li = RouteMaster.objects.all()
+    
+    if sales_type_filter:
+        instances = instances.filter(customer__sales_type=sales_type_filter)
+        filter_data['sales_type'] = sales_type_filter
+    sales_type_li = Customers.objects.values_list('sales_type', flat=True).distinct()
+    
+    # Product type filter
+    if product_type_filter:
+        instances = instances.filter(product_type=product_type_filter)
+        filter_data['product_type'] = product_type_filter
+
+
+    if query:
+        instances = instances.filter(
+            Q(product_type__icontains=query) |
+            Q(invoice_no__icontains=query) 
+        )
+        title = "Outstanding List - %s" % query
+        filter_data['q'] = query
+    # Calculate the total sum of outstanding counts
+    total_outstanding_count = sum([item.get_outstanding_count() for item in instances])
+
+    # Log user activity
+    log_activity(
+        created_by=request.user if request.user.is_authenticated else None,
+        description=f"Viewed outstanding list with filters: date={date},  Route: {route_filter}, Sales Type: {sales_type_filter}, "
+                f"Product Type: {product_type_filter}, Query: {query}"
+    )
+    context = {
+        'instances': instances,
+        'page_name' : 'Customer Outstanding List',
+        'page_title' : 'Customer Outstanding List',
+        'customer_pk': request.GET.get("customer_pk"),
+        'date': date,
+        
+        'is_customer_outstanding': True,
+        'is_need_datetime_picker': True,
+        'filter_data': filter_data,
+        'route_li':route_li,
+        'sales_type_li': sales_type_li,
+        'total_outstanding_count': total_outstanding_count,  
+        'product_types': dict(PRODUCT_TYPES)
+    }
+
+    return render(request, 'client_management/customer_outstanding/outstanding_list.html', context)
+def print_outstanding_report(request):
+    """
+    Print Customer Outstanding Report
+    :param request:
+    :return: A printable view of Customer Outstanding list
+    """
+    filter_data = {}
+    instances = CustomerOutstanding.objects.all().order_by('-created_date')
+    
+    query = request.GET.get("q")
+    date = request.GET.get('date')
+    route_filter = request.GET.get('route_name')
+    
+    sales_type_filter = request.GET.get('sales_type')
+    product_type_filter = request.GET.get('product_type')
+
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    else:
+        date = datetime.today().date()
+        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+    
+    # Filter by route
+    if route_filter:
+        instances = instances.filter(customer__routes__route_name=route_filter)
+        filter_data['route_name'] = route_filter
+
+    route_li = RouteMaster.objects.all()
+    
+    # Filter by sales type
+    if sales_type_filter:
+        instances = instances.filter(customer__sales_type=sales_type_filter)
+        filter_data['sales_type'] = sales_type_filter
+    sales_type_li = Customers.objects.values_list('sales_type', flat=True).distinct()
+    
+    # Filter by product type
+    if product_type_filter:
+        instances = instances.filter(product_type=product_type_filter)
+        filter_data['product_type'] = product_type_filter
+
+    # Search functionality
+    if query:
+        instances = instances.filter(
+            Q(product_type__icontains=query) |
+            Q(invoice_no__icontains=query)
+        )
+        filter_data['q'] = query
+
+    # Calculate total outstanding count
+    total_outstanding_count = sum([item.get_outstanding_count() for item in instances])
+    
+     # Log user activity
+    log_activity(
+        created_by=request.user if request.user.is_authenticated else None,
+        description=f"Viewed outstanding list Print with filters: date={date},  Route: {route_filter}, Sales Type: {sales_type_filter}, "
+                f"Product Type: {product_type_filter}, Query: {query}"
+    )
+    
+    context = {
+        'instances': instances,
+        'date': date,
+        'route_li': route_li,
+        'sales_type_li': sales_type_li,
+        'filter_data': filter_data,
+        'total_outstanding_count': total_outstanding_count,
+        'product_types': dict(PRODUCT_TYPES)
+    }
+
+    return render(request, 'client_management/customer_outstanding/print_outstanding_report.html', context)
+
+
+@login_required
+def create_customer_outstanding(request):
+    customer_pk = request.GET.get("customer_pk")
+    
+    message = ''
+    if request.method == 'POST':
+        if not customer_pk :
+            customer_outstanding_form = CustomerOutstandingForm(request.POST)
+        else:
+            customer_outstanding_form = CustomerOutstandingSingleForm(request.POST)
+            
+        customer_outstanding_amount_form = CustomerOutstandingAmountForm(request.POST)
+        customer_outstanding_bottles_form = CustomerOutstandingBottleForm(request.POST)
+        customer_outstanding_coupon_form = CustomerOutstandingCouponsForm(request.POST)
+        
+        is_form_valid = False
+        if request.POST.get('product_type') == "amount":
+            if customer_outstanding_form.is_valid() and customer_outstanding_amount_form.is_valid():
+                is_form_valid = True
+            else:
+                message = generate_form_errors(customer_outstanding_form,formset=False)
+                message += generate_form_errors(customer_outstanding_amount_form,formset=False)
+                
+        if request.POST.get('product_type') == "emptycan":
+            if customer_outstanding_form.is_valid() and customer_outstanding_bottles_form.is_valid():
+                is_form_valid = True
+            else:
+                message = generate_form_errors(customer_outstanding_form,formset=False)
+                message += generate_form_errors(customer_outstanding_bottles_form,formset=False)
+                
+        if request.POST.get('product_type') == "coupons":
+            if customer_outstanding_form.is_valid() and customer_outstanding_coupon_form.is_valid():
+                is_form_valid = True
+            else:
+                message = generate_form_errors(customer_outstanding_form,formset=False)
+                message += generate_form_errors(customer_outstanding_coupon_form,formset=False)
+            
+        if is_form_valid :
+            try:
+                with transaction.atomic():
+                    # Save customer_outstanding_form data
+                    outstanding_data = customer_outstanding_form.save(commit=False)
+                    outstanding_data.created_by = request.user.id
+                    outstanding_data.created_date = datetime.today()
+                    if customer_pk :
+                        print("custo_pk")
+                        outstanding_data.customer = Customers.objects.get(pk=customer_pk)
+                    outstanding_data.save()
+                    
+                    # Save data based on product type
+                    if outstanding_data.product_type == "amount":
+                        outstanding_amount = customer_outstanding_amount_form.save(commit=False)
+                        outstanding_amount.customer_outstanding = outstanding_data
+                        outstanding_amount.save()
+                        
+                        # Check if there is an existing report entry
+                        existing_report = CustomerOutstandingReport.objects.filter(
+                            customer=outstanding_data.customer,
+                            product_type='amount'
+                        ).first()
+                        
+                        if existing_report:
+                            existing_report.value += outstanding_amount.amount
+                            existing_report.save()
+                        else:
+                            CustomerOutstandingReport.objects.create(
+                                product_type='amount',
+                                value=outstanding_amount.amount,
+                                customer=outstanding_data.customer
+                            )
+                        
+                        date_part = timezone.now().strftime('%Y%m%d')
+                        try:
+                            invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
+                            last_invoice_number = invoice_last_no.invoice_no
+
+                            # Validate the format of the last invoice number
+                            parts = last_invoice_number.split('-')
+                            if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
+                                prefix, old_date_part, number_part = parts
+                                new_number_part = int(number_part) + 1
+                                invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+                            else:
+                                # If the last invoice number is not in the expected format, generate a new one
+                                random_part = str(random.randint(1000, 9999))
+                                invoice_number = f'WTR-{date_part}-{random_part}'
+                        except Invoice.DoesNotExist:
+                            random_part = str(random.randint(1000, 9999))
+                            invoice_number = f'WTR-{date_part}-{random_part}'
+                        
+                        # Create the invoice
+                        invoice = Invoice.objects.create(
+                            invoice_no=invoice_number,
+                            created_date=datetime.today(),
+                            net_taxable=outstanding_amount.amount,
+                            vat=0,
+                            discount=0,
+                            amout_total=outstanding_amount.amount,
+                            amout_recieved=0,
+                            customer=outstanding_amount.customer_outstanding.customer,
+                            reference_no="oustading added for customer"
+                        )
+                        outstanding_data.invoice_no=invoice.invoice_no
+                        outstanding_data.save()
+                        
+                        if outstanding_amount.customer_outstanding.customer.sales_type == "CREDIT":
+                            invoice.invoice_type = "credit_invoive"
+                            invoice.save()
+
+                        # Create invoice items
+                        item = ProdutItemMaster.objects.get(product_name="5 Gallon")
+                        InvoiceItems.objects.create(
+                            category=item.category,
+                            product_items=item,
+                            qty=0,
+                            rate=outstanding_amount.customer_outstanding.customer.rate or item.rate,
+                            invoice=invoice,
+                            remarks='invoice genereted from backend reference no : ' + invoice.reference_no
+                        )
+
+                    
+                    elif outstanding_data.product_type == "emptycan":
+                        outstanding_bottle = customer_outstanding_bottles_form.save(commit=False)
+                        outstanding_bottle.customer_outstanding = outstanding_data
+                        outstanding_bottle.save()
+                        
+                        # Similar logic for empty can
+                        # Check if there is an existing report entry
+                        existing_report = CustomerOutstandingReport.objects.filter(
+                            customer=outstanding_data.customer,
+                            product_type='emptycan'
+                        ).first()
+                        
+                        if existing_report:
+                            existing_report.value += outstanding_bottle.empty_bottle
+                            existing_report.save()
+                        else:
+                            CustomerOutstandingReport.objects.create(
+                                product_type='emptycan',
+                                value=outstanding_bottle.empty_bottle,
+                                customer=outstanding_data.customer
+                            )
+                        
+                    elif outstanding_data.product_type == "coupons":
+                        outstanding_coupon = customer_outstanding_coupon_form.save(commit=False)
+                        outstanding_coupon.customer_outstanding = outstanding_data
+                        outstanding_coupon.save()
+                        
+                        # Similar logic for coupons
+                        # Check if there is an existing report entry
+                        existing_report = CustomerOutstandingReport.objects.filter(
+                            customer=outstanding_data.customer,
+                            product_type='coupons'
+                        ).first()
+                        
+                        if existing_report:
+                            existing_report.value += outstanding_coupon.count
+                            existing_report.save()
+                        else:
+                            CustomerOutstandingReport.objects.create(
+                                product_type='coupons',
+                                value=outstanding_coupon.count,
+                                customer=outstanding_data.customer
+                            ) 
+                                        
+                    if not customer_pk:
+                        redirect_url = reverse('customer_outstanding_list')
+                    else:
+                        redirect_url = reverse('customer_outstanding_list') + f'?customer_pk={customer_pk}'
+                        
+                    response_data = {
+                        "status": "true",
+                        "title": "Successfully Created",
+                        "message": "Customer Supply created successfully.",
+                        'redirect': 'true',
+                        'redirect_url': redirect_url,
+                    }
+                    
+            except IntegrityError as e:
+                # Handle database integrity error
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": str(e),
+                }
+
+            except Exception as e:
+                # Handle other exceptions
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": str(e),
+                }
+        else:
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": message,
+            }
+
+        return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+    
+    else:
+        if not customer_pk :
+            customer_outstanding_form = CustomerOutstandingForm()
+        else:
+            customer_outstanding_form = CustomerOutstandingSingleForm()
+        
+        customer_outstanding_amount_form = CustomerOutstandingAmountForm()
+        customer_outstanding_bottles_form = CustomerOutstandingBottleForm()
+        customer_outstanding_coupon_form = CustomerOutstandingCouponsForm()
+        
+        context = {
+            'customer_outstanding_form': customer_outstanding_form,
+            'customer_outstanding_amount_form': customer_outstanding_amount_form,
+            'customer_outstanding_bottles_form': customer_outstanding_bottles_form,
+            'customer_outstanding_coupon_form': customer_outstanding_coupon_form,
+            'customer_pk': customer_pk,
+            "url": reverse('create_customer_outstanding'),
+            
+            'page_title': 'Create customer supply',
+            'customer_outstanding_page': True,
+            'is_need_datetime_picker': True
+        }
+        
+        return render(request,'client_management/customer_outstanding/create.html',context)
+
+
+@login_required
+def delete_outstanding(request, pk):
+    """
+    outstanding deletion, it only mark as is deleted field to true
+    :param request:
+    :param pk:
+    :return:
+    """
+    try:
+        with transaction.atomic():
+            customer_outstanding = CustomerOutstanding.objects.get(pk=pk)
+            report = CustomerOutstandingReport.objects.filter(customer=customer_outstanding.customer)
+            
+            if customer_outstanding.product_type == "amount":
+                amount = OutstandingAmount.objects.get(customer_outstanding=customer_outstanding).amount
+                report = report.filter(product_type="amount").first()
+                report.value -= amount
+            if customer_outstanding.product_type == "emptycan":
+                emptycan = OutstandingProduct.objects.get(customer_outstanding=customer_outstanding).empty_bottle
+                report = report.filter(product_type="emptycan").first()
+                report.value -= emptycan
+            if customer_outstanding.product_type == "coupons":
+                coupons = OutstandingCoupon.objects.filter(customer_outstanding=customer_outstanding).aggregate(total_count=Sum('count'))['total_count'] or 0
+                report = report.filter(product_type="coupons").first()
+                report.value -= coupons
+            
+            report.save()
+            
+            if (invoices:=Invoice.objects.filter(invoice_no=customer_outstanding.invoice_no)).exists():
+                for invoice in invoices:
+                    if CustomerSupply.objects.filter(invoice_no=invoice.invoice_no).exists():
+                        customer_supply_instance = get_object_or_404(CustomerSupply, invoice_no=invoice.invoice_no)
+                        supply_items_instances = CustomerSupplyItems.objects.filter(customer_supply=customer_supply_instance)
+                        five_gallon_qty = supply_items_instances.filter(product__product_name="5 Gallon").aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+                        
+                        DiffBottlesModel.objects.filter(
+                            delivery_date__date=customer_supply_instance.created_date.date(),
+                            assign_this_to=customer_supply_instance.salesman,
+                            customer=customer_supply_instance.customer_id
+                            ).update(status='pending')
+                    
+                        # Handle coupon deletions and adjustments
+                        handle_coupons(customer_supply_instance, five_gallon_qty)
+                        
+                        # Update van product stock and empty bottle counts
+                        update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty)
+                        
+                        # Mark customer supply and items as deleted
+                        customer_supply_instance.delete()
+                        supply_items_instances.delete()
+                        
+                        if CustomerCoupon.objects.filter(invoice_no=invoice.invoice_no).exists():
+                            instance = CustomerCoupon.objects.get(invoice_no=invoice.invoice_no)
+                            delete_coupon_recharge(instance.invoice_no)
+                            
+                    invoice.is_deleted=True
+                    invoice.save()
+                    
+                    InvoiceItems.objects.filter(invoice=invoice).update(is_deleted=True)
+            
+            customer_outstanding.delete()
+            
+            status_code = status.HTTP_200_OK
+            response_data = {
+            "status": "true",
+            "title": "Succesfully Deleted",
+            "message": "Succesfully Deleted",
+            "reload": "true",
+            }
+            
+    except IntegrityError as e:
+        # Handle database integrity error
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        response_data = {
+            "status": "false",
+            "title": "Failed",
+            "message": str(e),
+        }
+
+    except Exception as e:
+        # Handle other exceptions
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        response_data = {
+            "status": "false",
+            "title": "Failed",
+            "message": str(e),
+        }
+    return HttpResponse(json.dumps(response_data), status=status_code, content_type='application/javascript')
+
+# customer count
+
+def customer_count(request):
+    routes = RouteMaster.objects.all()
+    total_cash = 0
+    total_credit = 0
+    total_coupon = 0
+    total_customers = 0
+    customer_counts = []
+    customer = Customers.objects.all().count()
+    for route in routes:
+        sales_man = ''
+        van_route = Van_Routes.objects.filter(routes=route).first()
+        if van_route and van_route.van:
+            sales_man = van_route.van.salesman
+        
+        cash_count = Customers.objects.filter(routes=route, sales_type='CASH').count()
+        credit_count = Customers.objects.filter(routes=route, sales_type='CREDIT').count()
+        coupon_count = Customers.objects.filter(routes=route, sales_type__in=['CASH COUPON', 'CREDIT COUPON']).count()
+
+        total_cash += cash_count
+        total_credit += credit_count
+        total_coupon += coupon_count
+        total_customers += cash_count + credit_count + coupon_count
+        if cash_count+credit_count+coupon_count != 0:
+            customer_counts.append({
+                'route_name': route.route_name,
+                'sales_man': sales_man,
+                'cash_count': cash_count,
+                'credit_count': credit_count,
+                'coupon_count': coupon_count,
+                'total_customer': cash_count + credit_count + coupon_count
+            })
+
+    # customers with no route specified
+    cash_count = Customers.objects.filter(routes=None, sales_type='CASH').count()
+    credit_count = Customers.objects.filter(routes=None, sales_type='CREDIT').count()
+    coupon_count = Customers.objects.filter(routes=None, sales_type__in=['CASH COUPON', 'CREDIT COUPON']).count()
+
+    total_cash += cash_count
+    total_credit += credit_count
+    total_coupon += coupon_count
+    total_customers += cash_count + credit_count + coupon_count
+    
+    customer_counts.append({
+            'route_name': 'Not Specified',
+            'sales_man': sales_man,
+            'cash_count': cash_count,
+            'credit_count': credit_count,
+            'coupon_count': coupon_count,
+            'total_customer': cash_count + credit_count + coupon_count
+        })
+
+    context = {
+        'customer_counts': customer_counts,
+        'total_cash': total_cash,
+        'total_credit': total_credit,
+        'total_coupon': total_coupon,
+        'total_customers': total_customers,
+    }
+    # print('total customers:', total_customers)
+    return render(request, 'client_management/customer_count.html', context)
+
+def bottle_count(request):
+    routes = RouteMaster.objects.all()
+
+    context = {
+        'instances': routes,
+    }
+
+    return render(request, 'client_management/bottle_count.html', context)
+    
+
+def bottle_count_route_wise(request, route_id):
+    customers = Customers.objects.filter(routes__pk=route_id)
+    
+    context = {
+        "instances" : customers
+    }
+
+    return render(request, 'client_management/route_details.html', context)
+    
+@login_required
+def customer_orders(request):
+    """
+    Customer orders List
+    :param request:
+    :return: Customer orders list view
+    """
+    filter_data = {}
+    instances = CustomerOrders.objects.all()
+    
+    query = request.GET.get("q")
+    
+    if query:
+
+        instances = instances.filter(
+            Q(customer__customer_name__icontains=query) |
+            Q(customer__customer_id__icontains=query) |
+            Q(customer__mobile_no__icontains=query) |
+            Q(customer__whats_app__icontains=query) |
+            Q(customer__email_id__icontains=query)
+        )
+        title = "Customer Order List - %s" % query
+        filter_data['q'] = query
+        
+    acknowledge_form = CustomerOrdersAcknowledgeForm()
+            
+    context = {
+        'instances': instances,
+        'acknowledge_form': acknowledge_form,
+        'page_name' : 'Customer Order List',
+        'page_title' : 'Customer Order List',
+        
+        'is_customer_outstanding': True,
+        'is_need_datetime_picker': True,
+        'filter_data': filter_data,
+    }
+
+    return render(request, 'client_management/customer_order_list.html', context)
+
+def customer_order_status_acknowledge(request,pk):
+            
+    try:
+        with transaction.atomic():
+            instance = CustomerOrders.objects.get(pk=pk)
+            form = CustomerOrdersAcknowledgeForm(request.POST,instance=instance)
+
+            data = form.save(commit=False)
+            data.save()
+            
+            if data.order_status == "approve":
+                DiffBottlesModel.objects.create(
+                    product_item=data.product,
+                    quantity_required=data.quantity,
+                    delivery_date=data.delivery_date,
+                    assign_this_to=data.customer.sales_staff,
+                    mode="paid",
+                    amount=data.total_amount,
+                    discount_net_total=data.total_net_amount,
+                    customer=data.customer,
+                    created_by=data.created_by,
+                    created_date=datetime.today(),
+                )
+                
+            response_data = {
+                "status": "true",
+                "title": "Successfully Created",
+                "message": "Acknowledged",
+                'reload': 'true',
+            }
+            
+    except IntegrityError as e:
+        # Handle database integrity error
+        response_data = {
+            "status": "false",
+            "title": "Failed",
+            "message": str(e),
+        }
+
+    except Exception as e:
+        # Handle other exceptions
+        response_data = {
+            "status": "false",
+            "title": "Failed",
+            "message": str(e),
+        }
+    return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+
+
+def nonvisitreason_List(request):
+    all_nonvisitreason= NonVisitReason.objects.all()
+    context = {'all_nonvisitreason': all_nonvisitreason}
+    return render(request, 'client_management/NonVisitReason/index_nonvisitReason.html', context)
+
+def create_nonvisitreason(request):
+    if request.method == 'POST':
+        form = Create_NonVisitReasonForm(request.POST)
+        if form.is_valid():
+            data = form.save(commit=False)
+            data.created_by = str(request.user.id)
+            data.save()
+            messages.success(request, 'Non Visit Reason created successfully!')
+            return redirect('nonvisitreason_List')
+        else:
+            messages.error(request, 'Invalid form data. Please check the input.')
+    else:
+        form = Create_NonVisitReasonForm()
+    context = {'form': form}
+    return render(request, 'client_management/NonVisitReason/create_nonvisitreason.html', context)
+
+def delete_nonvisitreason(request, id):
+    delete_nonvisitreason = NonVisitReason.objects.get(id=id)
+    if request.method == 'POST':
+        delete_nonvisitreason.delete()
+        return redirect('nonvisitreason_List')
+    return render(request, 'client_management/NonVisitReason/delete_nonvisitreason.html', {'delete_nonvisitreason': delete_nonvisitreason})
+
+
+@transaction.atomic
+def populate_models_from_excel(data, user):
+    # user = CustomUser.objects.get(username=user.username)
+    for index, row in data.iterrows():
+        customer_id = row['customer_id']
+        customer_name = row['customer_name']
+        amount = Decimal(row['amount'])
+        str_date = str(row['date'])
+        
+        if isinstance(str_date, str):
+            str_date = str_date.split()[0]  # Take only the date part if it includes time
+        date = datetime.strptime(str_date, '%Y-%m-%d')
+        
+        try:
+            customer = Customers.objects.get(custom_id=customer_id)
+        except Customers.DoesNotExist:
+            print(f"Customer {customer_name} does not exist.")
             continue
 
-        row_num += 1
-        ws.write(row_num, 0, customer.custom_id)
-        ws.write(row_num, 1, customer.customer_name)
-        ws.write(row_num, 2, customer.building_name)
-        ws.write(row_num, 3, customer.door_house_no)
-        ws.write(row_num, 4, customer.routes.route_name)
-        ws.write(row_num, 5, outstanding_amount)
-        ws.write(row_num, 6, total_bottles_per_customer)
-        ws.write(row_num, 7, total_coupons_per_customer)
+        customer_outstanding = CustomerOutstanding.objects.create(
+            customer=customer,
+            product_type='amount',
+            created_by=user.id,
+            modified_by=user.id,
+            created_date=date,
+        )
 
-        # Update total sums
-        total_outstanding += outstanding_amount
-        total_bottles += total_bottles_per_customer
-        total_coupons += total_coupons_per_customer
+        outstanding_amount = OutstandingAmount.objects.create(
+            customer_outstanding=customer_outstanding,
+            amount=amount
+        )
 
-    # Write the total row
-    row_num += 1
-    ws.write(row_num, 4, 'Total')  # Label for the total row
-    ws.write(row_num, 5, total_outstanding)
-    ws.write(row_num, 6, total_bottles)
-    ws.write(row_num, 7, total_coupons)
+        if (instances := CustomerOutstandingReport.objects.filter(customer=customer, product_type='amount')).exists():
+            report = instances.first()
+        else:
+            report = CustomerOutstandingReport.objects.create(customer=customer, product_type='amount')
 
-    wb.save(response)
-    return response
+        report.value += amount
+        report.save()
+        
+        date_part = timezone.now().strftime('%Y%m%d')
+        try:
+            invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
+            last_invoice_number = invoice_last_no.invoice_no
+
+            parts = last_invoice_number.split('-')
+            if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
+                prefix, old_date_part, number_part = parts
+                new_number_part = int(number_part) + 1
+                invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+            else:
+                random_part = str(random.randint(1000, 9999))
+                invoice_number = f'WTR-{date_part}-{random_part}'
+        except Invoice.DoesNotExist:
+            random_part = str(random.randint(1000, 9999))
+            invoice_number = f'WTR-{date_part}-{random_part}'
+        
+        invoice = Invoice.objects.create(
+            invoice_no=invoice_number,
+            created_date=outstanding_amount.customer_outstanding.created_date,
+            net_taxable=outstanding_amount.amount,
+            vat=0,
+            discount=0,
+            amout_total=outstanding_amount.amount,
+            amout_recieved=0,
+            customer=outstanding_amount.customer_outstanding.customer,
+            reference_no=f"custom_id{outstanding_amount.customer_outstanding.customer.custom_id}"
+        )
+        customer_outstanding.invoice_no = invoice.invoice_no
+        customer_outstanding.save()
+        
+        if outstanding_amount.customer_outstanding.customer.sales_type == "CREDIT":
+            invoice.invoice_type = "credit_invoice"
+            invoice.save()
+
+        item = ProdutItemMaster.objects.get(product_name="5 Gallon")
+        InvoiceItems.objects.create(
+            category=item.category,
+            product_items=item,
+            qty=0,
+            rate=outstanding_amount.customer_outstanding.customer.rate,
+            invoice=invoice,
+            remarks='invoice generated from backend reference no : ' + invoice.reference_no
+        )
+
+        print(f"Processed row {index + 1} for customer {customer_name}")
+
+def upload_outstanding(request):
+    if request.method == 'POST':
+        form = UploadOutstandingForm(request.POST, request.FILES)
+        if form.is_valid():
+            excel_file = form.cleaned_data['excel_file']
+            route = form.cleaned_data['route']
+
+            file_name = default_storage.save(excel_file.name, excel_file)
+            file_path = os.path.join(settings.MEDIA_ROOT, file_name)
+
+            data = pd.read_excel(file_path)
+
+            populate_models_from_excel(data, request.user)
+
+            default_storage.delete(file_name)
+
+            messages.success(request, "Outstanding uploaded successfully.")
+            return redirect(reverse('customer_outstanding_list'))
+    else:
+        form = UploadOutstandingForm()
+
+    return render(request, 'client_management/customer_outstanding/upload.html', {'form': form})
 
 
 
@@ -2613,23 +3295,97 @@ def edit_customer_outstanding(request, outstanding_pk):
         }
 
         return render(request, 'client_management/customer_outstanding/edit.html', context)
+
+def ageing_report_view(request): 
+    route_name = request.GET.get('route', None)
+    selected_route = None
+    routes = RouteMaster.objects.all()
+
+    if route_name:
+        selected_route = RouteMaster.objects.filter(route_name=route_name).first()
+
+    totals = {
+        'total_less_than_30': 0,
+        'total_between_31_and_60': 0,
+        'total_between_61_and_90': 0,
+        'total_between_91_and_150': 0,
+        'total_between_151_and_365': 0,
+        'total_more_than_365': 0,
+        'total_grand_total': 0,
+    }
+
+    if selected_route:
+        ageing_data = get_customer_outstanding_aging(selected_route.route_name)
+        for item in ageing_data:
+            totals['total_less_than_30'] += item['less_than_30']
+            totals['total_between_31_and_60'] += item['between_31_and_60']
+            totals['total_between_61_and_90'] += item['between_61_and_90']
+            totals['total_between_91_and_150'] += item['between_91_and_150']
+            totals['total_between_151_and_365'] += item['between_151_and_365']
+            totals['total_more_than_365'] += item['more_than_365']
+            totals['total_grand_total'] += item['grand_total']
+
+    context = {
+        'selected_route': selected_route,
+        'routes': routes,
+        'totals': totals,
+    }
+
+    return render(request, 'client_management/ageing_report.html', context)
+   
+
+def print_ageing_report_view(request):
+    route_name = request.GET.get('route', None)
+    selected_route = None
+
+    routes = RouteMaster.objects.all()
+
+    if route_name:
+        try:
+            selected_route = RouteMaster.objects.get(route_name=route_name)
+        except RouteMaster.DoesNotExist:
+            selected_route = None 
     
+    context = {
+        'selected_route': selected_route,
+        'routes': routes,
+    }
+
+    return render(request, 'client_management/print_ageing_report.html', context)
+
+from .templatetags.client_templatetags import get_customer_outstanding_aging
+  
+def ageing_report_excel(request):
+    route_name = request.GET.get('route', None)
+    selected_route = RouteMaster.objects.get(route_name=route_name) if route_name else None
+    aging_report = get_customer_outstanding_aging(selected_route)
+    
+    # Create DataFrame from the aging report data
+    df = pd.DataFrame(aging_report)
+    
+    # Create the HttpResponse object with the appropriate Excel header.
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="ageing_report.xlsx"'
+    
+    # Use Pandas Excel writer
+    with pd.ExcelWriter(response, engine='xlsxwriter') as writer:
+        df.to_excel(writer, sheet_name='Ageing Report', index=False)
+    
+    return response
+
 @login_required
-def outstanding_list(request):
+def customer_outstanding_detail(request,customer_id):
     """
-    Customer Outstanding  List
+    Customer Outstanding details List
     :param request:
     :return: Customer Outstanding list view
     """
     filter_data = {}
-    instances = CustomerOutstanding.objects.all().order_by('-created_date')
+    instances = CustomerOutstanding.objects.filter(customer__pk=customer_id,product_type='amount')
     
     query = request.GET.get("q")
     date = request.GET.get('date')
     route_filter = request.GET.get('route_name')
-    sales_type_filter = request.GET.get('sales_type')
-    product_type_filter = request.GET.get('product_type')  
-
     
     if date:
         date = datetime.strptime(date, '%Y-%m-%d').date()
@@ -2640,923 +3396,73 @@ def outstanding_list(request):
         filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
     if route_filter:
-        instances = instances.filter(customer__routes__route_name=route_filter)
-        filter_data['route_name'] = route_filter
+            instances = instances.filter(customer__routes__route_name=route_filter)
     route_li = RouteMaster.objects.all()
     
-    if sales_type_filter:
-        instances = instances.filter(customer__sales_type=sales_type_filter)
-        filter_data['sales_type'] = sales_type_filter
-    sales_type_li = Customers.objects.values_list('sales_type', flat=True).distinct()
-    
-    # Product type filter
-    if product_type_filter:
-        instances = instances.filter(product_type=product_type_filter)
-        filter_data['product_type'] = product_type_filter
-
-
     if query:
+
         instances = instances.filter(
             Q(product_type__icontains=query) |
             Q(invoice_no__icontains=query) 
         )
         title = "Outstanding List - %s" % query
         filter_data['q'] = query
-    # Calculate the total sum of outstanding counts
-    total_outstanding_count = sum([item.get_outstanding_count() for item in instances])
     
     context = {
         'instances': instances,
         'page_name' : 'Customer Outstanding List',
         'page_title' : 'Customer Outstanding List',
-        'customer_pk': request.GET.get("customer_pk"),
-        'date': date,
-        
+        'customer_id': customer_id,
         'is_customer_outstanding': True,
         'is_need_datetime_picker': True,
         'filter_data': filter_data,
         'route_li':route_li,
-        'sales_type_li': sales_type_li,
-        'total_outstanding_count': total_outstanding_count,  
-        'product_types': dict(PRODUCT_TYPES)
     }
 
-    return render(request, 'client_management/customer_outstanding/outstanding_list.html', context)
+    return render(request, 'client_management/customer_outstanding/customer_outstanding_list.html', context)
 
-def print_outstanding_report(request):
-    """
-    Print Customer Outstanding Report
-    :param request:
-    :return: A printable view of Customer Outstanding list
-    """
-    filter_data = {}
-    instances = CustomerOutstanding.objects.all().order_by('-created_date')
+def export_customer_outstanding_to_excel(request, customer_id):
+    instances = CustomerOutstanding.objects.filter(customer__pk=customer_id, product_type='amount')
     
-    query = request.GET.get("q")
-    date = request.GET.get('date')
-    route_filter = request.GET.get('route_name')
-    
-    sales_type_filter = request.GET.get('sales_type')
-    product_type_filter = request.GET.get('product_type')
+    # Prepare data for the Excel file
+    data = []
+    for item in instances:
+        # Convert created_date to timezone-naive
+        if item.created_date.tzinfo is not None:
+            created_date_naive = item.created_date.astimezone(timezone.utc).replace(tzinfo=None)
+        else:
+            created_date_naive = item.created_date  # Already naive
 
-    if date:
-        date = datetime.strptime(date, '%Y-%m-%d').date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-    else:
-        date = datetime.today().date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
+        data.append([
+            created_date_naive,  # Use the naive datetime
+            item.invoice_no,
+            item.customer.customer_name,
+            item.customer.building_name,
+            item.customer.routes.route_name,
+            item.get_outstanding_count()
+        ])
     
-    # Filter by route
-    if route_filter:
-        instances = instances.filter(customer__routes__route_name=route_filter)
-        filter_data['route_name'] = route_filter
+    # Create a DataFrame
+    df = pd.DataFrame(data, columns=['Created Date', 'Invoice No', 'Customer', 'Building No', 'Route', 'Count'])
+    
+    # Create the HttpResponse object with the appropriate Excel headers
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="customer_outstanding_report.xlsx"'
+    
+    # Use pandas to write to the response
+    with pd.ExcelWriter(response, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Outstanding Report')
+    
+    return response
 
-    route_li = RouteMaster.objects.all()
-    
-    # Filter by sales type
-    if sales_type_filter:
-        instances = instances.filter(customer__sales_type=sales_type_filter)
-        filter_data['sales_type'] = sales_type_filter
-    sales_type_li = Customers.objects.values_list('sales_type', flat=True).distinct()
-    
-    # Filter by product type
-    if product_type_filter:
-        instances = instances.filter(product_type=product_type_filter)
-        filter_data['product_type'] = product_type_filter
-
-    # Search functionality
-    if query:
-        instances = instances.filter(
-            Q(product_type__icontains=query) |
-            Q(invoice_no__icontains=query)
-        )
-        filter_data['q'] = query
-
-    # Calculate total outstanding count
-    total_outstanding_count = sum([item.get_outstanding_count() for item in instances])
-    
-    # Log user activity
-    log_activity(
-        created_by=request.user if request.user.is_authenticated else None,
-        description=f"Viewed outstanding list Print with filters: date={date},  Route: {route_filter}, Sales Type: {sales_type_filter}, "
-                f"Product Type: {product_type_filter}, Query: {query}"
-    )
-    
-    
+def print_customer_outstandings(request, customer_id):
+    instances = CustomerOutstanding.objects.filter(customer__pk=customer_id, product_type='amount')
     context = {
         'instances': instances,
-        'date': date,
-        'route_li': route_li,
-        'sales_type_li': sales_type_li,
-        'filter_data': filter_data,
-        'total_outstanding_count': total_outstanding_count,
-        'product_types': dict(PRODUCT_TYPES)
+        'page_title': 'Customer Outstanding Print',
     }
+    return render(request, 'client_management/customer_outstanding/customer_outstanding_print.html', context)
 
-    return render(request, 'client_management/customer_outstanding/print_outstanding_report.html', context)
-
-
-@login_required
-def create_customer_outstanding(request):
-    customer_pk = request.GET.get("customer_pk")
-    
-    message = ''
-    if request.method == 'POST':
-        if not customer_pk :
-            customer_outstanding_form = CustomerOutstandingForm(request.POST)
-        else:
-            customer_outstanding_form = CustomerOutstandingSingleForm(request.POST)
-            
-        customer_outstanding_amount_form = CustomerOutstandingAmountForm(request.POST)
-        customer_outstanding_bottles_form = CustomerOutstandingBottleForm(request.POST)
-        customer_outstanding_coupon_form = CustomerOutstandingCouponsForm(request.POST)
-        
-        is_form_valid = False
-        if request.POST.get('product_type') == "amount":
-            if customer_outstanding_form.is_valid() and customer_outstanding_amount_form.is_valid():
-                is_form_valid = True
-                
-            else:
-                message = generate_form_errors(customer_outstanding_form,formset=False)
-                message += generate_form_errors(customer_outstanding_amount_form,formset=False)
-                
-        if request.POST.get('product_type') == "emptycan":
-            if customer_outstanding_form.is_valid() and customer_outstanding_bottles_form.is_valid():
-                is_form_valid = True
-            else:
-                message = generate_form_errors(customer_outstanding_form,formset=False)
-                message += generate_form_errors(customer_outstanding_bottles_form,formset=False)
-                
-        if request.POST.get('product_type') == "coupons":
-            if customer_outstanding_form.is_valid() and customer_outstanding_coupon_form.is_valid():
-                is_form_valid = True
-            else:
-                message = generate_form_errors(customer_outstanding_form,formset=False)
-                message += generate_form_errors(customer_outstanding_coupon_form,formset=False)
-            
-        if is_form_valid :
-            try:
-                with transaction.atomic():
-                    # Save customer_outstanding_form data
-                    outstanding_data = customer_outstanding_form.save(commit=False)
-                    outstanding_data.created_by = request.user.id
-                    outstanding_data.created_date = datetime.today()
-                    if customer_pk :
-                        print("custo_pk")
-                        outstanding_data.customer = Customers.objects.get(pk=customer_pk)
-                    outstanding_data.save()
-                    
-                    # Save data based on product type
-                    if outstanding_data.product_type == "amount":
-                        outstanding_amount = customer_outstanding_amount_form.save(commit=False)
-                        outstanding_amount.customer_outstanding = outstanding_data
-                        outstanding_amount.save()
-                        log_activity(   
-                            created_by=request.user ,
-                            description=f"Created Outstanding Amount: {outstanding_amount.amount} for {outstanding_data.customer}"
-                            )
-                        # Check if there is an existing report entry
-                        existing_report = CustomerOutstandingReport.objects.filter(
-                            customer=outstanding_data.customer,
-                            product_type='amount'
-                        ).first()
-                        
-                        if existing_report:
-                            existing_report.value += outstanding_amount.amount
-                            existing_report.save()
-                        else:
-                            CustomerOutstandingReport.objects.create(
-                                product_type='amount',
-                                value=outstanding_amount.amount,
-                                customer=outstanding_data.customer
-                            )
-                        
-                        date_part = timezone.now().strftime('%Y%m%d')
-                        try:
-                            invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
-                            last_invoice_number = invoice_last_no.invoice_no
-
-                            # Validate the format of the last invoice number
-                            parts = last_invoice_number.split('-')
-                            if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
-                                prefix, old_date_part, number_part = parts
-                                new_number_part = int(number_part) + 1
-                                invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
-                            else:
-                                # If the last invoice number is not in the expected format, generate a new one
-                                random_part = str(random.randint(1000, 9999))
-                                invoice_number = f'WTR-{date_part}-{random_part}'
-                        except Invoice.DoesNotExist:
-                            random_part = str(random.randint(1000, 9999))
-                            invoice_number = f'WTR-{date_part}-{random_part}'
-                        
-                        # Create the invoice
-                        invoice = Invoice.objects.create(
-                            invoice_no=invoice_number,
-                            created_date=datetime.today(),
-                            net_taxable=outstanding_amount.amount,
-                            vat=0,
-                            discount=0,
-                            amout_total=outstanding_amount.amount,
-                            amout_recieved=0,
-                            customer=outstanding_amount.customer_outstanding.customer,
-                            reference_no="oustading added for customer"
-                        )
-                        outstanding_data.invoice_no=invoice.invoice_no
-                        outstanding_data.save()
-                        
-                        if outstanding_amount.customer_outstanding.customer.sales_type == "CREDIT":
-                            invoice.invoice_type = "credit_invoive"
-                            invoice.save()
-
-                        # Create invoice items
-                        item = ProdutItemMaster.objects.get(product_name="5 Gallon")
-                        InvoiceItems.objects.create(
-                            category=item.category,
-                            product_items=item,
-                            qty=0,
-                            rate=outstanding_amount.customer_outstanding.customer.rate or item.rate,
-                            invoice=invoice,
-                            remarks='invoice genereted from backend reference no : ' + invoice.reference_no
-                        )
-
-                    
-                    elif outstanding_data.product_type == "emptycan":
-                        outstanding_bottle = customer_outstanding_bottles_form.save(commit=False)
-                        outstanding_bottle.customer_outstanding = outstanding_data
-                        outstanding_bottle.save()
-                        log_activity(
-                            created_by=request.user,
-                            description=f"Created Outstanding Empty Can: {outstanding_bottle.empty_bottle} for {outstanding_data.customer}"
-                        )
-                        # Similar logic for empty can
-                        # Check if there is an existing report entry
-                        existing_report = CustomerOutstandingReport.objects.filter(
-                            customer=outstanding_data.customer,
-                            product_type='emptycan'
-                        ).first()
-                        
-                        if existing_report:
-                            existing_report.value += outstanding_bottle.empty_bottle
-                            existing_report.save()
-                        else:
-                            CustomerOutstandingReport.objects.create(
-                                product_type='emptycan',
-                                value=outstanding_bottle.empty_bottle,
-                                customer=outstanding_data.customer
-                            )
-                        
-                    elif outstanding_data.product_type == "coupons":
-                        outstanding_coupon = customer_outstanding_coupon_form.save(commit=False)
-                        outstanding_coupon.customer_outstanding = outstanding_data
-                        outstanding_coupon.save()
-                        log_activity(
-                            created_by=request.user,
-                            description=f"Created Outstanding Coupons: {outstanding_coupon.count} for {outstanding_data.customer}"
-                        )
-                        # Similar logic for coupons
-                        # Check if there is an existing report entry
-                        existing_report = CustomerOutstandingReport.objects.filter(
-                            customer=outstanding_data.customer,
-                            product_type='coupons'
-                        ).first()
-                        
-                        if existing_report:
-                            existing_report.value += outstanding_coupon.count
-                            existing_report.save()
-                        else:
-                            CustomerOutstandingReport.objects.create(
-                                product_type='coupons',
-                                value=outstanding_coupon.count,
-                                customer=outstanding_data.customer
-                            ) 
-                                        
-                    if not customer_pk:
-                        redirect_url = reverse('customer_outstanding_list')
-                    else:
-                        redirect_url = reverse('customer_outstanding_list') + f'?customer_pk={customer_pk}'
-                        
-                    response_data = {
-                        "status": "true",
-                        "title": "Successfully Created",
-                        "message": "Customer Supply created successfully.",
-                        'redirect': 'true',
-                        'redirect_url': redirect_url,
-                    }
-                    
-            except IntegrityError as e:
-                # Handle database integrity error
-                response_data = {
-                    "status": "false",
-                    "title": "Failed",
-                    "message": str(e),
-                }
-
-            except Exception as e:
-                # Handle other exceptions
-                response_data = {
-                    "status": "false",
-                    "title": "Failed",
-                    "message": str(e),
-                }
-        else:
-            response_data = {
-                "status": "false",
-                "title": "Failed",
-                "message": message,
-            }
-
-        return HttpResponse(json.dumps(response_data), content_type='application/javascript')
-    
-    else:
-        if not customer_pk :
-            customer_outstanding_form = CustomerOutstandingForm()
-        else:
-            customer_outstanding_form = CustomerOutstandingSingleForm()
-        
-        customer_outstanding_amount_form = CustomerOutstandingAmountForm()
-        customer_outstanding_bottles_form = CustomerOutstandingBottleForm()
-        customer_outstanding_coupon_form = CustomerOutstandingCouponsForm()
-        
-        context = {
-            'customer_outstanding_form': customer_outstanding_form,
-            'customer_outstanding_amount_form': customer_outstanding_amount_form,
-            'customer_outstanding_bottles_form': customer_outstanding_bottles_form,
-            'customer_outstanding_coupon_form': customer_outstanding_coupon_form,
-            'customer_pk': customer_pk,
-            "url": reverse('create_customer_outstanding'),
-            
-            'page_title': 'Create customer supply',
-            'customer_outstanding_page': True,
-            'is_need_datetime_picker': True
-        }
-        
-        return render(request,'client_management/customer_outstanding/create.html',context)
-
-
-@login_required
-def delete_outstanding(request, pk):
-    """
-    outstanding deletion, it only mark as is deleted field to true
-    :param request:
-    :param pk:
-    :return:
-    """
-    try:
-        with transaction.atomic():
-            customer_outstanding = CustomerOutstanding.objects.get(pk=pk)
-            report = CustomerOutstandingReport.objects.filter(customer=customer_outstanding.customer)
-            
-            if customer_outstanding.product_type == "amount":
-                amount = OutstandingAmount.objects.get(customer_outstanding=customer_outstanding).amount
-                report = report.filter(product_type="amount").first()
-                report.value -= amount
-                log_activity(
-                    created_by=request.user,
-                    description=f"Adjusted Outstanding Amount by {amount} for {customer_outstanding.customer} due to deletion"
-                )
-            if customer_outstanding.product_type == "emptycan":
-                emptycan = OutstandingProduct.objects.get(customer_outstanding=customer_outstanding).empty_bottle
-                report = report.filter(product_type="emptycan").first()
-                report.value -= emptycan
-                log_activity(
-                    created_by=request.user,
-                    description=f"Adjusted Outstanding Empty Can count by {emptycan} for {customer_outstanding.customer} due to deletion"
-                )
-            if customer_outstanding.product_type == "coupons":
-                coupons = OutstandingCoupon.objects.filter(customer_outstanding=customer_outstanding).aggregate(total_count=Sum('count'))['total_count'] or 0
-                report = report.filter(product_type="coupons").first()
-                report.value -= coupons
-                log_activity(
-                    created_by=request.user,
-                    description=f"Adjusted Outstanding Coupons count by {coupons} for {customer_outstanding.customer} due to deletion"
-                )
-            
-            report.save()
-            
-            if (invoices:=Invoice.objects.filter(invoice_no=customer_outstanding.invoice_no)).exists():
-                for invoice in invoices:
-                    if CustomerSupply.objects.filter(invoice_no=invoice.invoice_no).exists():
-                        customer_supply_instance = get_object_or_404(CustomerSupply, invoice_no=invoice.invoice_no)
-                        supply_items_instances = CustomerSupplyItems.objects.filter(customer_supply=customer_supply_instance)
-                        five_gallon_qty = supply_items_instances.filter(product__product_name="5 Gallon").aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
-                        
-                        DiffBottlesModel.objects.filter(
-                            delivery_date__date=customer_supply_instance.created_date.date(),
-                            assign_this_to=customer_supply_instance.salesman,
-                            customer=customer_supply_instance.customer_id
-                            ).update(status='pending')
-                    
-                        # Handle coupon deletions and adjustments
-                        handle_coupons(customer_supply_instance, five_gallon_qty)
-                        
-                        # Update van product stock and empty bottle counts
-                        update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty)
-                        
-                        # Mark customer supply and items as deleted
-                        customer_supply_instance.delete()
-                        supply_items_instances.delete()
-                        
-                        if CustomerCoupon.objects.filter(invoice_no=invoice.invoice_no).exists():
-                            instance = CustomerCoupon.objects.get(invoice_no=invoice.invoice_no)
-                            delete_coupon_recharge(instance.invoice_no)
-                            
-                    invoice.is_deleted=True
-                    invoice.save()
-                    
-                    InvoiceItems.objects.filter(invoice=invoice).update(is_deleted=True)
-                log_activity(
-                    created_by=request.user,
-                    description=f"Deleted Invoices and related data for Outstanding: {customer_outstanding.invoice_no}"
-                )
-            customer_outstanding.delete()
-            log_activity(
-                created_by=request.user,
-                description=f"Deleted Outstanding record for customer: {customer_outstanding.customer.customer_name}"
-            )
-            status_code = status.HTTP_200_OK
-            response_data = {
-            "status": "true",
-            "title": "Succesfully Deleted",
-            "message": "Succesfully Deleted",
-            "reload": "true",
-            }
-            
-    except IntegrityError as e:
-        # Handle database integrity error
-        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-        response_data = {
-            "status": "false",
-            "title": "Failed",
-            "message": str(e),
-        }
-
-    except Exception as e:
-        # Handle other exceptions
-        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-        response_data = {
-            "status": "false",
-            "title": "Failed",
-            "message": str(e),
-        }
-    return HttpResponse(json.dumps(response_data), status=status_code, content_type='application/javascript')
-
-
-@transaction.atomic
-def populate_models_from_excel(data, user):
-    # user = CustomUser.objects.get(username=user.username)
-    for index, row in data.iterrows():
-        customer_id = row['customer_id']
-        customer_name = row['customer_name']
-        amount = Decimal(row['amount'])
-        str_date = str(row['date'])
-        
-        if isinstance(str_date, str):
-            str_date = str_date.split()[0]  # Take only the date part if it includes time
-        date = datetime.strptime(str_date, '%Y-%m-%d')
-        
-        try:
-            customer = Customers.objects.get(custom_id=customer_id)
-        except Customers.DoesNotExist:
-            print(f"Customer {customer_name} does not exist.")
-            continue
-
-        customer_outstanding = CustomerOutstanding.objects.create(
-            customer=customer,
-            product_type='amount',
-            created_by=user.id,
-            modified_by=user.id,
-            created_date=date,
-        )
-
-        outstanding_amount = OutstandingAmount.objects.create(
-            customer_outstanding=customer_outstanding,
-            amount=amount
-        )
-
-        if (instances := CustomerOutstandingReport.objects.filter(customer=customer, product_type='amount')).exists():
-            report = instances.first()
-        else:
-            report = CustomerOutstandingReport.objects.create(customer=customer, product_type='amount')
-
-        report.value += amount
-        report.save()
-        
-        date_part = timezone.now().strftime('%Y%m%d')
-        try:
-            invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
-            last_invoice_number = invoice_last_no.invoice_no
-
-            parts = last_invoice_number.split('-')
-            if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
-                prefix, old_date_part, number_part = parts
-                new_number_part = int(number_part) + 1
-                invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
-            else:
-                random_part = str(random.randint(1000, 9999))
-                invoice_number = f'WTR-{date_part}-{random_part}'
-        except Invoice.DoesNotExist:
-            random_part = str(random.randint(1000, 9999))
-            invoice_number = f'WTR-{date_part}-{random_part}'
-        
-        invoice = Invoice.objects.create(
-            invoice_no=invoice_number,
-            created_date=outstanding_amount.customer_outstanding.created_date,
-            net_taxable=outstanding_amount.amount,
-            vat=0,
-            discount=0,
-            amout_total=outstanding_amount.amount,
-            amout_recieved=0,
-            customer=outstanding_amount.customer_outstanding.customer,
-            reference_no=f"custom_id{outstanding_amount.customer_outstanding.customer.custom_id}"
-        )
-        customer_outstanding.invoice_no = invoice.invoice_no
-        customer_outstanding.save()
-        
-        if outstanding_amount.customer_outstanding.customer.sales_type == "CREDIT":
-            invoice.invoice_type = "credit_invoice"
-            invoice.save()
-
-        item = ProdutItemMaster.objects.get(product_name="5 Gallon")
-        InvoiceItems.objects.create(
-            category=item.category,
-            product_items=item,
-            qty=0,
-            rate=outstanding_amount.customer_outstanding.customer.rate,
-            invoice=invoice,
-            remarks='invoice generated from backend reference no : ' + invoice.reference_no
-        )
-
-        print(f"Processed row {index + 1} for customer {customer_name}")
-
-def upload_outstanding(request):
-    if request.method == 'POST':
-        form = UploadOutstandingForm(request.POST, request.FILES)
-        if form.is_valid():
-            excel_file = form.cleaned_data['excel_file']
-            route = form.cleaned_data['route']
-
-            file_name = default_storage.save(excel_file.name, excel_file)
-            file_path = os.path.join(settings.MEDIA_ROOT, file_name)
-
-            data = pd.read_excel(file_path)
-
-            populate_models_from_excel(data, request.user)
-
-            default_storage.delete(file_name)
-
-            messages.success(request, "Outstanding uploaded successfully.")
-            return redirect(reverse('customer_outstanding_list'))
-    else:
-        form = UploadOutstandingForm()
-
-    return render(request, 'client_management/customer_outstanding/upload.html', {'form': form})
-
-# customer count
-
-def customer_count(request):
-    routes = RouteMaster.objects.all()
-    total_cash = 0
-    total_credit = 0
-    total_coupon = 0
-    total_customers = 0
-    customer_counts = []
-    customer = Customers.objects.all().count()
-    for route in routes:
-        sales_man = ''
-        van_route = Van_Routes.objects.filter(routes=route).first()
-        if van_route and van_route.van:
-            sales_man = van_route.van.salesman
-        
-        cash_count = Customers.objects.filter(routes=route, sales_type='CASH').count()
-        credit_count = Customers.objects.filter(routes=route, sales_type='CREDIT').count()
-        coupon_count = Customers.objects.filter(routes=route, sales_type__in=['CASH COUPON', 'CREDIT COUPON']).count()
-
-        total_cash += cash_count
-        total_credit += credit_count
-        total_coupon += coupon_count
-        total_customers += cash_count + credit_count + coupon_count
-        if cash_count+credit_count+coupon_count != 0:
-            customer_counts.append({
-                'route_name': route.route_name,
-                'sales_man': sales_man,
-                'cash_count': cash_count,
-                'credit_count': credit_count,
-                'coupon_count': coupon_count,
-                'total_customer': cash_count + credit_count + coupon_count
-            })
-
-    # customers with no route specified
-    cash_count = Customers.objects.filter(routes=None, sales_type='CASH').count()
-    credit_count = Customers.objects.filter(routes=None, sales_type='CREDIT').count()
-    coupon_count = Customers.objects.filter(routes=None, sales_type__in=['CASH COUPON', 'CREDIT COUPON']).count()
-
-    total_cash += cash_count
-    total_credit += credit_count
-    total_coupon += coupon_count
-    total_customers += cash_count + credit_count + coupon_count
-    
-    customer_counts.append({
-            'route_name': 'Not Specified',
-            'sales_man': sales_man,
-            'cash_count': cash_count,
-            'credit_count': credit_count,
-            'coupon_count': coupon_count,
-            'total_customer': cash_count + credit_count + coupon_count
-        })
-    log_activity(
-        created_by=request.user,
-        description=f"Calculated customer counts: Total customers: {total_customers}, Total cash: {total_cash}, Total credit: {total_credit}, Total coupon: {total_coupon}"
-    )
-    context = {
-        'customer_counts': customer_counts,
-        'total_cash': total_cash,
-        'total_credit': total_credit,
-        'total_coupon': total_coupon,
-        'total_customers': total_customers,
-    }
-    # print('total customers:', total_customers)
-    return render(request, 'client_management/customer_count.html', context)
-
-def bottle_count(request):
-    routes = RouteMaster.objects.all()
-
-    context = {
-        'instances': routes,
-    }
-    log_activity(
-        created_by=request.user,
-        description="Viewed bottle count for all routes."
-    )
-    return render(request, 'client_management/bottle_count.html', context)
-    
-
-def bottle_count_route_wise(request, route_id):
-    customers = Customers.objects.filter(routes__pk=route_id)
-    
-    context = {
-        "instances" : customers
-    }
-    log_activity(
-        created_by=request.user,
-        description=f"Viewed bottle count for route: {customers.routes.route_name}."
-    )
-    return render(request, 'client_management/route_details.html', context)
-    
-@login_required
-def customer_orders(request):
-    """
-    Customer orders List
-    :param request:
-    :return: Customer orders list view
-    """
-    filter_data = {}
-    instances = CustomerOrders.objects.all()
-    
-    query = request.GET.get("q")
-    
-    if query:
-
-        instances = instances.filter(
-            Q(customer__customer_name__icontains=query) |
-            Q(customer__customer_id__icontains=query) |
-            Q(customer__mobile_no__icontains=query) |
-            Q(customer__whats_app__icontains=query) |
-            Q(customer__email_id__icontains=query)
-        )
-        title = "Customer Order List - %s" % query
-        filter_data['q'] = query
-        
-    acknowledge_form = CustomerOrdersAcknowledgeForm()
-    log_activity(
-            created_by=request.user,
-            description="Viewed customer orders list."
-        )        
-    context = {
-        'instances': instances,
-        'acknowledge_form': acknowledge_form,
-        'page_name' : 'Customer Order List',
-        'page_title' : 'Customer Order List',
-        
-        'is_customer_outstanding': True,
-        'is_need_datetime_picker': True,
-        'filter_data': filter_data,
-    }
-
-    return render(request, 'client_management/customer_order_list.html', context)
-
-def customer_order_status_acknowledge(request,pk):
-            
-    try:
-        with transaction.atomic():
-            instance = CustomerOrders.objects.get(pk=pk)
-            form = CustomerOrdersAcknowledgeForm(request.POST,instance=instance)
-
-            data = form.save(commit=False)
-            data.save()
-            
-            if data.order_status == "approve":
-                DiffBottlesModel.objects.create(
-                    product_item=data.product,
-                    quantity_required=data.quantity,
-                    delivery_date=data.delivery_date,
-                    assign_this_to=data.customer.sales_staff,
-                    mode="paid",
-                    amount=data.total_amount,
-                    discount_net_total=data.total_net_amount,
-                    customer=data.customer,
-                    created_by=data.created_by,
-                    created_date=datetime.today(),
-                )
-                
-            response_data = {
-                "status": "true",
-                "title": "Successfully Created",
-                "message": "Acknowledged",
-                'reload': 'true',
-            }
-            log_activity(
-                created_by=request.user,
-                description=f"Acknowledged customer order for {data.customer.customer_name} with status {data.order_status}."
-            )
-            
-    except IntegrityError as e:
-        # Handle database integrity error
-        response_data = {
-            "status": "false",
-            "title": "Failed",
-            "message": str(e),
-        }
-
-    except Exception as e:
-        # Handle other exceptions
-        response_data = {
-            "status": "false",
-            "title": "Failed",
-            "message": str(e),
-        }
-    return HttpResponse(json.dumps(response_data), content_type='application/javascript')
-
-
-def nonvisitreason_List(request):
-    all_nonvisitreason= NonVisitReason.objects.all()
-    context = {'all_nonvisitreason': all_nonvisitreason}
-    log_activity(
-        created_by=request.user,
-        description="Viewed the list of non-visit reasons."
-    )
-    return render(request, 'client_management/NonVisitReason/index_nonvisitReason.html', context)
-
-def create_nonvisitreason(request):
-    if request.method == 'POST':
-        form = Create_NonVisitReasonForm(request.POST)
-        if form.is_valid():
-            data = form.save(commit=False)
-            data.created_by = str(request.user.id)
-            data.save()
-            log_activity(
-                created_by=request.user,
-                description=f"Created a new non-visit reason: {data.reason_description}."
-            )
-            messages.success(request, 'Non Visit Reason created successfully!')
-            return redirect('nonvisitreason_List')
-        else:
-            log_activity(
-                created_by=request.user,
-                description="Failed to create a new non-visit reason due to invalid form data."
-            )
-            messages.error(request, 'Invalid form data. Please check the input.')
-    else:
-        form = Create_NonVisitReasonForm()
-    context = {'form': form}
-    return render(request, 'client_management/NonVisitReason/create_nonvisitreason.html', context)
-
-def delete_nonvisitreason(request, id):
-    delete_nonvisitreason = NonVisitReason.objects.get(id=id)
-    if request.method == 'POST':
-        delete_nonvisitreason.delete()
-        log_activity(
-            created_by=request.user,
-            description=f"Deleted non-visit reason: {delete_nonvisitreason.reason_description}."
-        )
-        return redirect('nonvisitreason_List')
-    return render(request, 'client_management/NonVisitReason/delete_nonvisitreason.html', {'delete_nonvisitreason': delete_nonvisitreason})
-
-@transaction.atomic
-def populate_models_from_excel(data, user):
-    # user = CustomUser.objects.get(username=user.username)
-    for index, row in data.iterrows():
-        customer_id = row['customer_id']
-        customer_name = row['customer_name']
-        amount = Decimal(row['amount'])
-        str_date = str(row['date'])
-        
-        if isinstance(str_date, str):
-            str_date = str_date.split()[0]  # Take only the date part if it includes time
-        date = datetime.strptime(str_date, '%Y-%m-%d')
-        
-        try:
-            customer = Customers.objects.get(custom_id=customer_id)
-        except Customers.DoesNotExist:
-            print(f"Customer {customer_name} does not exist.")
-            continue
-
-        customer_outstanding = CustomerOutstanding.objects.create(
-            customer=customer,
-            product_type='amount',
-            created_by=user.id,
-            modified_by=user.id,
-            created_date=date,
-        )
-
-        outstanding_amount = OutstandingAmount.objects.create(
-            customer_outstanding=customer_outstanding,
-            amount=amount
-        )
-
-        if (instances := CustomerOutstandingReport.objects.filter(customer=customer, product_type='amount')).exists():
-            report = instances.first()
-        else:
-            report = CustomerOutstandingReport.objects.create(customer=customer, product_type='amount')
-
-        report.value += amount
-        report.save()
-        
-        date_part = timezone.now().strftime('%Y%m%d')
-        try:
-            invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
-            last_invoice_number = invoice_last_no.invoice_no
-
-            parts = last_invoice_number.split('-')
-            if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
-                prefix, old_date_part, number_part = parts
-                new_number_part = int(number_part) + 1
-                invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
-            else:
-                random_part = str(random.randint(1000, 9999))
-                invoice_number = f'WTR-{date_part}-{random_part}'
-        except Invoice.DoesNotExist:
-            random_part = str(random.randint(1000, 9999))
-            invoice_number = f'WTR-{date_part}-{random_part}'
-        
-        invoice = Invoice.objects.create(
-            invoice_no=invoice_number,
-            created_date=outstanding_amount.customer_outstanding.created_date,
-            net_taxable=outstanding_amount.amount,
-            vat=0,
-            discount=0,
-            amout_total=outstanding_amount.amount,
-            amout_recieved=0,
-            customer=outstanding_amount.customer_outstanding.customer,
-            reference_no=f"custom_id{outstanding_amount.customer_outstanding.customer.custom_id}"
-        )
-        customer_outstanding.invoice_no = invoice.invoice_no
-        customer_outstanding.save()
-        
-        if outstanding_amount.customer_outstanding.customer.sales_type == "CREDIT":
-            invoice.invoice_type = "credit_invoice"
-            invoice.save()
-
-        item = ProdutItemMaster.objects.get(product_name="5 Gallon")
-        InvoiceItems.objects.create(
-            category=item.category,
-            product_items=item,
-            qty=0,
-            rate=outstanding_amount.customer_outstanding.customer.rate,
-            invoice=invoice,
-            remarks='invoice generated from backend reference no : ' + invoice.reference_no
-        )
-        log_activity(
-            created_by=user,
-            description=f"Processed row {index + 1} for customer {customer_name}. Invoice generated: {invoice.invoice_no}"
-        )
-        print(f"Processed row {index + 1} for customer {customer_name}")
-
-def upload_outstanding(request):
-    if request.method == 'POST':
-        form = UploadOutstandingForm(request.POST, request.FILES)
-        if form.is_valid():
-            excel_file = form.cleaned_data['excel_file']
-            route = form.cleaned_data['route']
-
-            file_name = default_storage.save(excel_file.name, excel_file)
-            file_path = os.path.join(settings.MEDIA_ROOT, file_name)
-
-            data = pd.read_excel(file_path)
-
-            populate_models_from_excel(data, request.user)
-
-            default_storage.delete(file_name)
-            log_activity(
-                created_by=request.user,
-                description=f"Uploaded outstanding report for route {route}."
-            )
-            messages.success(request, "Outstanding uploaded successfully.")
-            return redirect(reverse('customer_outstanding_list'))
-    else:
-        form = UploadOutstandingForm()
-
-    return render(request, 'client_management/customer_outstanding/upload.html', {'form': form})
 
 def customer_transaction_list(request):
     """
@@ -3725,6 +3631,11 @@ def customer_transaction_list(request):
         total_coupons = coupon.total_coupon_recieved()  # Assuming this method returns a dict
         total_manual_coupons += total_coupons.get('manual_coupon', 0)
         total_digital_coupons += total_coupons.get('digital_coupon', 0)
+        
+    log_activity(
+        created_by=request.user if request.user.is_authenticated else None,
+        description="Viewed the customer transaction list with filters applied."
+    )
 
     context = {
         'sales_report_data': sales_report_data,
@@ -3751,11 +3662,6 @@ def customer_transaction_list(request):
         'total_digital_coupons': total_digital_coupons,
         'customer_pk': customer_pk,
     }
-    
-    log_activity(
-        created_by=request.user if request.user.is_authenticated else None,
-        description="Viewed the customer transaction List with filters applied."
-    )
 
     return render(request, 'client_management/customer_transaction/customer_transaction_list.html', context)
 
@@ -3775,8 +3681,7 @@ def customer_transaction_print(request):
     total_amount = total_discount = total_net_payable = total_vat = 0
     total_grand_total = total_amount_recieved = 0
     customer_pk = request.GET.get("customer_pk")
-    customer = get_object_or_404(Customers, pk=customer_pk)
-
+    
     # Get CustomerSupply items excluding certain sales types
     sales = CustomerSupplyItems.objects.filter(
         customer_supply__customer__pk=customer_pk
@@ -3953,190 +3858,10 @@ def customer_transaction_print(request):
         'total_manual_coupons': total_manual_coupons,
         'total_digital_coupons': total_digital_coupons,
         'customer_pk': customer_pk,
-        'customer_name':customer.customer_name,
-        'building_name':customer.building_name,
-        'door_house_no':customer.door_house_no,
-        'floor_no':customer.floor_no,
-        }
-    
+    }
     log_activity(
         created_by=request.user if request.user.is_authenticated else None,
         description="Viewed the customer transaction Print with filters applied."
     )
-    
     return render(request, 'client_management/customer_transaction/customer_transaction_print.html', context)
-
-
-def ageing_report_view(request): 
-    
-    route_name = request.GET.get('route', None)
-    selected_route = None
-
-    routes = RouteMaster.objects.all()
-
-    if route_name:
-        try:
-            selected_route = RouteMaster.objects.get(route_name=route_name)
-        except RouteMaster.DoesNotExist:
-            selected_route = None 
-
-    totals = {
-        'total_less_than_30': 0,
-        'total_between_31_and_60': 0,
-        'total_between_61_and_90': 0,
-        'total_between_91_and_150': 0,
-        'total_between_151_and_365': 0,
-        'total_more_than_365': 0,
-        'total_grand_total': 0,
-    }
-
-    if selected_route:
-        ageing_data = get_customer_outstanding_aging(selected_route)
-        
-        # Calculate totals from ageing data
-        for item in ageing_data:
-            totals['total_less_than_30'] += item['less_than_30']
-            totals['total_between_31_and_60'] += item['between_31_and_60']
-            totals['total_between_61_and_90'] += item['between_61_and_90']
-            totals['total_between_91_and_150'] += item['between_91_and_150']
-            totals['total_between_151_and_365'] += item['between_151_and_365']
-            totals['total_more_than_365'] += item['more_than_365']
-            totals['total_grand_total'] += item['grand_total']
-            
-    context = {
-        'selected_route': selected_route,
-        'routes': routes,
-        'totals':totals,
-    }
-    
-    return render(request, 'client_management/ageing_report.html', context)
-
-def print_ageing_report_view(request):
-    route_name = request.GET.get('route', None)
-    selected_route = None
-
-    routes = RouteMaster.objects.all()
-
-    if route_name:
-        try:
-            selected_route = RouteMaster.objects.get(route_name=route_name)
-        except RouteMaster.DoesNotExist:
-            selected_route = None 
-
-    context = {
-        'selected_route': selected_route,
-        'routes': routes,
-    }
-
-    return render(request, 'client_management/print_ageing_report.html', context)
-
-from .templatetags.client_templatetags import get_customer_outstanding_aging
-  
-def ageing_report_excel(request):
-    route_name = request.GET.get('route', None)
-    selected_route = RouteMaster.objects.get(route_name=route_name) if route_name else None
-    aging_report = get_customer_outstanding_aging(selected_route)
-    
-    # Create DataFrame from the aging report data
-    df = pd.DataFrame(aging_report)
-    
-    # Create the HttpResponse object with the appropriate Excel header.
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="ageing_report.xlsx"'
-    
-    # Use Pandas Excel writer
-    with pd.ExcelWriter(response, engine='xlsxwriter') as writer:
-        df.to_excel(writer, sheet_name='Ageing Report', index=False)
-    
-    return response
-
-@login_required
-def customer_outstanding_detail(request,customer_id):
-    """
-    Customer Outstanding details List
-    :param request:
-    :return: Customer Outstanding list view
-    """
-    filter_data = {}
-    instances = CustomerOutstanding.objects.filter(customer__pk=customer_id,product_type='amount')
-    
-    query = request.GET.get("q")
-    date = request.GET.get('date')
-    route_filter = request.GET.get('route_name')
-    
-    if date:
-        date = datetime.strptime(date, '%Y-%m-%d').date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-
-    else:
-        date = datetime.today().date()
-        filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-    
-    if route_filter:
-            instances = instances.filter(customer__routes__route_name=route_filter)
-    route_li = RouteMaster.objects.all()
-    
-    if query:
-
-        instances = instances.filter(
-            Q(product_type__icontains=query) |
-            Q(invoice_no__icontains=query) 
-        )
-        title = "Outstanding List - %s" % query
-        filter_data['q'] = query
-    
-    context = {
-        'instances': instances,
-        'page_name' : 'Customer Outstanding List',
-        'page_title' : 'Customer Outstanding List',
-        'customer_id': customer_id,
-        'is_customer_outstanding': True,
-        'is_need_datetime_picker': True,
-        'filter_data': filter_data,
-        'route_li':route_li,
-    }
-
-    return render(request, 'client_management/customer_outstanding/customer_outstanding_list.html', context)
-
-def customer_outstanding_to_excel(request, customer_id):
-    instances = CustomerOutstanding.objects.filter(customer__pk=customer_id, product_type='amount')
-    
-    # Prepare data for the Excel file
-    data = []
-    for item in instances:
-        # Convert created_date to timezone-naive
-        if item.created_date.tzinfo is not None:
-            created_date_naive = item.created_date.astimezone(timezone.utc).replace(tzinfo=None)
-        else:
-            created_date_naive = item.created_date  # Already naive
-
-        data.append([
-            created_date_naive,  # Use the naive datetime
-            item.invoice_no,
-            item.customer.customer_name,
-            item.customer.building_name,
-            item.customer.routes.route_name,
-            item.get_outstanding_count()
-        ])
-    
-    # Create a DataFrame
-    df = pd.DataFrame(data, columns=['Created Date', 'Invoice No', 'Customer', 'Building No', 'Route', 'Count'])
-    
-    # Create the HttpResponse object with the appropriate Excel headers
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="customer_outstanding_report.xlsx"'
-    
-    # Use pandas to write to the response
-    with pd.ExcelWriter(response, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Outstanding Report')
-    
-    return response
-
-def print_customer_outstandings(request, customer_id):
-    instances = CustomerOutstanding.objects.filter(customer__pk=customer_id, product_type='amount')
-    context = {
-        'instances': instances,
-        'page_title': 'Customer Outstanding Print',
-    }
-    return render(request, 'client_management/customer_outstanding/customer_outstanding_print.html', context)
 

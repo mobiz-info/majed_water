@@ -25,7 +25,6 @@
             <button class="tablinks btn rounded-0" onclick="openTab(event, 'Custormer_Statistics')">Customer Statistics</button>
             <button class="tablinks btn rounded-0" onclick="openTab(event, 'Others')">Others</button>
         </div>
-
         <!-- Tab Content for overview tab -->
         <div class="tabcontent" id="Overview">
             <div class="row">
@@ -158,7 +157,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- Category Table and Pie Chart -->
             <div class="row mt-4">
                 <div class="col-md-6 mb-4">
@@ -210,928 +208,683 @@
                 <div class="col-md-6 mb-4">
                     <div class="card h-100">
                         <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                            <h5 class="card-title">Payment Method Distribution</h5>
+                            <h5 class="card-title">New Customers</h5>
                         </div>
                         <div class="card-body">
-                            <canvas id="payment-pie-chart" style="height: 300px;"></canvas>
+                            <canvas id="newCustomerChart"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Include the Chart.js library -->
-            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-            <script>
-                // Convert the sales_chart_data to a format that JavaScript can use
-                const salesChartData = {
-                    Cash: {{ sales_chart_data.Cash|default:"0" }},
-                    Credit: {{ sales_chart_data.Credit|default:"0" }},
-                    Coupon: {{ sales_chart_data.Coupon|default:"0" }}
-                };
-
-                // Log the sales chart data to the console
-                console.log('Sales Chart Data:', salesChartData);
-
-                // Create the pie chart
-                document.addEventListener('DOMContentLoaded', function () {
-                    const ctx = document.getElementById('payment-pie-chart').getContext('2d');
-                    console.log('Chart Context:', ctx);
-
-                    const data = {
-                        labels: ['Cash', 'Credit', 'Coupon'],
-                        datasets: [{
-                            data: [salesChartData.Cash, salesChartData.Credit, salesChartData.Coupon],
-                            backgroundColor: ['#4F81BD', '#F7A35C', '#00D16D'],  // Colors for the slices
-                            hoverOffset: 4
-                        }]
-                    };
-
-                    const config = {
-                        type: 'pie',
-                        data: data,
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: {
-                                    position: 'right',
-                                }
-                            }
-                        }
-                    };
-                    // Log the config to ensure it's correct
-                    console.log('Chart Config:', config);
-
-                    new Chart(ctx, config);
-                });
-            </script>
-
-            <!-- New Customers and 5 Gallon Supply Charts -->
+            {% comment %} <!-- New Customers and 5 Gallon Supply Charts -->
             <div class="row mt-4">
                 <div class="col-md-6 mb-4">
                     <div class="card h-100">
                         <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                            <h5 class="card-title">New Customers In Past 10 Days</h5>
+                            <h5 class="card-title">Missed Customers</h5>
                         </div>
                         <div class="card-body">
-                            <!-- Placeholder for Bar Chart -->
-                            <canvas id="new-customers-chart" style="height: 300px;"></canvas>
+                            <canvas id="missedCustomersChart" style="height: 300px;"></canvas>
                         </div>
                     </div>
                 </div>
-
+            </div> {% endcomment %}
+        </div>
+        <!-- Placeholder for Sales tab content sections -->
+        <div id="Sales" class="tabcontent">
+            <!-- Sales Overview Table and Pie Chart -->
+            <div class="row mt-4">
                 <div class="col-md-6 mb-4">
                     <div class="card h-100">
                         <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                            <h5 class="card-title">5 Gallon Supply</h5>
+                            <h5 class="card-title">Sales</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-bordered">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th class="text-left">Category</th>
+                                        <th class="text-center">Cash</th>
+                                        <th class="text-center">Credit</th>
+                                        <th class="text-center">Total Sale</th>
+                                        <th class="text-center">Coupon Sale</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="text-right">Sales</td>
+                                        <td class="text-center">{{ total_cash_sales_amount }}</td>
+                                        <td class="text-center">{{ total_credit_sales_amount }}</td>
+                                        <td class="text-center">{{ total_sales_grand_total }}</td>
+                                        <td class="text-center">{{ total_reachage_sales_amount }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-right">Returns</td>
+                                        <td class="text-center">{{ cash_returns_today }}</td>
+                                        <td class="text-center">{{ credit_returns_today }}</td>
+                                        <td class="text-center">{{ total_returns_today }}</td>
+                                        <td class="text-center">{{ total_returns_today }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-right">Collection - Today</td>
+                                        <td class="text-center">{{ total_today_collections }}</td>
+                                        <td class="text-center">0</td>
+                                        <td class="text-center">{{ total_today_collections }}</td>
+                                        <td class="text-center">{{ total_rechage_collections }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-right">Collection - Previous</td>
+                                        <td class="text-center">{{ total_old_payment_cash_collections }}</td>
+                                        <td class="text-center">{{ total_old_payment_credit_collections }}</td>
+                                        <td class="text-center">{{ total_old_payment_grand_total_collections }}</td>
+                                        <td class="text-center">{{ total_old_payment_coupon_collections }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-right">Outstanding</td>
+                                        <td class="text-center">{{ total_cash_outstanding_amounts }}</td>
+                                        <td class="text-center">{{ total_credit_outstanding_amounts }}</td>
+                                        <td class="text-center">{{ total_outstanding_amounts }}</td>
+                                        <td class="text-center">{{ total_coupon_outstanding_amounts }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
+                            <h5 class="card-title">Sales Report</h5>
                         </div>
                         <div class="card-body">
-                            <canvas id="5-gallon-supply-pie-chart" style="height: 300px;"></canvas>
+                            <canvas id="salesChart"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <script>
-                // New Customers Chart
-                document.addEventListener('DOMContentLoaded', function () {
-                    const ctxNewCustomers = document.getElementById('new-customers-chart').getContext('2d');
-                    const salesmen = {{ salesmen|safe }};
-                    const customerCounts = {{ customer_counts|safe }};
-
-                    const newCustomersChart = new Chart(ctxNewCustomers, {
-                        type: 'bar',
-                        data: {
-                            labels: salesmen,  // Salesmen names on x-axis
-                            datasets: [{
-                                label: 'New Customers',
-                                data: customerCounts,  // Number of new customers on y-axis
-                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                                borderColor: 'rgba(54, 162, 235, 1)',
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            scales: {
-                                y: {
-                                    beginAtZero: true
-                                }
-                            }
-                        }
-                    });
-                });
-
-                // 5 Gallon Supply Chart
-                document.addEventListener('DOMContentLoaded', function () {
-                    const ctxSupply = document.getElementById('5-gallon-supply-pie-chart').getContext('2d');
-                    const salesmenNames = JSON.parse('{{ salesmen_names|safe }}');
-                    const salesmenPercentages = JSON.parse('{{ salesmen_percentages|safe }}');
-
-                    // Log the values to the browser console for debugging
-                    console.log("Salesmen Names: ", salesmenNames);
-                    console.log("Salesmen Percentages: ", salesmenPercentages);
-
-                    const pieChartSupply = new Chart(ctxSupply, {
-                        type: 'pie',
-                        data: {
-                            labels: salesmenNames,  // Salesmen names
-                            datasets: [{
-                                label: 'Percentage of 5 Gallon Supply',
-                                data: salesmenPercentages,  // Percentages of supply
-                                backgroundColor: [
-                                    '#FF6384',
-                                    '#36A2EB',
-                                    '#FFCE56',
-                                    '#4BC0C0',
-                                    '#9966FF'
-                                ],
-                                borderColor: '#fff',
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: {
-                                    position: 'top',
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        label: function (tooltipItem) {
-                                            return tooltipItem.label + ': ' + tooltipItem.raw + '%';
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                });
-            </script>
         </div>
-</div>
-
-<!-- Placeholder for Sales tab content sections -->
-<div id="Sales" class="tabcontent">
-    <div class="row">
-        <!-- Sales Overview Cards -->
-        <div class="col-md-3">
-            <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                <div class="card-body">
-                    <h5>Today's Collection</h5>
-                    <p class="fs-4 fw-bold">{{ todays_collection }}</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                <div class="card-body">
-                    <h5>Sales Return</h5>
-                    <p class="fs-4 fw-bold">{{ sales_return }}</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                <div class="card-body">
-                    <h5>Replacement</h5>
-                    <p class="fs-4 fw-bold">{{ product_replacement }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Sales Overview Table and Pie Chart -->
-    <div class="row mt-4">
-        <div class="col-md-6 mb-4">
-            <div class="card h-100">
-                <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                    <h5 class="card-title">Sales Overview</h5>
-                </div>
-                <div class="card-body">
-                    <table class="table table-bordered">
-                        <thead class="thead-light">
-                            <tr>
-                                <th></th>
-                                <th class="text-center">Cash</th>
-                                <th class="text-center">Credit</th>
-                                <th class="text-center">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="text-right">Sales</td>
-                                <td class="text-center">{{ cash_sales }}</td>
-                                <td class="text-center">{{ credit_sales }}</td>
-                                <td class="text-center">{{ total_sales }}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-right">Returns</td>
-                                <td class="text-center">{{ cash_returns_today }}</td>
-                                <td class="text-center">{{ credit_returns_today }}</td>
-                                <td class="text-center">{{ total_returns_today }}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-right">Collection - Today</td>
-                                <td class="text-center">{{ cash_collection_today }}</td>
-                                <td class="text-center">{{ credit_collection_today }}</td>
-                                <td class="text-center">{{ total_collection_today }}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-right">Collection - Previous</td>
-                                <td class="text-center">{{ cash_collection_previous }}</td>
-                                <td class="text-center">{{ credit_collection_previous }}</td>
-                                <td class="text-center">{{ total_collection_previous }}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-right">Outstanding</td>
-                                <td class="text-center">{{ cash_outstanding_today }}</td>
-                                <td class="text-center">{{ credit_outstanding_today }}</td>
-                                <td class="text-center">{{ total_outstanding_today }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-<!-- Placeholder for Bottles tab content sections -->
-
-<div id="Bottle" class="tabcontent">
-    <div class="row">
-        <!-- Bottles Overview Cards -->
-        <div class="col-md-3">
-            <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                <div class="card-body">
-                    <h5>New Customers</h5>
-                    <p class="fs-4 fw-bold">{{new_customers_count}}</p>
-                </div>
-            </div>
-        </div>
-        {% comment %} <div class="col-md-3">
-            <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                <div class="card-body">
-                    <h5>Underrated</h5>
-                    <p class="fs-4 fw-bold"></p>
-                </div>
-            </div>
-        </div> {% endcomment %}
-        <div class="col-md-3">
-            <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                <div class="card-body">
-                    <h5>Call Order</h5>
-                    <p class="fs-4 fw-bold">{{calling_customers_count}}</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Company Bottle Stock Table -->
-        <div class="row mt-4">
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                        <h5 class="card-title">Company Bottle Stock</h5>
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-bordered">
-                            <tbody>
-                                <tr>
-                                    <td>Fresh Bottle Stock</td>
-                                    <td>{{company_fresh_stock}}</td>
-                                </tr>
-                                <tr>
-                                    <td>Used Bottle Stock</td>
-                                    <td>{{used_bottle_stock}}</td>
-                                </tr>
-                                <tr>
-                                    <td>Scrap Bottle Stock</td>
-                                    <td>{{scrap_bottle_collected_today}}</td>
-                                </tr>
-                                <tr>
-                                    <td>Service Bottle Stock</td>
-                                    <td>{{bottle_in_service_today}}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Bottles in Market Stock Table -->
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                        <h5 class="card-title">Bottles in Market</h5>
-                    </div>
-                    <form method="GET" action="">
-                        <div class="col-md-5 d-flex align-items-center">
-                            <label for="start_date" class='me-2'>Today:</label>
-                            <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
-                            <button type="submit" class="btn btn-primary ms-2">Filter</button>
+        <!-- Placeholder for Bottles tab content sections -->
+        <div id="Bottle" class="tabcontent">
+            <div class="row mt-4">
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
+                            <h5 class="card-title">Category</h5>
                         </div>
-                    </form>
-                    <div class="card-body">
-                        <table class="table table-bordered">
-                            <tr>
-                                <th>Sl.No</th>
-                                <th>Route</th>
-                                <th>Bottles in Van</th>
-                                <th>Bottles with Customers</th>
-                                <th>Pending Bottles</th>
-                                <th>Total Bottles</th>
-                            </tr>
-                            {% for data in market_bottle_count %}
-                            <tr>
-                                <td>{{ forloop.counter }}</td>
-                                <td>{{ data.van.get_van_route }}</td>
-                                <td>{{ data.van.bottle_count }}</td>
-                                <td>{{ stock_data_by_route|get_item:data.van_route_id }}</td>
-                                <td>{{ pending_bottles_by_route|get_item:data.van_route_id }}</td>
-                                <td>
-                                    {% with stock=stock_data_by_route|get_item:data.van_route_id pending=pending_bottles_by_route|get_item:data.van_route_id %}
-                                        {{ data.van.bottle_count|add:stock|add:pending }}
-                                    {% endwith %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Excess/Shortage Table -->
-        <div class="row">
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                        <h5 class="card-title">Excess/Shortage</h5>
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-bordered">
-                            <tr>
-                                <th>Sl.No</th>
-                                <th>Route</th>
-                                <th>Excess</th>
-                                {% comment %} <th>Shortage</th> {% endcomment %}
-                            </tr>
-                            {% for route in van_routes %}
-                            <tr>
-                                <td>{{ forloop.counter }}</td>
-                                <td>{{ route.van.get_van_route }}</td>
-                                <td>{{ excess_data_by_route.route.van_route_id|default:"0" }}</td>
-                                <td><!-- Shortage --></td>
-                            </tr>
-                            {% endfor %}
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-    </div>
-</div>
-<!-- Placeholder for Coupons tab content sections -->
-
-<div id="Coupons" class="tabcontent">
-    <div class="row">
-        <div class="col-md-6 mb-4">
-            <div class="card h-100">
-                <!-- Date Input Field -->
-                <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                    <div class="container-fluid mt-4">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <label for="start_date">Today:</label>
-                                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
-                            </div>
+                        <div class="card-body p-0">
+                            <table class="table table-bordered">
+                                <tbody>
+                                    <tr>
+                                        <td>Today Supply</td>
+                                        <td>{{ today_supply_bottle_count }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Custody Issued</td>
+                                        <td>{{ today_custody_issued_count}}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Pending bottle given today</td>
+                                        <td>{{ today_pending_bottle_given_count }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Pending bottle collected</td>
+                                        <td>{{ today_pending_bottle_collected_count }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Total Outstanding Bottles</td>
+                                        <td>{{ today_outstanding_bottle_count }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Scrap bottles</td>
+                                        <td>{{ today_scrap_bottle_count }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Bottles in service</td>
+                                        <td>{{ today_service_bottle_count }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Company Stock fresh</td>
+                                        <td>{{ today_fresh_bottle_stock }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Company Stock used</td>
+                                        <td>{{ total_used_bottle_count }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
-
-                <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                    <h5 class="card-title">Coupons</h5>
-                </div>
-
-                <div class="card-body">
-                    <table class="table table-bordered">
-                        <thead>
-                            <tr>
-                                <th>Category</th>
-                                <th>Manual</th>
-                                <th>Digital</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Books sold</td>
-                                <td>{{ sold_coupons_data.total.manual }}</td>
-                                <td>{{ sold_coupons_data.total.digital }}</td>
-                            </tr>
-                            <tr>
-                                <td>Coupons leaflets collected</td>
-                                <td>{{manual_leaflets_used_count}}</td>
-                                <td>{{digital_leaflets_used_count}}</td>
-                            </tr>
-                            <tr>
-                                <td>Pending coupons today</td>
-                                <td></td>
-                                <td></td>
-                            </tr>
-                            <tr>
-                                <td>Pending Coupons collected</td>
-                                <td></td>
-                                <td></td>
-                            </tr>
-                            <tr>
-                                <td>Outstanding</td>
-                                <td></td>
-                                <td></td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
+                            <h5 class="card-title">Sales Report</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="salesmanBasedBottleChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+        <!-- Placeholder for Coupons tab content sections -->
+        <div id="Coupons" class="tabcontent">
+            <div class="row mt-4">
+                <div class="col-md-8 mb-4">
+                    <div class="card h-100 border-0">
+                        <div class="card-header text-left border-0" >
+                            <h5 class="card-title">Coupons</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th style="color: white !important; background-color: #4776e6 !important;">Category</th>
+                                        <th style="color: white !important; background-color: #4776e6 !important;">Manual</th>
+                                        <th style="color: white !important; background-color: #4776e6 !important;">Digital</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Books Sold</td>
+                                        <td>{{ manual_coupon_sold_count }}</td>
+                                        <td>{{ digital_coupon_sold_count }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Coupons Collected</td>
+                                        <td>{{ collected_manual_coupons_count}}</td>
+                                        <td>{{ collected_digital_coupons_count}}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Pending coupons today</td>
+                                        <td>{{ today_pending_manual_coupons_count }}</td>
+                                        <td>{{ today_pending_digital_coupons_count }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Pending coupons collected</td>
+                                        <td>{{ today_pending_manual_coupons_collected_count }}</td>
+                                        <td>{{ today_pending_digital_coupons_collected_count }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Outstanding</td>
+                                        <td>{{ today_manual_coupon_outstanding_count }}</td>
+                                        <td>{{ today_digital_coupon_outstanding_count }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-4">
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
+                            <h5 class="card-title">Coupon Report</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="salesmanBasedCouponSaleChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
+                            <h5 class="card-title">Sales Report</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="salesmanBasedBottleChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="Custormer_Statistics" class="tabcontent">
+            <div class="row">
+                <!-- Custormer_Statistics Cards -->
+                <div class="col-md-3">
+                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
+                        <div class="card-body">
+                            <h5>Cash Customer</h5>
+                            <p class="fs-4 fw-bold"></p>
+                        </div>
+                    </div>
+                </div>
         
-        <div class="col-md-6 mb-4">
-            <div class="card h-100">
-                <!-- Date Input Field -->
-                <div class="card-header">
-                    <div class="container-fluid mt-4">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <label for="start_date">Today:</label>
-                                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
-                            </div>
+                <div class="col-md-3">
+                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
+                        <div class="card-body">
+                            <h5>Credit Customer</h5>
+                            <p class="fs-4 fw-bold"></p>
                         </div>
                     </div>
                 </div>
-
-                <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                    <h5 class="card-title">Coupon Books Sold</h5>
+        
+                <div class="col-md-3">
+                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
+                        <div class="card-body">
+                            <h5>Call Order</h5>
+                            <p class="fs-4 fw-bold"></p>
+                        </div>
+                    </div>
                 </div>
-
-                <div class="card-body">
-                    <table class="table table-bordered">
-                        <thead>
-                            <tr>
-                                <th>Sl.No</th>
-                                <th>Coupon Type</th>
-                                <th>Manual</th>
-                                <th>Digital</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for coupon in coupon_summary %}
-                                        <tr>
-                                            <td>{{ forloop.counter }}</td>
-                                            <td>{{ coupon.coupon_type_id__coupon_type_name }}</td>
-                                            <td>{{ coupon.manual_count|default:0 }}</td>
-                                            <td>{{ coupon.digital_count|default:0 }}</td>
-                                            <td>{{ coupon.total }}</td>
+        
+                <div class="col-md-3">
+                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
+                        <div class="card-body">
+                            <h5>Coupon Customer</h5>
+                            <p class="fs-4 fw-bold"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
+            <div class="row mt-4">
+                <!-- Monthly New Customers Chart -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
+                            <h5 class="card-title">Monthly New Customers</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="montlynewcustomerchart" width="400" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+        
+                <!-- Planned Vs Actual Chart -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
+                            <h5 class="card-title">Planned Vs Actual</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="plannedvsactualactomerchart" width="400" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
+            <div class="row mt-4">
+                <!-- Today Supply 5G Chart -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
+                            <h5 class="card-title">Today Supply 5 Gallon</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="todaysupply5g" width="400" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
+            <div class="row mt-4">
+                <!-- Date Input and New Customers Table -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 border-0">
+                        <!-- Date Input Field -->
+                        <div class="card-header">
+                            <div class="container-fluid mt-4">
+                                <div class="row">
+                                <div class='col-md-12 d-flex justify-content-between'> 
+                            <h5 class="card-title">New Customers</h5>
+                                
+                                    <div class="col-md-5 d-flex align-items-center">
+                                        <label for="start_date" class='me-2'>Today:</label>
+                                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
+                                    </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
+                        </div> {% endcomment %}
+        
+                        <div class="card-body">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr style={{'background:#230070;color:white'}}>
+                                        <th>Sl.No</th>
+                                        <th>Route Name</th>
+                                        <th>New Customers <br> Today</th>
+                                        <th>New Customers <br> This Month</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for data in newCustomer_data %}
+                                    <tr  class='border border-secondary'>
+                                        <td style={{'border:none'}}>{{ forloop.counter }}</td>
+                                        <td style={{'border:none'}}>{{ data.route_name }}</td>
+                                        <td style={{'border:none'}}>{{ data.count_today }}</td>
+                                        <td style={{'border:none'}}>{{ data.count_month }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                        <!-- Date Input and Inactive Customers Table -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 border-0">
+                        <!-- Date Input Field -->
+                        <div class="card-header">
+                            <div class="container-fluid mt-4">
+                                <div class="row">
+                                <div class='col-md-12 d-flex justify-content-between'>
+                            <h5 class="card-title">Inactive Customers</h5>
+                               
+                                    <div class="col-md-5 d-flex align-items-center">
+                                        <label for="start_date" class='me-2'>Today:</label>
+                                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
+                        </div> {% endcomment %}
+        
+                        <div class="card-body">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr style={{'background:#230070;color:white'}}>
+                                        <th>Sl.No</th>
+                                        <th>Route Name</th>
+                                        <th>Inactive Customers<br>(last 20 days)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for data in inactive_routes_data %}
+                                    <tr class='border border-secondary'>
+                                        <td style={{'border:none'}}>{{ forloop.counter }}</td>
+                                      <td style={{'border:none'}}>{{ data.route_name }}</td>
+                                      <td style={{'border:none'}}>{{ data.inactive_customers_count }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
+            <div class="row mt-4">
+                <div class="col-md-5 mb-4">
+                    <div class="card h-100 border-0">
+                        <!-- Date Input Field -->
+                        <div class="card-header">
+                            <div class="container-fluid mt-4">
+                                <div class="row">
+                                <div class='col-md-12 d-flex justify-content-between'>
+                                            <h5 class="card-title">Nonvisited Customers</h5>
+                                
+                                    <div class="col-md-5 d-flex align-items-center">
+                                        <label for="start_date" class='me-2'>Today:</label>
+                                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
+                        </div> {% endcomment %}
+        
+                        <div class="card-body">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr style={{'background:#230070;color:white'}}>
+                                        <th>Sl.No</th>
+                                        <th>Route Name</th>
+                                        <th>Nonvisited Customers</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for data in non_visited_data %}
+                                        <tr class='border border-secondary'>
+                                        <td style={{'border:none'}}>{{ forloop.counter }}</td>
+                                        <td style={{'border:none'}}>{{ data.route_name }}</td>
+                                        <td style={{'border:none'}}>{{ data.non_visited_count }}</td>
                                         </tr>
-
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                    {% empty %}
+                                        <tr>
+                                            <td colspan="3">No data available</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+        
+                            </table>
+                        </div> <!-- Closing div for card-body -->
+                    </div> <!-- Closing div for card -->
+                </div> <!-- Closing div for col-md-6 -->
             </div>
-        </div>
-    </div>
-    <div class="row mt-4">
-    <!-- Coupon Sales Chart -->
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                <h5 class="card-title">Coupon Sales</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="couponSalesChart" width="400" height="300"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- Coupon Wise Chart -->
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                <h5 class="card-title">Coupon Wise</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="couponWiseChart" width="400" height="300"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
-</div>
-
-<div id="Custormer_Statistics" class="tabcontent">
-    <div class="row">
-        <!-- Custormer_Statistics Cards -->
-        <div class="col-md-3">
-            <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                <div class="card-body">
-                    <h5>Cash Customer</h5>
-                    <p class="fs-4 fw-bold"></p>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                <div class="card-body">
-                    <h5>Credit Customer</h5>
-                    <p class="fs-4 fw-bold"></p>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                <div class="card-body">
-                    <h5>Call Order</h5>
-                    <p class="fs-4 fw-bold"></p>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                <div class="card-body">
-                    <h5>Coupon Customer</h5>
-                    <p class="fs-4 fw-bold"></p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mt-4">
-        <!-- Monthly New Customers Chart -->
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                    <h5 class="card-title">Monthly New Customers</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="montlynewcustomerchart" width="400" height="300"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Planned Vs Actual Chart -->
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                    <h5 class="card-title">Planned Vs Actual</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="plannedvsactualactomerchart" width="400" height="300"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mt-4">
-        <!-- Today Supply 5G Chart -->
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                    <h5 class="card-title">Today Supply 5 Gallon</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="todaysupply5g" width="400" height="300"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mt-4">
-        <!-- Date Input and New Customers Table -->
-        <div class="col-md-6 mb-4">
-            <div class="card h-100 border-0">
-                <!-- Date Input Field -->
-                <div class="card-header">
-                    <div class="container-fluid mt-4">
-                        <div class="row">
-                        <div class='col-md-12 d-flex justify-content-between'> 
-                    <h5 class="card-title">New Customers</h5>
-                        
-                            <div class="col-md-5 d-flex align-items-center">
-                                <label for="start_date" class='me-2'>Today:</label>
-                                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
+        
+            <div class="row mt-4">
+                <!-- Date Input and  Customer's Supply Table -->
+                <div class="col-md-9 mb-4">
+                    <div class="card h-100 border-0">
+                        <!-- Date Input Field -->
+                        <div class="card-header">
+                            <div class="container-fluid mt-4">
+                                <div class="row">
+                                <div class='col-md-12 d-flex justify-content-between'>
+                                                        <h5 class="card-title"> Customer's Supply Type</h5>
+                                
+                                    <div class="d-flex align-items-center">
+                                        <label for="start_date" class='me-2'>Today:</label>
+                                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
+                                    </div>
+                                </div>
                             </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                </div> {% endcomment %}
-
-                <div class="card-body">
-                    <table class="table table-bordered">
-                        <thead>
-                            <tr style={{'background:#230070;color:white'}}>
-                                <th>Sl.No</th>
-                                <th>Route Name</th>
-                                <th>New Customers <br> Today</th>
-                                <th>New Customers <br> This Month</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for data in newCustomer_data %}
-                            <tr  class='border border-secondary'>
-                                <td style={{'border:none'}}>{{ forloop.counter }}</td>
-                                <td style={{'border:none'}}>{{ data.route_name }}</td>
-                                <td style={{'border:none'}}>{{ data.count_today }}</td>
-                                <td style={{'border:none'}}>{{ data.count_month }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                        {% comment %} 
+                        <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
+                        </div> {% endcomment %}
+        
+                        <div class="card-body">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr style={{'background:#230070;color:white'}}>
+                                        <th>Sl.No</th>
+                                        <th>Route Name</th>
+                                        <th>Cash</th>
+                                        <th>Credit</th>
+                                        <th>Call</th>
+                                        <th>Coupon</th>
+                                        <th>Total</th>
+        
+                                    </tr>
+        
+                                </thead>
+                                <tbody>
+                                        {% for data in route_customer_data %}
+                                            <tr class='border border-secondary'>
+                                                <td style={{'border:none'}}>{{ forloop.counter }}</td>
+                                                <td style={{'border:none'}}>{{ data.route_name }}</td>
+                                                <td style={{'border:none'}}>{{ data.cash_count }}</td>
+                                                <td style={{'border:none'}}>{{ data.credit_count }}</td>
+                                                <td style={{'border:none'}}>{{ data.call_count }}</td>
+                                                <td style={{'border:none'}}>{{ data.coupon_count }}</td>
+                                                <td style={{'border:none'}}>{{ data.route_total }}</td> <!-- Total per route -->
+                                            </tr>
+                                        {% empty %}
+                                            <tr>
+                                                <td colspan="7">No data available</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                <tfoot>
+                                    <tr class='border border-secondary'>
+                                        <td class='border-0' colspan="2">Total</td>
+                                        <td class='border-0'>{{ total_cash }}</td>
+                                        <td class='border-0'>{{ total_credit }}</td>
+                                        <td class='border-0'>{{ total_call }}</td>
+                                        <td class='border-0'>{{ total_coupon }}</td>
+                                        <td>{{ total_route_sum }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div> <!-- Closing div for card-body -->
+                    </div> <!-- Closing div for card -->
+                </div> <!-- Closing div for col-md-6 -->
             </div>
-        </div>
-                <!-- Date Input and Inactive Customers Table -->
-        <div class="col-md-6 mb-4">
-            <div class="card h-100 border-0">
-                <!-- Date Input Field -->
-                <div class="card-header">
-                    <div class="container-fluid mt-4">
-                        <div class="row">
-                        <div class='col-md-12 d-flex justify-content-between'>
-                    <h5 class="card-title">Inactive Customers</h5>
-                       
-                            <div class="col-md-5 d-flex align-items-center">
-                                <label for="start_date" class='me-2'>Today:</label>
-                                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
+        
+            <div class="row mt-4">
+                <!-- Date Input and  Customer's Sales Table -->
+                <div class="col-md-8 mb-4">
+                    <div class="card h-100 border-0">
+                        <!-- Date Input Field -->
+                        <div class="card-header">
+                            <div class="container-fluid mt-4">
+                                <div class="row">
+                                <div class="col-md-12 d-flex justify-contents-between">
+                                <h5>Customer's Sales Type</h5>
+                                </div>
+                                    <div class="d-flex align-items-center">
+                                        <label for="start_date">Today:</label>
+                                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        </div>
-                    </div>
-                </div>
-
-                {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                </div> {% endcomment %}
-
-                <div class="card-body">
-                    <table class="table table-bordered">
-                        <thead>
-                            <tr style={{'background:#230070;color:white'}}>
-                                <th>Sl.No</th>
-                                <th>Route Name</th>
-                                <th>Inactive Customers<br>(last 20 days)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for data in inactive_routes_data %}
-                            <tr class='border border-secondary'>
-                                <td style={{'border:none'}}>{{ forloop.counter }}</td>
-                              <td style={{'border:none'}}>{{ data.route_name }}</td>
-                              <td style={{'border:none'}}>{{ data.inactive_customers_count }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        
+                        <!-- Table Header -->
+                        {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
+                        </div> {% endcomment %}
+        
+                        <!-- Table Body -->
+                        <div class="card-body">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr style={{'background:#230070;color:white'}}>
+                                        <th>Sl.No</th>
+                                        <th>Route Name</th>
+                                        <th>HOME</th>
+                                        <th>CORPORATE</th>
+                                        <th>SHOP</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for route_data in sales_customer_data %}
+                                        <tr class='border border-secondary'>
+                                        <td  style={{'border:none'}}>{{ forloop.counter }}</td>
+                                        <td  style={{'border:none'}}>{{ route_data.route_name }}</td>
+                                        <td  style={{'border:none'}}>{{ route_data.home_count }}</td>
+                                        <td  style={{'border:none'}}>{{ route_data.corporate_count }}</td>
+                                        <td  style={{'border:none'}}>{{ route_data.shop_count }}</td>
+                                        <td  style={{'border:none'}}>{{ route_data.total_sales_type }}</td>
+                                        </tr>
+                                    {% empty %}
+                                        <tr>
+                                            <td colspan="6">No data available</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr class='border border-secondary'>
+                                        <td  style={{'border:none'}} colspan="2">Total</td>
+                                        <td  style={{'border:none'}}>{{ total_home }}</td>
+                                        <td  style={{'border:none'}}>{{ total_corporate }}</td>
+                                        <td  style={{'border:none'}}>{{ total_shop }}</td>
+                                        <td  style={{'border:none'}}>{{ total_customer_sales_type }}</td> <!-- Sum of all route totals -->
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div> <!-- Closing div for card-body -->
+                    </div> <!-- Closing div for card -->
+                </div> <!-- Closing div for col-md-6 -->
+            </div> <!-- Closing div for row -->
+        
         </div>
-    </div>
-
-    <div class="row mt-4">
-    <!-- Date Input and Nonvisited Customers Table -->
-    <div class="col-md-5 mb-4">
-        <div class="card h-100 border-0">
-            <!-- Date Input Field -->
-            <div class="card-header">
-                <div class="container-fluid mt-4">
-                    <div class="row">
-                       <div class='col-md-12 d-flex justify-content-between'>
-                                <h5 class="card-title">Nonvisited Customers</h5>
-                     
-                        <div class="col-md-5 d-flex align-items-center">
-                            <label for="start_date" class='me-2'>Today:</label>
-                            <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
-                        </div>
-                    </div>
-                    </div>
-                </div>
-            </div>
-
-            {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-            </div> {% endcomment %}
-
-            <div class="card-body">
-                <table class="table table-bordered">
-                    <thead>
-                        <tr style={{'background:#230070;color:white'}}>
-                            <th>Sl.No</th>
-                            <th>Route Name</th>
-                            <th>Nonvisited Customers</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for data in non_visited_data %}
-                            <tr class='border border-secondary'>
-                               <td style={{'border:none'}}>{{ forloop.counter }}</td>
-                               <td style={{'border:none'}}>{{ data.route_name }}</td>
-                               <td style={{'border:none'}}>{{ data.non_visited_count }}</td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="3">No data available</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-
-                </table>
-            </div> <!-- Closing div for card-body -->
-        </div> <!-- Closing div for card -->
-    </div> <!-- Closing div for col-md-6 -->
-
-    <div class="row mt-4">
-    <!-- Date Input and  Customer's Supply Table -->
-    <div class="col-md-9 mb-4">
-        <div class="card h-100 border-0">
-            <!-- Date Input Field -->
-            <div class="card-header">
-                <div class="container-fluid mt-4">
-                    <div class="row">
-                      <div class='col-md-12 d-flex justify-content-between'>
-                                            <h5 class="card-title"> Customer's Supply Type</h5>
-                      
-                        <div class="d-flex align-items-center">
-                            <label for="start_date" class='me-2'>Today:</label>
-                            <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
-                        </div>
-                    </div>
-                </div>
-                </div>
-            </div>
-{% comment %} 
-            <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-            </div> {% endcomment %}
-
-            <div class="card-body">
-                <table class="table table-bordered">
-                    <thead>
-                        <tr style={{'background:#230070;color:white'}}>
-                            <th>Sl.No</th>
-                            <th>Route Name</th>
-                            <th>Cash</th>
-                            <th>Credit</th>
-                            <th>Call</th>
-                            <th>Coupon</th>
-                            <th>Total</th>
-
-                        </tr>
-
-                    </thead>
-                    <tbody>
-                            {% for data in route_customer_data %}
-                                <tr class='border border-secondary'>
-                                    <td style={{'border:none'}}>{{ forloop.counter }}</td>
-                                     <td style={{'border:none'}}>{{ data.route_name }}</td>
-                                     <td style={{'border:none'}}>{{ data.cash_count }}</td>
-                                     <td style={{'border:none'}}>{{ data.credit_count }}</td>
-                                     <td style={{'border:none'}}>{{ data.call_count }}</td>
-                                     <td style={{'border:none'}}>{{ data.coupon_count }}</td>
-                                     <td style={{'border:none'}}>{{ data.route_total }}</td> <!-- Total per route -->
-                                </tr>
-                            {% empty %}
-                                <tr>
-                                    <td colspan="7">No data available</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    <tfoot>
-                        <tr class='border border-secondary'>
-                            <td class='border-0' colspan="2">Total</td>
-                            <td class='border-0'>{{ total_cash }}</td>
-                            <td class='border-0'>{{ total_credit }}</td>
-                            <td class='border-0'>{{ total_call }}</td>
-                            <td class='border-0'>{{ total_coupon }}</td>
-                            <td>{{ total_route_sum }}</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div> <!-- Closing div for card-body -->
-        </div> <!-- Closing div for card -->
-    </div> <!-- Closing div for col-md-6 -->
-
-<div class="row mt-4">
-    <!-- Date Input and  Customer's Sales Table -->
-    <div class="col-md-8 mb-4">
-        <div class="card h-100 border-0">
-            <!-- Date Input Field -->
-            <div class="card-header">
-                <div class="container-fluid mt-4">
-                    <div class="row">
-                    <div class="col-md-12 d-flex justify-contents-between">
-                    <h5>Customer's Sales Type</h5>
-                    </div>
-                        <div class="d-flex align-items-center">
-                            <label for="start_date">Today:</label>
-                            <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Table Header -->
-            {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-            </div> {% endcomment %}
-
-            <!-- Table Body -->
-            <div class="card-body">
-                <table class="table table-bordered">
-                    <thead>
-                        <tr style={{'background:#230070;color:white'}}>
-                            <th>Sl.No</th>
-                            <th>Route Name</th>
-                            <th>HOME</th>
-                            <th>CORPORATE</th>
-                            <th>SHOP</th>
-                            <th>Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for route_data in sales_customer_data %}
-                            <tr class='border border-secondary'>
-                            <td  style={{'border:none'}}>{{ forloop.counter }}</td>
-                            <td  style={{'border:none'}}>{{ route_data.route_name }}</td>
-                            <td  style={{'border:none'}}>{{ route_data.home_count }}</td>
-                            <td  style={{'border:none'}}>{{ route_data.corporate_count }}</td>
-                            <td  style={{'border:none'}}>{{ route_data.shop_count }}</td>
-                            <td  style={{'border:none'}}>{{ route_data.total_sales_type }}</td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="6">No data available</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot>
-                        <tr class='border border-secondary'>
-                            <td  style={{'border:none'}} colspan="2">Total</td>
-                            <td  style={{'border:none'}}>{{ total_home }}</td>
-                            <td  style={{'border:none'}}>{{ total_corporate }}</td>
-                            <td  style={{'border:none'}}>{{ total_shop }}</td>
-                            <td  style={{'border:none'}}>{{ total_customer_sales_type }}</td> <!-- Sum of all route totals -->
-                        </tr>
-                    </tfoot>
-                </table>
-            </div> <!-- Closing div for card-body -->
-        </div> <!-- Closing div for card -->
-    </div> <!-- Closing div for col-md-6 -->
-</div> <!-- Closing div for row -->
-
-</div> <!-- Closing div for row -->
-
 
         <div id="Others" class="tabcontent">
             <h3>Others</h3>
             <p>Other content goes here.</p>
         </div>
+
     </div>
 </div>
-
-<!-- Load JavaScript file -->
-<script >
-
-function openTab(evt, tabName) {
-    // Declare all variables
-    var i, tabcontent, tablinks;
-
-    // Hide all elements with class="tabcontent" by default
-    tabcontent = document.getElementsByClassName("tabcontent");
-    for (i = 0; i < tabcontent.length; i++) {
-        tabcontent[i].style.display = "none";
-    }
-
-    // Remove the class "active" from all buttons
-    tablinks = document.getElementsByClassName("tablinks");
-    for (i = 0; i < tablinks.length; i++) {
-        tablinks[i].className = tablinks[i].className.replace(" active", "");
-    }
-
-    // Show the current tab, and add an "active" class to the button that opened the tab
-    document.getElementById(tabName).style.display = "block";
-    evt.currentTarget.className += " active";
-}
-
-// Set default tab to open (Optional)
-document.addEventListener("DOMContentLoaded", function() {
-    document.querySelector(".tablinks").click();
-});
-
-</script>
-
 {% endblock %}
 {% block static %}
 {% load static %}
+<script>
+    var salesmanData = {{ salesman_sales_serializer|safe }};
+    
+    var labels = salesmanData.map(item => item.salesman_name);
+    var supplyCounts = salesmanData.map(item => item.supply_count);
+    var emptyBottleCounts = salesmanData.map(item => item.empty_bottle_count);
+  
+    var ctx = document.getElementById("salesmanBasedBottleChart").getContext('2d');
+    var myChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Supply Count',
+          data: supplyCounts,
+          backgroundColor: "#0d6efd"
+        }, {
+          label: 'Empty Bottle Count',
+          data: emptyBottleCounts,
+          backgroundColor: "#198754"
+        }]
+      }
+    });
+</script>
+<script>
+    var salesmanData = {{ salesman_recharge_serializer|safe }};
+    
+    var labels = salesmanData.map(item => item.salesman_name);
+    var supplyCounts = salesmanData.map(item => item.supply_count);
+    var emptyBottleCounts = salesmanData.map(item => item.empty_bottle_count);
+  
+    var ctx = document.getElementById("salesmanBasedCouponSaleChart").getContext('2d');
+    var myChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Coupon Sales',
+          data: supplyCounts,
+          backgroundColor: "#0d6efd"
+        }]
+      }
+    });
+</script>
+<script >
+    function openTab(evt, tabName) {
+        // Declare all variables
+        var i, tabcontent, tablinks;
+
+        // Hide all elements with class="tabcontent" by default
+        tabcontent = document.getElementsByClassName("tabcontent");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+
+        // Remove the class "active" from all buttons
+        tablinks = document.getElementsByClassName("tablinks");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+
+        // Show the current tab, and add an "active" class to the button that opened the tab
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
+
+    // Set default tab to open (Optional)
+    document.addEventListener("DOMContentLoaded", function() {
+        document.querySelector(".tablinks").click();
+    });
+</script>
 <style>
     .tablinks{
         border: 0px;
@@ -1144,5 +897,123 @@ document.addEventListener("DOMContentLoaded", function() {
         color : #6ea6ed !important;
     }
 </style>
+<script>
+    // Use Django template variable in JavaScript
+    const newCustomersData = {{ new_customers_count_with_salesman|safe }};
+
+    // Extract sales staff names and customer counts for the chart
+    const xValues = newCustomersData.map(item => item.salesman_names);
+    const yValues = newCustomersData.map(item => item.customer_count);
+    const barColors = ["red", "green", "blue", "orange", "brown"];
+
+    // Initialize the chart
+    new Chart("newCustomerChart", {
+        type: "bar",
+        data: {
+            labels: xValues,
+            datasets: [{
+                backgroundColor: barColors,
+                data: yValues
+            }]
+        },
+        options: {
+            legend: { display: false },
+            title: {
+                display: true,
+                text: "New Customers per Salesman"
+            }
+        }
+    });
+</script>
+<script>
+    // Pass data from Django to JavaScript
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    
+    // Use the passed JSON data
+    const thisWeekSales = JSON.parse('{{ this_week_sales|safe }}');
+    const lastWeekSales = JSON.parse('{{ last_week_sales|safe }}');
+    const secondLastWeekSales = JSON.parse('{{ second_last_week_sales|safe }}');
+    const thirdLastWeekSales = JSON.parse('{{ third_last_week_sales|safe }}');
+    const lastYearMonthlyAvgSales = JSON.parse('{{ last_year_monthly_avg_sales|safe }}');
+
+    // Prepare data arrays for the chart
+    const salesCountsThisWeek = new Array(7).fill(0);
+    const salesCountsLastWeek = new Array(7).fill(0);
+    const salesCountsSecondLastWeek = new Array(7).fill(0);
+    const salesCountsThirdLastWeek = new Array(7).fill(0);
+    const salesCountMonthlyAvgLastYear = new Array(7).fill(0);
+
+    // Populate the sales counts arrays
+    thisWeekSales.forEach(day => {
+        salesCountsThisWeek[day.weekday - 1] = day.count; // weekday - 1 for 0-based index
+    });
+    lastWeekSales.forEach(day => {
+        salesCountsLastWeek[day.weekday - 1] = day.count;
+    });
+    secondLastWeekSales.forEach(day => {
+        salesCountsSecondLastWeek[day.weekday - 1] = day.count;
+    });
+    thirdLastWeekSales.forEach(day => {
+        salesCountsThirdLastWeek[day.weekday - 1] = day.count;
+    });
+    lastYearMonthlyAvgSales.forEach(day => {
+        salesCountMonthlyAvgLastYear[day.weekday - 1] = day.count;
+    });
+
+    // Create the chart
+    new Chart("salesChart", {
+        type: "line",
+        data: {
+            labels: daysOfWeek,
+            datasets: [
+                {
+                    label: "This Week",
+                    data: salesCountsThisWeek,
+                    borderColor: "red",
+                    fill: false
+                },
+                {
+                    label: "Last Week",
+                    data: salesCountsLastWeek,
+                    borderColor: "green",
+                    fill: false
+                },
+                {
+                    label: "Second Last Week",
+                    data: salesCountsSecondLastWeek,
+                    borderColor: "blue",
+                    fill: false
+                },
+                {
+                    label: "Third Last Week",
+                    data: salesCountsThirdLastWeek,
+                    borderColor: "orange",
+                    fill: false
+                },
+                {
+                    label: "Last Year AVG Sale for this month",
+                    data: salesCountMonthlyAvgLastYear,
+                    borderColor: "yellow",
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            legend: {
+                display: true
+            },
+            title: {
+                display: true,
+                text: "Weekly Sales Overview"
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+</script>
+
 {% endblock static %}
  

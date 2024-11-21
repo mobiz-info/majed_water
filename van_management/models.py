@@ -7,7 +7,7 @@ from django.db.models import Sum
 from accounts.models import Customers
 from master.models import *
 from order.models import Change_Reason
-from product.models import Product, ProdutItemMaster
+from product.models import Product, ProductionDamageReason, ProdutItemMaster
 from coupon_management.models import Coupon, CouponType, NewCoupon
 
 # Create your models here.
@@ -473,3 +473,24 @@ class CustomerProductReplace(models.Model):
     
     def __str__(self):
         return f"{self.id}"
+    
+
+class VanSaleDamage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
+    van = models.ForeignKey(Van, on_delete=models.CASCADE)
+    reason = models.ForeignKey(ProductionDamageReason, on_delete=models.CASCADE)
+    
+    quantity = models.PositiveIntegerField(default=0)
+    
+    created_by = models.CharField(max_length=20)
+    modified_by = models.CharField(max_length=20)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_date = models.DateTimeField(null=True)
+
+    class Meta:
+        ordering = ('created_date',)
+
+    def __str__(self):
+        return str(self.product.product_name)

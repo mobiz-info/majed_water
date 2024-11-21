@@ -151,13 +151,14 @@ class CustomercreateForm(forms.ModelForm):
 class CustomerEditForm(forms.ModelForm):
     def __init__(self,branch, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['sales_staff'].queryset = CustomUser.objects.filter(is_active = True,designation_id__designation_name = "Sales Executive")
+        self.fields['sales_staff'].queryset = CustomUser.objects.filter(is_active = True,branch_id = branch,designation_id__designation_name = "Sales Executive")
         self.fields['routes'].queryset = RouteMaster.objects.filter(branch_id = branch)
-        self.fields['location'].queryset = LocationMaster.objects.filter(branch_id = branch)
-
+        # self.fields['emirate'].queryset = EmirateMaster.objects.filter()
+        # self.fields['location'].queryset = LocationMaster.objects.filter(branch_id = branch)
+        
     class Meta:
         model = Customers
-        fields = ['customer_name','building_name','door_house_no','floor_no','sales_staff','routes','location','mobile_no','whats_app','email_id','gps_latitude','gps_longitude','customer_type','rate','sales_type','no_of_bottles_required','max_credit_limit','credit_days','no_of_permitted_invoices','is_active','is_calling_customer','five_g_count_limit', 'eligible_foc']
+        fields = ['customer_name','building_name','door_house_no','floor_no','sales_staff','routes','emirate','location','mobile_no','whats_app','email_id','gps_latitude','gps_longitude','customer_type','rate','sales_type','no_of_bottles_required','max_credit_limit','credit_days','no_of_permitted_invoices','is_active','is_calling_customer','five_g_count_limit', 'eligible_foc']
         widgets = {
             'customer_name': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
             'building_name': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
@@ -165,6 +166,7 @@ class CustomerEditForm(forms.ModelForm):
             'floor_no': forms.TextInput(attrs={'class': 'form-control', 'required': False}),
             'sales_staff': forms.Select(attrs={'class': 'form-control', 'required': 'true'}),
             'routes': forms.Select(attrs={'class': 'form-control', 'required': 'true'}),
+            'emirate':forms.Select(attrs={'class': 'form-control', 'required': 'true'}),
             'location': forms.Select(attrs={'class': 'form-control', 'required': 'true'}),
             'mobile_no': forms.TextInput(attrs={'class': 'form-control', 'required': False}),
             'whats_app': forms.TextInput(attrs={'class': 'form-control', 'required': False}),
@@ -213,7 +215,6 @@ class VisitScheduleForm(forms.Form):
     week2 = forms.CharField(required=False)
     week3 = forms.CharField(required=False)
     week4 = forms.CharField(required=False)
-    
     
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import SetPasswordForm

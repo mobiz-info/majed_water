@@ -105,11 +105,14 @@
                                 <th scope="col" class="text-center">Invoice Number</th>
                                 <th scope="col" class="text-left">Customer ID</th>
                                 <th scope="col" class="text-left">Customer Name</th>
+                                <th scope="col" class="text-left">Customer Type</th>
                                 <th scope="col" class="text-left">Salesman Name</th>
-                                <th scope="col" class="text-center">Grand Total</th>
-                                <th scope="col" class="text-center">Discount</th>
+                                <th scope="col" class="text-center">Total Supply</th>
+                                <th scope="col" class="text-center">Collected</th>
+                                <th scope="col" class="text-center">Supply Type</th>
+                                {% comment %} <th scope="col" class="text-center">Discount</th>
                                 <th scope="col" class="text-center">Sub Total</th>
-                                <th scope="col" class="text-center">Amount Recieved</th>
+                                <th scope="col" class="text-center">Amount Recieved</th> {% endcomment %}
                                 <th scope="col" class="text-right">Actions</th>
                             </tr>
                             </thead>
@@ -123,15 +126,21 @@
                                     <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.invoice_no}}</td>
                                     <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.customer.custom_id}}</td>
                                     <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.customer.customer_name}}</td>
-                                    <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.salesman.get_fullname}}</td>
-                                    <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.grand_total}}</td>
-                                    <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.discount}}</td>
+                                    <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.customer.get_sales_type_display}}</td>
+                                     <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.salesman.get_fullname}}</td>
+                                    <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.get_total_supply_qty}}</td>
+                                    <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.collected_empty_bottle}}</td>
+                                    <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{% if instance.subtotal == instance.amount_recieved %} Paid {% else %} Non Paid {% endif %}</td>
+                                    {% comment %}<td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.discount}}</td>
                                     <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.subtotal}}</td>
-                                    <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.amount_recieved}}</td>
+                                    <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.amount_recieved}}</td> {% endcomment %}
                                     <td class="text-right"  {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>
                                         <div class="g-2">
                                             <a href="{% url 'customer_supply_info' pk=instance.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Info">
                                                 <span class="ri-printer-fill fs-14"></span>
+                                            </a>
+                                            <a href="{% url 'view_invoice' invoice_no=instance.invoice_no %}" aria-label="anchor" class="btn btn-info-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="View Invoice">
+                                                <span class="ri-file-text-fill fs-14"></span>  <!-- Adjust icon as needed -->
                                             </a>
                                             {% if instance.can_edit %}
                                             <a href="{% url 'edit_customer_supply' pk=instance.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Edit">

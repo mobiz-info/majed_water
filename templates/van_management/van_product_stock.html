@@ -27,7 +27,32 @@
                         <div class="card-title">
                             Vanstock Product Stock
                         </div>
-                        
+                    </div>
+                    <div class="mt">
+                        <form method="GET">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col">
+                                        <label for="date">Date:</label>
+                                        <input type="date" class="form-control" id="date" name="date" value="{{ filter_data.filter_date}}">
+                                    </div>
+                                    
+                                    <div class="col">
+                                        <label for="van_name">Van :</label>
+                                        <select name="van_name" class="form-select">
+                                            <option value="">All Van</option>
+                                            {% for van in van_instances %}
+                                                <option value="{{ van.pk }}"  {% if van.pk == filter_data.filter_van %}selected{% endif %}>{{van.get_van_route}} - {{ van.salesman.get_fullname }} - {{ van.van_make }} - {{ van.plate }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col d-flex align-items-end justify-content-end">
+                                        <input type="submit" class="btn btn-primary btn-sm mx-1" value="Apply Filter">
+                                        <button type="button" class="btn btn-secondary btn-sm mx-1" onclick="resetFilters()" style="width:max-content">Reset Filter</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form> 
                     </div>
                     {% comment %} <div class="m-4">
                         
@@ -41,6 +66,7 @@
                                                 <th style="text-align:center !important;" scope="col">Sl.No</th>
                                                 <th style="text-align:center !important;" scope="col">Date</th>
                                                 <th style="text-align:center !important;" scope="col">Van</th>
+                                                <th style="text-align:center !important;" scope="col">Route</th>
                                                 <th style="text-align:center !important;" scope="col">Product<br> Name</th>
 
                                                 <th style="text-align:center !important;" scope="col">Opening<br> Stock</th>
@@ -52,7 +78,7 @@
                                                 <th style="text-align:center !important;" scope="col">Offload</th>
                                                 <th style="text-align:center !important;" scope="col">Stock</th>
                                                 <th style="text-align:center !important;" scope="col">Closing</th>
-                                                {% comment %} <th style="text-align:center !important;" scope="col">Actions</th> {% endcomment %}
+                                                <th style="text-align:center !important;" scope="col">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -62,6 +88,7 @@
                                                 <td style="text-align:center;">{{forloop.counter}}</td>
                                                 <td style="text-align:left;">{{van_data.created_date|date:"d/m/Y"}}</td>
                                                 <td style="text-align:left;">{{van_data.van.van_make}} - {{van_data.van.plate}}</td>
+                                                <td style="text-align:left;">{{van_data.van.get_van_route}}</td>
                                                 <td style="text-align:left;">{{van_data.product.product_name}}</td>
                                                 <td style="text-align:center;">{{van_data.opening_count}}</td>
                                                 <td style="text-align:center;">{{stock_details.requested_count}}</td>
@@ -72,13 +99,13 @@
                                                 <td style="text-align:center;">{{stock_details.offload_count}}</td>
                                                 <td style="text-align:center;">{{van_data.stock}}</td>
                                                 <td style="text-align:center;">{{van_data.closing_count}}</td>
-                                                {% comment %} <td>
+                                                <td>
                                                     <div class="g-2">
-                                                       
-                                                        <a aria-label="anchor" class="btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete">
-                                                            <span class="ri-delete-bin-7-line fs-14"></span>
+                                                        <a href="{% url 'vanstock_product_update' pk=van_data.pk %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Edit">
+                                                            <span class="ri-pencil-line fs-14"></span>
                                                         </a>
-                                                </div> {% endcomment %}
+                                                    </div>
+                                                </td>
                                             </tr>
                                             {% endfor %}
                                         </tbody>

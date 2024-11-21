@@ -8,10 +8,10 @@
     <meta charset="UTF-8">
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Majed Water</title>
-    <meta name="Description" content="Majed water admin dashboard">
+    <title>Sana Water</title>
+    <meta name="Description" content="Sana water admin dashboard">
     <meta name="Author" content="Mobiz Technologies">
-	<meta name="keywords" cSanant="Majed water admin dashboard">
+	<meta name="keywords" cSanant="Sana water admin dashboard">
 
     <!-- Favicon -->
     <link rel="icon" href="{%static 'images/brand-logos/desktop-logos.png'%}" type="image/x-icon">
@@ -963,7 +963,7 @@
                         </span>
                         <span class="side-menu__label">Dashboard</span>
                     </a>
-                    <!-- Start::nav -->
+                                        <!-- Start::nav -->
                         <nav class="main-menu-container nav nav-pills flex-column sub-open">
                             <a href="{% url 'overview' %}">
                                 <div class="slide-left" id="slide-left" >
@@ -982,6 +982,7 @@
 
                         </nav>
                         <!-- End::nav -->
+
                     <ul class="main-menu">
                         <!-- Start::slide__category -->
                         <li class="slide__category"><span class="category-name">Main</span></li>
@@ -1011,6 +1012,9 @@
                                 </li>
                                 <li class="slide">
                                     <a href="{% url 'locations_list' %}" class="side-menu__item">Location</a>
+                                </li>
+                                <li class="slide">
+                                    <a href="{% url 'amount_change_customer_list' %}" class="side-menu__item">amount change customer list</a>
                                 </li>
                             </ul>
                         </li>
@@ -1044,7 +1048,7 @@
                                 <span class=" side-menu__icon">
                                     <i class='bx bx-desktop'></i>
                                 </span>
-                                <span class="side-menu__label">Sales Management<span class="badge bg-warning-transparent ms-2 d-inline-block">3</span></span>
+                                <span class="side-menu__label">Sales Management<span class="badge bg-warning-transparent ms-2 d-inline-block">7</span></span>
                                 <i class="fe fe-chevron-right side-menu__angle"></i>
                             </a>
                             <ul class="slide-menu child1">
@@ -1062,10 +1066,8 @@
                                 </li>
                                 <li class="slide">
                                     <a href="{% url 'outstanding_log_list' %}" class="side-menu__item">Outstanding HistoryView</a>
-                                </li>
-                                <li class="slide">
-                                    <a href="{% url 'coupon_sale' %}" class="side-menu__item">Create Coupon Sale</a>
-                                </li> {% endcomment %}
+                                </li>{% endcomment %}
+                                 
 				                <li class="slide">
                                     <a href="{% url 'staff_issue_orders_list' %}" class="side-menu__item">Orders</a>
                                 </li>
@@ -1099,6 +1101,7 @@
                             </ul>
                         </li>
                         <!-- End::slide -->
+                         
                         <li class="slide has-sub">
                             <a href="javascript:void(0);" class="side-menu__item">
                                 <span class=" side-menu__icon">
@@ -1113,7 +1116,7 @@
                                 </li>
                                 
                                  <li class="slide">
-                                    <a href="{% url 'suspense_report' %}" class="side-menu__item"> Suspence</a>
+                                    <a href="{% url 'suspense_report' %}" class="side-menu__item">Suspence</a>
                                 </li>
                                 <li class="slide">
                                     <a href="{% url 'dsr_summary' %}" class="side-menu__item">DSR Summary</a>
@@ -1173,6 +1176,7 @@
                                 </li> 
                             </ul>
                         </li>
+                        
                          <li class="slide__category"><span class="category-name">Van Management</span></li>
                         <!-- End::slide__category -->
 
@@ -1255,12 +1259,6 @@
                                     <a href="{% url 'products' %}" class="side-menu__item">Product Stock</a>
                                 </li>
                                 <li class="slide">
-                                    <a href="{% url 'production_damage_reason_list' %}" class="side-menu__item">Production Damage Reason</a>
-                                </li>
-                                <li class="slide">
-                                    <a href="{% url 'production_damage_list' %}" class="side-menu__item">Production Damage</a>
-                                </li>
-                                <li class="slide">
                                     <a href="{% url 'defaultprice' %}" class="side-menu__item">Customer Default Price</a>
                                 </li>
                                 {% comment %} <li class="slide">
@@ -1299,16 +1297,13 @@
                                 <li class="slide">
                                     <a href="{% url 'latest_customers' %}" class="side-menu__item">New Customer</a>
                                 </li>
-                                {% comment %} <li class="slide">
+                                <li class="slide">
                                     <a href="{% url 'non_visited_customers' %}" class="side-menu__item">Non Visited Customer</a>
-                                </li> {% endcomment %}
+                                </li>
                                 <li class="slide">
                                     <a href="{% url 'missing_customers' %}" class="side-menu__item">Missing Customer</a>
                                 </li>
-                                {% comment %} <li class="slide">
-                                    <a href="{% url 'non_visited_customers' %}" class="side-menu__item">Non Visited Customer</a>
-                                </li> {% endcomment %}
-                                <li class="slide">
+                                 <li class="slide">
                                     <a href="{% url 'inactive_customers' %}" class="side-menu__item">Inactive Customer</a>
                                 </li>
 				                <li class="slide">
@@ -1380,7 +1375,7 @@
                                 </li>                               
                                 <li class="slide">
                                     <a href="{% url 'new_coupon' %}" class="side-menu__item">Coupons</a>
-                                </li>                                                             
+                                </li>
                                 <li class="slide">
                                     <a href="{% url 'customer_stock' %}" class="side-menu__item">Customer Stock</a>
                                 </li>
@@ -1619,7 +1614,7 @@
        <footer class="footer mt-auto py-3 bg-white text-center">
            <div class="container">
                <span class="text-muted"> Copyright © <span id="year"></span> <a
-                       href="javascript:void(0);" class="text-dark fSanamibold">Majed Waters</a>.
+                       href="javascript:void(0);" class="text-dark fSanamibold">Sana Waters</a>.
                    powered by <a href="https://www.mobiztechnologies.com/">
                        <span class="fw-semibold text-primary text-decoration-underline">Mobiz Technologies</span>
                    </a> All
@@ -2062,7 +2057,6 @@
       <span class="arrow"><i class="ri-arrow-up-circle-fill fs-20"></i></span>
   </div>
   <div id="responsive-overlay"></div>
-  {% comment %} <script src="https://code.jquery.com/jquery-3.6.1.min.js" integrity="sha256-o88AwQnZB+VDvE9tvIXrMQaPlFFSUTR+nldQm1LuPXQ=" crossorigin="anonymous"></script> {% endcomment %}
   <script src="{%static 'js/jquery.min.js'%}"></script>
   <!-- Popper JS -->
   <script src="{%static 'libs/@popperjs/core/umd/popper.min.js'%}"></script>
@@ -2116,6 +2110,7 @@
 
   <script src="{% static 'ckeditor/ckeditor-init.js' %}"></script>
   <script src="{% static 'ckeditor/ckeditor/ckeditor.js' %}"></script>
+  <script src="{% static 'js/Chart.js' %}"></script>
 
   {% block static %}
     {% endblock %}

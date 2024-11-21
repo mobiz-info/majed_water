@@ -22,7 +22,7 @@ urlpatterns = [
     path('details_view/<str:pk>',DetailsView.as_view(), name='details_view'),
 
 #--------------Sales Report---------------------------------
-   path('salesreport', salesreport, name='salesreport'),
+    path('salesreport', salesreport, name='salesreport'),
     path('salesreportview/<int:salesman>/', salesreportview, name='salesreportview'),
     path('download-salesreport-pdf/', download_salesreport_pdf, name='download_salesreport_pdf'),
     path('download-salesreport-excel/', download_salesreport_excel, name='download_salesreport_excel'),
@@ -31,6 +31,7 @@ urlpatterns = [
     path('collectionreport', collectionreport, name='collectionreport'),
     # path('dailycollectionreport', dailycollectionreport, name='dailycollectionreport'),
     path('collection_report_excel/', collection_report_excel, name='collection_report_excel'),
+    path('print_collection_report/', print_collection_report, name='print_collection_report'),
     # path('daily_collection_report_excel/', daily_collection_report_excel, name='daily_collection_report_excel'),
 
     # path('create-sale/', SaleEntryCreateView.as_view(), name='create_sale'),
@@ -46,8 +47,7 @@ urlpatterns = [
     # ----------------
     path('yearmonthsalesreport', yearmonthsalesreport, name='yearmonthsalesreport'),
     path('yearmonthsalesreportview/<uuid:route_id>/', yearmonthsalesreportview, name="yearmonthsalesreportview"),
-    
-    #---------------------New Sales Report-----------------------------
+
 
     path('customerSales_report',customerSales_report, name='customerSales_report'),
     path('customerSales_Excel_report',customerSales_Excel_report, name='customerSales_Excel_report'),
@@ -65,7 +65,7 @@ urlpatterns = [
 #------------------DSR Credit Sales Report-------------------------------------
     path('creditsales_report',creditsales_report, name='creditsales_report'),
     path('creditsales_report_print',creditsales_report_print, name='creditsales_report_print'),
-#-------------------DSR coupon Book  Sales-------------------------
+#-------------------DSR coupon Sales-------------------------
     path('dsr_coupon_sales',dsr_coupon_sales, name='dsr_coupon_sales'),
     path('dsr_coupons_sales_print',dsr_coupons_sales_print, name='dsr_coupons_sales_print'),
         
@@ -111,7 +111,7 @@ urlpatterns = [
     
     #------------------DSR Outstanding Amount Collected Report-------------------------------------
     path('outstanding_amount_collected',outstanding_amount_collected, name='outstanding_amount_collected'),
-    
+
     path('dsr/', dsr, name='dsr'),
     path('print-dsr/', print_dsr, name='print_dsr'),
     
@@ -121,7 +121,7 @@ urlpatterns = [
     path('coupon_sales_report/', coupon_sales_report_view, name='coupon_sales_report'),
     path('coupon_sales_excel/', coupon_sales_excel_view, name='coupon_sales_excel'),
     path('coupon_sales_print/', coupon_sales_print_view, name='coupon_sales_print'),
-
+    
     path('receipt_list/', receipt_list_view, name='receipt_list'),
     path('receipt_list_print/', receipt_list_print, name='receipt_list_print'),
     path('receipt_list_excel/', receipt_list_excel, name='receipt_list_excel'),
@@ -130,5 +130,4 @@ urlpatterns = [
 
     path('monthly_sales_report/', monthly_sales_report, name='monthly_sales_report'),
     path('monthly_sales_report_print/', monthly_sales_report_print, name='monthly_sales_report_print'),
-    
 ]

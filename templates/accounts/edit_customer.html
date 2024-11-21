@@ -70,7 +70,14 @@
                             <!--                                <small class="form-text text-muted">Select Category.</small>-->
                         </div>
                     </div>
-
+                    <div class="col-md-6">
+                        <div class="form-group required">
+                            <label class='control-label'>Emirate</label>
+                            {{ form.emirate }}
+                            <span style="color: red;">{{ form.emirate.errors }}</span>
+                            <!--                                <small class="form-text text-muted">Select Category.</small>-->
+                        </div>
+                    </div>
 
                     <div class="col-md-6">
                         <div class="form-group required">
@@ -126,6 +133,21 @@
                             {{ form.customer_type }}
                             <span style="color: red;">{{ form.customer_type.errors }}</span>
                             <!--                                <small class="form-text text-muted">Select Category.</small>-->
+                        </div>
+                    </div>
+                  
+                    <div class="col-md-6">
+                        <div class="form-group required">
+                            <label class='control-label'>5G Count Limit</label>
+                            {{ form.five_g_count_limit }}
+                            <span style="color: red;">{{ form.five_g_count_limit.errors }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group required">
+                            <label class='control-label'>Eligible FOC</label>
+                            {{ form.eligible_foc }}
+                            <span style="color: red;">{{ form.eligible_foc.errors }}</span>
                         </div>
                     </div>
                     <div class="col-md-6">

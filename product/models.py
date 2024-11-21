@@ -105,7 +105,8 @@ class Staff_Orders(models.Model):
     )
     order_via = models.CharField(max_length=20, choices=VIA_CHOICES, null=True, blank=True, default='Via Staff')
     order_date = models.DateField(null=True, blank=True)
-
+    # delivery_date = models.DateField(null=True, blank=True)
+    
     class Meta:
         ordering = ('order_number',)
 
@@ -295,8 +296,8 @@ class ScrapcleanedStock(models.Model):
 
     def __str__(self):
         return str(self.product.product_name)
-    
-    
+
+
 class ProductionDamageReason(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     reason = models.CharField(max_length=20)
@@ -335,3 +336,23 @@ class ProductionDamage(models.Model):
 
     def __str__(self):
         return str(self.product.product_name)
+    
+    
+class NextDayStockRequest(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE, related_name='next_day_stock_request')
+    # order_details = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE, related_name='next_day_stock_request')
+    van = models.ForeignKey('van_management.Van', null=True, blank=True, on_delete=models.SET_NULL)
+    issued_quantity = models.CharField(max_length=50,null=True, blank=True)
+    date = models.DateField()
+    
+    created_by = models.CharField(max_length=20,  blank=True)
+    created_date = models.DateTimeField(auto_now_add=True,blank=True, null=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+            ordering = ('id',)
+
+    def __str__(self):
+        return str(self.product)

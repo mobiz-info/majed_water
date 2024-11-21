@@ -77,7 +77,7 @@ class LocationMaster(models.Model):
     created_date = models.DateTimeField(auto_now_add=True,blank=True, null=True)
     modified_by = models.CharField(max_length=20, null=True, blank=True)
     modified_date = models.DateTimeField(blank=True, null=True)
-    location_name = models.CharField(max_length=50,unique=True)
+    location_name = models.CharField(max_length=50)
     emirate = models.ForeignKey(EmirateMaster, on_delete=models.SET_NULL, null=True, blank=False)
     branch_id = models.ForeignKey('master.BranchMaster', on_delete=models.SET_NULL, null=True, blank=True,related_name='loc_branch')
     class Meta:
@@ -110,3 +110,5 @@ class PrivacyPolicy(models.Model):
 
     def __str__(self):
         return "Privacy Policy"
+
+	

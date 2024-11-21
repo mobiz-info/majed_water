@@ -29,6 +29,7 @@ urlpatterns = [
         # path('count_coupen', CountCoupen, name="count_coupen"),
         
         re_path(r'customer-supply-list/$', customer_supply_list, name='customer_supply_list'),
+        path('view_invoice/<str:invoice_no>/', view_invoice, name='view_invoice'),
         re_path(r'supply-customers/$', customer_supply_customers, name='customer_supply_customers'),
         re_path(r'create-customer-suppply/(?P<pk>.*)/$', create_customer_supply, name='create_customer_supply'),
         re_path(r'^info-customer-suppply/(?P<pk>.*)/$', customer_supply_info, name='customer_supply_info'),
@@ -51,22 +52,16 @@ urlpatterns = [
         path('new-coupon-count/<uuid:pk>/', new_coupon_count, name='new_coupon_count'),
         path('delete-coupon-count/<uuid:pk>/', delete_count, name='delete_count'),
         
-         #customer outstanding
+        #customer outstanding
         re_path(r'^customer-outstanding/$', customer_outstanding_list, name='customer_outstanding_list'),
         path('print_customer_outstanding/', print_customer_outstanding, name='print_customer_outstanding'),
         path('excel_customer_outstanding/', export_customer_outstanding_to_excel, name='excel_customer_outstanding'),
         re_path(r'^edit_customer_outstanding/(?P<outstanding_pk>.*)/$', edit_customer_outstanding, name='edit_customer_outstanding'),
-
         re_path(r'outstanding_list/$', outstanding_list, name='outstanding_list'),
+        path('print-outstanding-report/', print_outstanding_report, name='print_outstanding_report'),
         re_path(r'^create-customer-outstanding/$', create_customer_outstanding, name='create_customer_outstanding'),
         re_path(r'^customer-outstanding-details/(?P<customer_pk>.*)/$', customer_outstanding_details, name='customer_outstanding_details'),
         re_path(r'^delete-customer-outstanding/(?P<pk>.*)/$', delete_outstanding, name='delete_outstanding'),
-        path('upload-outstanding/', upload_outstanding, name='upload_outstanding'),
-        
-        path('print_outstanding_report/', print_outstanding_report, name='print_outstanding_report'),
-        re_path(r'^customer_transaction_list/$', customer_transaction_list, name='customer_transaction_list'),
-        re_path(r'^customer_transaction_print/$', customer_transaction_print, name='customer_transaction_print'),
-
 
         # Customer count
         path('customer_count', customer_count, name="customer_count"),
@@ -80,14 +75,18 @@ urlpatterns = [
         path('nonvisitreason_List', nonvisitreason_List, name="nonvisitreason_List"),
         path('create_nonvisitreason', create_nonvisitreason, name="create_nonvisitreason"),
         path('delete_nonvisitreason/<uuid:id>/', delete_nonvisitreason, name='delete_nonvisitreason'),
-        
+
         path('upload-outstanding/', upload_outstanding, name='upload_outstanding'),
-        
+
         path('ageing_report/', ageing_report_view, name='ageing_report'),
         path('ageing_report_print/', print_ageing_report_view, name='print_ageing_report'),
         path('ageing_report_excel/',ageing_report_excel, name='ageing_report_excel'),
         path('customer-outstanding-detail/<uuid:customer_id>/', customer_outstanding_detail, name='customer_outstanding_detail'),
-        path('customer_outstanding_excel/<uuid:customer_id>/', customer_outstanding_to_excel, name='customer_outstanding_excel'),
+        path('export_customer_outstanding/<uuid:customer_id>/', export_customer_outstanding_to_excel, name='export_customer_outstanding'),
         path('print_customer_outstandings/<uuid:customer_id>/', print_customer_outstandings, name='print_customer_outstandings'),
         
+        
+        re_path(r'^customer_transaction_list/$', customer_transaction_list, name='customer_transaction_list'),
+        re_path(r'^customer_transaction_print/$', customer_transaction_print, name='customer_transaction_print'),
+
 ]
