@@ -205,7 +205,8 @@ def get_customer_outstanding_aging(route=None):
         customer_outstanding__customer__routes__route_name=route
     ).values(
         'customer_outstanding__customer__customer_id',
-        'customer_outstanding__customer__customer_name'
+        'customer_outstanding__customer__customer_name',
+        'customer_outstanding__customer__custom_id'
     ).annotate(
         total_outstanding=Sum('amount'),
         less_than_30=Sum(
@@ -274,30 +275,113 @@ def get_customer_outstanding_aging(route=None):
         )
     )
 
-    # Step 2: For each customer, calculate total collections separately and subtract from outstanding
+    # Step 2: For each customer, calculate collections for each aging bucket and adjust outstanding
     for data in outstanding_data:
         customer_id = data['customer_outstanding__customer__customer_id']
-        collection_amount = CollectionPayment.objects.filter(
+        custom_id = data['customer_outstanding__customer__custom_id']
+        
+        # Calculate collections for each bucket
+        collections = CollectionPayment.objects.filter(
             customer__customer_id=customer_id,
             created_date__date__lte=current_date
-        ).aggregate(total_collected=Sum('amount_received'))['total_collected'] or 0
+        ).aggregate(
+            collected_less_than_30=Sum(
+                Case(
+                    When(
+                        created_date__gte=current_date - timezone.timedelta(days=30),
+                        then='amount_received'
+                    ),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            ),
+            collected_between_31_and_60=Sum(
+                Case(
+                    When(
+                        created_date__gte=current_date - timezone.timedelta(days=60),
+                        created_date__lt=current_date - timezone.timedelta(days=30),
+                        then='amount_received'
+                    ),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            ),
+            collected_between_61_and_90=Sum(
+                Case(
+                    When(
+                        created_date__gte=current_date - timezone.timedelta(days=90),
+                        created_date__lt=current_date - timezone.timedelta(days=60),
+                        then='amount_received'
+                    ),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            ),
+            collected_between_91_and_150=Sum(
+                Case(
+                    When(
+                        created_date__gte=current_date - timezone.timedelta(days=150),
+                        created_date__lt=current_date - timezone.timedelta(days=90),
+                        then='amount_received'
+                    ),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            ),
+            collected_between_151_and_365=Sum(
+                Case(
+                    When(
+                        created_date__gte=current_date - timezone.timedelta(days=365),
+                        created_date__lt=current_date - timezone.timedelta(days=150),
+                        then='amount_received'
+                    ),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            ),
+            collected_more_than_365=Sum(
+                Case(
+                    When(
+                        created_date__lt=current_date - timezone.timedelta(days=365),
+                        then='amount_received'
+                    ),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            )
+        )
 
-        # Subtract collection amount from outstanding
-        total_outstanding = data['total_outstanding'] - collection_amount
+        # Subtract collections from respective outstanding buckets
+        less_than_30 = data['less_than_30'] - (collections['collected_less_than_30'] or 0)
+        between_31_and_60 = data['between_31_and_60'] - (collections['collected_between_31_and_60'] or 0)
+        between_61_and_90 = data['between_61_and_90'] - (collections['collected_between_61_and_90'] or 0)
+        between_91_and_150 = data['between_91_and_150'] - (collections['collected_between_91_and_150'] or 0)
+        between_151_and_365 = data['between_151_and_365'] - (collections['collected_between_151_and_365'] or 0)
+        more_than_365 = data['more_than_365'] - (collections['collected_more_than_365'] or 0)
 
-        aging_data = {
-            'customer_id': customer_id,
-            'customer_name': data['customer_outstanding__customer__customer_name'],
-            'less_than_30': data['less_than_30'],
-            'between_31_and_60': data['between_31_and_60'],
-            'between_61_and_90': data['between_61_and_90'],
-            'between_91_and_150': data['between_91_and_150'],
-            'between_151_and_365': data['between_151_and_365'],
-            'more_than_365': data['more_than_365'],
-            'grand_total': max(total_outstanding, 0),  
-        }
+        # Ensure no negative values
+        less_than_30 = max(less_than_30, 0)
+        between_31_and_60 = max(between_31_and_60, 0)
+        between_61_and_90 = max(between_61_and_90, 0)
+        between_91_and_150 = max(between_91_and_150, 0)
+        between_151_and_365 = max(between_151_and_365, 0)
+        more_than_365 = max(more_than_365, 0)
 
-        if aging_data['grand_total'] > 0:
-            aging_report.append(aging_data)
+        # Calculate grand total
+        grand_total = less_than_30 + between_31_and_60 + between_61_and_90 + between_91_and_150 + between_151_and_365 + more_than_365
+
+        if grand_total > 0:
+            aging_report.append({
+                'custom_id': custom_id,
+                'customer_id': customer_id,
+                'customer_name': data['customer_outstanding__customer__customer_name'],
+                'less_than_30': less_than_30,
+                'between_31_and_60': between_31_and_60,
+                'between_61_and_90': between_61_and_90,
+                'between_91_and_150': between_91_and_150,
+                'between_151_and_365': between_151_and_365,
+                'more_than_365': more_than_365,
+                'grand_total': grand_total,
+            })
 
     return aging_report

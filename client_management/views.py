@@ -3363,6 +3363,9 @@ def ageing_report_excel(request):
     # Create DataFrame from the aging report data
     df = pd.DataFrame(aging_report)
     
+    if 'customer_id' in df.columns:
+        df = df.drop(columns=['customer_id'])
+    
     # Create the HttpResponse object with the appropriate Excel header.
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="ageing_report.xlsx"'
