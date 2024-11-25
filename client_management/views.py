@@ -3354,27 +3354,71 @@ def print_ageing_report_view(request):
     return render(request, 'client_management/print_ageing_report.html', context)
 
 from .templatetags.client_templatetags import get_customer_outstanding_aging
+import xlsxwriter
   
 def ageing_report_excel(request):
     route_name = request.GET.get('route', None)
-    selected_route = RouteMaster.objects.get(route_name=route_name) if route_name else None
-    aging_report = get_customer_outstanding_aging(selected_route)
-    
-    # Create DataFrame from the aging report data
-    df = pd.DataFrame(aging_report)
-    
-    if 'customer_id' in df.columns:
-        df = df.drop(columns=['customer_id'])
-    
-    # Create the HttpResponse object with the appropriate Excel header.
+
+    selected_route = None
+    if route_name:
+        selected_route = get_object_or_404(RouteMaster, route_name=route_name)
+
+    ageing_data = get_customer_outstanding_aging(selected_route.route_name if selected_route else None)
+
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="ageing_report.xlsx"'
-    
-    # Use Pandas Excel writer
-    with pd.ExcelWriter(response, engine='xlsxwriter') as writer:
-        df.to_excel(writer, sheet_name='Ageing Report', index=False)
-    
+
+    workbook = xlsxwriter.Workbook(response, {'in_memory': True})
+    worksheet = workbook.add_worksheet()
+
+    headers = [
+        'Sl No', 'Customer Id', 'Customer Name',
+        'Less than 30 Days', '31-60 Days', '61-90 Days', '91-150 Days',
+        '151-365 Days', 'More than 365 Days', 'Grand Total'
+    ]
+
+    header_format = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'border': 1})
+    for col_num, header in enumerate(headers):
+        worksheet.write(0, col_num, header, header_format)
+
+    data_format = workbook.add_format({'border': 1})
+    numeric_format = workbook.add_format({'border': 1, 'num_format': '#,##0.00'})
+
+    for row_num, data in enumerate(ageing_data, start=1):
+        worksheet.write(row_num, 0, row_num, data_format)  
+        worksheet.write(row_num, 1, data.get('custom_id', ''), numeric_format)
+        worksheet.write(row_num, 2, data.get('customer_name', ''), data_format)
+        worksheet.write(row_num, 3, data.get('less_than_30', 0), numeric_format)
+        worksheet.write(row_num, 4, data.get('between_31_and_60', 0), numeric_format)
+        worksheet.write(row_num, 5, data.get('between_61_and_90', 0), numeric_format)
+        worksheet.write(row_num, 6, data.get('between_91_and_150', 0), numeric_format)
+        worksheet.write(row_num, 7, data.get('between_151_and_365', 0), numeric_format)
+        worksheet.write(row_num, 8, data.get('more_than_365', 0), numeric_format)
+        worksheet.write(row_num, 9, data.get('grand_total', 0), numeric_format)
+
+    totals = {
+        'less_than_30': sum(item.get('less_than_30', 0) for item in ageing_data),
+        'between_31_and_60': sum(item.get('between_31_and_60', 0) for item in ageing_data),
+        'between_61_and_90': sum(item.get('between_61_and_90', 0) for item in ageing_data),
+        'between_91_and_150': sum(item.get('between_91_and_150', 0) for item in ageing_data),
+        'between_151_and_365': sum(item.get('between_151_and_365', 0) for item in ageing_data),
+        'more_than_365': sum(item.get('more_than_365', 0) for item in ageing_data),
+        'grand_total': sum(item.get('grand_total', 0) for item in ageing_data),
+    }
+
+    total_row = len(ageing_data) + 1
+    worksheet.write(total_row, 2, 'TOTAL', header_format)
+    worksheet.write(total_row, 3, totals['less_than_30'], numeric_format)
+    worksheet.write(total_row, 4, totals['between_31_and_60'], numeric_format)
+    worksheet.write(total_row, 5, totals['between_61_and_90'], numeric_format)
+    worksheet.write(total_row, 6, totals['between_91_and_150'], numeric_format)
+    worksheet.write(total_row, 7, totals['between_151_and_365'], numeric_format)
+    worksheet.write(total_row, 8, totals['more_than_365'], numeric_format)
+    worksheet.write(total_row, 9, totals['grand_total'], numeric_format)
+
+    workbook.close()
     return response
+
 
 @login_required
 def customer_outstanding_detail(request,customer_id):
