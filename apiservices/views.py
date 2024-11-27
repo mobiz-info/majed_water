@@ -8834,9 +8834,9 @@ class StaffIssueOrdersAPIView(APIView):
 
                                     vanstock = VanStock.objects.create(
                                         created_by=request.user.id,
-                                        created_date=datetime.now(),
+                                        created_date=issue.staff_order_id.order_date,
                                         modified_by=request.user.id,
-                                        modified_date=datetime.now(),
+                                        modified_date=issue.staff_order_id.order_date,
                                         stock_type='opening_stock',
                                         van=van
                                     )
@@ -8847,11 +8847,15 @@ class StaffIssueOrdersAPIView(APIView):
                                         van_stock=vanstock,
                                     )
 
-                                    if VanProductStock.objects.filter(created_date=datetime.today().date(), product=issue.product_id, van=van).exists():
-                                        van_product_stock = VanProductStock.objects.get(created_date=datetime.today().date(), product=issue.product_id, van=van)
+                                    if VanProductStock.objects.filter(created_date=issue.staff_order_id.order_date, product=issue.product_id, van=van).exists():
+                                        van_product_stock = VanProductStock.objects.get(created_date=issue.staff_order_id.order_date, product=issue.product_id, van=van)
+                                        van_product_stock.stock += int(quantity_issued)
+                                        van_product_stock.save()
+
+
                                     else:
                                         van_product_stock = VanProductStock.objects.create(
-                                            created_date=datetime.now().date(),
+                                            created_date=issue.staff_order_id.order_date,
                                             product=issue.product_id,
                                             van=van,
                                             stock=int(quantity_issued))
