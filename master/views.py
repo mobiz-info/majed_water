@@ -2,35 +2,35 @@ import json
 import uuid
 import datetime
 from datetime import timedelta
+from django.utils.timezone import now
 from calendar import monthrange
 
 from django.views import View
 from django.shortcuts import render
 from django.contrib import messages
 from django.core.cache import cache
-from django.db.models import Sum,Count,F
 from django.shortcuts import render, redirect
 from django.db import transaction, IntegrityError
 from django.utils.decorators import method_decorator
 from django.contrib.auth.hashers import make_password
 from django.db.models.functions import ExtractWeekDay
+from django.db.models import Sum,Count,F,Q,DecimalField
 from django.contrib.auth.decorators import login_required
-from django.db.models.functions import ExtractDay,TruncDate
 from django.shortcuts import render, redirect, get_object_or_404
-
-from invoice_management.models import Invoice
+from django.db.models.functions import ExtractDay,TruncDate,Coalesce
 
 from .forms import *
 from .models import *
 from . serializers import *
 from accounts.models import *
-from customer_care.models import DiffBottlesModel
+from invoice_management.models import Invoice
+from customer_care.models import *
 from sales_management.models import CollectionPayment
 from van_management.models import Van, VanProductStock , Expense
 from product.models import ProductStock, ScrapProductStock, WashedUsedProduct, WashingProductStock
 from client_management.models import CustomerOutstanding, OutstandingAmount, Vacation, NonvisitReport,CustomerSupplyItems
 from client_management.models import CustodyCustomItems, CustomerSupply,CustomerCoupon, CustomerSupplyCoupon, CustomerSupplyDigitalCoupon, OutstandingCoupon, OutstandingProduct
-
+from apiservices.views import find_customers
 
 @login_required(login_url='login')
 def home(request):
@@ -242,6 +242,84 @@ def overview(request):
     coupon_salesmans_instances = CustomUser.objects.filter(pk__in=CustomerCoupon.objects.filter(created_date__date=date).values_list('salesman__pk'))
     salesman_recharge_serializer = SalesmanRechargeCountSerializer(coupon_salesmans_instances,many=True,context={"date": date}).data
     
+    # Customer  statistics
+    call_customers_count = customers_instances.filter(is_calling_customer=True).count()
+    inactive_customers_count = customers_instances.filter(is_active=False).count()
+    
+    today = now().date()
+    start_of_month = today.replace(day=1)
+
+    route_data = Customers.objects.filter(routes__route_name__isnull=False).values(
+        'routes__route_name'
+    ).annotate(
+        today_new_customers=Count('customer_id', filter=Q(created_date__date=today)),
+        month_new_customers=Count('customer_id', filter=Q(created_date__date__gte=start_of_month))
+    )
+    
+    last_20_days = today - timedelta(days=20)
+
+        # Get all the routes
+    routes = RouteMaster.objects.all()
+
+        # Initialize a dictionary to store the inactive customers count by route
+    route_inactive_customer_count = {}
+
+    for route in routes:
+            # Get the customers associated with this route
+        route_customers = Customers.objects.filter(routes=route)
+
+            # Get customers who haven't had a supply in the last 20 days
+        visited_customers = CustomerSupply.objects.filter(
+                created_date__date__range=(last_20_days, today)
+            ).values_list('customer_id', flat=True)
+
+        todays_customers = find_customers(request, str(today), route.pk) or []
+        todays_customer_ids = {customer['customer_id'] for customer in todays_customers}
+
+            # Filter out customers who had a supply in the last 20 days or today
+        inactive_customers = route_customers.exclude(
+                pk__in=visited_customers
+            ).exclude(
+                pk__in=todays_customer_ids
+            )
+
+            # Add the count of inactive customers for this route
+        route_inactive_customer_count[route.route_name] = inactive_customers.count()
+
+
+    non_visited_customers_data = []
+
+    for route in route_instances:
+        
+        today_vocation_customer_ids = vocation_customers_instances.filter(start_date__lte=date, end_date__gte=date).values_list('customer__pk', flat=True)
+        scheduled_customers = customers_instances.filter(
+            routes=route,
+            is_calling_customer=False
+        ).exclude(pk__in=today_vocation_customer_ids)
+        
+        scheduled_customers_filtered = []
+        for customer in scheduled_customers:
+            if customer.visit_schedule:
+                for day, weeks in customer.visit_schedule.items():
+                    if str(day_of_week) == str(day) and str(week_number) in weeks:
+                        scheduled_customers_filtered.append(customer.pk)
+                        
+        # Get non-visited customers
+        non_visited_customers = set(scheduled_customers_filtered) - set(
+            NonvisitReport.objects.filter(
+                created_date__date=date, 
+                customer__routes=route
+            ).values_list('customer__pk', flat=True)
+        )
+        
+        # Append route and non-visited customer count to the list
+        non_visited_customers_data.append({
+            'route': route.route_name,
+            'non_visited_customers_count': len(non_visited_customers)
+        })
+        
+    pending_complaints_count = CustomerComplaint.objects.filter(status='Pending').count()
+    
     context = {
         # overview section
         "cash_sales": total_cash_sales_count,
@@ -309,6 +387,13 @@ def overview(request):
         "today_pending_manual_coupons_collected_count": today_pending_manual_coupons_collected_count,
         "today_pending_digital_coupons_collected_count": today_pending_digital_coupons_collected_count,
         "salesman_recharge_serializer": json.dumps(salesman_recharge_serializer),
+        # Customer  statistics
+        "call_customers_count": call_customers_count,
+        "inactive_customers_count" : inactive_customers_count,
+        "route_data" : route_data,
+        "route_inactive_customer_count" : route_inactive_customer_count,
+        "non_visited_customers_data": non_visited_customers_data,
+        "pending_complaints_count":pending_complaints_count,
     }
 
     return render(request, 'master/dashboard/overview_dashboard.html', context) 
@@ -903,43 +988,102 @@ def terms_and_conditions_delete(request, pk):
         return redirect('terms_and_conditions_list')
     return render(request, 'master/terms_and_conditions_delete.html', {'instance': instance})
 
+# class AmountChangesCustomersList(View):
+#     template_name = 'master/amount_changes_customer_list.html'
+
+#     @method_decorator(login_required)
+#     def get(self, request, *args, **kwargs):
+#         custom_ids = list(map(int, ["1663","2262","2264","2089","2320","1673","1896","2058","2090","2091","2095","1680","1968","2096","2054","2214","1763","1765","1766","1768","1769","1792","1778","1779","1780","1781","1783","1784","1785","1786","1787","1789","1775","1797","1799","2080","2081","1805","2269","2304","1698","2988","2267","2309","2273","1958","2234","1963","2316","1976","1990","2172","1998","2001","2002","2003","2071","2326","1894","2201","2229","2244","1521","1522","1526","1529","1530","1531","1570","1536","2171","2283","2149","2152","2324","1558","2295","2068","1581","1587","1588","1589","1647","3626","4140","3974","3976","4151","1970","1804","1973","1962","2055","2187","2174","2181","1944","2185","1999","2175","2258"]))
+#         exclude_ids = list(map(int, ["1898","2062","1657","1790","1807","2279","1772","1527","1908","1995","1782","1658","2069","4385","1789","2244","2283","2326","1588","2096","2071","2172","2095","1786","2081","4151","1780","1536","1779","1970","1976","2262","1781","1680","1663","1804","1958","1973","1792","1784","1766","3974","1797","2068","1783","1673","2080","1768","1763","2324","1896","1962","1530","1526","2055","2269","2054","2187","1647","2988","1558","1968"]))
+#         # Step 1: Calculate the invoice balance for each customer
+#         invoices_balance = Invoice.objects.filter(customer__routes__route_name="S-41").values('customer_id').annotate(
+#             total_invoiced=Sum(F('amout_total') - F('amout_recieved'))
+#         )
+
+#         # Step 2: Calculate the outstanding balance for each customer from CustomerOutstanding
+#         outstanding_balance = CustomerOutstanding.objects.filter(
+#             product_type='amount',customer__routes__route_name="S-41"
+#         ).values('customer_id').annotate(
+#             total_outstanding=Sum('outstandingamount__amount')
+#         )
+
+#         # Convert outstanding_balance to a dictionary for quick lookup by customer_id
+#         outstanding_balance_dict = {item['customer_id']: item['total_outstanding'] for item in outstanding_balance}
+
+#         # Step 3: Identify customers with mismatched balances
+#         mismatched_customers = [
+#             item['customer_id'] for item in invoices_balance
+#             if item['total_invoiced'] != outstanding_balance_dict.get(item['customer_id'], 0)
+#         ]
+        
+#         Retrieve customer instances for mismatched customers
+#         instances = Customers.objects.filter(pk__in=mismatched_customers)
+#         instances = Customers.objects.filter(custom_id__in=custom_ids).exclude(custom_id__in=exclude_ids)
+        
+#         context = {
+#             'instances': instances
+#         }
+#         return render(request, self.template_name, context)
+
 class AmountChangesCustomersList(View):
     template_name = 'master/amount_changes_customer_list.html'
 
     @method_decorator(login_required)
     def get(self, request, *args, **kwargs):
-        custom_ids = list(map(int, ["1663","2262","2264","2089","2320","1673","1896","2058","2090","2091","2095","1680","1968","2096","2054","2214","1763","1765","1766","1768","1769","1792","1778","1779","1780","1781","1783","1784","1785","1786","1787","1789","1775","1797","1799","2080","2081","1805","2269","2304","1698","2988","2267","2309","2273","1958","2234","1963","2316","1976","1990","2172","1998","2001","2002","2003","2071","2326","1894","2201","2229","2244","1521","1522","1526","1529","1530","1531","1570","1536","2171","2283","2149","2152","2324","1558","2295","2068","1581","1587","1588","1589","1647","3626","4140","3974","3976","4151","1970","1804","1973","1962","2055","2187","2174","2181","1944","2185","1999","2175","2258"]))
-        exclude_ids = list(map(int, ["1898","2062","1657","1790","1807","2279","1772","1527","1908","1995","1782","1658","2069","4385","1789","2244","2283","2326","1588","2096","2071","2172","2095","1786","2081","4151","1780","1536","1779","1970","1976","2262","1781","1680","1663","1804","1958","1973","1792","1784","1766","3974","1797","2068","1783","1673","2080","1768","1763","2324","1896","1962","1530","1526","2055","2269","2054","2187","1647","2988","1558","1968"]))
-        # Step 1: Calculate the invoice balance for each customer
-        # invoices_balance = Invoice.objects.filter(customer__routes__route_name="S-41").values('customer_id').annotate(
-        #     total_invoiced=Sum(F('amout_total') - F('amout_recieved'))
-        # )
-
-        # # Step 2: Calculate the outstanding balance for each customer from CustomerOutstanding
-        # outstanding_balance = CustomerOutstanding.objects.filter(
-        #     product_type='amount',customer__routes__route_name="S-41"
-        # ).values('customer_id').annotate(
-        #     total_outstanding=Sum('outstandingamount__amount')
-        # )
-
-        # # Convert outstanding_balance to a dictionary for quick lookup by customer_id
-        # outstanding_balance_dict = {item['customer_id']: item['total_outstanding'] for item in outstanding_balance}
-
-        # # Step 3: Identify customers with mismatched balances
-        # mismatched_customers = [
-        #     item['customer_id'] for item in invoices_balance
-        #     if item['total_invoiced'] != outstanding_balance_dict.get(item['customer_id'], 0)
-        # ]
+        mismatched_customers = []
+        route_li = RouteMaster.objects.all()
+        filter_data = {}
         
-        # Retrieve customer instances for mismatched customers
-        # instances = Customers.objects.filter(pk__in=mismatched_customers)
-        instances = Customers.objects.filter(custom_id__in=custom_ids).exclude(custom_id__in=exclude_ids)
-        
+        if request.GET.get('route_name'):
+            filter_data['route_filter'] = request.GET.get('route_name')
+            
+            # Fetch customers in the specified route
+            customer_instances = Customers.objects.filter(routes__route_name=request.GET.get('route_name'))
+
+            for customer_instance in customer_instances:
+                # Calculate outstanding amount
+                outstanding = OutstandingAmount.objects.filter(
+                    customer_outstanding__customer=customer_instance,
+                    customer_outstanding__product_type="amount"
+                ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+
+                # Calculate total collection amount
+                collection = CollectionPayment.objects.filter(
+                    customer=customer_instance
+                ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+
+                # Calculate outstanding balance
+                outstanding_balance = outstanding - collection
+
+                # Fetch all invoices for the customer
+                invoice_instances = Invoice.objects.filter(
+                    customer=customer_instance,
+                    is_deleted=False
+                )
+
+                # Calculate invoice balance
+                invoice_balance = sum(
+                    invoice.amout_total - invoice.amout_recieved for invoice in invoice_instances
+                )
+
+                # Check for mismatch
+                if outstanding_balance != invoice_balance:
+                    mismatched_customers.append({
+                        'customer': customer_instance,
+                        'outstanding_balance': outstanding_balance,
+                        'invoice_balance': invoice_balance
+                    })
+
         context = {
-            'instances': instances
+            'instances': mismatched_customers,
+            'route_li': route_li,
+            'filter_data': filter_data,
         }
         return render(request, self.template_name, context)
 
+
+from datetime import time
+from django.utils.timezone import localtime
 class AmountChangesList(View):
     template_name = 'master/amount_changes_list.html'
 
@@ -947,13 +1091,21 @@ class AmountChangesList(View):
     def get(self, request, *args, **kwargs):
         customer = request.GET.get("customer_pk")
         
-        # Retrieve dates from both CustomerSupply and Invoice models
+        # Retrieve dates from both CustomerSupply, Invoice, and CustomerOutstanding models
         supply_dates = CustomerSupply.objects.filter(customer__pk=customer).values_list("created_date", flat=True)
-        invoice_dates = Invoice.objects.filter(customer__pk=customer).values_list("created_date", flat=True)
+        invoice_dates = Invoice.objects.filter(customer__pk=customer, is_deleted=False).values_list("created_date", flat=True)
+        outstanding_dates = CustomerOutstanding.objects.filter(customer__pk=customer).values_list("created_date", flat=True)
+        collection_dates = CollectionPayment.objects.filter(customer__pk=customer).values_list("created_date", flat=True)
         
-        # Combine and remove duplicates by using a set, then sort the dates
-        unique_dates = sorted({date.date() for date in supply_dates} | {date.date() for date in invoice_dates})
-        
+        # Combine and remove duplicates by using a set, filter out midnight dates, then sort the dates
+        unique_dates = sorted(
+            {localtime(created_date).date() for created_date in supply_dates if created_date} |
+            {localtime(created_date).date() for created_date in invoice_dates if created_date} |
+            {localtime(created_date).date() for created_date in outstanding_dates if created_date} |
+            {localtime(created_date).date() for created_date in collection_dates if created_date}
+        )
+
+        # Add the dates to the context
         context = {
             'instances': unique_dates,
             'customer': customer, 

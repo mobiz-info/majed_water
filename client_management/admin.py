@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.urls import reverse
+from django.utils.html import format_html
 
 # Register your models here.
 from . models import *
@@ -14,6 +16,15 @@ admin.site.register(ChequeCouponPayment)
 class CustomerOutstandingAdmin(admin.ModelAdmin):
     list_display = ('id','invoice_no','created_by','created_date','product_type','customer')
     ordering = ("-created_date",)
+    search_fields = ('invoice_no',)
+
+    def delete_button(self, obj):
+        delete_url = reverse('admin:%s_%s_delete' % (obj._meta.app_label, obj._meta.model_name), args=[obj.id])
+        return format_html('<a href="{}" class="button" style="color:red;">Delete</a>', delete_url)
+
+    delete_button.short_description = 'Delete'
+    delete_button.allow_tags = True
+
 admin.site.register(CustomerOutstanding,CustomerOutstandingAdmin)
 
 admin.site.register(OutstandingProduct)

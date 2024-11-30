@@ -2025,21 +2025,11 @@ class StaffOrdersDetailsSerializer(serializers.ModelSerializer):
             return obj.product_id.product_name
 
     def get_empty_bottle_count(self, obj):
-        # Check if the product is "5 Gallon"
-        if obj.product_id.product_name == "5 Gallon":
-            # Fetch the van associated with the staff order
-            van = Van.objects.filter(salesman_id__id=obj.staff_order_id.created_by).first()
-            
-            if van:
-                # Query the VanProductStock for empty bottles of the 5 Gallon product
-                empty_bottle_stock = VanProductStock.objects.filter(
-                    van=van,  # Now using the correct field 'van'
-                    product=obj.product_id,
-                    empty_can_count__gt=0  # Adjust the field and condition as necessary
-                ).values_list('empty_can_count', flat=True).first()
-
-                return empty_bottle_stock if empty_bottle_stock else 0
-        return None
+        empty_bottle_stock = 0
+        if obj.product_id.product_name == "5 Gallon" and (van_instance:=Van.objects.filter(salesman_id__id=obj.staff_order_id.created_by)).exists():
+            empty_bottle_stock = VanProductStock.objects.get(van=van_instance.first(),product=obj.product_id,created_date=obj.staff_order_id.created_date.date()).empty_can_count
+        
+        return empty_bottle_stock
     #------------------------------------Location Api -----------------------------------------------------
 
 class LocationUpdateSerializer(serializers.ModelSerializer):
@@ -2328,6 +2318,35 @@ class ProductSalesReportSerializer(serializers.ModelSerializer):
         
         return cash_total_quantity + credit_total_quantity + coupon_total_qty
     
+class SalesReportSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
+    customer_code = serializers.CharField(source='customer.custom_id', read_only=True)
+    total_supply_qty = serializers.IntegerField(source='get_total_supply_qty', read_only=True)
+    net_taxable = serializers.SerializerMethodField()  
+    amout_recieved = serializers.SerializerMethodField()  
+    amout_total = serializers.SerializerMethodField()  
+    invoice_type = serializers.SerializerMethodField() 
+    
+    class Meta:
+        model = CustomerSupply
+        fields = ['created_date','invoice_no','reference_number','customer_name','customer_code','amout_total','vat','discount','net_taxable','amout_recieved', 'total_supply_qty','invoice_type',]
+
+    def get_net_taxable(self, obj):
+        return obj.net_payable
+
+    def get_amout_recieved(self, obj):
+        return obj.amount_recieved
+
+    def get_amout_total(self, obj):
+        return obj.subtotal
+    
+    def get_invoice_type(self, obj):
+        if obj.amount_recieved > 0 or obj.customer.sales_type == "FOC":
+            return "cash_invoice"
+        elif obj.amount_recieved <= 0 and obj.customer.sales_type != "FOC":
+            return "credit_invoive"
+        return "all"
+
 
 class SalesInvoiceSerializer(serializers.ModelSerializer):
     created_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
@@ -2530,3 +2549,28 @@ class CustomerRegistrationRequestSerializer(serializers.ModelSerializer):
             instance.visit_schedule = visit_schedule
             instance.save()
         return instance
+    
+    
+class LeadCustomersSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LeadCustomers
+        fields = ['id','name','mobile_no','address','next_following_date','status','customer_type','routes','emirate','location','created_date']
+        read_only_fields = ['id','created_date','status']
+        
+    def get_status(self,obj):
+        return LeadCustomersStatus.objects.filter(customer_lead=obj).latest("created_date").get_status_display()
+
+
+class LeadCustomersUpdateStatusSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = LeadCustomersStatus
+        fields = ['customer_lead','status']
+        
+class LeadCustomersReasonSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = LeadCustomersReason
+        fields = ['id','reason']

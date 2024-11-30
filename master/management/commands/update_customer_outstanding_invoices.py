@@ -14,16 +14,17 @@ class Command(BaseCommand):
     help = 'Generate usernames and passwords for customers based on their name and mobile number'
 
     def handle(self, *args, **kwargs):
-        date = datetime.strptime("2024-10-11", '%Y-%m-%d')
-        oustandings = CustomerOutstanding.objects.filter(created_date__date=date)
+        date = datetime.strptime("2024-11-12", '%Y-%m-%d')
+        date_part = date.strftime('%Y%m%d')
+        
+        oustandings = CustomerOutstanding.objects.filter(created_date__date=date,customer__routes__route_name="S-01")
         
         for oustanding in oustandings:
-            oustanding_amount = OutstandingAmount.objects.filter(customer_outstanding=oustanding).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
-            invoice = Invoice.objects.filter(invoice_no=oustanding.invoice_no,customer=oustanding.customer,amout_total=oustanding_amount)
+            # oustanding_amount = OutstandingAmount.objects.filter(customer_outstanding=oustanding).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+            # invoice = Invoice.objects.filter(invoice_no=oustanding.invoice_no,customer=oustanding.customer,amout_total=oustanding_amount)
             
-            date_part = date.strftime('%Y%m%d')
-            if (invoice_last_no:=Invoice.objects.filter(is_deleted=False)).exists():
-                invoice_last_no = invoice_last_no.latest('created_date')
+            if not (invoice_last_no:=Invoice.objects.filter(invoice_no=oustanding.invoice_no,is_deleted=False,customer=oustanding.customer)).exists():
+                invoice_last_no = Invoice.objects.filter(created_date__date=date).latest('created_date')
                 last_invoice_number = invoice_last_no.invoice_no
 
                 # Validate the format of the last invoice number
@@ -40,16 +41,31 @@ class Command(BaseCommand):
                 random_part = str(random.randint(1000, 9999))
                 invoice_number = f'WTR-{date_part}-{random_part}'
             
-            invoice.update(
-                invoice_no=invoice_number
+            # Create the invoice
+            invoice = Invoice.objects.create(
+                invoice_no=invoice_number,
+                created_date=oustanding.created_date,
+                net_taxable=oustanding.get_outstanding_count(),
+                vat=0,
+                discount=0,
+                amout_total=oustanding.get_outstanding_count(),
+                amout_recieved=0,
+                customer=oustanding.customer,
+                invoice_type = "credit_invoive",
+                reference_no=f"custom_id{oustanding.customer.custom_id}"
             )
             
-            for i in invoice:
-                if i.amout_total == i.amout_recieved:
-                    i.invoice_status = "paid"
-                else:
-                    i.invoice_status = "non_paid"
-                i.save()
+            # Create invoice items
+            item = ProdutItemMaster.objects.get(product_name="5 Gallon")
+            water_rate = oustanding.customer.get_water_rate()
+            InvoiceItems.objects.create(
+                category=item.category,
+                product_items=item,
+                qty=0,
+                rate=water_rate,
+                invoice=invoice,
+                remarks='invoice genereted from backend reference no : ' + invoice.reference_no
+            )
             
             oustanding.invoice_no = invoice_number
             oustanding.save()
@@ -106,6 +122,6 @@ class Command(BaseCommand):
             #     remarks='reference no : ' + invoice.reference_no
             # )
 
-            self.stdout.write(self.style.SUCCESS(f'Successfully updated username and password for customer ID {oustanding.customer.customer_id}'))
+            self.stdout.write(self.style.SUCCESS(f'Successfully updated username and password for customer ID {oustanding.customer.custom_id}'))
             # except Exception as e:
             #     self.stdout.write(self.style.ERROR(f'Error updating customer ID {oustanding.customer.customer_id}: {e}'))
