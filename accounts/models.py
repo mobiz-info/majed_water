@@ -123,7 +123,7 @@ class Customers(models.Model):
     visit_schedule = models.JSONField(null=True,blank=True)
     is_editable = models.BooleanField(default=True)
     user_id = models.ForeignKey('accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True,related_name='user_sign')
-    rate = models.DecimalField(max_digits=10, decimal_places=2,default=0)
+    rate = models.CharField(max_length=100, null=True, blank=True)
     coupon_count = models.PositiveIntegerField(default=0)
     five_g_count_limit = models.PositiveIntegerField(default=0)
     eligible_foc = models.PositiveIntegerField(default=0)
