@@ -8,8 +8,21 @@ from master.models import *
 from product.models import ProdutItemMaster
 from ckeditor.fields import RichTextField
 
-class CustomUser(AbstractUser):
-    USER_TYPE_CHOICES = (
+CUSTOMER_TYPE_CHOICES = (
+    ('HOME', 'HOME'),
+    ('CORPORATE', 'CORPORATE'),
+    ('WATCHMAN', 'WATCHMAN'),
+    ('SHOP', 'SHOP')
+)
+
+SALES_TYPE_CHOICES = (
+    ('CASH COUPON', 'CASH COUPON'),
+    ('FOC', 'FOC'),
+    ('CASH', 'CASH'),
+    ('CREDIT', 'CREDIT')
+)
+
+USER_TYPE_CHOICES = (
         ('Branch User', 'Branch User'),
         ('Driver', 'Driver'),
         ('Salesman', 'Salesman'),
@@ -20,6 +33,14 @@ class CustomUser(AbstractUser):
         ('store_keeper', 'Store Keeper'),
         ('marketing_executive', 'Marketing Executive'),
     )
+
+LEAD_CUSTOMER_CHOICES = (
+        ('pending', 'Pending'),
+        ('closed', 'Closed'),
+        ('cancel', 'Cancel'),
+    )
+
+class CustomUser(AbstractUser):
     user_type = models.CharField(max_length=50, choices=USER_TYPE_CHOICES, null=True, blank=True)
     branch_id = models.ForeignKey('master.BranchMaster', on_delete=models.SET_NULL, null=True, blank=True,related_name='user_branch')
     designation_id = models.ForeignKey('master.DesignationMaster', on_delete=models.SET_NULL, null=True, blank=True,
@@ -88,18 +109,6 @@ class Customers(models.Model):
     email_id = models.CharField(max_length=250, null=True, blank=True)
     gps_latitude = models.CharField(max_length=100, null=True, blank=True)
     gps_longitude = models.CharField(max_length=100, null=True, blank=True)
-    CUSTOMER_TYPE_CHOICES = (
-        ('HOME', 'HOME'),
-        ('CORPORATE', 'CORPORATE'),
-        ('WATCHMAN', 'WATCHMAN'),
-        ('SHOP', 'SHOP')
-    )
-    SALES_TYPE_CHOICES = (
-        ('CASH COUPON', 'CASH COUPON'),
-        ('FOC', 'FOC'),
-        ('CASH', 'CASH'),
-        ('CREDIT', 'CREDIT')
-    )
     customer_type = models.CharField(max_length=100, choices=CUSTOMER_TYPE_CHOICES, null=True, blank=True)
     sales_type = models.CharField(max_length=100, choices=SALES_TYPE_CHOICES, null=True, blank=True)
     no_of_bottles_required = models.IntegerField(default=0)
@@ -167,7 +176,7 @@ class Attendance_Log(models.Model):
     punch_out_date = models.DateField(null=True, blank=True)
     punch_out_time = models.TimeField(null=True, blank=True)
     staff = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True,
-                              related_name='staff_attendance_log')
+                              related_name='staff_atteCUSTOMER_TYPE_CHOICESndance_log')
 
     class Meta:
         ordering = ('-created_date',)
@@ -260,3 +269,60 @@ class Processing_Log(models.Model):
 
     def __str__(self):
         return f"Processing Log - {self.created_date}"
+    
+class LeadCustomers(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    name = models.CharField(max_length=250)
+    mobile_no = models.CharField(max_length=250)
+    address = models.TextField()
+    next_following_date = models.DateField()
+    customer_type = models.CharField(max_length=100, choices=CUSTOMER_TYPE_CHOICES)
+    
+    routes = models.ForeignKey('master.RouteMaster', on_delete=models.CASCADE)
+    emirate = models.ForeignKey('master.EmirateMaster', on_delete=models.CASCADE)
+    location = models.ForeignKey('master.LocationMaster', on_delete=models.CASCADE)
+    
+    created_by = models.CharField(max_length=250)
+    created_date = models.DateTimeField(auto_now_add=True, editable=False)
+    
+    def __str__(self):
+        return str(self.name)
+
+class LeadCustomersStatus(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    status = models.CharField(max_length=100, choices=LEAD_CUSTOMER_CHOICES)
+    customer_lead = models.ForeignKey(LeadCustomers, on_delete=models.CASCADE)
+    
+    created_by = models.CharField(max_length=250)
+    created_date = models.DateTimeField(auto_now_add=True, editable=False)
+    
+    def __str__(self):
+        return str(self.customer_lead.name)
+
+class LeadCustomersReason(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    reason = models.CharField(max_length=100)
+    
+    def __str__(self):
+        return str(self.reason)    
+    
+class LeadCustomersCancelReason(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    customer_lead = models.ForeignKey(LeadCustomers, on_delete=models.CASCADE)
+    reason = models.ForeignKey(LeadCustomersReason, on_delete=models.CASCADE)
+    
+    def __str__(self):
+        return str(self.customer_lead.name)
+    
+
+class LeadCustomersClosedRemark(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    
+    customer_lead = models.ForeignKey(LeadCustomers, on_delete=models.CASCADE)
+    remark = models.TextField()
+    
+    def __str__(self):
+        return str(self.customer_lead.name)

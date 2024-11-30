@@ -67,6 +67,18 @@
                                 </tr>
                             {%endfor%}
                             <tr>
+                                <th scope="row" colspan="3" class="text-end">Custody</th>
+                                <td class="text-end">{{supply.allocate_bottle_to_custody}}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" colspan="3" class="text-end">Paid</th>
+                                <td class="text-end">{{supply.allocate_bottle_to_paid}}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" colspan="3" class="text-end">Free bottle</th>
+                                <td class="text-end">{{supply.allocate_bottle_to_free}}</td>
+                            </tr>
+                            <tr>
                                 <th scope="row" colspan="3" class="text-end">Sub Total</th>
                                 <td class="text-end">{{supply.grand_total}}</td>
                             </tr>
