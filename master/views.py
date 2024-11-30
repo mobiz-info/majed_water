@@ -331,9 +331,9 @@ def overview(request):
     
     coupon_category_products = ProdutItemMaster.objects.filter(category__category_name='Coupons')
     coupon_product_ids = coupon_category_products.values_list('id', flat=True)
-    today_coupon_requests_count = CustomerOrders.objects.filter(
+    today_coupon_requests_count = CustomerOrdersItems.objects.filter(
         product__in=coupon_product_ids,
-        created_date__date=today
+        customer_order__created_date__date=today
     ).count()
 
     context = {
