@@ -2,6 +2,7 @@ import json
 import uuid
 import datetime
 from datetime import timedelta
+from django.utils.timezone import now
 from calendar import monthrange
 
 from django.views import View
@@ -15,6 +16,7 @@ from django.utils.decorators import method_decorator
 from django.contrib.auth.hashers import make_password
 from django.db.models.functions import ExtractWeekDay
 from django.contrib.auth.decorators import login_required
+from django.db.models import Sum,Count,F,Q,DecimalField
 from django.db.models.functions import ExtractDay,TruncDate
 from django.shortcuts import render, redirect, get_object_or_404
 
@@ -24,13 +26,13 @@ from .forms import *
 from .models import *
 from . serializers import *
 from accounts.models import *
-from customer_care.models import DiffBottlesModel
+from customer_care.models import *
 from sales_management.models import CollectionPayment
 from van_management.models import Van, VanProductStock , Expense
 from product.models import ProductStock, ScrapProductStock, WashedUsedProduct, WashingProductStock
 from client_management.models import CustomerOutstanding, OutstandingAmount, Vacation, NonvisitReport,CustomerSupplyItems
 from client_management.models import CustodyCustomItems, CustomerSupply,CustomerCoupon, CustomerSupplyCoupon, CustomerSupplyDigitalCoupon, OutstandingCoupon, OutstandingProduct
-
+from apiservices.views import find_customers
 
 @login_required(login_url='login')
 def home(request):
@@ -242,6 +244,85 @@ def overview(request):
     coupon_salesmans_instances = CustomUser.objects.filter(pk__in=CustomerCoupon.objects.filter(created_date__date=date).values_list('salesman__pk'))
     salesman_recharge_serializer = SalesmanRechargeCountSerializer(coupon_salesmans_instances,many=True,context={"date": date}).data
     
+    # Customer  statistics
+    call_customers_count = customers_instances.filter(is_calling_customer=True).count()
+    # inactive_customers_count = customers_instances.filter(is_active=False).count()
+    
+    today = now().date()
+    start_of_month = today.replace(day=1)
+
+    route_data = Customers.objects.filter(routes__route_name__isnull=False).values(
+        'routes__route_name'
+    ).annotate(
+        today_new_customers=Count('customer_id', filter=Q(created_date__date=today)),
+        month_new_customers=Count('customer_id', filter=Q(created_date__date__gte=start_of_month))
+    )
+    
+    last_20_days = today - timedelta(days=20)
+
+        # Get all the routes
+    routes = RouteMaster.objects.all()
+
+        # Initialize a dictionary to store the inactive customers count by route
+    route_inactive_customer_count = {}
+    inactive_customers_count = 0
+    for route in routes:
+            # Get the customers associated with this route
+        route_customers = Customers.objects.filter(routes=route)
+
+            # Get customers who haven't had a supply in the last 20 days
+        visited_customers = CustomerSupply.objects.filter(
+                created_date__date__range=(last_20_days, today)
+            ).values_list('customer_id', flat=True)
+
+        todays_customers = find_customers(request, str(today), route.pk) or []
+        todays_customer_ids = {customer['customer_id'] for customer in todays_customers}
+
+            # Filter out customers who had a supply in the last 20 days or today
+        inactive_customers = route_customers.exclude(
+                pk__in=visited_customers
+            ).exclude(
+                pk__in=todays_customer_ids
+            )
+
+            # Add the count of inactive customers for this route
+        route_inactive_customer_count[route.route_name] = inactive_customers.count()
+        inactive_customers_count += inactive_customers.count()
+
+
+    non_visited_customers_data = []
+
+    for route in route_instances:
+        
+        today_vocation_customer_ids = vocation_customers_instances.filter(start_date__lte=date, end_date__gte=date).values_list('customer__pk', flat=True)
+        scheduled_customers = customers_instances.filter(
+            routes=route,
+            is_calling_customer=False
+        ).exclude(pk__in=today_vocation_customer_ids)
+        
+        scheduled_customers_filtered = []
+        for customer in scheduled_customers:
+            if customer.visit_schedule:
+                for day, weeks in customer.visit_schedule.items():
+                    if str(day_of_week) == str(day) and str(week_number) in weeks:
+                        scheduled_customers_filtered.append(customer.pk)
+                        
+        # Get non-visited customers
+        non_visited_customers = set(scheduled_customers_filtered) - set(
+            NonvisitReport.objects.filter(
+                created_date__date=date, 
+                customer__routes=route
+            ).values_list('customer__pk', flat=True)
+        )
+        
+        # Append route and non-visited customer count to the list
+        non_visited_customers_data.append({
+            'route': route.route_name,
+            'non_visited_customers_count': len(non_visited_customers)
+        })
+        
+    pending_complaints_count = CustomerComplaint.objects.filter(status='Pending').count()
+    
     context = {
         # overview section
         "cash_sales": total_cash_sales_count,
@@ -309,6 +390,13 @@ def overview(request):
         "today_pending_manual_coupons_collected_count": today_pending_manual_coupons_collected_count,
         "today_pending_digital_coupons_collected_count": today_pending_digital_coupons_collected_count,
         "salesman_recharge_serializer": json.dumps(salesman_recharge_serializer),
+        # Customer  statistics
+        "call_customers_count": call_customers_count,
+        "inactive_customers_count" : inactive_customers_count,
+        "route_data" : route_data,
+        "route_inactive_customer_count" : route_inactive_customer_count,
+        "non_visited_customers_data": non_visited_customers_data,
+        "pending_complaints_count":pending_complaints_count,
     }
 
     return render(request, 'master/dashboard/overview_dashboard.html', context) 

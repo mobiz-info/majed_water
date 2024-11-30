@@ -327,5 +327,6 @@ urlpatterns = [
     ############################# Customer App ##############################################
     path('customer-registration-request/', CustomerRegistrationRequestView.as_view(), name='customer_registration_request'),
     
+    path('marketing_executive_salesmen/', MarketingExecutiveSalesmanListAPIView.as_view(), name='marketing_executive_salesmen'),
 
 ]

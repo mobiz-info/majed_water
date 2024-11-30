@@ -444,37 +444,66 @@
             <div class="row">
                 <!-- Custormer_Statistics Cards -->
                 <div class="col-md-3">
-                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                        <div class="card-body">
-                            <h5>Cash Customer</h5>
-                            <p class="fs-4 fw-bold"></p>
+                    <div class="card" style="border-radius:12px; border:2px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                        <div class="card-body p-0 d-flex justify-content-between align-items-start">
+                            <div>
+                                <!-- Left side: Heading and value -->
+                                <h6 class="m-0" style="color:#6c757d;">Total Customers</h6>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ total_customers_count }}</p>
+                            </div>
+                            <!-- Right side: Icon with background -->
+                            <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
+                                <i class="bi bi-people" style="font-size: 35px;color:#f52dcc;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+        
+                <div class="col-md-3">
+                    <div class="card" style="border-radius:12px; border:2px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                        <div class="card-body p-0 d-flex justify-content-between align-items-start">
+                            <div>
+                                <!-- Left side: Heading and value -->
+                                <h6 class="m-0" style="color:#6c757d;">Inactive Customers</h6>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ inactive_customers_count }}</p>
+                            </div>
+                            <!-- Right side: Icon with background -->
+                            <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
+                                <i class="bi bi-arrow-counterclockwise" style="font-size: 35px;color:#f52dcc;"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
         
                 <div class="col-md-3">
-                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                        <div class="card-body">
-                            <h5>Credit Customer</h5>
-                            <p class="fs-4 fw-bold"></p>
+                    <div class="card" style="border-radius:12px; border:2px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                        <div class="card-body p-0 d-flex justify-content-between align-items-start">
+                            <div>
+                                <!-- Left side: Heading and value -->
+                                <h6 class="m-0" style="color:#6c757d;">Customer on Vacation</h6>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ total_vocation_customers_count }}</p>
+                            </div>
+                            <!-- Right side: Icon with background -->
+                            <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
+                                <i class="bi bi-archive" style="font-size: 35px;color:#f52dcc;"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
         
                 <div class="col-md-3">
-                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                        <div class="card-body">
-                            <h5>Call Order</h5>
-                            <p class="fs-4 fw-bold"></p>
-                        </div>
-                    </div>
-                </div>
-        
-                <div class="col-md-3">
-                    <div class="card text-center" style="border-radius:22px; border:1px solid #f52dcc;">
-                        <div class="card-body">
-                            <h5>Coupon Customer</h5>
-                            <p class="fs-4 fw-bold"></p>
+                    <div class="card" style="border-radius:12px; border:2px solid rgba(245, 45, 204, 0.2); padding: 15px;">
+                        <div class="card-body p-0 d-flex justify-content-between align-items-start">
+                            <div>
+                                <!-- Left side: Heading and value -->
+                                <h6 class="m-0" style="color:#6c757d;">Call Customers</h6>
+                                <p class="fs-3 fw-bold mt-2 mb-0">{{ call_customers_count }}</p>
+                            </div>
+                            <!-- Right side: Icon with background -->
+                            <div style="background-color: #ffe4f0;padding: 7px 17px;border-radius: 50%;">
+                                <i class="bi bi-telephone" style="font-size: 35px;color:#f52dcc;"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -488,7 +517,7 @@
                             <h5 class="card-title">Monthly New Customers</h5>
                         </div>
                         <div class="card-body">
-                            <canvas id="montlynewcustomerchart" width="400" height="300"></canvas>
+                            <canvas id="newCustomerChart" width="400" height="300"></canvas>
                         </div>
                     </div>
                 </div>
@@ -511,7 +540,7 @@
                 <div class="col-md-6">
                     <div class="card h-100">
                         <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                            <h5 class="card-title">Today Supply 5 Gallon</h5>
+                            <h5 class="card-title">Today Supply </h5>
                         </div>
                         <div class="card-body">
                             <canvas id="todaysupply5g" width="400" height="300"></canvas>
@@ -524,86 +553,85 @@
                 <!-- Date Input and New Customers Table -->
                 <div class="col-md-6 mb-4">
                     <div class="card h-100 border-0">
-                        <!-- Date Input Field -->
-                        <div class="card-header">
-                            <div class="container-fluid mt-4">
-                                <div class="row">
-                                <div class='col-md-12 d-flex justify-content-between'> 
+                        <div class="card-header text-left border-0" >
                             <h5 class="card-title">New Customers</h5>
-                                
-                                    <div class="col-md-5 d-flex align-items-center">
-                                        <label for="start_date" class='me-2'>Today:</label>
-                                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
-                                    </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
-        
-                        {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                        </div> {% endcomment %}
-        
-                        <div class="card-body">
+                        <div class="card-body p-0">
                             <table class="table table-bordered">
                                 <thead>
-                                    <tr style={{'background:#230070;color:white'}}>
-                                        <th>Sl.No</th>
-                                        <th>Route Name</th>
-                                        <th>New Customers <br> Today</th>
-                                        <th>New Customers <br> This Month</th>
+                                    <tr>
+                                        <th style="color: white !important; background-color: #4776e6 !important;">Sl.No</th>
+                                        <th style="color: white !important; background-color: #4776e6 !important;">Route Name</th>
+                                        <th style="color: white !important; background-color: #4776e6 !important;">New Customers <br> Today</th>
+                                        <th style="color: white !important; background-color: #4776e6 !important;">New Customers <br> This Month</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for data in newCustomer_data %}
-                                    <tr  class='border border-secondary'>
-                                        <td style={{'border:none'}}>{{ forloop.counter }}</td>
-                                        <td style={{'border:none'}}>{{ data.route_name }}</td>
-                                        <td style={{'border:none'}}>{{ data.count_today }}</td>
-                                        <td style={{'border:none'}}>{{ data.count_month }}</td>
-                                    </tr>
+                                    
+                                    {% for data in route_data %}
+                                            <tr>
+                                                <td>{{ forloop.counter }}</td>
+                                                <td>{{ data.routes__route_name }}</td>
+                                                <td>{{ data.today_new_customers }}</td>
+                                                <td>{{ data.month_new_customers }}</td>
+                                            </tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
-                        <!-- Date Input and Inactive Customers Table -->
+
                 <div class="col-md-6 mb-4">
                     <div class="card h-100 border-0">
-                        <!-- Date Input Field -->
-                        <div class="card-header">
-                            <div class="container-fluid mt-4">
-                                <div class="row">
-                                <div class='col-md-12 d-flex justify-content-between'>
+                        <div class="card-header text-left border-0" >
                             <h5 class="card-title">Inactive Customers</h5>
-                               
-                                    <div class="col-md-5 d-flex align-items-center">
-                                        <label for="start_date" class='me-2'>Today:</label>
-                                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
-                                    </div>
-                                </div>
-                                </div>
-                            </div>
                         </div>
-        
-                        {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                        </div> {% endcomment %}
-        
-                        <div class="card-body">
+                        <div class="card-body p-0">
                             <table class="table table-bordered">
                                 <thead>
-                                    <tr style={{'background:#230070;color:white'}}>
-                                        <th>Sl.No</th>
-                                        <th>Route Name</th>
-                                        <th>Inactive Customers<br>(last 20 days)</th>
+                                    <tr>
+                                        <th style="color: white !important; background-color: #4776e6 !important;">Sl.No</th>
+                                        <th style="color: white !important; background-color: #4776e6 !important;">Route Name</th>
+                                        <th style="color: white !important; background-color: #4776e6 !important;">Inactive Customers <br> (Last 20 Days)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for data in inactive_routes_data %}
-                                    <tr class='border border-secondary'>
-                                        <td style={{'border:none'}}>{{ forloop.counter }}</td>
-                                      <td style={{'border:none'}}>{{ data.route_name }}</td>
-                                      <td style={{'border:none'}}>{{ data.inactive_customers_count }}</td>
+                                    
+                                    {% for route_name, inactive_count in route_inactive_customer_count.items %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>{{ route_name }}</td>
+                                            <td>{{ inactive_count }}</td>
+                                        </tr>
+                                    {% endfor %} 
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 border-0">
+                        <div class="card-header text-left border-0" >
+                            <h5 class="card-title">Nonvisited Customers</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th style="color: white !important; background-color: #4776e6 !important;">Sl.No</th>
+                                        <th style="color: white !important; background-color: #4776e6 !important;">Route Name</th>
+                                        <th style="color: white !important; background-color: #4776e6 !important;">Customers non visited</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    
+                                    {% for data in non_visited_customers_data %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ data.route }}</td>
+                                        <td>{{ data.non_visited_customers_count }}</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -612,201 +640,51 @@
                     </div>
                 </div>
             </div>
-        
-            <div class="row mt-4">
-                <div class="col-md-5 mb-4">
-                    <div class="card h-100 border-0">
-                        <!-- Date Input Field -->
-                        <div class="card-header">
-                            <div class="container-fluid mt-4">
-                                <div class="row">
-                                <div class='col-md-12 d-flex justify-content-between'>
-                                            <h5 class="card-title">Nonvisited Customers</h5>
-                                
-                                    <div class="col-md-5 d-flex align-items-center">
-                                        <label for="start_date" class='me-2'>Today:</label>
-                                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
-                                    </div>
-                                </div>
-                                </div>
-                            </div>
-                        </div>
-        
-                        {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                        </div> {% endcomment %}
-        
-                        <div class="card-body">
-                            <table class="table table-bordered">
-                                <thead>
-                                    <tr style={{'background:#230070;color:white'}}>
-                                        <th>Sl.No</th>
-                                        <th>Route Name</th>
-                                        <th>Nonvisited Customers</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for data in non_visited_data %}
-                                        <tr class='border border-secondary'>
-                                        <td style={{'border:none'}}>{{ forloop.counter }}</td>
-                                        <td style={{'border:none'}}>{{ data.route_name }}</td>
-                                        <td style={{'border:none'}}>{{ data.non_visited_count }}</td>
-                                        </tr>
-                                    {% empty %}
-                                        <tr>
-                                            <td colspan="3">No data available</td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-        
-                            </table>
-                        </div> <!-- Closing div for card-body -->
-                    </div> <!-- Closing div for card -->
-                </div> <!-- Closing div for col-md-6 -->
-            </div>
-        
-            <div class="row mt-4">
-                <!-- Date Input and  Customer's Supply Table -->
-                <div class="col-md-9 mb-4">
-                    <div class="card h-100 border-0">
-                        <!-- Date Input Field -->
-                        <div class="card-header">
-                            <div class="container-fluid mt-4">
-                                <div class="row">
-                                <div class='col-md-12 d-flex justify-content-between'>
-                                                        <h5 class="card-title"> Customer's Supply Type</h5>
-                                
-                                    <div class="d-flex align-items-center">
-                                        <label for="start_date" class='me-2'>Today:</label>
-                                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
-                                    </div>
-                                </div>
-                            </div>
-                            </div>
-                        </div>
-                        {% comment %} 
-                        <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                        </div> {% endcomment %}
-        
-                        <div class="card-body">
-                            <table class="table table-bordered">
-                                <thead>
-                                    <tr style={{'background:#230070;color:white'}}>
-                                        <th>Sl.No</th>
-                                        <th>Route Name</th>
-                                        <th>Cash</th>
-                                        <th>Credit</th>
-                                        <th>Call</th>
-                                        <th>Coupon</th>
-                                        <th>Total</th>
-        
-                                    </tr>
-        
-                                </thead>
-                                <tbody>
-                                        {% for data in route_customer_data %}
-                                            <tr class='border border-secondary'>
-                                                <td style={{'border:none'}}>{{ forloop.counter }}</td>
-                                                <td style={{'border:none'}}>{{ data.route_name }}</td>
-                                                <td style={{'border:none'}}>{{ data.cash_count }}</td>
-                                                <td style={{'border:none'}}>{{ data.credit_count }}</td>
-                                                <td style={{'border:none'}}>{{ data.call_count }}</td>
-                                                <td style={{'border:none'}}>{{ data.coupon_count }}</td>
-                                                <td style={{'border:none'}}>{{ data.route_total }}</td> <!-- Total per route -->
-                                            </tr>
-                                        {% empty %}
-                                            <tr>
-                                                <td colspan="7">No data available</td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                <tfoot>
-                                    <tr class='border border-secondary'>
-                                        <td class='border-0' colspan="2">Total</td>
-                                        <td class='border-0'>{{ total_cash }}</td>
-                                        <td class='border-0'>{{ total_credit }}</td>
-                                        <td class='border-0'>{{ total_call }}</td>
-                                        <td class='border-0'>{{ total_coupon }}</td>
-                                        <td>{{ total_route_sum }}</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div> <!-- Closing div for card-body -->
-                    </div> <!-- Closing div for card -->
-                </div> <!-- Closing div for col-md-6 -->
-            </div>
-        
-            <div class="row mt-4">
-                <!-- Date Input and  Customer's Sales Table -->
-                <div class="col-md-8 mb-4">
-                    <div class="card h-100 border-0">
-                        <!-- Date Input Field -->
-                        <div class="card-header">
-                            <div class="container-fluid mt-4">
-                                <div class="row">
-                                <div class="col-md-12 d-flex justify-contents-between">
-                                <h5>Customer's Sales Type</h5>
-                                </div>
-                                    <div class="d-flex align-items-center">
-                                        <label for="start_date">Today:</label>
-                                        <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filter_data.start_date }}">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-        
-                        <!-- Table Header -->
-                        {% comment %} <div class="card-header text-left text-white" style="background-color: #4776e6 !important;">
-                        </div> {% endcomment %}
-        
-                        <!-- Table Body -->
-                        <div class="card-body">
-                            <table class="table table-bordered">
-                                <thead>
-                                    <tr style={{'background:#230070;color:white'}}>
-                                        <th>Sl.No</th>
-                                        <th>Route Name</th>
-                                        <th>HOME</th>
-                                        <th>CORPORATE</th>
-                                        <th>SHOP</th>
-                                        <th>Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for route_data in sales_customer_data %}
-                                        <tr class='border border-secondary'>
-                                        <td  style={{'border:none'}}>{{ forloop.counter }}</td>
-                                        <td  style={{'border:none'}}>{{ route_data.route_name }}</td>
-                                        <td  style={{'border:none'}}>{{ route_data.home_count }}</td>
-                                        <td  style={{'border:none'}}>{{ route_data.corporate_count }}</td>
-                                        <td  style={{'border:none'}}>{{ route_data.shop_count }}</td>
-                                        <td  style={{'border:none'}}>{{ route_data.total_sales_type }}</td>
-                                        </tr>
-                                    {% empty %}
-                                        <tr>
-                                            <td colspan="6">No data available</td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                                <tfoot>
-                                    <tr class='border border-secondary'>
-                                        <td  style={{'border:none'}} colspan="2">Total</td>
-                                        <td  style={{'border:none'}}>{{ total_home }}</td>
-                                        <td  style={{'border:none'}}>{{ total_corporate }}</td>
-                                        <td  style={{'border:none'}}>{{ total_shop }}</td>
-                                        <td  style={{'border:none'}}>{{ total_customer_sales_type }}</td> <!-- Sum of all route totals -->
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div> <!-- Closing div for card-body -->
-                    </div> <!-- Closing div for card -->
-                </div> <!-- Closing div for col-md-6 -->
-            </div> <!-- Closing div for row -->
-        
         </div>
 
         <div id="Others" class="tabcontent">
-            <h3>Others</h3>
-            <p>Other content goes here.</p>
+            <div class="row mt-4">
+                <div class="col-md-8 mb-4">
+                    <div class="card h-100 border-0">
+                        <div class="card-header text-left border-0" >
+                            <h5 class="card-title">Others</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th style="color: white !important; background-color: #4776e6 !important;">Category</th>
+                                        <th style="color: white !important; background-color: #4776e6 !important;"></th>
+                                        
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Expense</td>
+                                        <td>{{ manual_coupon_sold_count }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Coupons purchase request<br> through app</td>
+                                        <td>{{ collected_manual_coupons_count}}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Orders through app</td>
+                                        <td>{{ today_pending_manual_coupons_count }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>New Complaints</td>
+                                        <td>{{ pending_complaints_count }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Resolved</td>
+                                        <td>{{ today_manual_coupon_outstanding_count }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
     </div>
@@ -1014,6 +892,7 @@
         }
     });
 </script>
+
 
 {% endblock static %}
  

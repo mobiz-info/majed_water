@@ -9998,57 +9998,90 @@ class ProductRouteSalesReportAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 
+from rest_framework.parsers import JSONParser
 class SalesInvoicesAPIView(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
 
     def get(self, request):
-        start_date = request.GET.get('start_date')
-        end_date = request.GET.get('end_date')
-        invoice_type = request.GET.get('invoice_types')  
+        data = request.data
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        sales_type = data.get('invoice_types')  
         
         if not start_date:
             start_date = datetime.today().date()
         else:
             start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-        
+
         if not end_date:
             end_date = datetime.today().date()
         else:
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
-        
-        route = Van_Routes.objects.get(van__salesman=request.user).routes
-        
-        instances = Invoice.objects.filter(
-            created_date__date__gte=start_date,
-            created_date__date__lte=end_date,
-            customer__routes=route
+
+        try:
+            route = Van_Routes.objects.get(van__salesman=request.user).routes
+        except Van_Routes.DoesNotExist:
+            return Response({
+                "StatusCode": 400,
+                "error": "Salesman is not associated with any route."
+            }, status=400)
+
+        sales_filter = {
+            "created_date__date__gte": start_date,
+            "created_date__date__lte": end_date,
+            "customer__routes": route
+        }
+
+        if sales_type == "cash_invoice":
+            sales = CustomerSupply.objects.filter(
+                Q(amount_recieved__gt=0) | Q(customer__sales_type="FOC"),
+                **sales_filter
+            )
+        elif sales_type == "credit_invoive":
+            sales = CustomerSupply.objects.filter(
+                amount_recieved__lte=0,
+                **sales_filter
+            ).exclude(customer__sales_type="FOC")
+        else:
+            sales = CustomerSupply.objects.filter(**sales_filter)
+
+        total_sales = sales.aggregate(
+            total_grand_total=Sum('grand_total'),
+            total_vat=Sum('vat'),
+            total_net_payable=Sum('net_payable'),
+            total_amount_received=Sum('amount_recieved')
         )
+
+        total_amount = round(total_sales["total_grand_total"] or 0, 2)
+        total_vat = round(total_sales["total_vat"] or 0, 2)
+        total_taxable = round(total_sales["total_net_payable"] or 0, 2)
+        total_amount_collected = round(total_sales["total_amount_received"] or 0, 2)
         
-        if invoice_type:
-            instances = instances.filter(invoice_type=invoice_type)
-        
-        serializer = SalesInvoiceSerializer(instances, many=True)
-        
+        sales_serializer = SalesReportSerializer(sales, many=True)
+
         response_data = {
-            "StatusCode": status.HTTP_200_OK,
+            "StatusCode": 200,
             "status": status.HTTP_200_OK,
             "data": {
-                "invoices": serializer.data,
-                "total_taxable": instances.aggregate(total_net_taxable=Sum('net_taxable'))['total_net_taxable'] or 0,
-                "total_vat": instances.aggregate(total_vat=Sum('vat'))['total_vat'] or 0,
-                "total_amount": instances.aggregate(total_amount=Sum('amout_total'))['total_amount'] or 0,
-                "total_amount_collected": instances.aggregate(total_amout_recieved=Sum('amout_recieved'))['total_amout_recieved'] or 0,
-                "filter_data": {
-                    "invoice_types": [{'key': key, 'value': value} for key, value in INVOICE_TYPES],
+                "invoices": sales_serializer.data, 
+                 "total_amount": total_amount,
+                "total_vat": total_vat,
+                "total_taxable": total_taxable,
+                "total_amount_collected": total_amount_collected,
+                
+                "filters": {
+                    "route_name": str(route), 
+                    "invoice_types": sales_type if sales_type else "All", 
                     "start_date": start_date,
                     "end_date": end_date,
-                    "route_name": route.route_name,
                 }
             },
         }
 
-        return Response(response_data, status=status.HTTP_200_OK)
+        return Response(response_data, status=200)
+    
     
 class CustomerSupplyListAPIView(APIView):
     authentication_classes = [BasicAuthentication]
@@ -10294,3 +10327,28 @@ class CustomerRegistrationRequestView(APIView):
         return Response(response_data, status=status_code)
     
     
+class MarketingExecutiveSalesmanListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        # Get the authenticated user
+        marketing_executive = request.user
+        
+        # Check if the user is a marketing executive
+        if marketing_executive.user_type != 'marketing_executive':
+            return Response({"error": "User is not authorized to access this data."}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get routes assigned to the marketing executive's van(s)
+        assigned_routes = Van_Routes.objects.filter(
+            van__in=Van.objects.filter(driver=marketing_executive)
+        ).values_list('routes', flat=True)
+        
+        # Get salesmen assigned to those routes
+        salesmen = CustomUser.objects.filter(
+            user_type='Salesman',
+            salesman_van__van_routes__routes__id__in=assigned_routes
+        ).distinct()
+
+        # Serialize and return the data
+        serializer = SalesmanSerializer(salesmen, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
