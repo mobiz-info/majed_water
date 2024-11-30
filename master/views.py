@@ -2,6 +2,7 @@ import json
 import uuid
 import datetime
 from datetime import timedelta
+
 from django.utils.timezone import now
 from calendar import monthrange
 
@@ -16,6 +17,7 @@ from django.contrib.auth.hashers import make_password
 from django.db.models.functions import ExtractWeekDay
 from django.db.models import Sum,Count,F,Q,DecimalField
 from django.contrib.auth.decorators import login_required
+from django.db.models.functions import ExtractDay,TruncDate
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models.functions import ExtractDay,TruncDate,Coalesce
 
@@ -244,7 +246,7 @@ def overview(request):
     
     # Customer  statistics
     call_customers_count = customers_instances.filter(is_calling_customer=True).count()
-    inactive_customers_count = customers_instances.filter(is_active=False).count()
+    # inactive_customers_count = customers_instances.filter(is_active=False).count()
     
     today = now().date()
     start_of_month = today.replace(day=1)
@@ -263,7 +265,7 @@ def overview(request):
 
         # Initialize a dictionary to store the inactive customers count by route
     route_inactive_customer_count = {}
-
+    inactive_customers_count = 0
     for route in routes:
             # Get the customers associated with this route
         route_customers = Customers.objects.filter(routes=route)
@@ -285,6 +287,7 @@ def overview(request):
 
             # Add the count of inactive customers for this route
         route_inactive_customer_count[route.route_name] = inactive_customers.count()
+        inactive_customers_count += inactive_customers.count()
 
 
     non_visited_customers_data = []
@@ -397,7 +400,6 @@ def overview(request):
     }
 
     return render(request, 'master/dashboard/overview_dashboard.html', context) 
-
 
 class Branch_List(View):
     template_name = 'master/branch_list.html'

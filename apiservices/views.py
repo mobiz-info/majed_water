@@ -10082,6 +10082,7 @@ class ProductRouteSalesReportAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 from rest_framework.parsers import JSONParser
+from rest_framework.parsers import JSONParser
 class SalesInvoicesAPIView(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
