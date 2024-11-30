@@ -320,9 +320,22 @@ def overview(request):
             'route': route.route_name,
             'non_visited_customers_count': len(non_visited_customers)
         })
-        
+    
+    # others    
     pending_complaints_count = CustomerComplaint.objects.filter(status='Pending').count()
     
+    today_expenses = Expense.objects.filter(expense_date=today)
+    total_expense = today_expenses.aggregate(total=Sum('amount'))['total'] or 0
+    
+    today_orders_count = Staff_Orders.objects.filter(created_date__date=today).count()
+    
+    coupon_category_products = ProdutItemMaster.objects.filter(category__category_name='Coupons')
+    coupon_product_ids = coupon_category_products.values_list('id', flat=True)
+    today_coupon_requests_count = CustomerOrders.objects.filter(
+        product__in=coupon_product_ids,
+        created_date__date=today
+    ).count()
+
     context = {
         # overview section
         "cash_sales": total_cash_sales_count,
@@ -396,7 +409,11 @@ def overview(request):
         "route_data" : route_data,
         "route_inactive_customer_count" : route_inactive_customer_count,
         "non_visited_customers_data": non_visited_customers_data,
+        #others
         "pending_complaints_count":pending_complaints_count,
+        "total_expense": total_expense,
+        "today_orders_count": today_orders_count,
+        "today_coupon_requests_count": today_coupon_requests_count,
     }
 
     return render(request, 'master/dashboard/overview_dashboard.html', context) 
