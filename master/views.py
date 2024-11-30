@@ -327,7 +327,7 @@ def overview(request):
     today_expenses = Expense.objects.filter(expense_date=today)
     total_expense = today_expenses.aggregate(total=Sum('amount'))['total'] or 0
     
-    today_orders_count = Staff_Orders.objects.filter(order_date__date=today).count()
+    today_orders_count = Staff_Orders.objects.filter(created_date=today).count()
     
     today_coupon_requests_count = CustomerCoupon.objects.filter(created_date__date=today).count()
 
