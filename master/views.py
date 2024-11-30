@@ -327,14 +327,9 @@ def overview(request):
     today_expenses = Expense.objects.filter(expense_date=today)
     total_expense = today_expenses.aggregate(total=Sum('amount'))['total'] or 0
     
-    today_orders_count = Staff_Orders.objects.filter(created_date__date=today).count()
+    today_orders_count = Staff_Orders.objects.filter(order_date__date=today).count()
     
-    coupon_category_products = ProdutItemMaster.objects.filter(category__category_name='Coupons')
-    coupon_product_ids = coupon_category_products.values_list('id', flat=True)
-    today_coupon_requests_count = CustomerOrdersItems.objects.filter(
-        product__in=coupon_product_ids,
-        customer_order__created_date__date=today
-    ).count()
+    today_coupon_requests_count = CustomerCoupon.objects.filter(created_date__date=today).count()
 
     context = {
         # overview section
