@@ -266,16 +266,22 @@ class CustomerCouponItems(models.Model):
     # Function to get count of used coupon leaflets
     def get_used_leaflets(self):
         """Returns the count of used coupon leaflets for this sale."""
-        return CouponLeaflet.objects.filter(coupon=self.coupon, used=True).count()
+        valueable_leaf = CouponLeaflet.objects.filter(coupon=self.coupon, used=True).count()
+        free_leaf = FreeLeaflet.objects.filter(coupon=self.coupon, used=True).count()
+        return valueable_leaf + free_leaf
 
     # Function to get count of unused coupon leaflets
     def get_unused_leaflets(self):
         """Returns the count of unused coupon leaflets for this sale."""
-        return CouponLeaflet.objects.filter(coupon=self.coupon, used=False).count()
+        valueable_leaf = CouponLeaflet.objects.filter(coupon=self.coupon, used=False).count()
+        free_leaf = FreeLeaflet.objects.filter(coupon=self.coupon, used=False).count()
+        return valueable_leaf + free_leaf
 
     
     def get_available_coupon_count(self):
-        return CouponLeaflet.objects.filter(coupon=self.coupon,used=False).count()
+        valueable_leaf = CouponLeaflet.objects.filter(coupon=self.coupon, used=False).count()
+        free_leaf = FreeLeaflet.objects.filter(coupon=self.coupon, used=False).count()
+        return valueable_leaf + free_leaf
     
     def customer_leafs(self):
         leafs = CouponLeaflet.objects.filter(coupon=self.coupon,used=False)
