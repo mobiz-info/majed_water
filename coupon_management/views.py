@@ -230,7 +230,7 @@ def new_coupon(request):
     filter_data['status_type'] = status_type
     
     coupon_ids = CouponStock.objects.filter(coupon_stock=status_type).values_list("couponbook__pk")
-    instances = NewCoupon.objects.filter(pk__in=coupon_ids).order_by("-created_date")
+    instances = NewCoupon.objects.filter(book_num="8694").order_by("-created_date")
          
     if query:
 
