@@ -329,7 +329,7 @@ def overview(request):
     
     today_orders_count = Staff_Orders.objects.filter(created_date=today).count()
     
-    today_coupon_requests_count = CustomerCoupon.objects.filter(created_date__date=today).count()
+    today_coupon_requests_count = CustomerCoupon.objects.filter(created_date=today).count()
 
     context = {
         # overview section
