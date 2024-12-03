@@ -9,7 +9,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         
-        Instances = Customers.objects.filter(rate__in=["5, 5","5,5"])
+        Instances = Customers.objects.filter(rate__in=["5.5","5.50"])
         
         for customer in Instances:
             
@@ -18,8 +18,8 @@ class Command(BaseCommand):
             # else:
             #     rate = 0
                 
-            customer.rate = 5.50
-            customer.save()
+            # customer.prevous_rate = rate
+            # customer.save()
             
             self.stdout.write(self.style.WARNING(f'Successfully updated {customer.customer_name} -- {customer.rate}'))
             
