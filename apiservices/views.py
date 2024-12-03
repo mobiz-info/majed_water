@@ -10579,7 +10579,26 @@ class LeadCustomersCancelReasonsView(APIView):
         }
         
         return Response(response_data, status=status_code)
-    
+    def post(self, request, *args, **kwargs):
+        reason = request.data.get('reason')
+
+        if not reason:
+            return Response({
+                "status": status.HTTP_400_BAD_REQUEST,
+                "message": "Reason is required"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        new_reason = LeadCustomersReason.objects.create(reason=reason)
+
+        serializer = LeadCustomersReasonSerializer(new_reason)
+
+        status_code = status.HTTP_201_CREATED
+        response_data = {
+            "status": status_code,
+            "data": serializer.data,
+        }
+        
+        return Response(response_data, status=status_code)
     
 class LeadCustomersUpdateStatusView(APIView):
     authentication_classes = [BasicAuthentication]

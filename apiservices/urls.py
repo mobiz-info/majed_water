@@ -333,6 +333,5 @@ urlpatterns = [
     path('customer-lead/',LeadCustomersView.as_view(), name='customer_lead_api'),
     path('customer-lead-cancel-reasons/',LeadCustomersCancelReasonsView.as_view(), name='customer_lead_cancel_reason'),
     path('customer-lead-update-status/',LeadCustomersUpdateStatusView.as_view(), name='customer_lead_update_status'),
-    path('marketing_executive_salesmen/', MarketingExecutiveSalesmanListAPIView.as_view(), name='marketing_executive_salesmen'),
 
 ]
