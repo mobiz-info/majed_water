@@ -49,6 +49,14 @@
                                                 <option value="CASH COUPON" {% if filter_data.customer_type == 'CASH COUPON' %}selected{% endif %}>Coupon</option>
                                                 <option value="FOC" {% if filter_data.customer_type == 'FOC' %}selected{% endif %}>FOC</option>
                                             </select>
+                                            <select name="non_visited_reason" class="form-control">
+                                                <option value=""> All Non-Visited Reason </option>
+                                                {% for reason in non_visit_reasons %}
+                                                    <option value="{{ reason.id }}" {% if filter_data.non_visit_reason == reason.id|stringformat:"s" %}selected{% endif %}>
+                                                        {{ reason.reason_text }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
                                             <input type="date" name="created_date" class="form-control" value="{{ filter_data.created_date }}">
                                             <input type="text" name="q" class="form-control" placeholder="Search ..." value="{{ filter_data.q }}">
                                             <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i>Search</button>
