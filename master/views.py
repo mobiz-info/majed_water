@@ -260,17 +260,13 @@ def overview(request):
     
     last_20_days = today - timedelta(days=20)
 
-        # Get all the routes
     routes = RouteMaster.objects.all()
 
-        # Initialize a dictionary to store the inactive customers count by route
     route_inactive_customer_count = {}
     inactive_customers_count = 0
     for route in routes:
-            # Get the customers associated with this route
         route_customers = Customers.objects.filter(routes=route)
 
-            # Get customers who haven't had a supply in the last 20 days
         visited_customers = CustomerSupply.objects.filter(
                 created_date__date__range=(last_20_days, today)
             ).values_list('customer_id', flat=True)
@@ -278,14 +274,12 @@ def overview(request):
         todays_customers = find_customers(request, str(today), route.pk) or []
         todays_customer_ids = {customer['customer_id'] for customer in todays_customers}
 
-            # Filter out customers who had a supply in the last 20 days or today
         inactive_customers = route_customers.exclude(
                 pk__in=visited_customers
             ).exclude(
                 pk__in=todays_customer_ids
             )
 
-            # Add the count of inactive customers for this route
         route_inactive_customer_count[route.route_name] = inactive_customers.count()
         inactive_customers_count += inactive_customers.count()
 
@@ -307,7 +301,6 @@ def overview(request):
                     if str(day_of_week) == str(day) and str(week_number) in weeks:
                         scheduled_customers_filtered.append(customer.pk)
                         
-        # Get non-visited customers
         non_visited_customers = set(scheduled_customers_filtered) - set(
             NonvisitReport.objects.filter(
                 created_date__date=date, 
@@ -315,7 +308,6 @@ def overview(request):
             ).values_list('customer__pk', flat=True)
         )
         
-        # Append route and non-visited customer count to the list
         non_visited_customers_data.append({
             'route': route.route_name,
             'non_visited_customers_count': len(non_visited_customers)
@@ -323,6 +315,7 @@ def overview(request):
     
     # others    
     pending_complaints_count = CustomerComplaint.objects.filter(status='Pending').count()
+    resolved_complaints_count = CustomerComplaint.objects.filter(status='Completed').count()
     
     today_expenses = Expense.objects.filter(expense_date=today)
     total_expense = today_expenses.aggregate(total=Sum('amount'))['total'] or 0
@@ -409,6 +402,7 @@ def overview(request):
         "total_expense": total_expense,
         "today_orders_count": today_orders_count,
         "today_coupon_requests_count": today_coupon_requests_count,
+        "resolved_complaints_count":resolved_complaints_count,
     }
 
     return render(request, 'master/dashboard/overview_dashboard.html', context) 
