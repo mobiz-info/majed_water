@@ -336,6 +336,7 @@ class Customer_List(View):
         query = request.GET.get("q")
         route_filter = request.GET.get('route_name')
         customer_type_filter = request.GET.get('customer_type')
+        created_date_filter = request.GET.get('created_date', None)
 
         # Start with all customers
         user_li = Customers.objects.all()
@@ -358,6 +359,21 @@ class Customer_List(View):
         if customer_type_filter:
             user_li = user_li.filter(sales_type=customer_type_filter)
             filter_data['customer_type'] = customer_type_filter
+        if created_date_filter:
+            # Convert the string date to a datetime object
+            created_date_obj = datetime.strptime(created_date_filter, '%Y-%m-%d')
+            
+            # Convert to a timezone-aware datetime object
+            created_date_obj = timezone.make_aware(created_date_obj, timezone.get_current_timezone())
+            
+            # Filter users based on the created date (without time part)
+            user_li = user_li.filter(created_date__date=created_date_obj.date())
+            
+            # Store the filter data to retain it in the template
+            filter_data = {'created_date': created_date_filter}
+        else:
+            user_li = user_li.all()  # If no filter, return all users
+            filter_data = {}
 
         # Get all route names for the dropdown
         route_li = RouteMaster.objects.all()
