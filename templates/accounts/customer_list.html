@@ -119,7 +119,7 @@
                                                         <a href="{% url 'customer_custody_items' data.customer_id %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Custody Item">
                                                             <span class="bi bi-box-seam fs-14"></span> <!-- Icon updated for 'Custody Item' -->
                                                         </a>
-                                                        <a href="{% url 'customer_outstanding_list' %}?customer_pk={{ data.customer_id }}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Outstanding">
+                                                        <a href="{% url 'customer_outstanding_details' data.customer_id %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Outstanding">
                                                             <span class="bi bi-cash-coin fs-14"></span> <!-- Icon updated for 'Outstanding' -->
                                                         </a>
                                                         <a href="{% url 'customer_transaction_list' %}?customer_pk={{ data.customer_id }}" aria-label="anchor" class="btn btn-success btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Customer Transaction">
