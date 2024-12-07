@@ -2389,7 +2389,7 @@ class SalesInvoiceSerializer(serializers.ModelSerializer):
          
         
 class CustomersSupplysSerializer(serializers.ModelSerializer):
-    
+    customer_name = serializers.CharField(source='customer.customer_name')
     building_no = serializers.CharField(source='customer.building_name')
     door_house_no = serializers.CharField(source='customer.door_house_no')
     supplied = serializers.SerializerMethodField()
@@ -2398,7 +2398,7 @@ class CustomersSupplysSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = CustomerSupply
-        fields = ['customer_code', 'building_no', 'door_house_no', 'supplied', 'sales_mode']
+        fields = ['customer_code','customer_name', 'building_no', 'door_house_no', 'supplied', 'sales_mode']
 
     def get_supplied(self, obj):
         coupon_products = CustomerSupplyItems.objects.filter(customer_supply=obj).exclude(customer_supply__customer__sales_type="CASH COUPON")
