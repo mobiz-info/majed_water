@@ -336,6 +336,8 @@ class Customer_List(View):
         query = request.GET.get("q")
         route_filter = request.GET.get('route_name')
         customer_type_filter = request.GET.get('customer_type')
+        non_visit_reason = request.GET.get('non_visited_reason')
+        created_date_filter = request.GET.get('created_date', None)
 
         # Start with all customers
         user_li = Customers.objects.all()
@@ -358,9 +360,36 @@ class Customer_List(View):
         if customer_type_filter:
             user_li = user_li.filter(sales_type=customer_type_filter)
             filter_data['customer_type'] = customer_type_filter
+        if created_date_filter:
+            # Convert the string date to a datetime object
+            created_date_obj = datetime.strptime(created_date_filter, '%Y-%m-%d')
+            
+            # Convert to a timezone-aware datetime object
+            created_date_obj = timezone.make_aware(created_date_obj, timezone.get_current_timezone())
+            
+            # Filter users based on the created date (without time part)
+            user_li = user_li.filter(created_date__date=created_date_obj.date())
+            
+            # Store the filter data to retain it in the template
+            filter_data = {'created_date': created_date_filter}
+        else:
+            user_li = user_li.all()  # If no filter, return all users
+            filter_data = {}
+        
+        if non_visit_reason:
+            # Filter NonvisitReport by the selected reason
+            customer_ids = NonvisitReport.objects.filter(reason__id=non_visit_reason).values_list('customer_id', flat=True)
+            
+            # Filter the main customer queryset
+            user_li = user_li.filter(customer_id__in=customer_ids)
+            
+            # Update the filter_data dictionary
+            filter_data['non_visit_reason'] = non_visit_reason
 
         # Get all route names for the dropdown
         route_li = RouteMaster.objects.all()
+        non_visit_reasons = NonVisitReason.objects.all()
+
         
         log_activity(
             created_by=request.user, 
@@ -372,12 +401,10 @@ class Customer_List(View):
             'route_filter': route_filter,
             'q': query,
             'filter_data': filter_data,
+            'non_visit_reasons':non_visit_reasons
         }
-
-
-
+        
         return render(request, self.template_name, context)
-    
 class Latest_Customer_List(View):
     template_name = 'accounts/latest_customer_list.html'
 

@@ -49,7 +49,15 @@
                                                 <option value="CASH COUPON" {% if filter_data.customer_type == 'CASH COUPON' %}selected{% endif %}>Coupon</option>
                                                 <option value="FOC" {% if filter_data.customer_type == 'FOC' %}selected{% endif %}>FOC</option>
                                             </select>
-                                            <input type="date" name="created_date" class="form-control" value="{{ created_date }}">
+                                            <select name="non_visited_reason" class="form-control">
+                                                <option value=""> All Non-Visited Reason </option>
+                                                {% for reason in non_visit_reasons %}
+                                                    <option value="{{ reason.id }}" {% if filter_data.non_visit_reason == reason.id|stringformat:"s" %}selected{% endif %}>
+                                                        {{ reason.reason_text }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                            <input type="date" name="created_date" class="form-control" value="{{ filter_data.created_date }}">
                                             <input type="text" name="q" class="form-control" placeholder="Search ..." value="{{ filter_data.q }}">
                                             <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i>Search</button>
                                         </div>
@@ -111,7 +119,7 @@
                                                         <a href="{% url 'customer_custody_items' data.customer_id %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Custody Item">
                                                             <span class="bi bi-box-seam fs-14"></span> <!-- Icon updated for 'Custody Item' -->
                                                         </a>
-                                                        <a href="{% url 'customer_outstanding_list' %}?customer_pk={{ data.customer_id }}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Outstanding">
+                                                        <a href="{% url 'customer_outstanding_details' data.customer_id %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Outstanding">
                                                             <span class="bi bi-cash-coin fs-14"></span> <!-- Icon updated for 'Outstanding' -->
                                                         </a>
                                                         <a href="{% url 'customer_transaction_list' %}?customer_pk={{ data.customer_id }}" aria-label="anchor" class="btn btn-success btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Customer Transaction">
