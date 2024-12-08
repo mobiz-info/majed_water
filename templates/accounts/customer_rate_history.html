@@ -22,72 +22,90 @@
                              Customer Rate History
                         </div>
                     </div>
-                        <div class="mt">
-                            <form method="GET">
-                                <div class="card-body">
-                                    <div class="row align-items-center">
-                                        <div class="row col-md-6" style="">
-                                            <div class="col">
-                                                <label for="product">Routes :</label>
-                                                <select name="route_name" class="form-select">
-                                                    <option value="">All Routes</option>
-                                                    {% for route in routes %}
-                                                        <option value="{{ route.route_name }}"  {% if filter_data.selected_route == route.route_name %}selected{% endif %}>{{ route.route_name }}</option>
-                                                    {% endfor %}
-                                                </select>
+                    <div class="card-body">
+                        <div class="row m-0">
+                            <div class="col-xl-12">
+                                <div class="card custom-card m-0 p-0">
+                                    <div class="card-body row g-3 pt-0" style="background-color: antiquewhite;">
+                                        <div class="col-md-4">
+                                            <div class="form-group required">
+                                                <label class='control-label'>Customer Name</label>
+                                                <input type="text" class="form-control" disabled value="{{customer_instance.customer_name}}">
                                             </div>
-                                            <div class="col d-flex align-items-end justify-content-end">
-                                                <input type="submit" class="btn btn-primary btn-sm mx-1" value="Apply Filter">
-                                                <button type="button" class="btn btn-secondary btn-sm mx-1" onclick="resetFilters()" style="width:max-content">Reset Filter</button>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-group required">
+                                                <label class='control-label'>Building Name</label>
+                                                <input type="text" class="form-control" disabled value="{{customer_instance.building_name}}">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="form-group required">
+                                                <label class='control-label'>Route</label>
+                                                <input type="text" class="form-control" disabled value="{{customer_instance.routes.route_name}}">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="form-group required">
+                                                <label class='control-label'>Current Rate</label>
+                                                <input type="text" class="form-control" disabled value="{{customer_instance.rate}}">
                                             </div>
                                         </div>
                                     </div>
+                                    
                                 </div>
-                            </form>
-                        </div>  
-                        <div id="table-container" style="overflow:scroll;">
-                            <div class="card-body">
-                                <table id="responsiveDataTable" class="table table-bordered text-wrap" style="width: 100%">
-                                    <thead>
-                                        <tr>
-                                            <th style="text-align:center; !important width:5%;" scope="col">Sl.No</th>
-                                            <th style="text-align:center; !important " scope="col">Customer Name</th>
-                                            <th style="text-align:center; !important" scope="col">Previous Rate</th>
-                                            <th style="text-align:center; !important" scope="col">New Rate</th>
-                                            <th style="text-align:center; !important" scope="col">Created Date</th>
-                                            <th style="text-align:center; !important" scope="col">Updated Date</th>
-                                            <th style="text-align:center; !important" scope="col">Created By</th>
-                                            <th style="text-align:center; !important" scope="col">Updated By</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for history in histories %}
-                                            <tr>
-                                                <td style="text-align:right;">{{ forloop.counter }}</td>
-                                                <td style="text-align:left;">{{ history.customer.customer_name }}</td>
-                                                <td style="text-align:right;">{{ history.previous_rate }}</td>
-                                                <td style="text-align:right;">{{ history.new_rate }}</td>
-                                                <td style="text-align:right;">{{ history.customer.created_date|date:"d/m/Y" }}</td>
-                                                <td style="text-align:right;">{{ history.created_date|date:"d/m/Y" }}</td>
-                                                <td style="text-align:left;">{{ history.customer.created_by }}</td>
-                                                <td style="text-align:left;">{{ history.created_by }}</td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
                             </div>
                         </div>
+                    </div>
+                    <div id="table-container" style="overflow:scroll;">
+                        <div class="card-body">
+                            <table class="table table-bordered text-wrap" style="width: 100%">
+                                <thead>
+                                    <tr>
+                                        <th style="text-align:center; !important width:5%;" scope="col">Sl.No</th>
+                                        <th style="text-align:left; !important" scope="col">Created Date</th>
+                                        <th style="text-align:left; !important" scope="col">Created By</th>
+                                        <th style="text-align:center; !important" scope="col">Rate</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for customer_rate_instance in customer_rate_instances %}
+                                        <tr>
+                                            <td style="text-align:right;">{{ forloop.counter }}</td>
+                                            <td style="text-align:left;">{{ customer_rate_instance.created_date|date:"d-m-Y" }}</td>
+                                            <td style="text-align:left;">{{ customer_rate_instance.created_by }}</td>
+                                            <td style="text-align:left;">{{ customer_rate_instance.new_price }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container-fluid">
+        <!-- Start:: row-1 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card custom-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            Change Rate
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form action="." role="form" method="post" enctype="multipart/form-data"  class="row g-3 ajax redirect" autocomplete="off" novalidate>
+                            {% csrf_token %}
+                            {{ new_rate_form.as_p }}
+                            <button type="submit"  class="btn btn-primary">Update Rate</button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-    function resetFilters() {
-        // Redirect to the same page without filters
-        location.href = "{% url 'customer_rate_history' %}";
-    }
-</script>
 
 {% endblock %}

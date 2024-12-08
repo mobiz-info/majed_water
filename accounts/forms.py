@@ -155,6 +155,7 @@ class CustomerEditForm(forms.ModelForm):
         self.fields['routes'].queryset = RouteMaster.objects.filter(branch_id = branch)
         # self.fields['emirate'].queryset = EmirateMaster.objects.filter()
         # self.fields['location'].queryset = LocationMaster.objects.filter(branch_id = branch)
+        self.fields['rate'].widget.attrs['readonly'] = True
         
     class Meta:
         model = Customers
@@ -238,3 +239,13 @@ class CustomPasswordChangeForm(SetPasswordForm):
     class Meta:
         model = CustomUser
         fields = ['new_password1', 'new_password2']
+        
+class CustomerPriceChangeForm(forms.ModelForm):
+
+    class Meta:
+        model = CustomerPriceChange
+        fields = ['new_price']
+        
+        widgets = {
+            'new_price': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
+        }

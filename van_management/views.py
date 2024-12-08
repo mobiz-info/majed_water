@@ -41,8 +41,10 @@ from django.db.models import Max
 def get_van_coupon_bookno(request):
     van_id = request.GET.get("vanId")
     coupon_type = request.GET.get("productName")
+    stock_date = request.GET.get("stockDate")
+    print("stock_date",stock_date)
     
-    if (instances := VanCouponStock.objects.filter(van__pk=van_id,coupon__coupon_type__coupon_type_name=coupon_type,stock__gt=0)).exists():
+    if (instances := VanCouponStock.objects.filter(created_date=stock_date,van__pk=van_id,coupon__coupon_type__coupon_type_name=coupon_type,stock__gt=0)).exists():
         instance = instances.values_list('coupon__pk')
         stock_instances = CouponStock.objects.filter(couponbook__pk__in=instance)
         serialized = couponStockSerializers(stock_instances, many=True)
@@ -1339,6 +1341,55 @@ class EditProductView(View):
                     count = scrap_count + washing_count
                     # print(count)
                     item.return_count -= int(count)
+                    item.save()
+                
+                elif item.product.product_name == "5 Gallon" and stock_type == "damage_count":
+                    # print("return")
+                    scrap_count = int(request.POST.get('damage_scrap_count'))
+                    washing_count = int(request.POST.get('damage_washing_count'))
+                    
+                    # print(scrap_count)
+                    # print(washing_count)
+                    
+                    OffloadDamageStocks.objects.create(
+                        created_by=request.user.id,
+                        created_date=datetime.today(),
+                        salesman=item.van.salesman,
+                        van=item.van,
+                        product=item.product,
+                        scrap_count=scrap_count,
+                        washing_count=washing_count
+                    )
+                    
+                    if scrap_count > 0 :
+                        if not ScrapProductStock.objects.filter(created_date__date=datetime.today().date(),product=item.product).exists():
+                            scrap_instance=ScrapProductStock.objects.create(created_by=request.user.id,created_date=datetime.today(),product=item.product)
+                        else:
+                            scrap_instance=ScrapProductStock.objects.get(created_date__date=datetime.today().date(),product=item.product)
+                        scrap_instance.quantity = scrap_count
+                        scrap_instance.save()
+                        
+                        if ScrapStock.objects.filter(product=scrap_instance.product).exists():
+                            scrap_stock = ScrapStock.objects.get_or_create(product=scrap_instance.product)
+                            scrap_stock.quantity += scrap_count
+                            scrap_stock.save()
+                    
+                    if washing_count > 0 :
+                        if not WashingProductStock.objects.filter(created_date__date=datetime.today().date(),product=item.product).exists():
+                            washing_instance=WashingProductStock.objects.create(created_by=request.user.id,created_date=datetime.today(),product=item.product)
+                        else:
+                            washing_instance=WashingProductStock.objects.get(created_date__date=datetime.today().date(),product=item.product)
+                        washing_instance.quantity = washing_count
+                        washing_instance.save()
+                        
+                        if WashingStock.objects.filter(product=scrap_instance.product).exists():
+                            washing_stock = WashingStock.objects.get_or_create(product=scrap_instance.product)
+                            washing_stock.quantity += washing_count
+                            washing_stock.save()
+                        
+                    count = scrap_count + washing_count
+                    # print(count)
+                    item.damage_count -= int(count)
                     item.save()
                     
                 else : 

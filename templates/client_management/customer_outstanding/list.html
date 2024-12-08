@@ -89,9 +89,15 @@
                                     <th>Building No</th>
                                     <th>Room No/Floor No</th>
                                     <th>Route</th>
+                                    {% if filter_data.product_type == 'amount' %}
                                     <th>Amount</th>
+                                    {% endif %}
+                                    {% if filter_data.product_type == 'empty_can' %}
                                     <th>Empty Can</th>
+                                    {% endif %}
+                                    {% if filter_data.product_type == 'coupon' %}
                                     <th>Coupon</th>
+                                    {% endif %}
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -99,38 +105,50 @@
                                 {% load el_pagination_tags %}
                                 {% paginate 20 instances %}
                                 {% for customer in instances %}
+                                {% if outstanding_amount != 0 %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ customer.custom_id }}</td>
+                                    <td>{{ customer.customer_name }}</td>
+                                    <td>{{ customer.building_name }}</td>
+                                    <td>{{ customer.door_house_no }}</td>
+                                    <td>{{ customer.routes.route_name }}</td>
+                                    {% if filter_data.product_type == 'amount' %}
                                     {% get_outstanding_amount customer.pk date as outstanding_amount %}
-                                    {% if outstanding_amount != 0 %}
-                                    {% get_outstanding_bottles customer.pk date as outstanding_bottles %}
-                                    {% get_outstanding_coupons customer.pk date as outstanding_coupons %}
-                                    <tr>
-                                        <td>{{ forloop.counter }}</td>
-                                        <td>{{ customer.custom_id }}</td>
-                                        <td>{{ customer.customer_name }}</td>
-                                        <td>{{ customer.building_name }}</td>
-                                        <td>{{ customer.door_house_no }}</td>
-                                        <td>{{ customer.routes.route_name }}</td>
-                                        <td>{{ outstanding_amount }}</td>
-                                        <td>{{ outstanding_bottles }}</td>
-                                        <td>{{ outstanding_coupons }}</td>
-
-                                        <td class="text-center">
-                                            <div class="g-2">
-                                                <a href="{% url 'customer_outstanding_details' customer.pk %}" class="btn btn-warning-light btn-sm" data-bs-toggle="tooltip" title="View">
-                                                    <span class="bi bi-eye fs-14"></span>
-                                                </a>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                    <td>{{ outstanding_amount }}</td>
                                     {% endif %}
+                                    {% if filter_data.product_type == 'empty_can' %}
+                                    {% get_outstanding_bottles customer.pk date as outstanding_bottles %}
+                                    <td>{{ outstanding_bottles }}</td>
+                                    {% endif %}
+                                    {% if filter_data.product_type == 'coupon' %}
+                                    {% get_outstanding_coupons customer.pk date as outstanding_coupons %}
+                                    <td>{{ outstanding_coupons }}</td>
+                                    {% endif %}
+
+                                    <td class="text-center">
+                                        <div class="g-2">
+                                            <a href="{% url 'customer_outstanding_details' customer.pk %}?product_type={{ filter_data.product_type }}" class="btn btn-warning-light btn-sm" data-bs-toggle="tooltip" title="View">
+                                                <span class="bi bi-eye fs-14"></span>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
                                 {% endfor %}
                             </tbody>
                             <tfoot>
                                 <tr>
                                     <td colspan="6" class="text-end fw-bold">Total Outstanding Amount:</td>
+                                    {% if filter_data.product_type == 'amount' %}
                                     <td class="fw-bold">{{ net_total_outstanding }}</td>
+                                    {% endif %}
+                                    {% if filter_data.product_type == 'empty_can' %}
                                     <td class="fw-bold">{{ total_outstanding_bottles }}</td>
+                                    {% endif %}
+                                    {% if filter_data.product_type == 'coupon' %}
                                     <td class="fw-bold">{{ total_outstanding_coupons }}</td>
+                                    {% endif %}
                                     <td></td>
                                 </tr>
                             </tfoot>

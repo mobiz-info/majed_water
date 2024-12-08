@@ -124,6 +124,7 @@ class Customers(models.Model):
     is_editable = models.BooleanField(default=True)
     user_id = models.ForeignKey('accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True,related_name='user_sign')
     rate = models.DecimalField(max_digits=10, decimal_places=2,default=0)
+    # prevous_rate = models.DecimalField(max_digits=10, decimal_places=2,default=0)
     coupon_count = models.PositiveIntegerField(default=0)
     five_g_count_limit = models.PositiveIntegerField(default=0)
     eligible_foc = models.PositiveIntegerField(default=0)
@@ -326,3 +327,13 @@ class LeadCustomersClosedRemark(models.Model):
     
     def __str__(self):
         return str(self.customer_lead.name)
+    
+class CustomerPriceChange(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer = models.ForeignKey(Customers,on_delete=models.CASCADE,related_name='price_changes')
+    created_by = models.CharField(max_length=250)
+    created_date = models.DateTimeField(auto_now_add=True, editable=False)
+    new_price = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    def __str__(self):
+        return f"{self.customer.customer_name} - {self.new_price}"

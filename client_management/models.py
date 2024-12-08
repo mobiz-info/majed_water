@@ -55,7 +55,13 @@ class CustodyCustom(models.Model):
     created_date = models.DateTimeField(auto_now_add=True,blank=True, null=True)
     modified_by = models.CharField(max_length=20, null=True, blank=True)
     modified_date = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        ordering = ('created_date',)
 
+    def __str__(self):
+        return str(self.custody_custom_id)
+    
 class CustodyCustomItems(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     custody_custom = models.ForeignKey(CustodyCustom, on_delete=models.CASCADE,null=True,blank=True)
@@ -677,3 +683,12 @@ class InactiveCustomers(models.Model):
     
     def __str__(self):
         return f"{self.customer.customer_name} - In Active Days: {self.inactive_days}"
+    
+class EligibleCustomerConditions(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    category_name = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
+    moq = models.PositiveIntegerField(default=0)
+    days = models.PositiveIntegerField(default=0)
+    
+    def __str__(self):
+        return f"{self.category_name.product_name}"

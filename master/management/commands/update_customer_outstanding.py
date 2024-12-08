@@ -12,7 +12,7 @@ from product.models import ProdutItemMaster
 from sales_management.models import CollectionPayment
 
 # Read the Excel file
-file_path = '/home/ra/Downloads/NOMAN S-21 OUT STANDING(2).xlsx'
+file_path = '/home/ra/Downloads/S-12Bout.xlsx'
 data = pd.read_excel(file_path)
 print("File path:", file_path)
 print("DataFrame columns:", data.columns)
@@ -30,11 +30,11 @@ if 'amount' not in data.columns:
 
 @transaction.atomic
 def populate_models_from_excel(data):
-    user = CustomUser.objects.get(username="S-21")
-    date = datetime.strptime("2024-11-29", '%Y-%m-%d')
+    user = CustomUser.objects.get(username="S-12B")
+    date = datetime.strptime("2024-11-30", '%Y-%m-%d')
     
-    # outstanding_in = CustomerOutstanding.objects.filter(created_date__date__lte=date,customer__routes__route_name="S-21",product_type='amount')
-    # Invoice.objects.filter(created_date__date__lte=date,customer__routes__route_name="S-21").delete()
+    # outstanding_in = CustomerOutstanding.objects.filter(created_date__date__lte=date,customer__routes__route_name="S-12B",product_type='amount')
+    # Invoice.objects.filter(created_date__date__lte=date,customer__routes__route_name="S-12B").delete()
     # for outstanding in outstanding_in:
         
     #     ou_report = CustomerOutstandingReport.objects.get(
@@ -44,7 +44,7 @@ def populate_models_from_excel(data):
     #     ou_report.value -= OutstandingAmount.objects.get(customer_outstanding=outstanding).amount
         
     # outstanding_in.delete()
-    # CollectionPayment.objects.filter(created_date__date__lte=date,customer__routes__route_name="S-21").delete()
+    # CollectionPayment.objects.filter(created_date__date__lte=date,customer__routes__route_name="S-12B").delete()
     
     for index, row in data.iterrows():
         customer_id = int(row['customer_id'])
@@ -138,7 +138,7 @@ def populate_models_from_excel(data):
         
         # for route in routes:
         #     branch = BranchMaster.objects.get(user_id__username="ajman")
-        # routes = RouteMaster.objects.get(route_name="S-21")
+        # routes = RouteMaster.objects.get(route_name="S-12B")
         # customer.routes=routes
         # customer.branch_id=routes.branch_id
         # customer.save()

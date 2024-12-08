@@ -23,7 +23,7 @@ urlpatterns = [
     path('customer_list_excel', customer_list_excel, name="customer_list_excel"),
     
     path('visit_days_assign/<str:customer_id>', visit_days_assign, name="visit_days_assign"),
-    path('customer_rate_history/', CustomerRateHistoryListView.as_view(), name='customer_rate_history'),
+    path('customer_rate_history/<str:pk>/', CustomerRateHistoryListView.as_view(), name='customer_rate_history'),
     
     path('latest_customers', Latest_Customer_List.as_view(), name='latest_customers'),
     path('inactive_customers', Inactive_Customer_List.as_view(), name='inactive_customers'),

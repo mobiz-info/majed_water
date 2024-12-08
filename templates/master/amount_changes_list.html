@@ -24,11 +24,9 @@
                     <div class="card-header">
                         <div class="card-title">Branches</div>
                         <div class="ms-auto">
-                            <a href="{% url 'branch_create' %}">
-                                <button type="button" class="btn btn-success btn-wave text-end d-flex me-4 my-auto">
-                                    <i class="bi bi-plus-circle me-1"></i>Create
-                                </button>
-                            </a>
+                            <a href="{% url 'branch_create' %}"><button type="button" class="btn btn-success btn-wave text-end d-flex me-4 my-auto"><i class="bi bi-plus-circle me-1"></i>Create</button></a>
+                            <button type="button" class="btn btn-primary btn-wave text-end d-flex me-4 my-auto" data-toggle="modal" data-target="#invoiceCreateModal" onclick="handleButtonClick(this)">Create Invoice</button>
+                            <button type="button" class="btn btn-primary btn-wave text-end d-flex me-4 my-auto" data-toggle="modal" data-target="#outstandingCreateModal" onclick="handleButtonClick(this)">Create Outstanding</button>
                         </div>
                     </div>
 
@@ -117,4 +115,131 @@
     </div>
 </div>
 <!-- End::app-content -->
+
+<!-- Modal -->
+<div class="modal fade" id="invoiceCreateModal" tabindex="-1" role="dialog" aria-labelledby="invoiceCreateModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="invoiceCreateModalLongTitle">Create Invoice</h5>
+            </div>
+            <div class="modal-body">
+                <form action="{% url 'create_outstanding_variation_invoice' %}" role="form" method="post" enctype="multipart/form-data"  class="row g-3 ajax redirect" autocomplete="off" novalidate>
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="row justify-content-center">
+                            <div class="col-md-6">
+                                <input type="hidden" class="form-control" name="customer_id" value="{{customer}}">
+                                <div class="form-group required">
+                                    <label class='control-label'>Date</label>
+                                    <input type="date" class="form-control" name="date">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Time</label>
+                                    <input type="time" class="form-control" name="time">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Invoice No</label>
+                                    <input type="text" class="form-control" name="invoice_no">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Invoice Status</label>
+                                    <select class="form-control" name="invoice_status">
+                                        <option value="paid">Paid</option>
+                                        <option value="non_paid">Non Paid</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Amount</label>
+                                    <input type="text" class="form-control" name="amount">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Received Amount</label>
+                                    <input type="text" class="form-control" name="received_amount">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn bg-gradient-secondary" data-dismiss="modal" data-target="#invoiceCreateModal" onclick="clearForm()">Close</button>
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="outstandingCreateModal" tabindex="-1" role="dialog" aria-labelledby="outstandingCreateModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="outstandingCreateModalLongTitle">Create Outstanding</h5>
+            </div>
+            <div class="modal-body">
+                <form action="{% url 'issue_coupons_orders' %}" role="form" method="post" enctype="multipart/form-data"  class="row g-3 ajax redirect" autocomplete="off" novalidate>
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="row justify-content-center">
+                            <input type="hide" class="form-control" name="customer_id" value="{{customer}}">
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Date</label>
+                                    <input type="date" class="form-control" name="date">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Time</label>
+                                    <input type="time" class="form-control" name="time">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Invoice No</label>
+                                    <input type="text" class="form-control" name="invoice_no">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Amount</label>
+                                    <input type="text" class="form-control" name="amount">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn bg-gradient-secondary" data-dismiss="modal" data-target="#outstandingCreateModal" onclick="clearForm(this)">Close</button>
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
+{% block static %}
+{% load static %}
+<script>
+    function handleButtonClick(button) {
+        var modalName = $(button).data("target");
+        $(modalName).modal('show');
+    }
+    function clearForm(button) {
+        var modalName = $(button).data("target");
+        $(modalName).modal('hide');
+    }
+</script>
+
+{% endblock static %}

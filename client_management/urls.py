@@ -88,5 +88,12 @@ urlpatterns = [
         
         re_path(r'^customer_transaction_list/$', customer_transaction_list, name='customer_transaction_list'),
         re_path(r'^customer_transaction_print/$', customer_transaction_print, name='customer_transaction_print'),
+        
+        re_path(r'^eligible-customer-conditions/$', eligible_customers_conditions, name='eligible_customers_conditions'),
+        re_path(r'^create-eligible-customer-conditions/$', create_eligible_customers_condition, name='create_eligible_customers_condition'),
+        re_path(r'^edit-eligible-customer-conditions/(?P<pk>.*)/$', edit_eligible_customers_condition, name='edit_eligible_customers_condition'),
+        re_path(r'^delete-eligible-customer-conditions/(?P<pk>.*)/$', delete_eligible_customers_condition, name='delete_eligible_customers_condition'),
+        
+        re_path(r'^eligible-customers/$', eligible_customers, name='eligible_customers'),
 
 ]
