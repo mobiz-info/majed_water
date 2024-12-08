@@ -10579,7 +10579,6 @@ class LeadCustomersCancelReasonsView(APIView):
         }
         
         return Response(response_data, status=status_code)
-    
     def post(self, request, *args, **kwargs):
         reason = request.data.get('reason')
 
@@ -10600,7 +10599,6 @@ class LeadCustomersCancelReasonsView(APIView):
         }
         
         return Response(response_data, status=status_code)
-    
     
 class LeadCustomersUpdateStatusView(APIView):
     authentication_classes = [BasicAuthentication]

@@ -403,9 +403,7 @@ class Customer_List(View):
             'filter_data': filter_data,
             'non_visit_reasons':non_visit_reasons
         }
-
-
-
+        
         return render(request, self.template_name, context)
 class Latest_Customer_List(View):
     template_name = 'accounts/latest_customer_list.html'

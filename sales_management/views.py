@@ -26,7 +26,7 @@ from .forms import CashCustomerSaleForm, CreditCustomerSaleForm, CashCouponCusto
 from accounts.models import Customers
 import random
 import string
-from django.db.models import Sum
+from django.db.models import Sum, Avg
 from django.views.generic import View
 from django.shortcuts import render, redirect
 from django.db.models import Sum
@@ -7061,3 +7061,6 @@ def monthly_sales_report_print(request):
     }
     return render(request, 'sales_management/salesman_monthly_sales_print.html', context)
 
+def detailed_sales_report(request):
+    routes = RouteMaster.objects.all()
+    return render(request, 'sales_management/route_sales_report.html', {'routes': routes})
