@@ -160,13 +160,13 @@ def view_van(request, van_id):
 def delete_van(request, van_id):
     van = Van.objects.get(van_id=van_id)
     if request.method == 'POST':
-        van.delete()
-        return redirect('van')
-    # Log the deletion action
+        # Log the deletion action
         log_activity(
             created_by=request.user,
             description=f"Deleted van: {van.van_make}"
         )
+        van.delete()
+        return redirect('van')
     return render(request, 'master/confirm_delete.html', {'van': van})
 
 
