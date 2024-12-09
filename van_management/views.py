@@ -174,6 +174,11 @@ def delete_van(request, van_id):
 # Van staff assigning
 def view_association(request):
     vans_with_associations = Van.objects.exclude(driver=None).exclude(salesman=None)
+    # Log the activity
+    log_activity(
+        created_by=request.user,
+        description="Viewed van-driver-salesman associations."
+    )
     return render(request, 'van_management/driver_salesman_list.html', {'vans_with_associations': vans_with_associations})
 
 def create_association(request):
@@ -189,9 +194,23 @@ def create_association(request):
             van.driver = driver_instance
             van.salesman = salesman_instance
             van.save()
+            # Log activity for association creation
+            log_activity(
+                created_by=request.user,
+                description=(
+                    f"Created association: Van {van.van_make} "
+                    f"with Driver {driver_instance.username} and "
+                    f"Salesman {salesman_instance.username} "
+                )
+            )
             return redirect('/van_assign')
     else:
         form = VanAssociationForm()
+        # Log activity for accessing the form
+        log_activity(
+            created_by=request.user,
+            description="Accessed the van-driver-salesman association creation form."
+        )
     return render(request, 'van_management/create_assign.html', {'form': form})
 
 
@@ -207,12 +226,24 @@ def edit_assign(request, van_id):
             van.driver = driver_instance
             van.salesman = salesman_instance
             van.save()
+            # Log activity for editing the assignment
+            log_activity(
+                created_by=request.user,
+                description=(
+                    f"Edited association for Van {van.van_make}  "
+                    f"Driver updated to {driver_instance.username} "
+                    f"Salesman updated to {salesman_instance.username} "
+                )
+            )
             return redirect('/van_assign')
     else:
         form = EditAssignForm(van)
-
+        # Log activity for accessing the edit form
+        log_activity(
+            created_by=request.user,
+            description=f"Accessed the edit form for Van {van.van_make} "
+        )
     return render(request, 'van_management/edit_assign.html', {'form': form, 'van': van})
-
 
 
 def delete_assign(request, van_id):
@@ -221,7 +252,13 @@ def delete_assign(request, van_id):
         van.driver = None
         van.salesman = None
         van.save()
+        # Log activity for deleting the assignment
+        log_activity(
+            created_by=request.user,
+            description=(
+                f"Deleted association for Van {van.van_make}"))
         return redirect('/van_assign')
+    
     return render(request, 'master/confirm_delete_assign.html', {'van': van})
 
 def route_assign(request,van_id):
@@ -237,6 +274,11 @@ def route_assign(request,van_id):
             route = data.routes
             route_exists = Van_Routes.objects.filter(van = van_data,routes = route).exists()
             if route_exists:
+                # Log the duplicate route assignment attempt
+                log_activity(
+                    created_by=request.user,
+                    description=(
+                        f"Attempted to assign a duplicate route '{route.routes.route_name}' "))
                 messages.success(request, 'Route is already assigned..')
                 context = {'all_van' : all_van,"form":form,"van_data":van_data}
                 return render(request, 'van_management/assignroute_tovan.html',context)
@@ -244,9 +286,23 @@ def route_assign(request,van_id):
             data.created_by = str(request.user)
             data.created_date = datetime.now()
             data.save()
+            # Log successful route assignment
+            log_activity(
+                created_by=request.user,
+                description=(
+                    f"Successfully assigned route '{route.routes.route_name}' ")
+            )
             messages.success(request, 'Van Route Assigned successfully!')
             return redirect('route_assign',van_id)
         else:
+            # Log invalid form submission
+            log_activity(
+                created_by=request.user,
+                description=(
+                    f"Invalid form submission while assigning a route to "
+                    f"Van {van_data.van_make} "
+                )
+            )
             messages.success(request, 'Invalid form data. Please check the input.')
             return render(request, 'van_management/assignroute_tovan.html',context)
     return render(request, 'van_management/assignroute_tovan.html',context)
@@ -257,8 +313,17 @@ def delete_route_assign (request):
     van = Van_Routes.objects.get(van_route_id=van_route_id)
     if request.method == 'POST':
         van.delete()
+        # Log successful deletion
+        log_activity(
+            created_by=request.user,
+            description=(
+                f"Deleted route '{van.routes.route_name}' assigned to "
+                f"Van {van.van_make} "
+            )
+        )
         return redirect('route_assign',van_id)
     return render(request, 'master/confirm_delete.html',{'van': van} )
+
 
 
 
