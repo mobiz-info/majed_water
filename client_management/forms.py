@@ -439,3 +439,15 @@ class UploadOutstandingForm(forms.Form):
             'placeholder': 'Upload File'
         })
     )
+    
+class EligibleCustomerConditionsForm(forms.ModelForm):
+
+    class Meta:
+        model = EligibleCustomerConditions
+        fields = ['category_name','moq','days']
+
+        widgets = {
+            'category_name': forms.Select(attrs={'class': 'form-control'}),
+            'moq': forms.NumberInput(attrs={'class': 'form-control'}),
+            'days': forms.NumberInput(attrs={'class': 'form-control'}),
+        }

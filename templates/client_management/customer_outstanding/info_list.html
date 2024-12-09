@@ -22,9 +22,16 @@
                             Outstanding Items
                         </div>
                         
-                        <div class="ms-auto">
-                            <a href="{% url 'create_customer_outstanding' %}{% if customer_pk %}?customer_pk={{customer_pk}}{% endif %}">
+                        {% comment %} <div class="ms-auto">
+                            <a href="{% url 'excel_customer_outstanding' %}{% if customer_pk %}?customer_pk={{customer_pk}}{% endif %}">
                                 <button type="button" class="btn btn-success btn-wave text-end d-flex me-4 my-auto"><i class="bi bi-plus-circle me-1"></i>Create</button>
+                            </a>
+                        </div> {% endcomment %}
+                        <div class="me-2">
+                            <a href="{% url 'customer_outstanding_list' %}?product_type={{ filter_data.product_type }}&q={{ filter_data.q|default_if_none:'' }}&route_name={{ filter_data.route_name|default_if_none:'' }}&date={{ filter_data.filter_date }}{% if customer_pk %}&customer_pk={{ customer_pk }}{% endif %}&export=excel" target="_blank">
+                                <button type="button" class="btn btn-warning btn-wave">
+                                    <i class="fas fa-file-excel"></i>Excel
+                                </button>
                             </a>
                         </div>
                         {% comment %} <div style="float:right;padding:10px 10px">
@@ -47,17 +54,25 @@
                         <form method="GET" action=".">
                             <div class="card-body">
                                 <div class="row align-items-center">
-                                    <div class="col-4">
+                                    <div class="col-3">
                                         <label for="date">Date:</label>
                                         <input type="date" class="form-control" id="date" name="date" value="{{ filter_data.filter_date }}">
                                     </div>
-                                    <div class="col-4">
+                                    <div class="col-3">
                                         <label for="product">Routes :</label>
                                         <select name="route_name" class="form-select">
                                             <option value="">All Routes</option>
                                             {% for route in route_li %}
                                                 <option value="{{ route.route_name }}"  {% if route.route_name == filter_data.route_name %}selected{% endif %}>{{ route.route_name }}</option>
                                             {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-3">
+                                        <label for="product">Product Items :</label>
+                                        <select name="product_type" class="form-select me-2">
+                                            <option value="amount" {% if filter_data.product_type == 'amount' %}selected{% endif %}>Amount</option>
+                                            <option value="empty_can" {% if filter_data.product_type == 'empty_can' %}selected{% endif %}>Empty Can</option>
+                                            <option value="coupon" {% if filter_data.product_type == 'coupon' %}selected{% endif %}>Coupon</option>
                                         </select>
                                     </div>
                                     <div class="col d-flex align-items-end justify-content-end">

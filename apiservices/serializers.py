@@ -2348,35 +2348,6 @@ class SalesReportSerializer(serializers.ModelSerializer):
         return "all"
 
 
-class SalesReportSerializer(serializers.ModelSerializer):
-    customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
-    customer_code = serializers.CharField(source='customer.custom_id', read_only=True)
-    total_supply_qty = serializers.IntegerField(source='get_total_supply_qty', read_only=True)
-    net_taxable = serializers.SerializerMethodField()  
-    amout_recieved = serializers.SerializerMethodField()  
-    amout_total = serializers.SerializerMethodField()  
-    invoice_type = serializers.SerializerMethodField() 
-    
-    class Meta:
-        model = CustomerSupply
-        fields = ['created_date','invoice_no','reference_number','customer_name','customer_code','amout_total','vat','discount','net_taxable','amout_recieved', 'total_supply_qty','invoice_type',]
-
-    def get_net_taxable(self, obj):
-        return obj.net_payable
-
-    def get_amout_recieved(self, obj):
-        return obj.amount_recieved
-
-    def get_amout_total(self, obj):
-        return obj.subtotal
-    
-    def get_invoice_type(self, obj):
-        if obj.amount_recieved > 0 or obj.customer.sales_type == "FOC":
-            return "cash_invoice"
-        elif obj.amount_recieved <= 0 and obj.customer.sales_type != "FOC":
-            return "credit_invoive"
-        return "all"     
-    
 class SalesInvoiceSerializer(serializers.ModelSerializer):
     created_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
     customer_name = serializers.CharField(source='customer.customer_name', read_only=True)
@@ -2389,7 +2360,7 @@ class SalesInvoiceSerializer(serializers.ModelSerializer):
          
         
 class CustomersSupplysSerializer(serializers.ModelSerializer):
-    
+    customer_name = serializers.CharField(source='customer.customer_name')
     building_no = serializers.CharField(source='customer.building_name')
     door_house_no = serializers.CharField(source='customer.door_house_no')
     supplied = serializers.SerializerMethodField()
@@ -2398,7 +2369,7 @@ class CustomersSupplysSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = CustomerSupply
-        fields = ['customer_code', 'building_no', 'door_house_no', 'supplied', 'sales_mode']
+        fields = ['customer_code','customer_name', 'building_no', 'door_house_no', 'supplied', 'sales_mode']
 
     def get_supplied(self, obj):
         coupon_products = CustomerSupplyItems.objects.filter(customer_supply=obj).exclude(customer_supply__customer__sales_type="CASH COUPON")

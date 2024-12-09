@@ -2,22 +2,24 @@ import json
 import uuid
 import datetime
 from datetime import timedelta
-
-from django.utils.timezone import now
 from calendar import monthrange
 
+
 from django.views import View
+from django.urls import reverse
 from django.shortcuts import render
 from django.contrib import messages
 from django.core.cache import cache
+from django.utils.timezone import now
 from django.shortcuts import render, redirect
 from django.db import transaction, IntegrityError
+from django.db.models.functions import TruncMonth
+from django.http import HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
 from django.contrib.auth.hashers import make_password
 from django.db.models.functions import ExtractWeekDay
 from django.db.models import Sum,Count,F,Q,DecimalField
 from django.contrib.auth.decorators import login_required
-from django.db.models.functions import ExtractDay,TruncDate
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models.functions import ExtractDay,TruncDate,Coalesce
 
@@ -25,7 +27,7 @@ from .forms import *
 from .models import *
 from . serializers import *
 from accounts.models import *
-from invoice_management.models import Invoice
+from invoice_management.models import Invoice, InvoiceItems
 from customer_care.models import *
 from sales_management.models import CollectionPayment
 from van_management.models import Van, VanProductStock , Expense
@@ -313,6 +315,71 @@ def overview(request):
             'non_visited_customers_count': len(non_visited_customers)
         })
     
+    #Monthly New Customers chart
+    new_customers = (
+        Customers.objects.annotate(month=TruncMonth("created_date"))
+        .values("month")
+        .annotate(count=Count("customer_id"))
+        .order_by("month")
+    )
+
+    churn = (
+        Customers.objects.filter(is_active=False)  
+        .annotate(month=TruncMonth("created_date"))
+        .values("month")
+        .annotate(count=Count("customer_id"))
+        .order_by("month")
+    )
+
+    months = [item["month"].strftime("%b") for item in new_customers]
+    new_customers_data = [item["count"] for item in new_customers]
+    churn_data = [next((c["count"] for c in churn if c["month"] == item["month"]), 0) for item in new_customers]
+
+    chart_data = {
+        "months": months,
+        "datasets": {
+            "new_customers": new_customers_data,
+            "churn": churn_data,
+        },
+    }
+    #Planned Vs Actual
+    routes_data = []
+
+    planned_data = []
+    actual_data = []
+
+    for route in routes:
+        route_id = route.route_id
+        actual_visitors = Customers.objects.filter(routes__pk=route_id, is_active=True).count()
+
+        planned_visitors_list = find_customers(request, str(date), route_id)  # Ensure this returns a list
+        planned_visitors = len(planned_visitors_list) if planned_visitors_list else 0
+
+        routes_data.append({
+                'route_name': route.route_name,
+                'actual_visitors': actual_visitors,
+                'planned_visitors': planned_visitors,
+            })
+
+            # Collect the data for the chart
+        planned_data.append(planned_visitors)
+        actual_data.append(actual_visitors)
+        
+    #today supply
+    salesman_supply_data = (
+        CustomerSupplyItems.objects.filter(customer_supply__created_date__date=today)
+        .values('customer_supply__salesman__username')  # Get the salesman username
+        .annotate(total_quantity=Sum('quantity'))  # Sum the quantity field
+        .order_by('customer_supply__salesman__username')
+    )
+
+    # Prepare the data for the pie chart
+    salesman_supply_data = [
+        {'salesman_name': item['customer_supply__salesman__username'], 'total_quantity': item['total_quantity']}
+        for item in salesman_supply_data
+    ]
+    
+
     # others    
     pending_complaints_count = CustomerComplaint.objects.filter(status='Pending').count()
     resolved_complaints_count = CustomerComplaint.objects.filter(status='Completed').count()
@@ -324,6 +391,7 @@ def overview(request):
     
     today_coupon_requests_count = CustomerCoupon.objects.filter(created_date=today).count()
 
+    
     context = {
         # overview section
         "cash_sales": total_cash_sales_count,
@@ -397,6 +465,11 @@ def overview(request):
         "route_data" : route_data,
         "route_inactive_customer_count" : route_inactive_customer_count,
         "non_visited_customers_data": non_visited_customers_data,
+        "chart_data": json.dumps(chart_data),
+        'routes_data': routes_data,
+        'planned_data': planned_data,
+        'actual_data': actual_data,
+        'salesman_supply_data': salesman_supply_data,
         #others
         "pending_complaints_count":pending_complaints_count,
         "total_expense": total_expense,
@@ -406,6 +479,7 @@ def overview(request):
     }
 
     return render(request, 'master/dashboard/overview_dashboard.html', context) 
+
 
 class Branch_List(View):
     template_name = 'master/branch_list.html'
@@ -1119,3 +1193,62 @@ class AmountChangesList(View):
             'customer': customer, 
         }
         return render(request, self.template_name, context)
+    
+def create_outstanding_variation_invoice(request):
+    if request.method == 'POST':
+        date = request.POST.get("date")
+        time = request.POST.get("time")
+        amount = request.POST.get("amount")
+        invoice_no = request.POST.get("invoice_no")
+        amout_recieved = request.POST.get("received_amount")
+        invoice_status = request.POST.get("invoice_status")
+        customer = Customers.objects.get(pk=request.POST.get("customer_id"))
+        
+        try:
+            with transaction.atomic():
+                invoice = Invoice.objects.create(
+                    reference_no=customer.custom_id,
+                    invoice_no=invoice_no,
+                    invoice_type="credit_invoive",
+                    invoice_status=invoice_status,
+                    created_date=datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M"),
+                    net_taxable=amount,
+                    amout_total=amount,
+                    amout_recieved=amout_recieved,
+                    customer=customer
+                )
+                
+                product_item = ProdutItemMaster.objects.get(product_name="5 Gallon")
+                
+                InvoiceItems.objects.create(
+                    category=product_item.category,
+                    product_items=product_item,
+                    invoice=invoice,
+                    rate=0
+                )
+                
+                response_data = {
+                    "status": "true",
+                    "title": "Successfully Created",
+                    "message": "Invoice create successfully.",
+                    'redirect': 'true',
+                    "redirect_url": f"{reverse('staff_issue_orders_list')}?customer_pk={customer.pk}"
+                }
+                    
+        except IntegrityError as e:
+            # Handle database integrity error
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+
+        except Exception as e:
+            # Handle other exceptions
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+                
+        return JsonResponse(response_data)

@@ -555,7 +555,7 @@
                             <h5 class="card-title">Monthly New Customers</h5>
                         </div>
                         <div class="card-body">
-                            <canvas id="newCustomerChart" width="400" height="300"></canvas>
+                            <canvas id="monthlyCustomersChart" width="400" height="300"></canvas>
                         </div>
                     </div>
                 </div>
@@ -567,7 +567,7 @@
                             <h5 class="card-title">Planned Vs Actual</h5>
                         </div>
                         <div class="card-body">
-                            <canvas id="plannedvsactualactomerchart" width="400" height="300"></canvas>
+                            <canvas id="plannedVsActualChart" width="400" height="300"></canvas>
                         </div>
                     </div>
                 </div>
@@ -581,7 +581,7 @@
                             <h5 class="card-title">Today Supply </h5>
                         </div>
                         <div class="card-body">
-                            <canvas id="todaysupply5g" width="400" height="300"></canvas>
+                            <canvas id="salesmanSupplyPieChart" width="400" height="300"></canvas>
                         </div>
                     </div>
                 </div>
@@ -930,7 +930,148 @@
         }
     });
 </script>
+<script>
+    // Get the chart data from Django context
+    const chartData = JSON.parse('{{ chart_data|safe }}');
 
+    const mcc = document.getElementById('monthlyCustomersChart');
+    const monthlyCustomersChart = new Chart(mcc, {
+        type: 'line',
+        data: {
+            labels: chartData.months,  
+            datasets: [
+                {
+                    label: 'New Customers',
+                    data: chartData.datasets.new_customers, 
+                    borderColor: 'blue',
+                    fill: false,
+                    
+                },
+                {
+                    label: 'Churn',
+                    data: chartData.datasets.churn,  
+                    borderColor: 'red',
+                    fill: false,
+                    
+                },
+            ],
+        },
+        options: {
+            plugins: {
+                legend: {
+                    display: true,
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            return `${context.dataset.label}: ${context.raw}`;
+                        },
+                    },
+                },
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Month',
+                    },
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Customer Count',
+                    },
+                },
+            },
+        },
+    });
+</script>
+<script>
+    const pvsa = document.getElementById('plannedVsActualChart').getContext('2d');
+    const plannedVsActualChart = new Chart(pvsa, {
+        type: 'bar',  // Choose bar chart type
+        data: {
+            labels: [
+                {% for route in route_data %}
+                "{{ route.route_name }}"{% if not loop.last %}, {% endif %}
+                {% endfor %}
+            ], 
+            datasets: [
+                {
+                    label: 'Planned Customers',
+                    data: {{ planned_data|safe }},  // Planned customers data from the view
+                    backgroundColor: 'blue',  // Color for planned bars
+                    borderColor: 'blue',
+                },
+                {
+                    label: 'Actual Customers',
+                    data: {{ actual_data|safe }},  // Actual customers data from the view
+                    backgroundColor: 'green',  // Color for actual bars
+                    borderColor: 'green',
+                }
+            ]
+        },
+        options: {
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'labels',
+                    },
+                },
+                y: {
+                    beginAtZero: true,  // Ensure Y-axis starts at 0
+                    title: {
+                        display: true,
+                        text: 'Customer Count'
+                    }
+                }
+            }
+        }
+    });
+  </script>
 
+  <script>
+    // Data from the view
+    var supplyData = {{ salesman_supply_data|safe }};
+    
+    // Prepare the chart labels and values
+    var labels = supplyData.map(item => item.salesman_name);
+    var supplyQuantities = supplyData.map(item => item.total_quantity);
+    
+    // Calculate the total quantity to determine the percentage
+    var totalQuantity = supplyQuantities.reduce((total, quantity) => total + quantity, 0);
+    var percentages = supplyQuantities.map(quantity => (quantity / totalQuantity) * 100);
+    
+    // Create the Pie chart
+    var ts = document.getElementById("salesmanSupplyPieChart").getContext('2d');
+    var myChart = new Chart(ts, {
+      type: 'pie',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Today\'s Supply Quantity by Salesman',
+          data: supplyQuantities,
+          backgroundColor: ["#0d6efd", "#198754", "#ffc107", "#dc3545", "#17a2b8",], // Customize colors as needed
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(tooltipItem) {
+                var label = tooltipItem.label || '';
+                var value = tooltipItem.raw || 0;
+                var percentage = percentages[tooltipItem.dataIndex].toFixed(2);
+                return `${label}: ${value} (${percentage}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+</script>
 {% endblock static %}
  

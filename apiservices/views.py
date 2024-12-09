@@ -10111,14 +10111,12 @@ class SalesInvoicesAPIView(APIView):
                 "error": "Salesman is not associated with any route."
             }, status=400)
 
-        # Base sales filter
         sales_filter = {
             "created_date__date__gte": start_date,
             "created_date__date__lte": end_date,
             "customer__routes": route
         }
 
-        # Apply `sales_type` filter
         if sales_type == "cash_invoice":
             sales = CustomerSupply.objects.filter(
                 Q(amount_recieved__gt=0) | Q(customer__sales_type="FOC"),
@@ -10132,7 +10130,6 @@ class SalesInvoicesAPIView(APIView):
         else:
             sales = CustomerSupply.objects.filter(**sales_filter)
 
-        # Aggregate sales totals
         total_sales = sales.aggregate(
             total_grand_total=Sum('grand_total'),
             total_vat=Sum('vat'),
@@ -10140,19 +10137,22 @@ class SalesInvoicesAPIView(APIView):
             total_amount_received=Sum('amount_recieved')
         )
 
-        # Serialize the sales data
+        total_amount = round(total_sales["total_grand_total"] or 0, 2)
+        total_vat = round(total_sales["total_vat"] or 0, 2)
+        total_taxable = round(total_sales["total_net_payable"] or 0, 2)
+        total_amount_collected = round(total_sales["total_amount_received"] or 0, 2)
+        
         sales_serializer = SalesReportSerializer(sales, many=True)
 
-        # Prepare the response data
         response_data = {
             "StatusCode": 200,
             "status": status.HTTP_200_OK,
             "data": {
                 "invoices": sales_serializer.data, 
-                "total_amount": total_sales["total_grand_total"] or 0,
-                "total_vat": total_sales["total_vat"] or 0,
-                "total_taxable": total_sales["total_net_payable"] or 0, 
-                "total_amount_collected": total_sales["total_amount_received"] or 0,
+                 "total_amount": total_amount,
+                "total_vat": total_vat,
+                "total_taxable": total_taxable,
+                "total_amount_collected": total_amount_collected,
                 
                 "filters": {
                     "route_name": str(route), 
@@ -10605,61 +10605,76 @@ class LeadCustomersUpdateStatusView(APIView):
     permission_classes = [IsAuthenticated]
     
     def post(self, request, *args, **kwargs):
-        serializer = LeadCustomersUpdateStatusSerializer(data=request.data, context={'request': request})
         try:
             with transaction.atomic():
-                if serializer.is_valid():
-                    
-                    instance = serializer.save(
-                        created_by=request.user.pk,
+                lead_customer_id = request.data.get("customer_lead")
+                new_status = request.data.get("status")
+
+                if not lead_customer_id:
+                    return Response({
+                        "status": status.HTTP_400_BAD_REQUEST,
+                        "message": "Customer Lead ID is required."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                if new_status not in ['cancel', 'closed']:
+                    return Response({
+                        "status": status.HTTP_400_BAD_REQUEST,
+                        "message": "Invalid status. Allowed values are 'cancel' or 'closed'."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                customer_lead = LeadCustomers.objects.filter(pk=lead_customer_id).first()
+                if not customer_lead:
+                    return Response({
+                        "status": status.HTTP_404_NOT_FOUND,
+                        "message": "Lead Customer not found."
+                    }, status=status.HTTP_404_NOT_FOUND)
+
+                LeadCustomersStatus.objects.create(
+                    status=new_status,
+                    customer_lead=customer_lead,
+                    created_by=request.user.pk
+                )
+
+                if new_status == 'cancel':
+                    reason_id = request.data.get("reason")
+                    if not reason_id:
+                        return Response({
+                            "status": status.HTTP_400_BAD_REQUEST,
+                            "message": "Reason is required for canceling a lead."
+                        }, status=status.HTTP_400_BAD_REQUEST)
+
+                    reason = LeadCustomersReason.objects.filter(pk=reason_id).first()
+                    if not reason:
+                        return Response({
+                            "status": status.HTTP_404_NOT_FOUND,
+                            "message": "Reason not found."
+                        }, status=status.HTTP_404_NOT_FOUND)
+
+                    LeadCustomersCancelReason.objects.create(
+                        customer_lead=customer_lead,
+                        reason=reason
                     )
-                    
-                    if instance.status == "cancel":
-                        cancel_reason = request.POST.get("cancel_reason")
-                    
-                        LeadCustomersCancelReason.objects.create(
-                            customer_lead=instance,
-                            reason=LeadCustomersReason.objects.get(pk=cancel_reason),
-                        )
-                        
-                    if instance.status == "closed":
-                        closed_remark = request.POST.get("closed_remark")
-                    
-                        LeadCustomersClosedRemark.objects.create(
-                            customer_lead=instance,
-                            remark=closed_remark,
-                        )
-                    
-                    status_code = status.HTTP_201_CREATED
-                    response_data = {
-                        "StatusCode": status_code,
-                        "status": status_code,
-                        "data": serializer.data,
-                    }
-                else:
-                    status_code = status.HTTP_400_BAD_REQUEST
-                    response_data = {
-                        "StatusCode": status_code,
-                        "status": status_code,
-                        "message": serializer.errors,
-                    }
-                        
-        except IntegrityError as e:
-            status_code = status.HTTP_400_BAD_REQUEST
-            response_data = {
-                "StatusCode": 400,
-                "status": status_code,
-                "title": "Failed",
-                "message": str(e),
-            }
+
+                if new_status == 'closed':
+                    remark = request.data.get("remark")
+                    if not remark:
+                        return Response({
+                            "status": status.HTTP_400_BAD_REQUEST,
+                            "message": "Remark is required for closing a lead."
+                        }, status=status.HTTP_400_BAD_REQUEST)
+
+                    LeadCustomersClosedRemark.objects.create(
+                        customer_lead=customer_lead,
+                        remark=remark
+                    )
+
+                return Response({
+                    "status": status.HTTP_200_OK,
+                    "message": f"Status updated to {new_status} successfully."
+                }, status=status.HTTP_200_OK)
 
         except Exception as e:
-            status_code = status.HTTP_400_BAD_REQUEST
-            response_data = {
-                "StatusCode": 400,
-                "status": status_code,
-                "title": "Failed",
-                "message": str(e),
-            }
-        
-        return Response(response_data, status=status_code)
+            return Response({
+                "status": status.HTTP_400_BAD_REQUEST,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)

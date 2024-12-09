@@ -789,7 +789,7 @@ def edit_customer(request,pk):
             previous_rate =cust_Data.rate
 
             if form.is_valid():
-                print("previous_rate",previous_rate)
+                # print("previous_rate",previous_rate)
                 data = form.save(commit=False)
                 data.emirate = data.location.emirate
                 data.save()
@@ -1067,31 +1067,44 @@ def visit_days_assign(request, customer_id):
 class CustomerRateHistoryListView(View):
     template_name = 'accounts/customer_rate_history.html'
 
-    def get(self, request, *args, **kwargs):
-        selected_route = request.GET.get('route_name')
+    def get(self, request, pk, *args, **kwargs):
+        customer_instance = Customers.objects.get(pk=pk)
+        customer_rate_instances = CustomerPriceChange.objects.filter(customer=customer_instance)
         
-        # Fetch all routes
-        routes = RouteMaster.objects.all()
-
-        # Fetch customer rate histories based on the selected route
-        if selected_route:
-            histories = CustomerRateHistory.objects.filter(customer__routes__route_name=selected_route).order_by('-created_date')
-        else:
-            histories = CustomerRateHistory.objects.all().order_by('-created_date')
-        
-        created_by = request.user.username
-        description = f"Viewed customer rate histories with route filter: {selected_route if selected_route else 'All'}"
-        log_activity(created_by, description)
+        new_rate_form = CustomerPriceChangeForm()
         
         context = {
-            'histories': histories,
-            'routes': routes,
-            'filter_data': {
-                'selected_route': selected_route,
-            },
+            "customer_instance": customer_instance,
+            "customer_rate_instances": customer_rate_instances,
+            "new_rate_form": new_rate_form,
         }
         return render(request, self.template_name, context)
     
+    def post(self, request, pk, *args, **kwargs):
+        customer_instance = Customers.objects.get(pk=pk)
+        
+        form = CustomerPriceChangeForm(data=request.POST)
+        
+        if form.is_valid():
+            data = form.save(commit=False)
+            data.created_by = str(request.user.id)
+            data.customer = customer_instance
+            data.save()
+            
+            customer_instance.rate=data.new_price
+            customer_instance.save()
+            
+            response_data = {
+                "status": "true",
+                "title": "Successfully Created",
+                "message": "Rate Updated successfully.",
+                'redirect': 'true',
+                "redirect_url": reverse('customer_rate_history', kwargs={'pk': pk})
+            }
+            return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+        else:
+            messages.error(request, 'Invalid form data. Please check the input.')
+       
 class NonVisitedCustomersView(View):
     template_name = 'accounts/non_visited_customers.html'
     paginate_by = 50  # Optional: For pagination, you can set this value

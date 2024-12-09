@@ -11,14 +11,14 @@ class Command(BaseCommand):
         date = datetime.datetime.strptime("2024-10-02", '%Y-%m-%d').date()
         # invoice_nos  = Invoice.objects.filter(created_date__date__lte=date,is_deleted=False).values_list("invoice_no")
         
-        supplies = CustomerSupply.objects.all()
-        for supply in supplies:
-            if supply.invoice_no != None and supply.customer.sales_type != "FOC":
-                if (invoices_instance:=Invoice.objects.filter(customer=supply.customer,invoice_no=supply.invoice_no,is_deleted=False)).exists():
-                    if supply.subtotal == supply.amount_recieved:
-                        invoices_instance.update(invoice_type="cash_invoice")
-                    else:
-                        invoices_instance.update(invoice_type="credit_invoive")
+        # supplies = CustomerSupply.objects.all()
+        # for supply in supplies:
+        #     if supply.invoice_no != None and supply.customer.sales_type != "FOC":
+        #         if (invoices_instance:=Invoice.objects.filter(customer=supply.customer,invoice_no=supply.invoice_no,is_deleted=False)).exists():
+        #             if supply.subtotal == supply.amount_recieved:
+        #                 invoices_instance.update(invoice_type="cash_invoice")
+        #             else:
+        #                 invoices_instance.update(invoice_type="credit_invoive")
                     
                     # # Create the invoice
                     # invoice = Invoice.objects.create(
@@ -93,7 +93,13 @@ class Command(BaseCommand):
                     #     customer=supply.customer,
                     #     invoice_number=",".join(invoice_numbers)
                     # )
-            
-            self.stdout.write(self.style.SUCCESS(f'Successfully updated {supply.invoice_no}'))
+        for invoice in Invoice.objects.filter(is_deleted=False):
+            if invoice.amout_total == invoice.amout_recieved:
+                invoice.invoice_status = "paid"
+            else:
+                invoice.invoice_status = "non_paid"
+            invoice.save()
+                
+            self.stdout.write(self.style.SUCCESS(f'Successfully updated {invoice.invoice_no}'))
             
         self.stdout.write(self.style.SUCCESS(f'Successfully updated all supplies are updated'))

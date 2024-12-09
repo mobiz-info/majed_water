@@ -3,6 +3,7 @@ import uuid
 import json
 import datetime
 import openpyxl
+
 from apiservices.views import delete_coupon_recharge
 from customer_care.models import DiffBottlesModel
 from invoice_management.models import Invoice, InvoiceDailyCollection, InvoiceItems
@@ -32,6 +33,7 @@ from rest_framework import status
 from django.template.loader import get_template
 from xhtml2pdf import pisa
 from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment
 from competitor_analysis.forms import CompetitorAnalysisFilterForm
 from django.db.models import Q
@@ -2126,48 +2128,80 @@ def customer_outstanding_list(request):
     return render(request, 'client_management/customer_outstanding/list.html', context)
 
 
-def export_to_excel(instances, date, total_outstanding_amount, total_outstanding_bottles, total_outstanding_coupons):
+def export_to_excel(instances, date, total_amount, total_bottles, total_coupons):
     """
-    Export outstanding list to Excel
+    Generate an Excel file for Customer Outstanding List.
+    :param instances: Queryset of Customers
+    :param date: Date filter
+    :param total_amount: Total outstanding amount
+    :param total_bottles: Total outstanding bottles
+    :param total_coupons: Total outstanding coupons
+    :return: Excel file response
     """
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename=Customer_Outstanding_{}.xlsx'.format(date)
-
-    workbook = openpyxl.Workbook()
+    # Create a workbook and active worksheet
+    workbook = Workbook()
     sheet = workbook.active
-    sheet.title = 'Customer Outstanding'
+    sheet.title = "Customer Outstanding List"
 
-    # Define header font
-    header_font = Font(bold=True)
+    # Header row
+    headers = [
+        "Sl No", "Customer ID", "Customer Name", "Building No", 
+        "Room/Floor No", "Route", "Outstanding Amount", 
+        "Outstanding Bottles", "Outstanding Coupons"
+    ]
+    for col_num, header in enumerate(headers, start=1):
+        col_letter = get_column_letter(col_num)
+        sheet[f"{col_letter}1"] = header
 
-    # Write headers
-    headers = ['Sl No', 'Customer ID', 'Customer Name', 'Building No', 'Room No/Floor No', 'Route', 'Outstanding Amount', 'Empty Can', 'Coupon']
-    for col_num, header in enumerate(headers, 1):
-        sheet.cell(row=1, column=col_num, value=header).font = header_font
+    # Add data rows
+    for index, customer in enumerate(instances, start=1):
+        outstanding_amount = OutstandingAmount.objects.filter(
+            customer_outstanding__customer=customer,
+            customer_outstanding__created_date__date__lte=date
+        ).aggregate(total=Sum('amount'))['total'] or 0
 
-    # Write data
-    for row_num, customer in enumerate(instances, 2):
-        outstanding_amount = get_outstanding_amount(customer.pk, date)
-        outstanding_bottles = get_outstanding_bottles(customer.pk, date)
-        outstanding_coupons = get_outstanding_coupons(customer.pk, date)
+        collection_amount = CollectionPayment.objects.filter(
+            customer=customer, created_date__date__lte=date
+        ).aggregate(total_received=Sum('amount_received'))['total_received'] or 0
 
-        sheet.cell(row=row_num, column=1, value=row_num - 1)
-        sheet.cell(row=row_num, column=2, value=customer.custom_id)
-        sheet.cell(row=row_num, column=3, value=customer.customer_name)
-        sheet.cell(row=row_num, column=4, value=customer.building_name)
-        sheet.cell(row=row_num, column=5, value=customer.door_house_no)
-        sheet.cell(row=row_num, column=6, value=customer.routes.route_name)
-        sheet.cell(row=row_num, column=7, value=outstanding_amount)
-        sheet.cell(row=row_num, column=8, value=outstanding_bottles)
-        sheet.cell(row=row_num, column=9, value=outstanding_coupons)
+        outstanding_amount -= collection_amount
+        outstanding_bottles = OutstandingProduct.objects.filter(
+            customer_outstanding__customer=customer,
+            customer_outstanding__created_date__date__lte=date
+        ).aggregate(total=Sum('empty_bottle'))['total'] or 0
 
-    # Write totals at the end
-    total_row = len(instances) + 2
-    sheet.cell(row=total_row, column=6, value='Total Outstanding Amount:').font = header_font
-    sheet.cell(row=total_row, column=7, value=total_outstanding_amount)
-    sheet.cell(row=total_row, column=8, value=total_outstanding_bottles)
-    sheet.cell(row=total_row, column=9, value=total_outstanding_coupons)
+        outstanding_coupons = OutstandingCoupon.objects.filter(
+            customer_outstanding__customer=customer,
+            customer_outstanding__created_date__date__lte=date
+        ).aggregate(total=Sum('count'))['total'] or 0
 
+        # Write data to the Excel file
+        row = [
+            index,
+            customer.custom_id,
+            customer.customer_name,
+            customer.building_name,
+            customer.door_house_no,
+            customer.routes.route_name,
+            outstanding_amount,
+            outstanding_bottles,
+            outstanding_coupons,
+        ]
+        for col_num, cell_value in enumerate(row, start=1):
+            sheet.cell(row=index + 1, column=col_num, value=cell_value)
+
+    # Footer row for totals
+    total_row_index = len(instances) + 2
+    sheet[f"F{total_row_index}"] = "Total:"
+    sheet[f"G{total_row_index}"] = total_amount
+    sheet[f"H{total_row_index}"] = total_bottles
+    sheet[f"I{total_row_index}"] = total_coupons
+
+    # Prepare the response
+    response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response['Content-Disposition'] = f'attachment; filename="Customer_Outstanding_{date}.xlsx"'
+
+    # Save the workbook to the response
     workbook.save(response)
     return response
 
@@ -2376,12 +2410,13 @@ def customer_outstanding_details(request,customer_pk):
     :return: Customer Outstanding list view
     """
     filter_data = {}
-    instances = CustomerOutstanding.objects.filter(customer__pk=customer_pk)
-    
     query = request.GET.get("q")
     date = request.GET.get('date')
     route_filter = request.GET.get('route_name')
+    product_type = request.GET.get('product_type', 'amount')
+    filter_data['product_type'] = product_type
     
+    instances = CustomerOutstanding.objects.filter(customer__pk=customer_pk,product_type=product_type)
     if date:
         date = datetime.strptime(date, '%Y-%m-%d').date()
         filter_data['filter_date'] = date.strftime('%Y-%m-%d')
@@ -3384,71 +3419,24 @@ def print_ageing_report_view(request):
     return render(request, 'client_management/print_ageing_report.html', context)
 
 from .templatetags.client_templatetags import get_customer_outstanding_aging
-import xlsxwriter
   
 def ageing_report_excel(request):
     route_name = request.GET.get('route', None)
-
-    selected_route = None
-    if route_name:
-        selected_route = get_object_or_404(RouteMaster, route_name=route_name)
-
-    ageing_data = get_customer_outstanding_aging(selected_route.route_name if selected_route else None)
-
+    selected_route = RouteMaster.objects.get(route_name=route_name) if route_name else None
+    aging_report = get_customer_outstanding_aging(selected_route)
+    
+    # Create DataFrame from the aging report data
+    df = pd.DataFrame(aging_report)
+    
+    # Create the HttpResponse object with the appropriate Excel header.
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="ageing_report.xlsx"'
-
-    workbook = xlsxwriter.Workbook(response, {'in_memory': True})
-    worksheet = workbook.add_worksheet()
-
-    headers = [
-        'Sl No', 'Customer Id', 'Customer Name',
-        'Less than 30 Days', '31-60 Days', '61-90 Days', '91-150 Days',
-        '151-365 Days', 'More than 365 Days', 'Grand Total'
-    ]
-
-    header_format = workbook.add_format({'bold': True, 'align': 'center', 'valign': 'vcenter', 'border': 1})
-    for col_num, header in enumerate(headers):
-        worksheet.write(0, col_num, header, header_format)
-
-    data_format = workbook.add_format({'border': 1})
-    numeric_format = workbook.add_format({'border': 1, 'num_format': '#,##0.00'})
-
-    for row_num, data in enumerate(ageing_data, start=1):
-        worksheet.write(row_num, 0, row_num, data_format)  
-        worksheet.write(row_num, 1, data.get('custom_id', ''), numeric_format)
-        worksheet.write(row_num, 2, data.get('customer_name', ''), data_format)
-        worksheet.write(row_num, 3, data.get('less_than_30', 0), numeric_format)
-        worksheet.write(row_num, 4, data.get('between_31_and_60', 0), numeric_format)
-        worksheet.write(row_num, 5, data.get('between_61_and_90', 0), numeric_format)
-        worksheet.write(row_num, 6, data.get('between_91_and_150', 0), numeric_format)
-        worksheet.write(row_num, 7, data.get('between_151_and_365', 0), numeric_format)
-        worksheet.write(row_num, 8, data.get('more_than_365', 0), numeric_format)
-        worksheet.write(row_num, 9, data.get('grand_total', 0), numeric_format)
-
-    totals = {
-        'less_than_30': sum(item.get('less_than_30', 0) for item in ageing_data),
-        'between_31_and_60': sum(item.get('between_31_and_60', 0) for item in ageing_data),
-        'between_61_and_90': sum(item.get('between_61_and_90', 0) for item in ageing_data),
-        'between_91_and_150': sum(item.get('between_91_and_150', 0) for item in ageing_data),
-        'between_151_and_365': sum(item.get('between_151_and_365', 0) for item in ageing_data),
-        'more_than_365': sum(item.get('more_than_365', 0) for item in ageing_data),
-        'grand_total': sum(item.get('grand_total', 0) for item in ageing_data),
-    }
-
-    total_row = len(ageing_data) + 1
-    worksheet.write(total_row, 2, 'TOTAL', header_format)
-    worksheet.write(total_row, 3, totals['less_than_30'], numeric_format)
-    worksheet.write(total_row, 4, totals['between_31_and_60'], numeric_format)
-    worksheet.write(total_row, 5, totals['between_61_and_90'], numeric_format)
-    worksheet.write(total_row, 6, totals['between_91_and_150'], numeric_format)
-    worksheet.write(total_row, 7, totals['between_151_and_365'], numeric_format)
-    worksheet.write(total_row, 8, totals['more_than_365'], numeric_format)
-    worksheet.write(total_row, 9, totals['grand_total'], numeric_format)
-
-    workbook.close()
+    
+    # Use Pandas Excel writer
+    with pd.ExcelWriter(response, engine='xlsxwriter') as writer:
+        df.to_excel(writer, sheet_name='Ageing Report', index=False)
+    
     return response
-
 
 @login_required
 def customer_outstanding_detail(request,customer_id):
@@ -3498,8 +3486,15 @@ def customer_outstanding_detail(request,customer_id):
 
     return render(request, 'client_management/customer_outstanding/customer_outstanding_list.html', context)
 
-def export_customer_outstanding_to_excel(request, customer_id):
-    instances = CustomerOutstanding.objects.filter(customer__pk=customer_id, product_type='amount')
+def export_customer_outstanding_to_excel(request):
+    instances = CustomerOutstanding.objects.filter(product_type='amount')
+    
+    if request.GET.get("customer_pk"):
+        instances = instances.filter(customer__pk=request.GET.get("customer_pk"))
+    if request.GET.get("route_name"):
+        instances = instances.filter(customer__routes__route_name=request.GET.get("route_name"))
+    if request.GET.get("date"):
+        instances = instances.filter(created_date__date__lte=datetime.strptime(request.GET.get("date"), '%Y-%m-%d').date())
     
     # Prepare data for the Excel file
     data = []
@@ -3941,4 +3936,189 @@ def customer_transaction_print(request):
         description="Viewed the customer transaction Print with filters applied."
     )
     return render(request, 'client_management/customer_transaction/customer_transaction_print.html', context)
+
+
+@login_required
+def eligible_customers_conditions(request):
+    instances = EligibleCustomerConditions.objects.all()
+    
+    context = {
+        'instances': instances,   
+        'page_title': 'Eligible Customer Conditions',
+    }
+    
+    return render(request,'client_management/eligible_customers/conditions_list.html',context)
+
+def create_eligible_customers_condition(request):
+    
+    message = ''
+    if request.method == 'POST':
+        form = EligibleCustomerConditionsForm(request.POST)
+        
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    instance = form.save(commit=False)
+                    instance.save()
+                    
+                    response_data = {
+                        "status": "true",
+                        "title": "Successfully Created",
+                        "message": "Condition created successfully.",
+                        'redirect': 'true',
+                        "redirect_url": reverse('eligible_customers_conditions')
+                    }
+                    
+            except IntegrityError as e:
+                # Handle database integrity error
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": str(e),
+                }
+
+            except Exception as e:
+                # Handle other exceptions
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": str(e),
+                }
+        else:
+            message = generate_form_errors(form,formset=False)
+            
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": message,
+            }
+
+        return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+    
+    else:
+        form = EligibleCustomerConditionsForm()
+        
+        context = {
+            'form': form,
+        
+            'page_title': 'Create Eligible Customer Conditions',
+        }
+        
+        return render(request,'client_management/eligible_customers/condition_create.html',context)
+
+
+@login_required
+def edit_eligible_customers_condition(request,pk):
+    """
+    edit operation of eligible_customers_condition
+    :param request:
+    :param pk:
+    :return:
+    """
+    instance = get_object_or_404(EligibleCustomerConditionsForm, pk=pk)
+        
+    message = ''
+    
+    if request.method == 'POST':
+        form = EligibleCustomerConditionsForm(request.POST,instance=instance)
+        
+        if form.is_valid() :
+            #create
+            data = form.save(commit=False)
+            data.save()
+            
+            response_data = {
+                "status": "true",
+                "title": "Successfully Updated",
+                "message": "invoice Updated Successfully.",
+                'redirect': 'true',
+                "redirect_url": reverse('eligible_customers_conditions'),
+                "return" : True,
+            }
+    
+        else:
+            message = generate_form_errors(form,formset=False)
+            
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": message
+            }
+
+        return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+                        
+    else:
+        form = EligibleCustomerConditionsForm(instance=instance)
+
+        context = {
+            'form': form,
+            
+            'message': message,
+            'page_name' : 'edit eligible condition',
+            'url' : reverse('edit_eligible_customers_condition', args=[instance.pk]),
+        }
+
+        return render(request, 'client_management/eligible_customers/condition_create.html', context)
+    
+def delete_eligible_customers_condition(request, pk):
+    """
+    deletion
+    :param request:
+    :param pk:
+    :return:
+    """
+    try:
+        with transaction.atomic():
+            instance = EligibleCustomerConditions.objects.get(pk=pk)            
+                
+            response_data = {
+                "status": "true",
+                "title": "Successfully Deleted",
+                "message": "eligible condition successfully deleted.",
+                "redirect": "true",
+                "redirect_url": reverse('eligible_customers_conditions'),
+            }
+            
+            return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+
+    except EligibleCustomerConditions.DoesNotExist:
+        response_data = {
+            "status": "false",
+            "title": "Failed",
+            "message": "Condition not found.",
+        }
+        return HttpResponse(json.dumps(response_data), status=status.HTTP_404_NOT_FOUND, content_type='application/javascript')
+
+    except Exception as e:
+        response_data = {
+            "status": "false",
+            "title": "Failed",
+            "message": str(e),
+        }
+        return HttpResponse(json.dumps(response_data), status=status.HTTP_500_INTERNAL_SERVER_ERROR, content_type='application/javascript')
+
+
+def eligible_customers(request):
+    # Fetch filters from request
+    from_date = request.GET.get('from_date', datetime.today().strftime('%Y-%m-%d'))
+    to_date = request.GET.get('to_date', datetime.today().strftime('%Y-%m-%d'))
+    route_name = request.GET.get('route_name', '')
+    
+    try:
+        from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
+        to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
+    except ValueError:
+        from_date = to_date = datetime.today().date()
+    
+    instances = CustomerCustodyStock.objects.filter(customer__routes__route_name=route_name) if route_name else CustomerCustodyStock.objects.all()
+
+    context = {
+        'instances': instances,
+        'routes': RouteMaster.objects.all(),
+        'from_date': from_date,
+        'to_date': to_date,
+        'route_name': route_name,
+    }
+
+    return render(request, 'client_management/customer_supply/eligible_customers.html', context)
 
