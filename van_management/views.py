@@ -35,7 +35,7 @@ from django.urls import reverse
 
 from .forms import BottleAllocationForm
 from django.db.models import Max
-
+from accounts.views import log_activity
 
 
 def get_van_coupon_bookno(request):
@@ -81,7 +81,11 @@ def van(request):
         route_names = [van_route.routes.route_name for van_route in van_routes]
         routes_assigned[van.van_id] = route_names
         
-    # print("Routes Assigned:", routes_assigned)  
+    # Log the activity for viewing van information
+    log_activity(
+        created_by=request.user,
+        description="Viewed all vans and their assigned routes."
+    )     
     context = {
         'all_van': all_van,
         'routes_assigned': routes_assigned,
@@ -99,9 +103,19 @@ def create_van(request):
             data.branch_id = request.user.branch_id
             data.created_by = str(request.user.id)
             data.save()
+            # Log successful van creation
+            log_activity(
+                created_by=request.user,
+                description=f"Van created successfully: {data.van_make}"
+            )
             messages.success(request, 'Van created successfully!')
             return redirect('van')
         else:
+            # Log failed attempt to create van
+            log_activity(
+                created_by=request.user,
+                description="Failed to create van due to invalid form data."
+            )
             messages.error(request, 'Invalid form data. Please check the input.')
     else:
         form = VanForm()
@@ -110,6 +124,11 @@ def create_van(request):
 
 def edit_van(request, van_id):
     van = get_object_or_404(Van, van_id=van_id)
+    # Log the initiation of the edit action
+    log_activity(
+        created_by=request.user,
+        description=f"Opened edit van form for {van.van_make} "
+    )
     if request.method == 'POST':
         form = EditVanForm(request.POST, instance=van)
         if form.is_valid():
@@ -118,6 +137,12 @@ def edit_van(request, van_id):
             data.modified_date = datetime.now()
             data.branch_id = request.user.branch_id
             data.save()
+            # Log successful edit
+            log_activity(
+                created_by=request.user,
+                description=f"Successfully edited van: {van.van_make} (ID: {van.van_id})."
+            )
+            
             return redirect('van')
     else:
         form = EditVanForm(instance=van)
@@ -125,6 +150,11 @@ def edit_van(request, van_id):
 
 def view_van(request, van_id):
     van = get_object_or_404(Van, van_id=van_id)
+    # Log the view activity
+    log_activity(
+        created_by=request.user,
+        description=f"Viewed details of van: {van.van_make}."
+    )
     return render(request, 'van_management/view_van.html', {'van': van})
 
 def delete_van(request, van_id):
@@ -132,6 +162,11 @@ def delete_van(request, van_id):
     if request.method == 'POST':
         van.delete()
         return redirect('van')
+    # Log the deletion action
+        log_activity(
+            created_by=request.user,
+            description=f"Deleted van: {van.van_make}"
+        )
     return render(request, 'master/confirm_delete.html', {'van': van})
 
 
