@@ -648,7 +648,10 @@ class PrintInactiveCustomerList(View):
                 customer.days_since_last_supply = days_since
                 customer.on_vacation = check_vacation_status(customer.pk)
                 filtered_customers.append(customer)
-
+        log_activity(
+            created_by=request.user,
+            description=f"Viewed inactive customer Print with filters: {filter_data}"
+        )
         # Set context for rendering template
         context = {
             'inactive_customers': filtered_customers,
