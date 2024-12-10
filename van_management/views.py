@@ -1029,6 +1029,11 @@ class ExpenseHeadList(View):
     def get(self, request, *args, **kwargs):
         expence_heads = ExpenseHead.objects.all()
         context = {'expence_heads':expence_heads}
+        # Log access to the ExpenseHead list view
+        log_activity(
+            created_by=request.user,
+            description=f"Viewed the list of Expense Heads"
+        )
         return render(request, self.template_name, context)
 
 
@@ -1040,16 +1045,30 @@ class ExpenseHeadAdd(View):
     def get(self, request, *args, **kwargs):
         form = self.form_class
         context = {'form': form}
+        # Log activity for viewing the add expense head page
+        log_activity(
+            created_by=request.user,
+            description=f"Accessed the 'Add Expense Head' page at {datetime.now()}"
+        )
         return render(request, self.template_name, context)
 
     def post(self, request, *args, **kwargs):
         form = self.form_class(request.POST)
         if form.is_valid:
-            form.save()
+            expense_head = form.save()
+            # Log activity for successfully adding an Expense Head
+            log_activity(
+                created_by=request.user,
+                description=f"Successfully added Expense Head '{expense_head.name}' at {datetime.now()}"
+            )
             return redirect('expensehead_list')
         else:
+            # Log activity for form validation failure
+            log_activity(
+                created_by=request.user,
+                description=f"Failed to add Expense Head due to validation errors at {datetime.now()}")
+            
             return render(request, self.template_name, {'form':form})
-        
 
 class ExpenseHeadEdit(View):
     template_name = 'van_management/expensehead_edit.html'
