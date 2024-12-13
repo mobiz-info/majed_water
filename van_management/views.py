@@ -81,11 +81,7 @@ def van(request):
         route_names = [van_route.routes.route_name for van_route in van_routes]
         routes_assigned[van.van_id] = route_names
         
-    # Log the activity for viewing van information
-    log_activity(
-        created_by=request.user,
-        description="Viewed all vans and their assigned routes."
-    ) 
+    # print("Routes Assigned:", routes_assigned)  
     context = {
         'all_van': all_van,
         'routes_assigned': routes_assigned,
@@ -137,11 +133,6 @@ def edit_van(request, van_id):
             data.modified_date = datetime.now()
             data.branch_id = request.user.branch_id
             data.save()
-            # Log successful edit
-            log_activity(
-                created_by=request.user,
-                description=f"Successfully edited van: {van.van_make}"
-            )
             return redirect('van')
         else:
             # Log form submission failure
@@ -251,7 +242,6 @@ def edit_assign(request, van_id):
     return render(request, 'van_management/edit_assign.html', {'form': form, 'van': van})
 
 
-
 def delete_assign(request, van_id):
     van = Van.objects.get(van_id=van_id)
     if request.method == 'POST':
@@ -264,6 +254,7 @@ def delete_assign(request, van_id):
             description=(
                 f"Deleted association for Van {van.van_make}"))
         return redirect('/van_assign')
+    
     return render(request, 'master/confirm_delete_assign.html', {'van': van})
 
 def route_assign(request,van_id):
@@ -1068,13 +1059,8 @@ class ExpenseHeadAdd(View):
             )
             return redirect('expensehead_list')
         else:
-            # Log activity for form validation failure
-            log_activity(
-                created_by=request.user,
-                description=f"Failed to add Expense Head due to validation errors at {datetime.now()}")
             return render(request, self.template_name, {'form':form})
-
-            
+        
 
 class ExpenseHeadEdit(View):
     template_name = 'van_management/expensehead_edit.html'
