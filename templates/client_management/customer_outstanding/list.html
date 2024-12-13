@@ -105,7 +105,11 @@
                                 {% load el_pagination_tags %}
                                 {% paginate 20 instances %}
                                 {% for customer in instances %}
-                                {% if outstanding_amount != 0 %}
+                                {% get_outstanding_amount customer.pk date as outstanding_amount %}
+                                {% get_outstanding_bottles customer.pk date as outstanding_bottles %}
+                                {% get_outstanding_coupons customer.pk date as outstanding_coupons %}
+                                
+                                {% if outstanding_amount != 0 or outstanding_bottles != 0 or outstanding_coupons != 0 %}
                                 <tr>
                                     <td>{{ forloop.counter }}</td>
                                     <td>{{ customer.custom_id }}</td>
@@ -114,18 +118,14 @@
                                     <td>{{ customer.door_house_no }}</td>
                                     <td>{{ customer.routes.route_name }}</td>
                                     {% if filter_data.product_type == 'amount' %}
-                                    {% get_outstanding_amount customer.pk date as outstanding_amount %}
                                     <td>{{ outstanding_amount }}</td>
                                     {% endif %}
                                     {% if filter_data.product_type == 'empty_can' %}
-                                    {% get_outstanding_bottles customer.pk date as outstanding_bottles %}
                                     <td>{{ outstanding_bottles }}</td>
                                     {% endif %}
                                     {% if filter_data.product_type == 'coupon' %}
-                                    {% get_outstanding_coupons customer.pk date as outstanding_coupons %}
                                     <td>{{ outstanding_coupons }}</td>
                                     {% endif %}
-
                                     <td class="text-center">
                                         <div class="g-2">
                                             <a href="{% url 'customer_outstanding_details' customer.pk %}?product_type={{ filter_data.product_type }}" class="btn btn-warning-light btn-sm" data-bs-toggle="tooltip" title="View">
@@ -152,9 +152,9 @@
                                     <td></td>
                                 </tr>
                             </tfoot>
-
                         </table>
                     </div>
+                    
                     {% get_pages %}
                     <div class="clearfix"></div>
                     <div class="row pagi my-3">

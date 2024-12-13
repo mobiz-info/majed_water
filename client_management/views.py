@@ -2058,6 +2058,7 @@ def customer_outstanding_list(request):
         outstanding_instances = outstanding_instances.filter(customer__pk=customer_pk)
         filter_data['customer_pk'] = customer_pk
 
+    
     if route_name:
         outstanding_instances = outstanding_instances.filter(customer__routes__route_name=route_name)
     else:
@@ -2072,6 +2073,7 @@ def customer_outstanding_list(request):
     # Fetch unique customer IDs from filtered outstanding instances
     customer_ids = outstanding_instances.values_list('customer__pk', flat=True).distinct()
     instances = Customers.objects.filter(pk__in=customer_ids)
+    
 
     # Initialize totals
     total_outstanding_amount = 0
@@ -4008,57 +4010,54 @@ def create_eligible_customers_condition(request):
 
 
 @login_required
-def edit_eligible_customers_condition(request,pk):
+def edit_eligible_customers_condition(request, pk):
     """
-    edit operation of eligible_customers_condition
-    :param request:
-    :param pk:
-    :return:
+    Edit operation for eligible customers condition.
     """
-    instance = get_object_or_404(EligibleCustomerConditionsForm, pk=pk)
-        
+    # Fetch the model instance
+    instance = get_object_or_404(EligibleCustomerConditions, pk=pk)
+
     message = ''
-    
+
     if request.method == 'POST':
-        form = EligibleCustomerConditionsForm(request.POST,instance=instance)
-        
-        if form.is_valid() :
-            #create
+        form = EligibleCustomerConditionsForm(request.POST, instance=instance)
+
+        if form.is_valid():
+            # Save the updated data
             data = form.save(commit=False)
             data.save()
-            
+
             response_data = {
                 "status": "true",
                 "title": "Successfully Updated",
-                "message": "invoice Updated Successfully.",
-                'redirect': 'true',
+                "message": "Invoice Updated Successfully.",
+                "redirect": "true",
                 "redirect_url": reverse('eligible_customers_conditions'),
-                "return" : True,
+                "return": True,
             }
-    
         else:
-            message = generate_form_errors(form,formset=False)
-            
+            message = generate_form_errors(form, formset=False)
+
             response_data = {
                 "status": "false",
                 "title": "Failed",
-                "message": message
+                "message": message,
             }
 
         return HttpResponse(json.dumps(response_data), content_type='application/javascript')
-                        
+
     else:
         form = EligibleCustomerConditionsForm(instance=instance)
 
         context = {
             'form': form,
-            
             'message': message,
-            'page_name' : 'edit eligible condition',
-            'url' : reverse('edit_eligible_customers_condition', args=[instance.pk]),
+            'page_name': 'Edit Eligible Condition',
+            'url': reverse('edit_eligible_customers_condition', args=[instance.pk]),
         }
 
         return render(request, 'client_management/eligible_customers/condition_create.html', context)
+
     
 def delete_eligible_customers_condition(request, pk):
     """
@@ -4069,7 +4068,8 @@ def delete_eligible_customers_condition(request, pk):
     """
     try:
         with transaction.atomic():
-            instance = EligibleCustomerConditions.objects.get(pk=pk)            
+            instance = get_object_or_404(EligibleCustomerConditions, pk=pk)
+            instance.delete()           
                 
             response_data = {
                 "status": "true",
@@ -4098,27 +4098,106 @@ def delete_eligible_customers_condition(request, pk):
         return HttpResponse(json.dumps(response_data), status=status.HTTP_500_INTERNAL_SERVER_ERROR, content_type='application/javascript')
 
 
+# def eligible_customers(request):
+#     # Fetch filters from request
+#     from_date = request.GET.get('from_date', datetime.today().strftime('%Y-%m-%d'))
+#     to_date = request.GET.get('to_date', datetime.today().strftime('%Y-%m-%d'))
+#     route_name = request.GET.get('route_name', '')
+    
+#     try:
+#         from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
+#         to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
+#     except ValueError:
+#         from_date = to_date = datetime.today().date()
+    
+#     instances = CustomerCustodyStock.objects.filter(customer__routes__route_name=route_name) if route_name else CustomerCustodyStock.objects.all()
+
+#     context = {
+#         'instances': instances,
+#         'routes': RouteMaster.objects.all(),
+#         'from_date': from_date,
+#         'to_date': to_date,
+#         'route_name': route_name,
+#     }
+
+#     return render(request, 'client_management/customer_supply/eligible_customers.html', context)
+
+
+
 def eligible_customers(request):
-    # Fetch filters from request
     from_date = request.GET.get('from_date', datetime.today().strftime('%Y-%m-%d'))
     to_date = request.GET.get('to_date', datetime.today().strftime('%Y-%m-%d'))
     route_name = request.GET.get('route_name', '')
-    
+    q = request.GET.get('q', '')  
+
     try:
         from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
         to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
     except ValueError:
         from_date = to_date = datetime.today().date()
-    
-    instances = CustomerCustodyStock.objects.filter(customer__routes__route_name=route_name) if route_name else CustomerCustodyStock.objects.all()
+
+    custody_items = CustomerCustodyStock.objects.all()
+    if route_name:
+        custody_items = custody_items.filter(customer__routes__route_name=route_name)
+    if q:
+        custody_items = custody_items.filter(customer__customer_name__icontains=q)
+
+    customers = (
+        custody_items.values('customer__custom_id','customer__customer_id', 'customer__customer_name', 'customer__mobile_no', 'customer__routes__route_name')
+        .distinct()
+    )
+
+    product_ids = custody_items.values_list('product_id', flat=True).distinct()
+    products = {p.id: p for p in ProdutItemMaster.objects.filter(id__in=product_ids)}
+    conditions = {
+        c.category_name_id: c for c in EligibleCustomerConditions.objects.filter(category_name__in=product_ids)
+    }
+
+    customers_data = []
+    serial_no = 1
+    for customer in customers:
+        customer_items = custody_items.filter(customer__customer_id=customer['customer__customer_id'])
+        product_totals = (
+            customer_items.values('product_id')
+            .annotate(total_quantity=Sum('quantity'))
+            .order_by('product_id')
+        )
+
+        eligibility_status = []
+        for product_total in product_totals:
+            product_id = product_total['product_id']
+            product = products.get(product_id)
+            condition = conditions.get(product_id)
+
+            if product and condition:
+                total_quantity = product_total['total_quantity'] or 0
+                is_eligible = total_quantity >= condition.moq
+                short_or_plus = total_quantity - condition.moq
+                eligibility_status.append({
+                    'product': product.product_name,
+                    'total_quantity': total_quantity,
+                    'eligible': is_eligible,
+                    'short_or_plus': short_or_plus,
+                    'moq': condition.moq,
+                    'serial_no': serial_no, 
+                })
+                serial_no += 1 
+                print("eligibility_status",eligibility_status)
+        customers_data.append({
+            'custom_id': customer['customer__custom_id'],
+            'customer_name': customer['customer__customer_name'],
+            'route': customer['customer__routes__route_name'] or "N/A",
+            'mobile_no': customer['customer__mobile_no'],
+            'eligibility_status': eligibility_status,
+        })
 
     context = {
-        'instances': instances,
+        'customers_data': customers_data,
         'routes': RouteMaster.objects.all(),
         'from_date': from_date,
         'to_date': to_date,
         'route_name': route_name,
+        'filter_data': request.GET,  
     }
 
     return render(request, 'client_management/customer_supply/eligible_customers.html', context)
-

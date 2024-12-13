@@ -466,7 +466,9 @@
                                     </tr>
                                     <tr>
                                         <th style="text-align:center;">Sl No</th>
+                                        <th style="text-align:left;" scope="col">Customer Code</th>
                                         <th style="text-align:left;" scope="col">Customer Name</th>
+                                        
                                         <th style="text-align:center;" scope="col">Total QTY</th>
                                         <th style="text-align:center;" scope="col">Rate</th>
                                         {% comment %} <th style="text-align:center;" scope="col">Vat</th> {% endcomment %}
@@ -483,6 +485,7 @@
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{forloop.counter}}</td>
                                         <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.custom_id}}</td>
                                         <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.customer_name}}</td>
+                                        
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}" >{{sale.get_total_supply_qty}}</td>
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.get_water_rate}}</td>
                                         {% comment %} <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.vat}}</td> {% endcomment %}
@@ -509,8 +512,8 @@
                                     {% for sale in recharge_credit_sales %}
                                     <tr>
                                         <td style="text-align:center;background-color:#ff9a44 !important;">{{forloop.counter}}</td>
-                                        <td style="background-color:#ff9a44 !important;">{{sale.customer.custom_id}}</td>
                                         <td style="background-color:#ff9a44 !important;">{{sale.customer.customer_name}}</td>
+                                        <td style="background-color:#ff9a44 !important;">{{sale.customer.custom_id}}</td>
                                         <td style="text-align:center;background-color:#ff9a44 !important;">1</td>
                                         <td style="text-align:center;background-color:#ff9a44 !important;">{{sale.display_coupon_rates}}</td>
                                         {% comment %} <td style="text-align:center;">0</td> {% endcomment %}
@@ -537,8 +540,8 @@
                                     {% for sale in other_credit_sales %}
                                     <tr>
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{forloop.counter}}</td>
-                                        <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.custom_id}}</td>
                                         <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.customer_name}}</td>
+                                        <td style="text-align:left;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.custom_id}}</td>
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}" >{{sale.get_total_supply_qty}}</td>
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.customer.get_water_rate}}</td>
                                         {% comment %} <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.vat}}</td> {% endcomment %}

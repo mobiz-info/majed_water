@@ -5384,6 +5384,7 @@ class CollectionAPI(APIView):
         # Filter CustomerSupply objects based on the user
         invoices_customer_pk = Invoice.objects.filter(invoice_status="non_paid",is_deleted=False).exclude(amout_total=0).values_list("customer__pk")
         collection = Customers.objects.filter(pk__in=invoices_customer_pk,sales_staff=user)
+        
         if customer_id:
             collection = collection.filter(pk=customer_id)
         if collection.exists():
@@ -10579,6 +10580,7 @@ class LeadCustomersCancelReasonsView(APIView):
         }
         
         return Response(response_data, status=status_code)
+    
     def post(self, request, *args, **kwargs):
         reason = request.data.get('reason')
 
@@ -10599,6 +10601,7 @@ class LeadCustomersCancelReasonsView(APIView):
         }
         
         return Response(response_data, status=status_code)
+    
     
 class LeadCustomersUpdateStatusView(APIView):
     authentication_classes = [BasicAuthentication]

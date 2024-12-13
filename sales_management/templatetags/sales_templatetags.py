@@ -1,7 +1,7 @@
 import datetime
 
 from django import template
-from django.db.models import Q, Sum, F, Avg
+from django.db.models import Q, Sum,F,Avg
 
 from client_management.models import CustomerCoupon, CustomerCouponItems, CustomerSupply, CustodyCustomItems, CustomerReturnItems
 from invoice_management.models import SuspenseCollection
