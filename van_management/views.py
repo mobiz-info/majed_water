@@ -81,11 +81,7 @@ def van(request):
         route_names = [van_route.routes.route_name for van_route in van_routes]
         routes_assigned[van.van_id] = route_names
         
-    # Log the activity for viewing van information
-    log_activity(
-        created_by=request.user,
-        description="Viewed all vans and their assigned routes."
-    )     
+    # print("Routes Assigned:", routes_assigned)  
     context = {
         'all_van': all_van,
         'routes_assigned': routes_assigned,
@@ -137,13 +133,13 @@ def edit_van(request, van_id):
             data.modified_date = datetime.now()
             data.branch_id = request.user.branch_id
             data.save()
-            # Log successful edit
+            return redirect('van')
+        else:
+            # Log form submission failure
             log_activity(
                 created_by=request.user,
-                description=f"Successfully edited van: {van.van_make} (ID: {van.van_id})."
+                description=f"Failed to edit van: {van.van_make}  due to invalid form data."
             )
-            
-            return redirect('van')
     else:
         form = EditVanForm(instance=van)
     return render(request, 'van_management/edit_van.html', {'form': form, 'van': van})
@@ -1063,12 +1059,8 @@ class ExpenseHeadAdd(View):
             )
             return redirect('expensehead_list')
         else:
-            # Log activity for form validation failure
-            log_activity(
-                created_by=request.user,
-                description=f"Failed to add Expense Head due to validation errors at {datetime.now()}")
-            
             return render(request, self.template_name, {'form':form})
+        
 
 class ExpenseHeadEdit(View):
     template_name = 'van_management/expensehead_edit.html'

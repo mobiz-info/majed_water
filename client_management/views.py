@@ -2058,6 +2058,7 @@ def customer_outstanding_list(request):
         outstanding_instances = outstanding_instances.filter(customer__pk=customer_pk)
         filter_data['customer_pk'] = customer_pk
 
+    
     if route_name:
         outstanding_instances = outstanding_instances.filter(customer__routes__route_name=route_name)
     else:
@@ -2072,6 +2073,7 @@ def customer_outstanding_list(request):
     # Fetch unique customer IDs from filtered outstanding instances
     customer_ids = outstanding_instances.values_list('customer__pk', flat=True).distinct()
     instances = Customers.objects.filter(pk__in=customer_ids)
+    
 
     # Initialize totals
     total_outstanding_amount = 0
@@ -4008,57 +4010,54 @@ def create_eligible_customers_condition(request):
 
 
 @login_required
-def edit_eligible_customers_condition(request,pk):
+def edit_eligible_customers_condition(request, pk):
     """
-    edit operation of eligible_customers_condition
-    :param request:
-    :param pk:
-    :return:
+    Edit operation for eligible customers condition.
     """
-    instance = get_object_or_404(EligibleCustomerConditionsForm, pk=pk)
-        
+    # Fetch the model instance
+    instance = get_object_or_404(EligibleCustomerConditions, pk=pk)
+
     message = ''
-    
+
     if request.method == 'POST':
-        form = EligibleCustomerConditionsForm(request.POST,instance=instance)
-        
-        if form.is_valid() :
-            #create
+        form = EligibleCustomerConditionsForm(request.POST, instance=instance)
+
+        if form.is_valid():
+            # Save the updated data
             data = form.save(commit=False)
             data.save()
-            
+
             response_data = {
                 "status": "true",
                 "title": "Successfully Updated",
-                "message": "invoice Updated Successfully.",
-                'redirect': 'true',
+                "message": "Invoice Updated Successfully.",
+                "redirect": "true",
                 "redirect_url": reverse('eligible_customers_conditions'),
-                "return" : True,
+                "return": True,
             }
-    
         else:
-            message = generate_form_errors(form,formset=False)
-            
+            message = generate_form_errors(form, formset=False)
+
             response_data = {
                 "status": "false",
                 "title": "Failed",
-                "message": message
+                "message": message,
             }
 
         return HttpResponse(json.dumps(response_data), content_type='application/javascript')
-                        
+
     else:
         form = EligibleCustomerConditionsForm(instance=instance)
 
         context = {
             'form': form,
-            
             'message': message,
-            'page_name' : 'edit eligible condition',
-            'url' : reverse('edit_eligible_customers_condition', args=[instance.pk]),
+            'page_name': 'Edit Eligible Condition',
+            'url': reverse('edit_eligible_customers_condition', args=[instance.pk]),
         }
 
         return render(request, 'client_management/eligible_customers/condition_create.html', context)
+
     
 def delete_eligible_customers_condition(request, pk):
     """
@@ -4069,7 +4068,8 @@ def delete_eligible_customers_condition(request, pk):
     """
     try:
         with transaction.atomic():
-            instance = EligibleCustomerConditions.objects.get(pk=pk)            
+            instance = get_object_or_404(EligibleCustomerConditions, pk=pk)
+            instance.delete()           
                 
             response_data = {
                 "status": "true",
@@ -4160,5 +4160,3 @@ def eligible_customers(request):
     }
 
     return render(request, 'client_management/customer_supply/eligible_customers.html', context)
-
-

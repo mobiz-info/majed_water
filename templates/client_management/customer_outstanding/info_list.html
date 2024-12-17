@@ -22,16 +22,9 @@
                             Outstanding Items
                         </div>
                         
-                        {% comment %} <div class="ms-auto">
-                            <a href="{% url 'excel_customer_outstanding' %}{% if customer_pk %}?customer_pk={{customer_pk}}{% endif %}">
+                        <div class="ms-auto">
+                            <a href="{% url 'create_customer_outstanding' %}{% if customer_pk %}?customer_pk={{customer_pk}}{% endif %}">
                                 <button type="button" class="btn btn-success btn-wave text-end d-flex me-4 my-auto"><i class="bi bi-plus-circle me-1"></i>Create</button>
-                            </a>
-                        </div> {% endcomment %}
-                        <div class="me-2">
-                            <a href="{% url 'customer_outstanding_list' %}?product_type={{ filter_data.product_type }}&q={{ filter_data.q|default_if_none:'' }}&route_name={{ filter_data.route_name|default_if_none:'' }}&date={{ filter_data.filter_date }}{% if customer_pk %}&customer_pk={{ customer_pk }}{% endif %}&export=excel" target="_blank">
-                                <button type="button" class="btn btn-warning btn-wave">
-                                    <i class="fas fa-file-excel"></i>Excel
-                                </button>
                             </a>
                         </div>
                         {% comment %} <div style="float:right;padding:10px 10px">

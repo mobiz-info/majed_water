@@ -17,4 +17,5 @@ class Command(BaseCommand):
             customer.sales_staff = sales_staff
             customer.save()
 
-        self.stdout.write(self.style.SUCCESS(f'Successfully updated username and password for customer ID {customer.customer_id}, {username}, {password}'))
+            self.stdout.write(self.style.WARNING(f'Successfully updated username and password for customer ID {customer.customer_id}'))
+        self.stdout.write(self.style.SUCCESS(f'All are completed'))

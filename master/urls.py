@@ -56,7 +56,11 @@ urlpatterns = [
     
     path('amount-change-customer-list/', AmountChangesCustomersList.as_view(), name='amount_change_customer_list'),
     path('amount-change-list/', AmountChangesList.as_view(), name='amount_change_list'),
+    
     path('create_outstanding_variation_invoice/', create_outstanding_variation_invoice, name='create_outstanding_variation_invoice'),
+    path('update_outstanding_variation_invoice/', update_outstanding_variation_invoice, name='update_outstanding_variation_invoice'),
+    path('create_outstanding_variation_outstanding/', create_outstanding_variation_outstanding, name='create_outstanding_variation_outstanding'),
+    path('update_outstanding_variation_outstanding/', update_outstanding_variation_outstanding, name='update_outstanding_variation_outstanding'),
     
    ]
 

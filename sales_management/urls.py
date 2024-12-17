@@ -131,6 +131,5 @@ urlpatterns = [
     path('monthly_sales_report/', monthly_sales_report, name='monthly_sales_report'),
     path('monthly_sales_report_print/', monthly_sales_report_print, name='monthly_sales_report_print'),
     
-    
     path('route_sales_report/', detailed_sales_report, name='route_sales_report'),
 ]

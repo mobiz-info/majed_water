@@ -26,7 +26,7 @@ from .forms import CashCustomerSaleForm, CreditCustomerSaleForm, CashCouponCusto
 from accounts.models import Customers
 import random
 import string
-from django.db.models import Sum, Avg
+from django.db.models import Sum
 from django.views.generic import View
 from django.shortcuts import render, redirect
 from django.db.models import Sum

@@ -1224,7 +1224,7 @@ def create_outstanding_variation_invoice(request):
                     category=product_item.category,
                     product_items=product_item,
                     invoice=invoice,
-                    rate=0
+                    rate=customer.get_water_rate()
                 )
                 
                 response_data = {
@@ -1232,7 +1232,159 @@ def create_outstanding_variation_invoice(request):
                     "title": "Successfully Created",
                     "message": "Invoice create successfully.",
                     'redirect': 'true',
-                    "redirect_url": f"{reverse('staff_issue_orders_list')}?customer_pk={customer.pk}"
+                    "redirect_url": f"{reverse('amount_change_list')}?customer_pk={customer.pk}"
+                }
+                    
+        except IntegrityError as e:
+            # Handle database integrity error
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+
+        except Exception as e:
+            # Handle other exceptions
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+                
+        return JsonResponse(response_data)
+    
+
+def create_outstanding_variation_outstanding(request):
+    if request.method == 'POST':
+        date = request.POST.get("date")
+        time = request.POST.get("time")
+        amount = request.POST.get("amount")
+        invoice_no = request.POST.get("invoice_no")
+        customer = Customers.objects.get(pk=request.POST.get("customer_id"))
+        
+        try:
+            with transaction.atomic():
+                customer_outstanding = CustomerOutstanding.objects.create(
+                    invoice_no=invoice_no,
+                    product_type="amount",
+                    customer=customer,
+                    created_by=request.user.pk,
+                    created_date=datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M"),
+                )
+                
+                OutstandingAmount.objects.create(
+                    customer_outstanding=customer_outstanding,
+                    amount=amount
+                )
+                
+                response_data = {
+                    "status": "true",
+                    "title": "Successfully Created",
+                    "message": "Outstanding create successfully.",
+                    'redirect': 'true',
+                    "redirect_url": f"{reverse('amount_change_list')}?customer_pk={customer.pk}"
+                }
+                    
+        except IntegrityError as e:
+            # Handle database integrity error
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+
+        except Exception as e:
+            # Handle other exceptions
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+                
+        return JsonResponse(response_data)
+    
+
+def update_outstanding_variation_invoice(request):
+    if request.method == 'POST':
+        date = request.POST.get("date")
+        time = request.POST.get("time")
+        amount = request.POST.get("amount")
+        invoice_no = request.POST.get("invoice_no")
+        amout_recieved = request.POST.get("received_amount")
+        invoice_status = request.POST.get("invoice_status")
+        customer = Customers.objects.get(pk=request.POST.get("customer_id"))
+        
+        try:
+            with transaction.atomic():
+                invoice = Invoice.objects.filter(customer=customer,invoice_no=invoice_no).update(
+                    invoice_no=invoice_no,
+                    invoice_status=invoice_status,
+                    created_date=datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M"),
+                    net_taxable=amount,
+                    amout_total=amount,
+                    amout_recieved=amout_recieved,
+                )
+                
+                product_item = ProdutItemMaster.objects.get(product_name="5 Gallon")
+                
+                InvoiceItems.objects.filter(invoice=invoice).update(
+                    category=product_item.category,
+                    product_items=product_item,
+                    rate=customer.get_water_rate()
+                )
+                
+                response_data = {
+                    "status": "true",
+                    "title": "Successfully Updated",
+                    "message": "Invoice Update successfully.",
+                    'redirect': 'true',
+                    "redirect_url": f"{reverse('amount_change_list')}?customer_pk={customer.pk}"
+                }
+                    
+        except IntegrityError as e:
+            # Handle database integrity error
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+
+        except Exception as e:
+            # Handle other exceptions
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+                
+        return JsonResponse(response_data)
+    
+
+def update_outstanding_variation_outstanding(request):
+    if request.method == 'POST':
+        date = request.POST.get("date")
+        time = request.POST.get("time")
+        amount = request.POST.get("amount")
+        invoice_no = request.POST.get("invoice_no")
+        customer = Customers.objects.get(pk=request.POST.get("customer_id"))
+        
+        try:
+            with transaction.atomic():
+                customer_outstanding = CustomerOutstanding.objects.filter(customer=customer,invoice_no=invoice_no).update(
+                    invoice_no=invoice_no,
+                    created_date=datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M"),
+                )
+                
+                OutstandingAmount.objects.filter(customer_outstanding=customer_outstanding).update(
+                    amount=amount
+                )
+                
+                response_data = {
+                    "status": "true",
+                    "title": "Successfully Updated",
+                    "message": "Outstanding Update successfully.",
+                    'redirect': 'true',
+                    "redirect_url": f"{reverse('amount_change_list')}?customer_pk={customer.pk}"
                 }
                     
         except IntegrityError as e:

@@ -403,7 +403,9 @@ class Customer_List(View):
             'filter_data': filter_data,
             'non_visit_reasons':non_visit_reasons
         }
-        
+
+
+
         return render(request, self.template_name, context)
 class Latest_Customer_List(View):
     template_name = 'accounts/latest_customer_list.html'
@@ -1072,6 +1074,11 @@ class CustomerRateHistoryListView(View):
         customer_rate_instances = CustomerPriceChange.objects.filter(customer=customer_instance)
         
         new_rate_form = CustomerPriceChangeForm()
+        # Log the activity for viewing customer rate history
+        log_activity(
+            created_by=request.user,
+            description=f"Viewed rate history for customer: {customer_instance.customer_name})"
+        )
         
         context = {
             "customer_instance": customer_instance,
@@ -1093,6 +1100,11 @@ class CustomerRateHistoryListView(View):
             
             customer_instance.rate=data.new_price
             customer_instance.save()
+            # Log the activity for rate update
+            log_activity(
+                created_by=request.user,
+                description=f"Updated rate for customer: {customer_instance.customer_name} (ID: {pk}) to {data.new_price}"
+            )
             
             response_data = {
                 "status": "true",
@@ -1103,6 +1115,12 @@ class CustomerRateHistoryListView(View):
             }
             return HttpResponse(json.dumps(response_data), content_type='application/javascript')
         else:
+            # Log the failed update attempt
+            log_activity(
+                created_by=request.user,
+                description=f"Failed to update rate for customer: {customer_instance.customer_name} (ID: {pk}) due to invalid form data"
+            )
+
             messages.error(request, 'Invalid form data. Please check the input.')
        
 class NonVisitedCustomersView(View):
