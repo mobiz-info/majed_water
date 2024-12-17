@@ -3845,7 +3845,7 @@ class create_customer_supply(APIView):
                                         customer=customer_supply.customer,
                                         product_type="coupons",
                                         created_by=request.user.id,
-                                        created_date=datetime.datetime.datetime.today()
+                                        created_date=datetime.today()
                                     )
                                     
                                     if (customer_coupon:=CustomerCouponStock.objects.filter(customer__pk=customer_supply_data['customer'],coupon_method="manual")).exists():
