@@ -2574,3 +2574,9 @@ class LeadCustomersReasonSerializer(serializers.ModelSerializer):
     class Meta:
         model = LeadCustomersReason
         fields = ['id','reason']
+        
+class CustomerAccountDeleteRequestSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CustomerAccountDeleteRequest
+        fields = ['id','customer','reason']

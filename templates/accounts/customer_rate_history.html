@@ -65,7 +65,8 @@
                                         <th style="text-align:center; !important width:5%;" scope="col">Sl.No</th>
                                         <th style="text-align:left; !important" scope="col">Created Date</th>
                                         <th style="text-align:left; !important" scope="col">Created By</th>
-                                        <th style="text-align:center; !important" scope="col">Rate</th>
+                                        <th style="text-align:center; !important" scope="col">Old Rate</th>
+                                        <th style="text-align:center; !important" scope="col">New Rate</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -74,6 +75,7 @@
                                             <td style="text-align:right;">{{ forloop.counter }}</td>
                                             <td style="text-align:left;">{{ customer_rate_instance.created_date|date:"d-m-Y" }}</td>
                                             <td style="text-align:left;">{{ customer_rate_instance.created_by }}</td>
+                                            <td style="text-align:left;">{{ customer_rate_instance.old_price }}</td>
                                             <td style="text-align:left;">{{ customer_rate_instance.new_price }}</td>
                                         </tr>
                                     {% endfor %}

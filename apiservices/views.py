@@ -3,6 +3,7 @@ import uuid
 import base64
 import datetime
 from datetime import datetime, date, time
+from datetime import timedelta
 
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
@@ -21,8 +22,9 @@ from django.contrib.auth import authenticate,login
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, HttpResponse
-from django.contrib.auth.hashers import make_password, check_password
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Sum, Value, DecimalField, Min
+from django.contrib.auth.hashers import make_password, check_password
 ######rest framwework section
 
 from rest_framework import status
@@ -43,11 +45,6 @@ from master.models import *
 from random import randint
 from datetime import datetime as dt
 from coupon_management.models import *
-from datetime import timedelta
-from django.utils import timezone
-from django.core.exceptions import ObjectDoesNotExist
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication
-from rest_framework.permissions import IsAuthenticated
 
 
 from accounts.models import *
@@ -3675,12 +3672,12 @@ class create_customer_supply(APIView):
                             customer_supply.van_emptycan_added = True
                             customer_supply.save()
                             
-                            if customer_supply.customer.customer_type == "WATCHMAN" :
-                                vanstock.foc += customer_supply.allocate_bottle_to_free
-                                
-                                customer_supply.van_foc_added = True
-                                customer_supply.save()
-                                
+                        if customer_supply.customer.customer_type == "WATCHMAN" or allocate_bottle_to_free > 0 :
+                            vanstock.foc += customer_supply.allocate_bottle_to_free
+                            
+                            customer_supply.van_foc_added = True
+                            customer_supply.save()
+                            
                         vanstock.save()
                         
                     else:
@@ -3848,7 +3845,7 @@ class create_customer_supply(APIView):
                                         customer=customer_supply.customer,
                                         product_type="coupons",
                                         created_by=request.user.id,
-                                        created_date=datetime.today()
+                                        created_date=datetime.datetime.datetime.today()
                                     )
                                     
                                     if (customer_coupon:=CustomerCouponStock.objects.filter(customer__pk=customer_supply_data['customer'],coupon_method="manual")).exists():
@@ -5019,7 +5016,7 @@ class CustodyItemReturnAPI(APIView):
             vanstock.return_count += quantity
             vanstock.save()
             
-            # date_part = datetime.today().strftime('%Y%m%d')
+            # date_part = datetime.datetime.today().strftime('%Y%m%d')
             # try:
             #     invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
             #     last_invoice_number = invoice_last_no.invoice_no
@@ -5531,11 +5528,17 @@ class AddCollectionPayment(APIView):
                 invoice_numbers.append(invoice.invoice_no)
                 # Calculate the amount due for this invoice
                 due_amount = invoice.amout_total - invoice.amout_recieved
+                payment_amount = due_amount
                 
                 # If remaining_amount is greater than zero and there is still due amount for the current invoice
                 if remaining_amount != Decimal('0') and due_amount != Decimal('0'):
                     # Calculate the payment amount for this invoice
-                    payment_amount = min(due_amount, remaining_amount)
+                    if due_amount < 0 or due_amount == remaining_amount:
+                        payment_amount = due_amount
+                    elif due_amount > remaining_amount:
+                        payment_amount = due_amount - remaining_amount
+                    elif due_amount > remaining_amount:
+                        payment_amount = remaining_amount - due_amount
                     
                     # Update the invoice balance and amount received
                     invoice.amout_recieved += payment_amount
@@ -5554,8 +5557,9 @@ class AddCollectionPayment(APIView):
                         outstanding_instance.value -= payment_amount
                         outstanding_instance.save()
                     
-                    # Update the remaining amount
-                    remaining_amount -= payment_amount
+                    if payment_amount > 0:
+                        # Update the remaining amount
+                        remaining_amount -= payment_amount
                     
                     # If the invoice is fully paid, update its status
                     if invoice.amout_recieved == invoice.amout_total:
@@ -10681,3 +10685,52 @@ class LeadCustomersUpdateStatusView(APIView):
                 "status": status.HTTP_400_BAD_REQUEST,
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
+            
+
+class CustomerAccountDeleteRequestView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        serializer = CustomerAccountDeleteRequestSerializer(data=request.data, context={'request': request})
+        try:
+            with transaction.atomic():
+                if serializer.is_valid():
+                    
+                    instance = serializer.save(
+                        created_by=request.user.pk,
+                    )
+                    
+                    status_code = status.HTTP_201_CREATED
+                    response_data = {
+                        "StatusCode": status_code,
+                        "status": status_code,
+                        "data": serializer.data,
+                    }
+                else:
+                    status_code = status.HTTP_400_BAD_REQUEST
+                    response_data = {
+                        "StatusCode": status_code,
+                        "status": status_code,
+                        "message": serializer.errors,
+                    }
+                        
+        except IntegrityError as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "StatusCode": 400,
+                "status": status_code,
+                "title": "Failed",
+                "message": str(e),
+            }
+
+        except Exception as e:
+            status_code = status.HTTP_400_BAD_REQUEST
+            response_data = {
+                "StatusCode": 400,
+                "status": status_code,
+                "title": "Failed",
+                "message": str(e),
+            }
+        
+        return Response(response_data, status=status_code)

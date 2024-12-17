@@ -108,6 +108,7 @@
                                 <th scope="col" class="text-left">Customer Type</th>
                                 <th scope="col" class="text-left">Salesman Name</th>
                                 <th scope="col" class="text-center">Total Supply</th>
+                                <th scope="col" class="text-center">FOC</th>
                                 <th scope="col" class="text-center">Collected</th>
                                 <th scope="col" class="text-center">Supply Type</th>
                                 {% comment %} <th scope="col" class="text-center">Discount</th>
@@ -129,6 +130,7 @@
                                     <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.customer.get_sales_type_display}}</td>
                                      <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.salesman.get_fullname}}</td>
                                     <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.get_total_supply_qty}}</td>
+                                    <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.allocate_bottle_to_free}}</td>
                                     <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.collected_empty_bottle}}</td>
                                     <td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{% if instance.subtotal == instance.amount_recieved %} Paid {% else %} Non Paid {% endif %}</td>
                                     {% comment %}<td class="text-center" {% if instance.is_edited %}style="background-color:#c0dfdf !important;"{% endif %}>{{instance.discount}}</td>

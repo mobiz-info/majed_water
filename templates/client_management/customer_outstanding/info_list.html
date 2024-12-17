@@ -51,7 +51,7 @@
                                         <label for="date">Date:</label>
                                         <input type="date" class="form-control" id="date" name="date" value="{{ filter_data.filter_date }}">
                                     </div>
-                                    <div class="col-3">
+                                    {% comment %} <div class="col-3">
                                         <label for="product">Routes :</label>
                                         <select name="route_name" class="form-select">
                                             <option value="">All Routes</option>
@@ -59,7 +59,7 @@
                                                 <option value="{{ route.route_name }}"  {% if route.route_name == filter_data.route_name %}selected{% endif %}>{{ route.route_name }}</option>
                                             {% endfor %}
                                         </select>
-                                    </div>
+                                    </div> {% endcomment %}
                                     <div class="col-3">
                                         <label for="product">Product Items :</label>
                                         <select name="product_type" class="form-select me-2">

@@ -11,7 +11,7 @@ from van_management.models import *
 from decimal import Decimal
 
 from django.views import View
-from django.db.models import Q, Sum, Count, DecimalField, F, IntegerField, Value
+from django.db.models import Q, Sum, Count, DecimalField, F, IntegerField, Value, Case, When, Value, CharField
 from django.urls import reverse
 from django.contrib import messages
 from django.db import transaction, IntegrityError
@@ -2427,9 +2427,9 @@ def customer_outstanding_details(request,customer_pk):
         date = datetime.today().date()
         filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
-    if route_filter:
-            instances = instances.filter(customer__routes__route_name=route_filter)
-    route_li = RouteMaster.objects.all()
+    # if route_filter:
+    #         instances = instances.filter(customer__routes__route_name=route_filter)
+    # route_li = RouteMaster.objects.all()
     
     if query:
 
@@ -2444,12 +2444,11 @@ def customer_outstanding_details(request,customer_pk):
         'instances': instances.order_by("-created_date"),
         'page_name' : 'Customer Outstanding List',
         'page_title' : 'Customer Outstanding List',
-        'customer_pk': request.GET.get("customer_pk"),
+        'customer_pk': customer_pk,
         
         'is_customer_outstanding': True,
         'is_need_datetime_picker': True,
         'filter_data': filter_data,
-        'route_li':route_li,
     }
 
     return render(request, 'client_management/customer_outstanding/info_list.html', context)
@@ -2645,7 +2644,6 @@ def create_customer_outstanding(request):
                     outstanding_data.created_by = request.user.id
                     outstanding_data.created_date = datetime.today()
                     if customer_pk :
-                        print("custo_pk")
                         outstanding_data.customer = Customers.objects.get(pk=customer_pk)
                     outstanding_data.save()
                     
@@ -2764,11 +2762,8 @@ def create_customer_outstanding(request):
                                 value=outstanding_coupon.count,
                                 customer=outstanding_data.customer
                             ) 
-                                        
-                    if not customer_pk:
-                        redirect_url = reverse('customer_outstanding_list')
-                    else:
-                        redirect_url = reverse('customer_outstanding_list') + f'?customer_pk={customer_pk}'
+                                    
+                    redirect_url = reverse('customer_outstanding_list') + f'?product_type={outstanding_data.product_type}&route_name={outstanding_data.customer.routes.route_name}'
                         
                     response_data = {
                         "status": "true",
@@ -4098,106 +4093,67 @@ def delete_eligible_customers_condition(request, pk):
         return HttpResponse(json.dumps(response_data), status=status.HTTP_500_INTERNAL_SERVER_ERROR, content_type='application/javascript')
 
 
-# def eligible_customers(request):
-#     # Fetch filters from request
-#     from_date = request.GET.get('from_date', datetime.today().strftime('%Y-%m-%d'))
-#     to_date = request.GET.get('to_date', datetime.today().strftime('%Y-%m-%d'))
-#     route_name = request.GET.get('route_name', '')
-    
-#     try:
-#         from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
-#         to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
-#     except ValueError:
-#         from_date = to_date = datetime.today().date()
-    
-#     instances = CustomerCustodyStock.objects.filter(customer__routes__route_name=route_name) if route_name else CustomerCustodyStock.objects.all()
-
-#     context = {
-#         'instances': instances,
-#         'routes': RouteMaster.objects.all(),
-#         'from_date': from_date,
-#         'to_date': to_date,
-#         'route_name': route_name,
-#     }
-
-#     return render(request, 'client_management/customer_supply/eligible_customers.html', context)
 
 
+from datetime import datetime
+from django.utils.timezone import now
+import calendar
 
 def eligible_customers(request):
     from_date = request.GET.get('from_date', datetime.today().strftime('%Y-%m-%d'))
     to_date = request.GET.get('to_date', datetime.today().strftime('%Y-%m-%d'))
-    route_name = request.GET.get('route_name', '')
-    q = request.GET.get('q', '')  
+    month_filter = request.GET.get('month_filter', '')
+    route_name = request.GET.get('route_name')
+    custody_filter = request.GET.get('custody')
+    status_filter = request.GET.get('status')
+    
+    today = now().date()
+    if month_filter and month_filter != 'custom':
+        # Calculate first and last day of the selected month
+        year = today.year
+        first_day = datetime(year, int(month_filter), 1).date()
+        last_day = datetime(year, int(month_filter), calendar.monthrange(year, int(month_filter))[1]).date()
+        from_date = first_day.strftime('%Y-%m-%d')  
+        to_date = last_day.strftime('%Y-%m-%d') 
 
-    try:
-        from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
-        to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
-    except ValueError:
-        from_date = to_date = datetime.today().date()
+    custody_items = CustomerCustodyStock.objects.exclude(product__product_name="5 Gallon")
 
-    custody_items = CustomerCustodyStock.objects.all()
     if route_name:
         custody_items = custody_items.filter(customer__routes__route_name=route_name)
-    if q:
-        custody_items = custody_items.filter(customer__customer_name__icontains=q)
-
-    customers = (
-        custody_items.values('customer__custom_id','customer__customer_id', 'customer__customer_name', 'customer__mobile_no', 'customer__routes__route_name')
-        .distinct()
-    )
-
-    product_ids = custody_items.values_list('product_id', flat=True).distinct()
-    products = {p.id: p for p in ProdutItemMaster.objects.filter(id__in=product_ids)}
-    conditions = {
-        c.category_name_id: c for c in EligibleCustomerConditions.objects.filter(category_name__in=product_ids)
-    }
-
-    customers_data = []
-    serial_no = 1
-    for customer in customers:
-        customer_items = custody_items.filter(customer__customer_id=customer['customer__customer_id'])
-        product_totals = (
-            customer_items.values('product_id')
-            .annotate(total_quantity=Sum('quantity'))
-            .order_by('product_id')
-        )
-
-        eligibility_status = []
-        for product_total in product_totals:
-            product_id = product_total['product_id']
-            product = products.get(product_id)
-            condition = conditions.get(product_id)
-
-            if product and condition:
-                total_quantity = product_total['total_quantity'] or 0
-                is_eligible = total_quantity >= condition.moq
-                short_or_plus = total_quantity - condition.moq
-                eligibility_status.append({
-                    'product': product.product_name,
-                    'total_quantity': total_quantity,
-                    'eligible': is_eligible,
-                    'short_or_plus': short_or_plus,
-                    'moq': condition.moq,
-                    'serial_no': serial_no, 
-                })
-                serial_no += 1 
-                print("eligibility_status",eligibility_status)
-        customers_data.append({
-            'custom_id': customer['customer__custom_id'],
-            'customer_name': customer['customer__customer_name'],
-            'route': customer['customer__routes__route_name'] or "N/A",
-            'mobile_no': customer['customer__mobile_no'],
-            'eligibility_status': eligibility_status,
+    if custody_filter:
+        custody_items = custody_items.filter(product__product_name=custody_filter)
+    # Generate eligibility status dynamically
+    custody_data = []
+    for custody_item in custody_items:
+        eligibility = custody_item.get_eligibility_status(from_date, to_date)
+        custody_data.append({
+            "customer_code": custody_item.customer.custom_id,
+            "customer_name": custody_item.customer.customer_name,
+            "customer_route": custody_item.customer.routes.route_name ,
+            "customer_mob_no": custody_item.customer.mobile_no ,
+            "customer_product_name": custody_item.product.product_name,
+            "eligibility_status": eligibility.get("status"),
+            "supply_count": eligibility.get("supply_count"),
+            "condition_count": eligibility.get("condition_count"),
+            "eligible_count": eligibility.get("eligible_count"),
         })
+        
+    if status_filter:
+        custody_data = [item for item in custody_data if item['eligibility_status'] == status_filter]
 
+    routes = RouteMaster.objects.all()
+    item = ProdutItemMaster.objects.exclude(product_name="5 Gallon").exclude(category__category_name="Coupons")
+    
     context = {
-        'customers_data': customers_data,
-        'routes': RouteMaster.objects.all(),
+        'instances': custody_data,  # Pass the processed data
+        'routes': routes,
         'from_date': from_date,
         'to_date': to_date,
         'route_name': route_name,
-        'filter_data': request.GET,  
+        'custody_filter': custody_filter,
+        'status_filter': status_filter,
+        'item': item,
+        'month_filter': month_filter,
     }
 
     return render(request, 'client_management/customer_supply/eligible_customers.html', context)
