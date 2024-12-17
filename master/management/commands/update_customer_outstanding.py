@@ -12,7 +12,7 @@ from product.models import ProdutItemMaster
 from sales_management.models import CollectionPayment
 
 # Read the Excel file
-file_path = '/home/ra/Downloads/S-12Bout.xlsx'
+file_path = 'C:/Users/hp/Downloads/v3outstandinglist.xlsx'
 data = pd.read_excel(file_path)
 print("File path:", file_path)
 print("DataFrame columns:", data.columns)
@@ -30,11 +30,11 @@ if 'amount' not in data.columns:
 
 @transaction.atomic
 def populate_models_from_excel(data):
-    user = CustomUser.objects.get(username="S-12B")
-    date = datetime.strptime("2024-11-30", '%Y-%m-%d')
+    user = CustomUser.objects.get(username="zeeshan")
+    date = datetime.strptime("2024-12-09", '%Y-%m-%d')
     
-    # outstanding_in = CustomerOutstanding.objects.filter(created_date__date__lte=date,customer__routes__route_name="S-12B",product_type='amount')
-    # Invoice.objects.filter(created_date__date__lte=date,customer__routes__route_name="S-12B").delete()
+    # outstanding_in = CustomerOutstanding.objects.filter(created_date_datelte=date,customerroutes_route_name="v3",product_type='amount')
+    # Invoice.objects.filter(created_date_datelte=date,customerroutes_route_name="v3").delete()
     # for outstanding in outstanding_in:
         
     #     ou_report = CustomerOutstandingReport.objects.get(
@@ -44,7 +44,7 @@ def populate_models_from_excel(data):
     #     ou_report.value -= OutstandingAmount.objects.get(customer_outstanding=outstanding).amount
         
     # outstanding_in.delete()
-    # CollectionPayment.objects.filter(created_date__date__lte=date,customer__routes__route_name="S-12B").delete()
+    # CollectionPayment.objects.filter(created_date_datelte=date,customerroutes_route_name="v3").delete()
     
     for index, row in data.iterrows():
         customer_id = int(row['customer_id'])
@@ -54,7 +54,7 @@ def populate_models_from_excel(data):
         
         if isinstance(str_date, str):
             str_date = str_date.split()[0]  # Take only the date part if it includes time
-        date = datetime.strptime(str_date, '%Y-%m-%d')
+        date = datetime.strptime("2024-12-09", '%Y-%m-%d')
         
         # Get or create customer
         try:
@@ -138,7 +138,7 @@ def populate_models_from_excel(data):
         
         # for route in routes:
         #     branch = BranchMaster.objects.get(user_id__username="ajman")
-        # routes = RouteMaster.objects.get(route_name="S-12B")
+        # routes = RouteMaster.objects.get(route_name="v3")
         # customer.routes=routes
         # customer.branch_id=routes.branch_id
         # customer.save()

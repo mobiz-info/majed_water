@@ -4098,27 +4098,67 @@ def delete_eligible_customers_condition(request, pk):
         return HttpResponse(json.dumps(response_data), status=status.HTTP_500_INTERNAL_SERVER_ERROR, content_type='application/javascript')
 
 
+from datetime import datetime
+from django.utils.timezone import now
+import calendar
+
 def eligible_customers(request):
-    # Fetch filters from request
     from_date = request.GET.get('from_date', datetime.today().strftime('%Y-%m-%d'))
     to_date = request.GET.get('to_date', datetime.today().strftime('%Y-%m-%d'))
-    route_name = request.GET.get('route_name', '')
+    month_filter = request.GET.get('month_filter', '')
+    route_name = request.GET.get('route_name')
+    custody_filter = request.GET.get('custody')
+    status_filter = request.GET.get('status')
     
-    try:
-        from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
-        to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
-    except ValueError:
-        from_date = to_date = datetime.today().date()
-    
-    instances = CustomerCustodyStock.objects.filter(customer__routes__route_name=route_name) if route_name else CustomerCustodyStock.objects.all()
+    today = now().date()
+    if month_filter and month_filter != 'custom':
+        # Calculate first and last day of the selected month
+        year = today.year
+        first_day = datetime(year, int(month_filter), 1).date()
+        last_day = datetime(year, int(month_filter), calendar.monthrange(year, int(month_filter))[1]).date()
+        from_date = first_day.strftime('%Y-%m-%d')  
+        to_date = last_day.strftime('%Y-%m-%d') 
 
+    custody_items = CustomerCustodyStock.objects.exclude(product__product_name="5 Gallon")
+
+    if route_name:
+        custody_items = custody_items.filter(customer__routes__route_name=route_name)
+    if custody_filter:
+        custody_items = custody_items.filter(product__product_name=custody_filter)
+    # Generate eligibility status dynamically
+    custody_data = []
+    for custody_item in custody_items:
+        eligibility = custody_item.get_eligibility_status(from_date, to_date)
+        custody_data.append({
+            "customer_code": custody_item.customer.custom_id,
+            "customer_name": custody_item.customer.customer_name,
+            "customer_route": custody_item.customer.routes.route_name ,
+            "customer_mob_no": custody_item.customer.mobile_no ,
+            "customer_product_name": custody_item.product.product_name,
+            "eligibility_status": eligibility.get("status"),
+            "supply_count": eligibility.get("supply_count"),
+            "condition_count": eligibility.get("condition_count"),
+            "eligible_count": eligibility.get("eligible_count"),
+        })
+        
+    if status_filter:
+        custody_data = [item for item in custody_data if item['eligibility_status'] == status_filter]
+
+    routes = RouteMaster.objects.all()
+    item = ProdutItemMaster.objects.exclude(product_name="5 Gallon").exclude(category__category_name="Coupons")
+    
     context = {
-        'instances': instances,
-        'routes': RouteMaster.objects.all(),
+        'instances': custody_data,  # Pass the processed data
+        'routes': routes,
         'from_date': from_date,
         'to_date': to_date,
         'route_name': route_name,
+        'custody_filter': custody_filter,
+        'status_filter': status_filter,
+        'item': item,
+        'month_filter': month_filter,
     }
 
     return render(request, 'client_management/customer_supply/eligible_customers.html', context)
+
 
