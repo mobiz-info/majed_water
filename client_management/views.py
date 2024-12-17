@@ -4093,11 +4093,31 @@ def delete_eligible_customers_condition(request, pk):
         return HttpResponse(json.dumps(response_data), status=status.HTTP_500_INTERNAL_SERVER_ERROR, content_type='application/javascript')
 
 
+# def eligible_customers(request):
+#     # Fetch filters from request
+#     from_date = request.GET.get('from_date', datetime.today().strftime('%Y-%m-%d'))
+#     to_date = request.GET.get('to_date', datetime.today().strftime('%Y-%m-%d'))
+#     route_name = request.GET.get('route_name', '')
+    
+#     try:
+#         from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
+#         to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
+#     except ValueError:
+#         from_date = to_date = datetime.today().date()
+    
+#     instances = CustomerCustodyStock.objects.filter(customer__routes__route_name=route_name) if route_name else CustomerCustodyStock.objects.all()
+
+#     context = {
+#         'instances': instances,
+#         'routes': RouteMaster.objects.all(),
+#         'from_date': from_date,
+#         'to_date': to_date,
+#         'route_name': route_name,
+#     }
+
+#     return render(request, 'client_management/customer_supply/eligible_customers.html', context)
 
 
-from datetime import datetime
-from django.utils.timezone import now
-import calendar
 
 def eligible_customers(request):
     from_date = request.GET.get('from_date', datetime.today().strftime('%Y-%m-%d'))
