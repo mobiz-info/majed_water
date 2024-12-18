@@ -3673,6 +3673,7 @@ class create_customer_supply(APIView):
                             customer_supply.save()
                             
                         if customer_supply.customer.customer_type == "WATCHMAN" or allocate_bottle_to_free > 0 :
+                            vanstock.stock -= customer_supply.allocate_bottle_to_free
                             vanstock.foc += customer_supply.allocate_bottle_to_free
                             
                             customer_supply.van_foc_added = True
@@ -5921,11 +5922,12 @@ class CollectionReportAPI(APIView):
             start_date = datetime.today().date()
             end_date = datetime.today().date()
         salesman=request.user
-        print("salesman",salesman)    
+        # print("salesman",salesman)    
         instances = CollectionPayment.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,salesman=request.user)
         serialized_data = CollectionReportSerializer(instances, many=True).data
         
-        total_collected_amount = CollectionItems.objects.filter(collection_payment__pk__in=instances.values_list('pk')).aggregate(total=Sum('amount_received', output_field=DecimalField()))['total'] or 0
+        # total_collected_amount = CollectionItems.objects.filter(collection_payment__pk__in=instances.values_list('pk')).aggregate(total=Sum('amount_received', output_field=DecimalField()))['total'] or 0
+        total_collected_amount = instances.aggregate(total=Sum('amount_received', output_field=DecimalField()))['total'] or 0
         return Response({
             'status': True,
             'data': serialized_data,
