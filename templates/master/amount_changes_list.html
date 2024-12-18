@@ -3,6 +3,7 @@
 {% block content %}
 {% load static %}
 {% load bottle_customer_stock %}
+{% load accumulation_tags %}
 <!-- End::app-sidebar -->
 <!-- Page Header -->
 <div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
@@ -32,6 +33,8 @@
                         </div>
                     </div>
 
+                    {% load accumulation_tags %}
+
                     <div class="card-body">
                         <table class="table table-bordered text-nowrap" style="width:100%">
                             <thead>
@@ -46,61 +49,73 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                {% reset_totals %}
                                 {% for instance in instances %}
                                 <tr>
                                     <td style="text-align:right;">{{ forloop.counter }}</td>
                                     <td style="text-align:left;">{{ instance }}</td>
-                                    
+                    
                                     {% get_supply customer instance as supplys %}
                                     <td style="text-align:left;">
                                         {% if supplys %}
                                             {% for s in supplys %}
-                                                {{ s.subtotal }} - {{ s.invoice_no }} - recive: {{ s.amount_recieved }} - status :{% if s.subtotal == s.amount_recieved %} Paid {% else %} Non Paid {% endif %}<br>
+                                                {{ s.subtotal }} - {{ s.invoice_no }} - recive: {{ s.amount_recieved }} - status :
+                                                {% if s.subtotal == s.amount_recieved %} Paid {% else %} Non Paid {% endif %}
+                                                {% add_to_total 'supply' s.subtotal %}
+                                                <br>
                                             {% endfor %}
                                         {% else %}
                                             -
                                         {% endif %}
                                     </td>
-                                    
+                    
                                     {% get_coupon customer instance as coupons %}
                                     <td style="text-align:left;">
                                         {% if coupons %}
                                             {% for c in coupons %}
-                                                {{ c.total_payeble }} - {{ c.invoice_no }}<br>
+                                                {{ c.total_payeble }} - {{ c.invoice_no }}
+                                                {% add_to_total 'coupon' c.total_payeble %}
+                                                <br>
                                             {% endfor %}
                                         {% else %}
                                             -
                                         {% endif %}
                                     </td>
-                                    
+                    
                                     {% get_outstanding customer instance as outstanding %}
                                     <td style="text-align:left;">
                                         {% if outstanding %}
                                             {% for o in outstanding %}
-                                                {{ o.get_outstanding_count }} - {{ o.invoice_no }}<br>
+                                                {{ o.get_outstanding_count }} - {{ o.invoice_no }}
+                                                {% add_to_total 'outstanding' o.get_outstanding_count %}
+                                                <br>
                                             {% endfor %}
                                         {% else %}
                                             -
                                         {% endif %}
                                     </td>
-                                    
+                    
                                     {% get_invoice customer instance as invoice %}
                                     <td style="text-align:left;">
                                         {% if invoice %}
                                             {% for i in invoice %}
-                                                total: {{ i.amout_total }} - Receive: {{ i.amout_recieved }} - {{ i.invoice_no }}<br>
+                                                total: {{ i.amout_total }} - Receive: {{ i.amout_recieved }} - {{ i.invoice_no }}
+                                                {% add_to_total 'invoice_total' i.amout_total %}
+                                                {% add_to_total 'invoice_received' i.amout_recieved %}
+                                                <br>
                                             {% endfor %}
                                         {% else %}
                                             -
                                         {% endif %}
-                                        
                                     </td>
-
+                    
                                     {% get_collected customer instance as collection %}
                                     <td style="text-align:left;">
                                         {% if collection %}
                                             {% for i in collection %}
-                                                Receive: {{ i.amount_received }}<br>
+                                                Receive: {{ i.amount_received }}
+                                                {% add_to_total 'collection' i.amount_received %}
+                                                <br>
                                             {% endfor %}
                                         {% else %}
                                             -
@@ -109,6 +124,18 @@
                                 </tr>
                                 {% endfor %}
                             </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="2" style="text-align:right;">Grand Total</th>
+                                    <th style="text-align:left;"></th>
+                                    <th style="text-align:left;">{% get_total 'coupon' %}</th>
+                                    <th style="text-align:left;">{% get_total 'outstanding' %}</th>
+                                    <th style="text-align:left;">
+                                        Total: {% get_total 'invoice_total' %} - - - Received: {% get_total 'invoice_received' %}
+                                    </th>
+                                    <th style="text-align:left;">{% get_total 'collection' %}</th>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
