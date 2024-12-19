@@ -83,9 +83,11 @@ def get_item(dictionary, key):
     return dictionary.get(key)
 
 @register.simple_tag
-def get_sales_report(route_id):
-    # Aggregating Sales Data
-    supplies = CustomerSupply.objects.filter(customer__routes_id=route_id)
+def get_sales_report(route_id, start_date, end_date):
+    supplies = CustomerSupply.objects.filter(
+        customer__routes_id=route_id,
+        created_date__range=(start_date, end_date)
+    )
     sales_quantity = supplies.aggregate(total_qty=Sum(F('customersupplyitems__quantity')))['total_qty'] or 0
     avg_price = supplies.aggregate(average_rate=Avg('customer__rate'))['average_rate'] or 0
     cash_sales = supplies.filter(customer__sales_type='CASH').aggregate(total=Sum('amount_recieved'))['total'] or 0
@@ -93,20 +95,23 @@ def get_sales_report(route_id):
     coupon_sales = supplies.filter(customer__sales_type='CASH COUPON').aggregate(total=Sum('amount_recieved'))['total'] or 0
     foc_sales = supplies.filter(customer__sales_type='FOC').aggregate(total=Sum('amount_recieved'))['total'] or 0
 
-    # Aggregating Collection Data
-    collections = CollectionPayment.objects.filter(customer__routes_id=route_id)
+    collections = CollectionPayment.objects.filter(
+        customer__routes_id=route_id,
+        created_date__range=(start_date, end_date)
+    )
     credit_collection = collections.aggregate(total=Sum('amount_received'))['total'] or 0
 
-    # Aggregating Expense Data
-    expenses = Expense.objects.filter(route_id=route_id)
+    expenses = Expense.objects.filter(
+        route_id=route_id,
+        date_created__range=(start_date, end_date)
+    )
     total_expense = expenses.aggregate(total=Sum('amount'))['total'] or 0
 
-    # Calculating Net Paid
     net_paid = cash_sales + credit_sales + coupon_sales + credit_collection - total_expense
 
     return {
         "sales_quantity": sales_quantity,
-        "avg_price":avg_price,
+        "avg_price": avg_price,
         "cash_sales": cash_sales,
         "credit_sales": credit_sales,
         "coupon_sales": coupon_sales,

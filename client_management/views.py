@@ -11,7 +11,7 @@ from van_management.models import *
 from decimal import Decimal
 
 from django.views import View
-from django.db.models import Q, Sum, Count, DecimalField, F, IntegerField, Value
+from django.db.models import Q, Sum, Count, DecimalField, F, IntegerField, Value, Case, When, Value, CharField
 from django.urls import reverse
 from django.contrib import messages
 from django.db import transaction, IntegrityError
@@ -2427,9 +2427,9 @@ def customer_outstanding_details(request,customer_pk):
         date = datetime.today().date()
         filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
-    if route_filter:
-            instances = instances.filter(customer__routes__route_name=route_filter)
-    route_li = RouteMaster.objects.all()
+    # if route_filter:
+    #         instances = instances.filter(customer__routes__route_name=route_filter)
+    # route_li = RouteMaster.objects.all()
     
     if query:
 
@@ -2444,12 +2444,11 @@ def customer_outstanding_details(request,customer_pk):
         'instances': instances.order_by("-created_date"),
         'page_name' : 'Customer Outstanding List',
         'page_title' : 'Customer Outstanding List',
-        'customer_pk': request.GET.get("customer_pk"),
+        'customer_pk': customer_pk,
         
         'is_customer_outstanding': True,
         'is_need_datetime_picker': True,
         'filter_data': filter_data,
-        'route_li':route_li,
     }
 
     return render(request, 'client_management/customer_outstanding/info_list.html', context)
@@ -2645,7 +2644,6 @@ def create_customer_outstanding(request):
                     outstanding_data.created_by = request.user.id
                     outstanding_data.created_date = datetime.today()
                     if customer_pk :
-                        print("custo_pk")
                         outstanding_data.customer = Customers.objects.get(pk=customer_pk)
                     outstanding_data.save()
                     
@@ -2764,11 +2762,8 @@ def create_customer_outstanding(request):
                                 value=outstanding_coupon.count,
                                 customer=outstanding_data.customer
                             ) 
-                                        
-                    if not customer_pk:
-                        redirect_url = reverse('customer_outstanding_list')
-                    else:
-                        redirect_url = reverse('customer_outstanding_list') + f'?customer_pk={customer_pk}'
+                                    
+                    redirect_url = reverse('customer_outstanding_list') + f'?product_type={outstanding_data.product_type}&route_name={outstanding_data.customer.routes.route_name}'
                         
                     response_data = {
                         "status": "true",
@@ -4098,9 +4093,31 @@ def delete_eligible_customers_condition(request, pk):
         return HttpResponse(json.dumps(response_data), status=status.HTTP_500_INTERNAL_SERVER_ERROR, content_type='application/javascript')
 
 
-from datetime import datetime
-from django.utils.timezone import now
-import calendar
+# def eligible_customers(request):
+#     # Fetch filters from request
+#     from_date = request.GET.get('from_date', datetime.today().strftime('%Y-%m-%d'))
+#     to_date = request.GET.get('to_date', datetime.today().strftime('%Y-%m-%d'))
+#     route_name = request.GET.get('route_name', '')
+    
+#     try:
+#         from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
+#         to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
+#     except ValueError:
+#         from_date = to_date = datetime.today().date()
+    
+#     instances = CustomerCustodyStock.objects.filter(customer__routes__route_name=route_name) if route_name else CustomerCustodyStock.objects.all()
+
+#     context = {
+#         'instances': instances,
+#         'routes': RouteMaster.objects.all(),
+#         'from_date': from_date,
+#         'to_date': to_date,
+#         'route_name': route_name,
+#     }
+
+#     return render(request, 'client_management/customer_supply/eligible_customers.html', context)
+
+
 
 def eligible_customers(request):
     from_date = request.GET.get('from_date', datetime.today().strftime('%Y-%m-%d'))

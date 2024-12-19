@@ -114,7 +114,7 @@ class User_Edit_Form(forms.ModelForm):
 class CustomercreateForm(forms.ModelForm):
     def __init__(self,branch, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['sales_staff'].queryset = CustomUser.objects.filter(is_active = True,branch_id = branch,designation_id__designation_name__in = ["Sales Executive","Salesman"])
+        self.fields['sales_staff'].queryset = CustomUser.objects.filter(is_active = True,branch_id = branch,designation_id__designation_name = "Sales Executive")
         self.fields['routes'].queryset = RouteMaster.objects.filter(branch_id = branch)
         # self.fields['location'].queryset = LocationMaster.objects.filter(branch_id = branch)
         # self.fields['location'].queryset = LocationMaster.objects.none()
@@ -151,7 +151,7 @@ class CustomercreateForm(forms.ModelForm):
 class CustomerEditForm(forms.ModelForm):
     def __init__(self,branch, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['sales_staff'].queryset = CustomUser.objects.filter(is_active = True,branch_id = branch,designation_id__designation_name__in = ["Sales Executive","Salesman"])
+        self.fields['sales_staff'].queryset = CustomUser.objects.filter(is_active = True,branch_id = branch,designation_id__designation_name = "Sales Executive")
         self.fields['routes'].queryset = RouteMaster.objects.filter(branch_id = branch)
         # self.fields['emirate'].queryset = EmirateMaster.objects.filter()
         # self.fields['location'].queryset = LocationMaster.objects.filter(branch_id = branch)

@@ -16,6 +16,7 @@ urlpatterns = [
     # Customer Sign in
     path('customers/',Customer_API.as_view()),
     path('customers/<str:id>/',Customer_API.as_view()),
+    path('customers-delete-request/',CustomerAccountDeleteRequestView.as_view()),
     
     path('customer-login/',CustomerLoginApi.as_view()),
     path('customer-next-visit-date/',NextVisitDateAPI.as_view()),

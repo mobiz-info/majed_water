@@ -132,4 +132,5 @@ urlpatterns = [
     path('monthly_sales_report_print/', monthly_sales_report_print, name='monthly_sales_report_print'),
     
     path('route_sales_report/', detailed_sales_report, name='route_sales_report'),
+     path('print-sales-report/', print_sales_report, name='print_sales_report'),
 ]

@@ -1095,6 +1095,7 @@ class CustomerRateHistoryListView(View):
         if form.is_valid():
             data = form.save(commit=False)
             data.created_by = str(request.user.id)
+            data.old_price = customer_instance.rate
             data.customer = customer_instance
             data.save()
             

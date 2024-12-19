@@ -57,8 +57,8 @@
                                             <div class="input-group">
                                                 <select name="product_type" class="form-select me-2">
                                                     <option value="amount" {% if filter_data.product_type == 'amount' %}selected{% endif %}>Amount</option>
-                                                    <option value="empty_can" {% if filter_data.product_type == 'empty_can' %}selected{% endif %}>Empty Can</option>
-                                                    <option value="coupon" {% if filter_data.product_type == 'coupon' %}selected{% endif %}>Coupon</option>
+                                                    <option value="emptycan" {% if filter_data.product_type == 'emptycan' %}selected{% endif %}>Empty Can</option>
+                                                    <option value="coupons" {% if filter_data.product_type == 'coupons' %}selected{% endif %}>Coupon</option>
                                                 </select>
                                                 <select name="route_name" class="form-select me-2">
                                                     <option value="">All Routes</option>
@@ -120,10 +120,10 @@
                                     {% if filter_data.product_type == 'amount' %}
                                     <td>{{ outstanding_amount }}</td>
                                     {% endif %}
-                                    {% if filter_data.product_type == 'empty_can' %}
+                                    {% if filter_data.product_type == 'emptycan' %}
                                     <td>{{ outstanding_bottles }}</td>
                                     {% endif %}
-                                    {% if filter_data.product_type == 'coupon' %}
+                                    {% if filter_data.product_type == 'coupons' %}
                                     <td>{{ outstanding_coupons }}</td>
                                     {% endif %}
                                     <td class="text-center">

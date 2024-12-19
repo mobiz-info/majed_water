@@ -1626,3 +1626,134 @@ def delete_production_damage(request, pk):
     }
     
     return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+
+# @login_required
+
+def five_gallon_stock_report(request):
+    start_date = request.GET.get('start_date', None)
+    end_date = request.GET.get('end_date', None)
+
+    product_stock_filter = {}
+    damage_bottle_filter = {}
+    scrap_product_filter = {}
+    washing_product_filter={}
+
+    if start_date and end_date:
+        # Parse dates
+        start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+        product_stock_filter['created_date__range'] = (start_date, end_date)
+        damage_bottle_filter['created_date__range'] = (start_date, end_date)
+        scrap_product_filter['created_date__range'] = (start_date, end_date)
+        washing_product_filter['created_date__range'] = (start_date, end_date)
+
+    # Query with filters
+    product_stock_total = ProductStock.objects.filter(
+        **product_stock_filter, 
+        product_name__product_name='5 Gallon'
+    ).aggregate(Sum('quantity'))['quantity__sum'] or 0
+
+    damage_bottle_total = DamageBottleStock.objects.filter(
+        **damage_bottle_filter, 
+        product__product_name='5 Gallon'
+    ).aggregate(Sum('quantity'))['quantity__sum'] or 0
+
+    scrap_product_total = ScrapProductStock.objects.filter(
+        **scrap_product_filter, 
+        product__product_name='5 Gallon'
+    ).aggregate(Sum('quantity'))['quantity__sum'] or 0
+    
+    washing_product_total = WashingProductStock.objects.filter(
+    **washing_product_filter, 
+    product__product_name='5 Gallon'
+    ).aggregate(Sum('quantity'))['quantity__sum'] or 0
+    
+    filter_data = {
+        'start_date': start_date.strftime('%Y-%m-%d') if start_date else None,
+        'end_date': end_date.strftime('%Y-%m-%d') if end_date else None,
+    }
+
+    # Pass data to context
+    context = {
+        'product_stock_total': product_stock_total,
+        'damage_bottle_total': damage_bottle_total,
+        'scrap_product_total': scrap_product_total,
+        'washing_product_total':washing_product_total,
+        'filter_data':filter_data,
+        'start_date': start_date,
+        'end_date': end_date,
+    }
+    
+    # Log activity
+    log_activity(
+        created_by=request.user,
+        description=f"Viewed the '5 Gallon Stock Report' from {filter_data['start_date']} to {filter_data['end_date']} ."
+    )
+    return render(request, 'products/five_gallon_stock_report/five_gallon_stock_report.html', context)
+
+# @login_required
+
+def five_gallon_stock_print(request):
+    start_date = request.GET.get('start_date', None)
+    end_date = request.GET.get('end_date', None)
+
+    product_stock_filter = {}
+    damage_bottle_filter = {}
+    scrap_product_filter = {}
+    washing_product_filter={}
+
+    if start_date and end_date:
+        # Parse dates
+        start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+        product_stock_filter['created_date__range'] = (start_date, end_date)
+        damage_bottle_filter['created_date__range'] = (start_date, end_date)
+        scrap_product_filter['created_date__range'] = (start_date, end_date)
+        washing_product_filter['created_date__range'] = (start_date, end_date)
+
+    # Query with filters
+    product_stock_total = ProductStock.objects.filter(
+        **product_stock_filter, 
+        product_name__product_name='5 Gallon'
+    ).aggregate(Sum('quantity'))['quantity__sum'] or 0
+
+    damage_bottle_total = DamageBottleStock.objects.filter(
+        **damage_bottle_filter, 
+        product__product_name='5 Gallon'
+    ).aggregate(Sum('quantity'))['quantity__sum'] or 0
+
+    scrap_product_total = ScrapProductStock.objects.filter(
+        **scrap_product_filter, 
+        product__product_name='5 Gallon'
+    ).aggregate(Sum('quantity'))['quantity__sum'] or 0
+    
+    washing_product_total = WashingProductStock.objects.filter(
+    **washing_product_filter, 
+    product__product_name='5 Gallon'
+    ).aggregate(Sum('quantity'))['quantity__sum'] or 0
+    
+    filter_data = {
+        'start_date': start_date.strftime('%Y-%m-%d') if start_date else None,
+        'end_date': end_date.strftime('%Y-%m-%d') if end_date else None,
+    }
+    
+    
+
+    # Pass data to context
+    context = {
+        'product_stock_total': product_stock_total,
+        'damage_bottle_total': damage_bottle_total,
+        'scrap_product_total': scrap_product_total,
+        'washing_product_total':washing_product_total,
+        'filter_data':filter_data,
+        'start_date': start_date,
+        'end_date': end_date,
+    }
+    # Log activity
+    log_activity(
+        created_by=request.user,
+        description=f"Printed the '5 Gallon Stock Report' from {filter_data['start_date']} to {filter_data['end_date']} "
+    )
+    return render(request, 'products/five_gallon_stock_report/five_gallon_stock_print.html', context)
