@@ -1077,6 +1077,10 @@ class ExpenseHeadEdit(View):
        form = self.form_class(request.POST, instance=expensehead)
        if form.is_valid():
            form.save()
+           log_activity(
+                created_by=request.user,
+                description=f"Edited ExpenseHead: {expensehead.name}"
+            )
            return redirect('expensehead_list')
        else:
            context = {'form':form}
@@ -1091,6 +1095,10 @@ class ExpenseHeadDelete(View):
     def post(self, request, expensehead_id, *args, **kwargs):
         expensehead = ExpenseHead.objects.get(expensehead_id=expensehead_id)
         expensehead.delete()
+        log_activity(
+            created_by=request.user,
+            description=f"Deleted ExpenseHead: {expensehead.name}"
+        )
         return redirect('expensehead_list')
 
 
@@ -1117,6 +1125,10 @@ class ExpenseList(View):
             expenses = expenses.filter(expence_type_id=fil_expe)
         expense_types = ExpenseHead.objects.all()
         context = {'expenses': expenses, 'expense_types':expense_types}
+        log_activity(
+            created_by=request.user,
+            description="Viewed the expense list."
+        )
         return render(request, self.template_name, context)
 
 class ExpenseAdd(View):
@@ -1132,6 +1144,10 @@ class ExpenseAdd(View):
         form = self.form_class(request.POST)
         if form.is_valid():
             form.save()
+            log_activity(
+                created_by=request.user,
+                description=f"Added a new expense."
+            )
             return redirect('expense_list')
         else:
             context = {'form': form}
@@ -1152,7 +1168,10 @@ class ExpenseEdit(View):
         form = self.form_class(request.POST, instance=expense)
         if form.is_valid():
             form.save()
-            print('updated')
+            log_activity(
+                created_by=request.user,
+                description=f"Edited expense: {expense.remarks}"
+            )
             return redirect('expense_list')
         else:
             context = {'form': form, 'expense':expense}
@@ -1169,6 +1188,10 @@ class ExpenseDelete(View):
     def post(self, request, expense_id, *args, **kwargs):
         expense = Expense.objects.get(expense_id=expense_id)
         expense.delete()
+        log_activity(
+            created_by=request.user,
+            description=f"Deleted expense: {expense.remarks}"
+        )
         return redirect('expense_list')
     
     
@@ -1389,21 +1412,37 @@ class EditProductView(View):
                     # print("stock")
                     item.stock -= int(count)
                     item.save()
+                    log_activity(
+                        created_by=request.user.id,
+                        description=f"Reduced stock for product '{item.product.product_name}' by {count}."
+                    )
                     
                     product_stock = ProductStock.objects.get(branch=item.van.branch_id,product_name=item.product)
                     product_stock.quantity += int(count)
                     product_stock.save()
+                    log_activity(
+                        created_by=request.user.id,
+                        description=f"Increased product stock for '{item.product.product_name}' by {count}."
+                    )
                     
                 elif item.product.product_name == "5 Gallon" and stock_type == "empty_can":
                     # print("empty")
                     item.empty_can_count -= int(count)
                     item.save()
+                    log_activity(
+                        created_by=request.user.id,
+                        description=f"Reduced empty can count for product '{item.product.product_name}' by {count}."
+                    )
                     
                     emptycan=EmptyCanStock.objects.create(
                         product=item.product,
                         quantity=int(count)
                     )
                     emptycan.save()
+                    log_activity(
+                        created_by=request.user.id,
+                        description=f"Added {count} to empty can stock for product '{item.product.product_name}'."
+                    )
                     
                 elif item.product.product_name == "5 Gallon" and stock_type == "return_count":
                     # print("return")
@@ -1421,6 +1460,10 @@ class EditProductView(View):
                         product=item.product,
                         scrap_count=scrap_count,
                         washing_count=washing_count
+                    )
+                    log_activity(
+                        created_by=request.user.id,
+                        description=f"Created offload return stocks with scrap count {scrap_count} and washing count {washing_count} for product '{item.product.product_name}'."
                     )
                     
                     if scrap_count > 0 :
@@ -1568,13 +1611,26 @@ class EditCouponView(View):
             van_coupon_stock.stock = 0
             van_coupon_stock.save()
             
+            log_activity(
+                created_by=request.user.id,
+                description=f"Updated van coupon stock for book number {book_number} to 0."
+            )
+            
             product_stock = ProductStock.objects.get(branch=van_coupon_stock.van.branch_id,product_name__product_name=coupon_instance.coupon_type.coupon_type_name)
             product_stock.quantity += 1
             product_stock.save()
+            log_activity(
+                created_by=request.user.id,
+                description=f"Updated product stock for {coupon_instance.coupon_type.coupon_type_name}, increased by 1."
+            ) 
             
             coupon = CouponStock.objects.get(couponbook=coupon_instance)
             coupon.coupon_stock = "company"
             coupon.save()
+            log_activity(
+                created_by=request.user.id,
+                description=f"Updated coupon stock for book number {book_number} to 'company'."
+            )
             
             OffloadCoupon.objects.create(
                 created_by=request.user.id,
@@ -1584,6 +1640,10 @@ class EditCouponView(View):
                 coupon=van_coupon_stock.coupon,
                 quantity = 1,
                 stock_type="stock"
+            )
+            log_activity(
+                created_by=request.user.id,
+                description=f"Offloaded coupon for book number {book_number}."
             )
             
         response_data = {
@@ -1599,6 +1659,10 @@ def salesman_requests(request):
     
     instances = SalesmanRequest.objects.all()
     
+    log_activity(
+        created_by=request.user,
+        description="Accessed Salesman Requests page."
+    )
     context = {
         'instances': instances
         }
@@ -1634,7 +1698,10 @@ def BottleAllocationn(request):
             'latest_update': latest_update,
             'route_id': route.routes.route_id,
         })
-
+    log_activity(
+        created_by=request.user,
+        description=f"Viewed Bottle Allocation page ."
+    )
     context = {
         'route_details': route_details,
         'filter_data': filter_data,
@@ -1657,6 +1724,12 @@ def EditBottleAllocation(request, route_id=None):
             bottle_allocation = form.save(commit=False)
             bottle_allocation.created_by = request.user.username
             bottle_allocation.save()
+            
+            log_activity(
+                created_by=request.user,
+                description=f"Edited Bottle Allocation for route ID: {route_id}."
+            )
+            
             return redirect('bottle_allocation')  # Replace with your list view name
     else:
         form = BottleAllocationForm(initial={'route': route})
@@ -1682,7 +1755,12 @@ class VanCouponStockList(View):
             filter_data['filter_date'] = date.strftime('%Y-%m-%d')
         
         van_coupon_stock = VanCouponStock.objects.filter(created_date=date)
-    
+
+        log_activity(
+            created_by=request.user,
+            description=f"Viewed Van Coupon Stock page ."
+        )
+        
         context = {
             'van_coupon_stock': van_coupon_stock,
             'filter_data': filter_data,
@@ -1713,12 +1791,16 @@ def excess_bottle_count_create(request):
             if not created:
                 van_product_stock.excess_bottle += excess_bottle_count.bottle_count
                 van_product_stock.save()
-
+            
+            log_activity(
+                created_by=request.user,
+                description=f"Created excess bottle count entry for van {excess_bottle_count.van} with {excess_bottle_count.bottle_count} bottles."
+            )
+            
             return redirect('excess_bottle_count_list')
     else:
         form = ExcessBottleCountForm()
     return render(request, 'van_management/excess_bottle_count_create.html', {'form': form})
-
 # Update view
 def excess_bottle_count_update(request, pk):
     # Retrieve the existing ExcessBottleCount instance
@@ -1748,6 +1830,10 @@ def excess_bottle_count_update(request, pk):
                 van_product_stock.excess_bottle += excess_bottle_count.bottle_count - old_bottle_count
                 van_product_stock.save()
 
+            log_activity(
+                created_by=request.user,
+                description=f"Updated excess bottle count for van {excess_bottle_count.van}. Old count: {old_bottle_count}, New count: {excess_bottle_count.bottle_count}."
+            )
             # Redirect to the list view after saving
             return redirect('excess_bottle_count_list')
     else:
@@ -1770,6 +1856,10 @@ def excess_bottle_count_delete(request, pk):
             van_product_stock.excess_bottle -= excess_bottle_count.bottle_count
             van_product_stock.save()
         
+        log_activity(
+            created_by=request.user,
+            description=f"Deleted excess bottle count entry for van {excess_bottle_count.van} with {excess_bottle_count.bottle_count} bottles."
+        )
         excess_bottle_count.delete()
         return redirect('excess_bottle_count_list')
     return render(request, 'van_management/excess_bottle_count_confirm_delete.html', {'object': excess_bottle_count})
