@@ -7337,3 +7337,284 @@ def print_sales_report(request):
         'start_date': start_date,
         'end_date': end_date,
     })
+    
+def offload_list(request):
+    # Get filter values from the request
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    route_name = request.GET.get('route_name')
+    query = request.GET.get('q')
+
+    # Parse dates and handle time zone aware filtering
+    try:
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+    except ValueError:
+        start_date = None
+        end_date = None
+
+    # Start with full querysets
+    offloads = Offload.objects.select_related('salesman', 'van', 'product').order_by('-created_date')
+    offload_coupons = OffloadCoupon.objects.select_related('salesman', 'van', 'coupon').order_by('-created_date')
+
+    # Apply date filtering if both dates are provided
+    if start_date and end_date:
+        offloads = offloads.filter(created_date__date__range=(start_date.date(), end_date.date()))
+        offload_coupons = offload_coupons.filter(created_date__date__range=(start_date.date(), end_date.date()))
+
+    # Apply route name filtering
+    if route_name:
+        offloads = offloads.filter(van__van_master__routes__route_name=route_name)
+        offload_coupons = offload_coupons.filter(van__van_master__routes__route_name=route_name)
+
+    # Apply search query filtering
+    if query:
+        offloads = offloads.filter(
+            Q(van__van_make__icontains=query) |
+            Q(salesman__first_name__icontains=query) |
+            Q(salesman__last_name__icontains=query) |
+            Q(product__product_name__icontains=query) |
+            Q(stock_type__icontains=query)
+        )
+        offload_coupons = offload_coupons.filter(
+            Q(van__van_make__icontains=query) |
+            Q(salesman__first_name__icontains=query) |
+            Q(salesman__last_name__icontains=query) |
+            Q(coupon__book_num__icontains=query) |
+            Q(stock_type__icontains=query)
+        )
+
+    # Prepare combined data for the template
+    offloaded_data = []
+
+    for offload in offloads:
+        offloaded_data.append({
+            'created_date': offload.created_date,
+            'salesman': offload.salesman.get_fullname,
+            'van': offload.van.van_make,
+            'product_name': offload.product.product_name,
+            'quantity': offload.quantity,
+            'stock_type': offload.stock_type,
+            'entry_type': 'product',
+            'route_name': offload.van.get_vans_routes(),
+        })
+
+    for coupon in offload_coupons:
+        offloaded_data.append({
+            'created_date': coupon.created_date,
+            'salesman': coupon.salesman.get_fullname,
+            'van': coupon.van.van_make,
+            'product_name': coupon.coupon.book_num,
+            'quantity': coupon.quantity,
+            'stock_type': coupon.stock_type,
+            'entry_type': 'coupon',
+            'route_name': coupon.van.get_vans_routes(),
+        })
+
+    # Fetch distinct van routes for the dropdown
+    van_routes = Van_Routes.objects.select_related('routes').distinct()
+
+    # Pass data to the template
+    return render(request, 'sales_management/offload_list.html', {
+        'offloaded_data': offloaded_data,
+        'filter_data': {
+            'filter_date_from': start_date.strftime('%Y-%m-%d') if start_date else '',
+            'filter_date_to': end_date.strftime('%Y-%m-%d') if end_date else '',
+            'route_name': route_name or '',
+            'q': query or '',
+        },
+        'van_routes': van_routes,
+    })
+
+def offload_list_print(request):
+        # Get filter values from the request
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    route_name = request.GET.get('route_name')
+    query = request.GET.get('q')
+
+    # Parse dates and handle time zone aware filtering
+    try:
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+    except ValueError:
+        start_date = None
+        end_date = None
+
+    # Start with full querysets
+    offloads = Offload.objects.select_related('salesman', 'van', 'product').order_by('-created_date')
+    offload_coupons = OffloadCoupon.objects.select_related('salesman', 'van', 'coupon').order_by('-created_date')
+
+    # Apply date filtering if both dates are provided
+    if start_date and end_date:
+        offloads = offloads.filter(created_date__date__range=(start_date.date(), end_date.date()))
+        offload_coupons = offload_coupons.filter(created_date__date__range=(start_date.date(), end_date.date()))
+
+    # Apply route name filtering
+    if route_name:
+        offloads = offloads.filter(van__van_master__routes__route_name=route_name)
+        offload_coupons = offload_coupons.filter(van__van_master__routes__route_name=route_name)
+
+    # Apply search query filtering
+    if query:
+        offloads = offloads.filter(
+            Q(van__van_make__icontains=query) |
+            Q(salesman__first_name__icontains=query) |
+            Q(salesman__last_name__icontains=query) |
+            Q(product__product_name__icontains=query) |
+            Q(stock_type__icontains=query)
+        )
+        offload_coupons = offload_coupons.filter(
+            Q(van__van_make__icontains=query) |
+            Q(salesman__first_name__icontains=query) |
+            Q(salesman__last_name__icontains=query) |
+            Q(coupon__book_num__icontains=query) |
+            Q(stock_type__icontains=query)
+        )
+
+    # Prepare combined data for the template
+    offloaded_data = []
+
+    for offload in offloads:
+        offloaded_data.append({
+            'created_date': offload.created_date,
+            'salesman': offload.salesman.get_fullname,
+            'van': offload.van.van_make,
+            'product_name': offload.product.product_name,
+            'quantity': offload.quantity,
+            'stock_type': offload.stock_type,
+            'entry_type': 'product',
+            'route_name': offload.van.get_vans_routes(),
+        })
+
+    for coupon in offload_coupons:
+        offloaded_data.append({
+            'created_date': coupon.created_date,
+            'salesman': coupon.salesman.get_fullname,
+            'van': coupon.van.van_make,
+            'product_name': coupon.coupon.book_num,
+            'quantity': coupon.quantity,
+            'stock_type': coupon.stock_type,
+            'entry_type': 'coupon',
+            'route_name': coupon.van.get_vans_routes(),
+        })
+
+    # Fetch distinct van routes for the dropdown
+    van_routes = Van_Routes.objects.select_related('routes').distinct()
+
+    # Pass data to the template
+    return render(request, 'sales_management/offload_list_print.html', {
+        'offloaded_data': offloaded_data,
+        'filter_data': {
+            'filter_date_from': start_date.strftime('%Y-%m-%d') if start_date else '',
+            'filter_date_to': end_date.strftime('%Y-%m-%d') if end_date else '',
+            'route_name': route_name or '',
+            'q': query or '',
+        },
+        'van_routes': van_routes,
+    })
+
+def download_offload_excel(request):
+    # Get filter values from the request
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    route_name = request.GET.get('route_name')
+    query = request.GET.get('q')
+
+    # Parse dates
+    try:
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+    except ValueError:
+        start_date = None
+        end_date = None
+
+    # Query data
+    offloads = Offload.objects.select_related('salesman', 'van', 'product').order_by('-created_date')
+    offload_coupons = OffloadCoupon.objects.select_related('salesman', 'van', 'coupon').order_by('-created_date')
+
+    if start_date and end_date:
+        offloads = offloads.filter(created_date__date__range=(start_date.date(), end_date.date()))
+        offload_coupons = offload_coupons.filter(created_date__date__range=(start_date.date(), end_date.date()))
+
+    if route_name:
+        offloads = offloads.filter(van__van_master__routes__route_name=route_name)
+        offload_coupons = offload_coupons.filter(van__van_master__routes__route_name=route_name)
+
+    if query:
+        offloads = offloads.filter(
+            Q(van__van_make__icontains=query) |
+            Q(salesman__first_name__icontains=query) |
+            Q(salesman__last_name__icontains=query) |
+            Q(product__product_name__icontains=query) |
+            Q(stock_type__icontains=query)
+        )
+        offload_coupons = offload_coupons.filter(
+            Q(van__van_make__icontains=query) |
+            Q(salesman__first_name__icontains=query) |
+            Q(salesman__last_name__icontains=query) |
+            Q(coupon__book_num__icontains=query) |
+            Q(stock_type__icontains=query)
+        )
+
+    # Create the Excel workbook
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Offloaded Data"
+
+    # Add headers
+    sheet.append([
+        'Created Date', 'Salesman', 'Van','Route Name', 'Product Name',
+        'Quantity', 'Stock Type'
+    ])
+
+    # Add data to the Excel sheet
+    for offload in offloads:
+        # Remove timezone information and format the datetime
+        created_date = offload.created_date.replace(tzinfo=None) if offload.created_date else None
+        formatted_created_date = created_date.strftime('%d-%m-%Y') if created_date else None  # Format as d-m-Y
+
+        sheet.append([
+            formatted_created_date,
+            offload.salesman.get_fullname(),  # Call the method to get the full name
+            offload.van.van_make,
+            offload.van.get_vans_routes(),
+            offload.product.product_name,
+            offload.quantity,
+            offload.stock_type,
+        ])
+
+    for coupon in offload_coupons:
+        # Remove timezone information and format the datetime
+        created_date = coupon.created_date.replace(tzinfo=None) if coupon.created_date else None
+        formatted_created_date = created_date.strftime('%d-%m-%Y') if created_date else None  # Format as d-m-Y
+
+        sheet.append([
+            formatted_created_date,
+            coupon.salesman.get_fullname(),  # Call the method to get the full name
+            coupon.van.van_make,
+            coupon.van.get_vans_routes(),
+            coupon.coupon.book_num,
+            coupon.quantity,
+            coupon.stock_type,
+        ])
+
+
+
+    # Prepare the response
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    start_date_str = start_date.strftime('%Y-%m-%d') if start_date else 'start'
+    end_date_str = end_date.strftime('%Y-%m-%d') if end_date else 'end'
+    response['Content-Disposition'] = f'attachment; filename=Offloaded_detail_{start_date_str}_to_{end_date_str}.xlsx'
+
+    # Save the workbook to the response
+    workbook.save(response)
+    return response
