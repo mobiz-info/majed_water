@@ -66,6 +66,7 @@ from django.conf import settings
 import openpyxl
 from django.db import transaction
 from accounts.views import log_activity
+from django.utils.timezone import now
 
 class TransactionHistoryListView(ListView):
     model = Transaction
@@ -7618,3 +7619,28 @@ def download_offload_excel(request):
     # Save the workbook to the response
     workbook.save(response)
     return response
+
+def todays_cash_sales(request):
+    # Get today's date
+    today_date = now().date()
+    
+    # Filter today's supplies and cash sales
+    todays_supply_instances = CustomerSupply.objects.filter(created_date__date=today_date)
+    supply_cash_sales_instances = todays_supply_instances.filter(
+        amount_recieved__gt=0
+    ).exclude(customer__sales_type="CASH COUPON")
+    # Calculate totals
+    total_supply_qty = sum(sale.get_total_supply_qty() for sale in supply_cash_sales_instances)
+    total_grand_total = sum(sale.grand_total for sale in supply_cash_sales_instances)
+    total_net_payable = sum(sale.net_payable for sale in supply_cash_sales_instances)
+    total_cash_received = sum(sale.amount_recieved for sale in supply_cash_sales_instances)
+
+    # Pass the data to the template
+    context = {
+        'supply_cash_sales_instances': supply_cash_sales_instances,
+        'total_supply_qty': total_supply_qty,
+        'total_grand_total': total_grand_total,
+        'total_net_payable': total_net_payable,
+        'total_cash_received': total_cash_received,
+    }
+    return render(request, 'master/dashboard/todays_cash_sales.html', context)

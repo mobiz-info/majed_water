@@ -137,4 +137,7 @@ urlpatterns = [
     path('offload-list/', offload_list, name='offload_list'),
     path('offload-list-print/', offload_list_print, name='offload_list_print'),
     path('offload-list-excel/', download_offload_excel, name='download_offload_excel'),
+    
+    path('todays-cash-sales/', todays_cash_sales, name='todays_cash_sales'),
+
 ]
