@@ -139,5 +139,6 @@ urlpatterns = [
     path('offload-list-excel/', download_offload_excel, name='download_offload_excel'),
     
     path('todays-cash-sales/', todays_cash_sales, name='todays_cash_sales'),
+    path('todays-credit-sales/', todays_credit_sales, name='todays_credit_sales'),
 
 ]
