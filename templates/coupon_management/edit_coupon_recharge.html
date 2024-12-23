@@ -21,28 +21,70 @@
                         Edit Coupon Recharge  </div>
                     </div>
                     <div class="card-body">
-                        <form method="post">
+                        <form  enctype="multipart/form-data" role="form" method="post"
+                        class="row g-3 needs-validation">
                             {% csrf_token %}
-                            <div>
-                                <label>Payment Type:</label>
-                                <input type="text" name="payment_type" value="{{ coupon_recharge.payment_type }}">
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Payment type</label>
+                                    {{form.payment_type}}
+                                </div>
                             </div>
-                            <div>
-                                <label>Amount Received:</label>
-                                <input type="number" name="amount_recieved" value="{{ coupon_recharge.amount_recieved }}">
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Amount recieved</label>
+                                    {{form.amount_recieved}}
+                                </div>
                             </div>
-                            <div>
-                                <label>Coupon Method:</label>
-                                <select name="coupon_method">
-                                    <option value="manual" {% if coupon_recharge.coupon_method == "manual" %}selected{% endif %}>Manual</option>
-                                    <option value="automatic" {% if coupon_recharge.coupon_method == "automatic" %}selected{% endif %}>Automatic</option>
-                                </select>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Grand total</label>
+                                    {{form.grand_total}}
+                                </div>
                             </div>
-                            <div>
-                                <label>Reference Number:</label>
-                                <input type="text" name="reference_number" value="{{ coupon_recharge.reference_number }}">
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Discount </label>
+                                    {{form.discount}}
+                                </div>
                             </div>
-                            {% comment %} <button type="submit">Save</button> {% endcomment %}
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Net amount</label>
+                                    {{form.net_amount}}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Total payeble</label>
+                                    {{form.total_payeble}}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Balance </label>
+                                    {{form.balance}}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Reference number </label>
+                                    {{form.reference_number}}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Coupon method </label>
+                                    {{form.coupon_method}}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group required">
+                                    <label class='control-label'>Invoice no </label>
+                                    {{form.invoice_no}}
+                                </div>
+                            </div>
+
                         
                            
                             <div class="col-12 text-end mt-5">
@@ -50,7 +92,7 @@
                                 <button class="btn btn-success   me-md-2  mb-2" type="button"
                                     onClick="javascript:history.go(-1);">
                                     <i class="bi bi-backspace-fill pe-1"></i>Back</button>
-                                <a class="btn btn-success me-md-2  mb-2" href="{% url 'coupon_recharge_list' %}">
+                                <a class="btn btn-success me-md-2  mb-2" href="{% url 'couponType' %}">
                                     <i class="bi bi-backspace-fill pe-1"></i> Back to Dashboard
                                 </a>
                             </div>
