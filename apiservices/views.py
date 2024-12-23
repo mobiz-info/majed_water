@@ -5260,7 +5260,21 @@ class customer_outstanding(APIView):
             van_route = Van_Routes.objects.filter(van__salesman=request.user).first().routes
             route_id = van_route.pk
             
-        customers = Customers.objects.filter(routes__pk=route_id)
+        marketing_executive = request.user
+
+        # Ensure the user is a marketing executive
+        if marketing_executive.user_type == 'marketing_executive':
+            assigned_routes = Van_Routes.objects.filter(
+                van__salesman=marketing_executive
+            ).values_list('routes__route_id', flat=True)
+
+            # Get all customers within the assigned routes
+            customers = Customers.objects.filter(
+                routes__route_id__in=assigned_routes
+            )
+        else:
+              
+            customers = Customers.objects.filter(routes__pk=route_id)
 
         if customer_id:
             customers = customers.filter(pk=customer_id)
