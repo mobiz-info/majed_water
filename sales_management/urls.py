@@ -132,5 +132,13 @@ urlpatterns = [
     path('monthly_sales_report_print/', monthly_sales_report_print, name='monthly_sales_report_print'),
     
     path('route_sales_report/', detailed_sales_report, name='route_sales_report'),
-     path('print-sales-report/', print_sales_report, name='print_sales_report'),
+    path('print-sales-report/', print_sales_report, name='print_sales_report'),
+
+    path('offload-list/', offload_list, name='offload_list'),
+    path('offload-list-print/', offload_list_print, name='offload_list_print'),
+    path('offload-list-excel/', download_offload_excel, name='download_offload_excel'),
+    
+    path('todays-cash-sales/', todays_cash_sales, name='todays_cash_sales'),
+    path('todays-credit-sales/', todays_credit_sales, name='todays_credit_sales'),
+
 ]
