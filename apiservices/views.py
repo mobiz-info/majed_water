@@ -897,7 +897,7 @@ def find_customers(request, def_date, route_id):
     
     todays_customers = []
     buildings = []
-    for customer in Customers.objects.filter(routes=route,is_calling_customer=False).exclude(pk__in=vocation_customer_ids):
+    for customer in Customers.objects.filter(routes=route,is_calling_customer=False,is_deleted=False).exclude(pk__in=vocation_customer_ids):
         if customer.visit_schedule:
             for day, weeks in customer.visit_schedule.items():
                 if day in str(day_of_week) and week_number in str(weeks):
@@ -5260,7 +5260,21 @@ class customer_outstanding(APIView):
             van_route = Van_Routes.objects.filter(van__salesman=request.user).first().routes
             route_id = van_route.pk
             
-        customers = Customers.objects.filter(routes__pk=route_id)
+        marketing_executive = request.user
+
+        # Ensure the user is a marketing executive
+        if marketing_executive.user_type == 'marketing_executive':
+            assigned_routes = Van_Routes.objects.filter(
+                van__salesman=marketing_executive
+            ).values_list('routes__route_id', flat=True)
+
+            # Get all customers within the assigned routes
+            customers = Customers.objects.filter(
+                routes__route_id__in=assigned_routes
+            )
+        else:
+              
+            customers = Customers.objects.filter(routes__pk=route_id)
 
         if customer_id:
             customers = customers.filter(pk=customer_id)
