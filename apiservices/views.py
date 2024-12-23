@@ -5395,7 +5395,7 @@ class CollectionAPI(APIView):
         customer_id = request.query_params.get('customer_id')
         # Filter CustomerSupply objects based on the user
         invoices_customer_pk = Invoice.objects.filter(invoice_status="non_paid",is_deleted=False).exclude(amout_total=0).values_list("customer__pk")
-        collection = Customers.objects.filter(pk__in=invoices_customer_pk,sales_staff=user)
+        collection = Customers.objects.filter(pk__in=invoices_customer_pk)
         
         if customer_id:
             collection = collection.filter(pk=customer_id)
