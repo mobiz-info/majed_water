@@ -283,7 +283,7 @@ def route_assign(request,van_id):
                 log_activity(
                     created_by=request.user,
                     description=(
-                        f"Attempted to assign a duplicate route '{route.routes.route_name}' "))
+                        f"Attempted to assign a duplicate route '{route.route_name}' "))
                 messages.success(request, 'Route is already assigned..')
                 context = {'all_van' : all_van,"form":form,"van_data":van_data}
                 return render(request, 'van_management/assignroute_tovan.html',context)
@@ -295,7 +295,7 @@ def route_assign(request,van_id):
             log_activity(
                 created_by=request.user,
                 description=(
-                    f"Successfully assigned route '{route.routes.route_name}' ")
+                    f"Successfully assigned route '{route.route_name}' ")
             )
             messages.success(request, 'Van Route Assigned successfully!')
             return redirect('route_assign',van_id)
