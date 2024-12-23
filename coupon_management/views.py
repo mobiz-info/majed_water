@@ -17,6 +17,8 @@ from product.models import Staff_Orders_details
 from . models import *
 from .forms import  *
 from accounts.models import CustomUser, Customers
+from invoice_management.models import Invoice
+from sales_management.models import *
 from master.models import EmirateMaster, BranchMaster, RouteMaster
 import json
 from django.core.serializers import serialize
@@ -780,3 +782,44 @@ def coupon_recharge_list(request):
 }
 
     return render(request,'coupon_management/coupon_recharge_list.html', context)
+
+def edit_coupon_recharge(request, pk):
+    coupon_recharge = get_object_or_404(CustomerCoupon, id=pk)
+    invoice = get_object_or_404(Invoice, invoice_no=coupon_recharge.invoice_no)
+    receipt = get_object_or_404(Receipt, invoice_number=coupon_recharge.invoice_no)
+    
+    if request.method == "POST":
+        form = CustomerCouponForm(request.POST, instance=coupon_recharge)
+        if form.is_valid():
+            updated_coupon = form.save()
+
+            invoice.net_taxable = updated_coupon.grand_total - updated_coupon.discount
+            invoice.amout_total = updated_coupon.grand_total
+            invoice.amout_recieved = updated_coupon.amount_recieved
+            invoice.save()
+            
+            receipt.amount_received = updated_coupon.amount_recieved
+            receipt.save()
+
+            messages.success(request, "Coupon recharge and related invoice updated successfully.")
+            return redirect("coupon_recharge")
+    else:
+        form = CustomerCouponForm(instance=coupon_recharge)
+
+    context = {
+        "form": form,
+        "coupon_recharge": coupon_recharge,
+    }
+    return render(request, "coupon_management/edit_coupon_recharge.html", context)
+
+def delete_coupon_recharge(request, pk):
+    coupon_recharge = get_object_or_404(CustomerCoupon, id=pk)
+    invoice = get_object_or_404(Invoice, invoice_no=coupon_recharge.invoice_no)
+    receipt = get_object_or_404(Receipt, invoice_number=coupon_recharge.invoice_no)
+    
+    invoice.delete()
+    coupon_recharge.delete()
+    receipt.delete()
+
+    messages.success(request, "Coupon recharge and related invoice deleted successfully.")
+    return redirect("coupon_recharge")

@@ -340,7 +340,7 @@ class Customer_List(View):
         created_date_filter = request.GET.get('created_date', None)
 
         # Start with all customers
-        user_li = Customers.objects.all()
+        user_li = Customers.objects.all().filter(is_deleted=False)
             
         # Apply filters if they exist
         if query:
@@ -418,7 +418,7 @@ class Latest_Customer_List(View):
         customer_type_filter = request.GET.get('customer_type')
 
         ten_days_ago = datetime.now() - timedelta(days=10)
-        user_li = Customers.objects.filter(created_date__gte=ten_days_ago)
+        user_li = Customers.objects.filter(created_date__gte=ten_days_ago,is_deleted=False)
         
         if request.GET.get('start_date'):
             start_date = request.GET.get('start_date')
@@ -505,7 +505,7 @@ class Inactive_Customer_List(View):
                     created_date__date__range=(from_date, to_date)
                 ).values_list('customer_id', flat=True)
 
-                route_customers = Customers.objects.filter(routes=van_route.routes)
+                route_customers = Customers.objects.filter(routes=van_route.routes,is_deleted=False)
                 
                 todays_customers = find_customers(request, str(today), van_route.routes.pk) or []
                 todays_customer_ids = {customer['customer_id'] for customer in todays_customers}
@@ -609,7 +609,7 @@ class PrintInactiveCustomerList(View):
                     created_date__date__range=(from_date, to_date)
                 ).values_list('customer_id', flat=True)
                 
-                route_customers = Customers.objects.filter(routes=van_route.routes)
+                route_customers = Customers.objects.filter(routes=van_route.routes,is_deleted=False)
                 
                 # Ensure `todays_customers` is an empty list if `find_customers` returns None
                 todays_customers = find_customers(request, str(today), van_route.routes.pk) or []
@@ -818,14 +818,39 @@ def edit_customer(request,pk):
         messages.success(request, 'Something went wrong')
         return render(request, template_name,context)
 
+import random
+
+def randomnumber(digits):
+    """Generate a random number with the specified number of digits."""
+    range_start = 10**(digits - 1)
+    range_end = (10**digits) - 1
+    return random.randint(range_start, range_end)
+
 def delete_customer(request,pk):
-    cust_Data = Customers.objects.get(customer_id = pk)
-    cust_Data.delete()
+    cust_Data = Customers.objects.get(customer_id=pk)
+    cust_Data.is_deleted = True
+    
+    if cust_Data.user_id:
+        user = cust_Data.user_id
+        
+        if not user.username.endswith("_deleted"):
+            user.username += str(randomnumber(3)) + "_deleted"
+        
+        if user.email and not user.email.endswith("_deleted"):
+            user.email += str(randomnumber(3)) + "_deleted"
+            
+        if user.phone and not user.phone.endswith("_deleted"):
+            user.phone += str(randomnumber(3)) + "_deleted"
+        
+        user.save() 
+    
+    cust_Data.save()
     
     log_activity(
             created_by=request.user if request.user.is_authenticated else None,
             description=f"Deleted customer with ID {cust_Data.customer_name}"
         )
+    
     response_data = {
         "status": "true",
         "title": "Successfully Deleted",

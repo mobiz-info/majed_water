@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+
+<div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
+    <h4 class="fw-medium mb-0">Edit Coupon Recharge </h4>
+      <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-50">Coupon Management</a>
+          </li>
+          <li class="breadcrumb-item active" aria-current="page">Coupon </li>
+      </ol>
+  </div>
+<div class="main-content app-content">
+    <div class="container-fluid">
+             <!-- Start:: row-1 -->
+        <div class="row">
+            <div class="col-xl-12">
+                <div class="card custom-card">
+                    <div class="card-header">
+                        <div class="card-title mx-auto">
+                        Edit Coupon Recharge  </div>
+                    </div>
+                    <div class="card-body">
+                        <form method="post">
+                            {% csrf_token %}
+                            <div>
+                                <label>Payment Type:</label>
+                                <input type="text" name="payment_type" value="{{ coupon_recharge.payment_type }}">
+                            </div>
+                            <div>
+                                <label>Amount Received:</label>
+                                <input type="number" name="amount_recieved" value="{{ coupon_recharge.amount_recieved }}">
+                            </div>
+                            <div>
+                                <label>Coupon Method:</label>
+                                <select name="coupon_method">
+                                    <option value="manual" {% if coupon_recharge.coupon_method == "manual" %}selected{% endif %}>Manual</option>
+                                    <option value="automatic" {% if coupon_recharge.coupon_method == "automatic" %}selected{% endif %}>Automatic</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Reference Number:</label>
+                                <input type="text" name="reference_number" value="{{ coupon_recharge.reference_number }}">
+                            </div>
+                            {% comment %} <button type="submit">Save</button> {% endcomment %}
+                        
+                           
+                            <div class="col-12 text-end mt-5">
+                                <input type="submit" class="btn btn-primary me-2 mb-2" value="Submit">
+                                <button class="btn btn-success   me-md-2  mb-2" type="button"
+                                    onClick="javascript:history.go(-1);">
+                                    <i class="bi bi-backspace-fill pe-1"></i>Back</button>
+                                <a class="btn btn-success me-md-2  mb-2" href="{% url 'coupon_recharge_list' %}">
+                                    <i class="bi bi-backspace-fill pe-1"></i> Back to Dashboard
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+
+
+
