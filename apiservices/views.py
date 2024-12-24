@@ -5546,6 +5546,7 @@ class AddCollectionPayment(APIView):
                     invoice = Invoice.objects.get(pk=invoice_id, customer=customer)
                 except Invoice.DoesNotExist:
                     continue
+                
                 invoice_numbers.append(invoice.invoice_no)
                 # Calculate the amount due for this invoice
                 due_amount = invoice.amout_total - invoice.amout_recieved
@@ -5557,9 +5558,9 @@ class AddCollectionPayment(APIView):
                     if due_amount < 0 or due_amount == remaining_amount:
                         payment_amount = due_amount
                     elif due_amount > remaining_amount:
-                        payment_amount = due_amount - remaining_amount
-                    elif due_amount > remaining_amount:
-                        payment_amount = remaining_amount - due_amount
+                        payment_amount = remaining_amount
+                    elif due_amount < remaining_amount:
+                        payment_amount = due_amount
                     
                     # Update the invoice balance and amount received
                     invoice.amout_recieved += payment_amount
