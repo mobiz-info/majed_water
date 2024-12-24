@@ -29,6 +29,7 @@ import calendar
 from datetime import date, timedelta
 from django.db.models import Max
 from apiservices.notification import *
+from accounts.views import log_activity
 
 
 
@@ -835,3 +836,61 @@ class ReassignRequestView(View):
             'diff_bottle': diff_bottle,
         }
         return render(request, 'customer_care/reassign_request_form.html', context)
+    
+def new_registered_customers(request):
+    # Fetch filters from GET parameters
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    status_filter = request.GET.get('status')
+    location_filter = request.GET.get('location')
+    query = request.GET.get('q')
+
+    # Query the CustomerRegistrationRequest model
+    requests = CustomerRegistrationRequest.objects.all().order_by('-created_date')
+    print("requests",requests)
+    if start_date and end_date:
+        requests = requests.filter(created_date__range=(start_date,end_date))
+
+    if status_filter:
+        requests = requests.filter(status=status_filter)
+    if location_filter:
+        requests = requests.filter(location_id=location_filter)
+        
+    if query:
+        requests = requests.filter(
+            Q(name__icontains=query) |
+            Q(phone_no__icontains=query) |
+            Q(building_name__icontains=query) |
+            Q(room_or_flat_no__icontains=query) |
+            Q(floor_no__icontains=query) |
+            Q(email_id__icontains=query) |
+            Q(no_of_5g_bottles_required__icontains=query) |
+            Q(visit_schedule__icontains=query) |
+            Q(status__icontains=query) |
+            Q(location__location_name__icontains=query) |
+            Q(emirate__name__icontains=query)
+        )
+    
+
+    # Fetch data for filters
+    emirates = EmirateMaster.objects.all()
+    locations = LocationMaster.objects.all()
+    log_activity(
+            created_by=request.user,
+            description=f"Viewed Newly Registered customer list with filters: Start Date = {start_date}, End Date = {end_date}, Status = {status_filter}, Location = {location_filter}, Query = {query}"
+        )
+
+    context = {
+        'requests': requests,
+        'emirates': emirates,
+        'locations': locations,
+        'status_filter': status_filter,
+        'location_filter': location_filter,
+        'filter_data': {
+            'start_date': start_date,
+            'end_date': end_date,
+            'q': query,
+
+        },
+    }
+    return render(request, 'customer_care/new_registered_customers.html', context)
