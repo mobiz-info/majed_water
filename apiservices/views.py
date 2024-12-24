@@ -5279,7 +5279,6 @@ class customer_outstanding(APIView):
                 routes__route_id__in=assigned_routes
             )
         else:
-              
             customers = Customers.objects.filter(routes__pk=route_id)
 
         if customer_id:
@@ -5288,7 +5287,7 @@ class customer_outstanding(APIView):
         serialized_data = CustomerOutstandingSerializer(customers, many=True, context={"request": request, "date_str": date})
 
         # Filter out customers with zero amount, empty can, and coupons
-        filtered_data = [customer for customer in serialized_data.data if customer['amount'] > 0 or customer['empty_can'] > 0 or customer['coupons'] > 0]
+        filtered_data = [customer for customer in serialized_data.data if customer['amount'] != 0 or customer['empty_can'] > 0 or customer['coupons'] > 0]
         
         # Initialize totals
         total_outstanding_amount = 0
@@ -5306,7 +5305,8 @@ class customer_outstanding(APIView):
                 customer__pk=customer.pk, 
                 created_date__date__lte=date
             ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
-            
+            # print(outstanding_amount)
+            # print(collection_amount)
             # outstanding_amount = max(outstanding_amount - collection_amount, 0)
             outstanding_amount = outstanding_amount - collection_amount
             
