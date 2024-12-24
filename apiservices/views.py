@@ -3613,6 +3613,8 @@ class create_customer_supply(APIView):
         customer_outstanding_empty_can = None
         customer_outstanding_amount = None
         
+        customer_supply_pk = ""
+        
         try:
             with transaction.atomic():
                 # Create CustomerSupply instance
@@ -3634,6 +3636,8 @@ class create_customer_supply(APIView):
                     created_by=request.user.id,
                     created_date=datetime.today()
                 )
+                
+                customer_supply_pk = customer_supply.pk
 
                 # Create CustomerSupplyItems instances
                 total_fivegallon_qty = 0
@@ -3682,6 +3686,8 @@ class create_customer_supply(APIView):
                         vanstock.save()
                         
                     else:
+                        customer_supply.delete()
+                        
                         status_code = status.HTTP_400_BAD_REQUEST
                         response_data = {
                             "status": "false",

@@ -2406,7 +2406,7 @@ class CustomersOutstandingAmountsSerializer(serializers.ModelSerializer):
     
     def get_balance_amount(self, obj):
         dialy_collections = CollectionPayment.objects.filter(customer=obj.customer_outstanding.customer,created_date__date=obj.customer_outstanding.created_date.date()).aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
-        balance_amount = max(obj.amount - dialy_collections, 0)
+        balance_amount = obj.amount - dialy_collections
         return balance_amount
     
     

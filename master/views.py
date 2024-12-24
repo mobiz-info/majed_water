@@ -1136,12 +1136,14 @@ class AmountChangesCustomersList(View):
 
                 # Calculate outstanding balance
                 outstanding_balance = outstanding - collection
-
+                
+                # amount_equal_supplys_invoice_nos = CustomerSupply.objects.filter(customer=customer_instance,subtotal=F('amount_recieved')).values_list("invoice_no")
                 # Fetch all invoices for the customer
                 invoice_instances = Invoice.objects.filter(
                     customer=customer_instance,
                     is_deleted=False
                 )
+                # .exclude(invoice_no__in=amount_equal_supplys_invoice_nos)
 
                 # Calculate invoice balance
                 invoice_balance = sum(
