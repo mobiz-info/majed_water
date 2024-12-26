@@ -3613,6 +3613,8 @@ class create_customer_supply(APIView):
         customer_outstanding_empty_can = None
         customer_outstanding_amount = None
         
+        customer_supply_pk = ""
+        
         try:
             with transaction.atomic():
                 # Create CustomerSupply instance
@@ -3634,6 +3636,8 @@ class create_customer_supply(APIView):
                     created_by=request.user.id,
                     created_date=datetime.today()
                 )
+                
+                customer_supply_pk = customer_supply.pk
 
                 # Create CustomerSupplyItems instances
                 total_fivegallon_qty = 0
@@ -3682,6 +3686,8 @@ class create_customer_supply(APIView):
                         vanstock.save()
                         
                     else:
+                        customer_supply.delete()
+                        
                         status_code = status.HTTP_400_BAD_REQUEST
                         response_data = {
                             "status": "false",
@@ -5273,7 +5279,6 @@ class customer_outstanding(APIView):
                 routes__route_id__in=assigned_routes
             )
         else:
-              
             customers = Customers.objects.filter(routes__pk=route_id)
 
         if customer_id:
@@ -5282,7 +5287,7 @@ class customer_outstanding(APIView):
         serialized_data = CustomerOutstandingSerializer(customers, many=True, context={"request": request, "date_str": date})
 
         # Filter out customers with zero amount, empty can, and coupons
-        filtered_data = [customer for customer in serialized_data.data if customer['amount'] > 0 or customer['empty_can'] > 0 or customer['coupons'] > 0]
+        filtered_data = [customer for customer in serialized_data.data if customer['amount'] != 0 or customer['empty_can'] > 0 or customer['coupons'] > 0]
         
         # Initialize totals
         total_outstanding_amount = 0
@@ -5300,7 +5305,8 @@ class customer_outstanding(APIView):
                 customer__pk=customer.pk, 
                 created_date__date__lte=date
             ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
-            
+            # print(outstanding_amount)
+            # print(collection_amount)
             # outstanding_amount = max(outstanding_amount - collection_amount, 0)
             outstanding_amount = outstanding_amount - collection_amount
             
@@ -5395,7 +5401,7 @@ class CollectionAPI(APIView):
         customer_id = request.query_params.get('customer_id')
         # Filter CustomerSupply objects based on the user
         invoices_customer_pk = Invoice.objects.filter(invoice_status="non_paid",is_deleted=False).exclude(amout_total=0).values_list("customer__pk")
-        collection = Customers.objects.filter(pk__in=invoices_customer_pk,sales_staff=user)
+        collection = Customers.objects.filter(pk__in=invoices_customer_pk)
         
         if customer_id:
             collection = collection.filter(pk=customer_id)
@@ -5540,6 +5546,7 @@ class AddCollectionPayment(APIView):
                     invoice = Invoice.objects.get(pk=invoice_id, customer=customer)
                 except Invoice.DoesNotExist:
                     continue
+                
                 invoice_numbers.append(invoice.invoice_no)
                 # Calculate the amount due for this invoice
                 due_amount = invoice.amout_total - invoice.amout_recieved
@@ -5551,9 +5558,9 @@ class AddCollectionPayment(APIView):
                     if due_amount < 0 or due_amount == remaining_amount:
                         payment_amount = due_amount
                     elif due_amount > remaining_amount:
-                        payment_amount = due_amount - remaining_amount
-                    elif due_amount > remaining_amount:
-                        payment_amount = remaining_amount - due_amount
+                        payment_amount = remaining_amount
+                    elif due_amount < remaining_amount:
+                        payment_amount = due_amount
                     
                     # Update the invoice balance and amount received
                     invoice.amout_recieved += payment_amount
