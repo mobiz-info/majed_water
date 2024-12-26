@@ -35,6 +35,7 @@ from invoice_management.serializers import BuildingNameSerializers, ProductSeria
 from van_management.models import VanCouponStock
 from sales_management.models import Receipt
 from sales_management.views import delete_receipt
+from accounts.views import log_activity
 
 # Create your views here.
 @api_view(['GET'])
@@ -120,6 +121,11 @@ def invoice_info(request,pk):
     """
     instance = Invoice.objects.get(pk=pk,is_deleted=False)
     
+    log_activity(
+        created_by=request.user,
+        description=f"Viewed invoice with ID {pk}."
+    )
+    
     context = {
         'instance': instance,
         'page_name' : 'Invoice',
@@ -164,6 +170,11 @@ def invoice_list(request):
 
     route_li = RouteMaster.objects.all()  
     
+    log_activity(
+        created_by=request.user,
+        description="Viewed invoice list with filters applied." if filter_data else "Viewed invoice list."
+    )
+    
     context = {
         'instances': instances,
         'page_name': 'Invoice List',
@@ -203,6 +214,11 @@ def invoice_customers(request):
         
     route_instances = RouteMaster.objects.all()
 
+    log_activity(
+        created_by=request.user,
+        description="Viewed customer list for invoice creation." if not filter_data else f"Filtered customer list with filters: {filter_data}."
+    )
+    
     context = {
         'instances': instances,
         'route_instances' : route_instances,
@@ -250,6 +266,10 @@ def create_invoice(request, customer_pk):
                         data.invoice = invoice
                         data.save()
                     
+                    log_activity(
+                        created_by=request.user,
+                        description=f"Invoice {invoice.invoice_no} created for customer {customer_instance.customer_name}."
+                    ) 
                     
                     response_data = {
                         "status": "true",
@@ -260,6 +280,10 @@ def create_invoice(request, customer_pk):
                     }
                     
             except IntegrityError as e:
+                log_activity(
+                    created_by=request.user,
+                    description=f"IntegrityError while creating invoice for customer {customer_instance.customer_name}: {str(e)}"
+                )
                 # Handle database integrity error
                 response_data = {
                     "status": "false",
@@ -350,6 +374,11 @@ def edit_invoice(request,pk):
 
             for f in invoice_items_formset.deleted_forms:
                 f.instance.delete()
+            
+            log_activity(
+                        created_by=request.user,
+                        description=f"Invoice {invoice_instance.invoice_no} updated for customer {customer_instance.customer_name}."
+                    )
                 
             response_data = {
                 "status": "true",
@@ -426,7 +455,7 @@ def delete_invoice(request, pk):
     try:
         with transaction.atomic():
             invoice = Invoice.objects.get(pk=pk)
-            
+            log_activity(request.user, f"Attempting to delete invoice #{invoice.invoice_no}.")
             receipts = Receipt.objects.filter(invoice_number=invoice.invoice_no)
             for receipt in receipts:
                 delete_receipt(request, receipt.receipt_number, receipt.customer.customer_id) 
@@ -451,6 +480,7 @@ def delete_invoice(request, pk):
                 # Update van product stock and empty bottle counts
                 update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty)
                 
+                log_activity(request.user, f"Deleted customer supply for invoice #{invoice.invoice_no}.")
                 # Mark customer supply and items as deleted
                 customer_supply_instance.delete()
                 supply_items_instances.delete()
@@ -477,6 +507,9 @@ def delete_invoice(request, pk):
                                 )
                         van_coupon_stock.stock += 1
                         van_coupon_stock.save()
+                        
+                        log_activity(request.user, f"Adjusted coupon stock for customer #{customer_coupon.customer.customer_id}.")
+                        
                         item.delete()
                         
                         
@@ -511,6 +544,7 @@ def delete_invoice(request, pk):
                 outstanding.invoice_no = None
                 outstanding.save()
                 
+                log_activity(request.user, f"Adjusted outstanding for invoice #{invoice.invoice_no}.")
                 # Adjust CustomerOutstandingReport
                 # report = CustomerOutstandingReport.objects.get(customer=outstanding.customer, product_type='amount')
                 # report.value -= invoice.amout_total  # Adjust based on your invoice amount field
@@ -520,7 +554,9 @@ def delete_invoice(request, pk):
             invoice.save()
             
             InvoiceItems.objects.filter(invoice=invoice).update(is_deleted=True)
-                
+            
+            log_activity(request.user, f"Invoice #{invoice.invoice_no} successfully marked as deleted.")    
+
             response_data = {
                 "status": "true",
                 "title": "Successfully Deleted",
@@ -532,6 +568,7 @@ def delete_invoice(request, pk):
             return HttpResponse(json.dumps(response_data), content_type='application/javascript')
 
     except Invoice.DoesNotExist:
+        log_activity(request.user, f"Invoice with ID {pk} not found.")
         response_data = {
             "status": "false",
             "title": "Failed",
@@ -540,6 +577,7 @@ def delete_invoice(request, pk):
         return HttpResponse(json.dumps(response_data), status=status.HTTP_404_NOT_FOUND, content_type='application/javascript')
 
     except CustomerOutstanding.DoesNotExist:
+        log_activity(request.user, f"Customer outstanding record not found for invoice #{pk}.")
         response_data = {
             "status": "false",
             "title": "Failed",
@@ -588,7 +626,10 @@ def invoice(request,pk):
     """
     
     instance = Invoice.objects.get(pk=pk,is_deleted=False)  
-           
+    log_activity(
+        created_by=request.user,
+        description=f"Viewed invoice with ID {pk}."
+    )       
     context = {
         'instance': instance,
         'page_name' : 'Invoice',
@@ -626,6 +667,11 @@ def customerwise_invoice(request):
         'customer__customer_id'
     ).distinct()
 
+    log_activity(
+        created_by=request.user,
+        description="Viewed the customer-wise invoice list."
+    )
+    
     context = {
         'route_li':route_li,
         'invoices': invoices,
@@ -647,7 +693,10 @@ def edit_customerwise_invoice(request,customer_id):
         total_balance_amount += invoice.balance_amount
 
            
-           
+    log_activity(
+        created_by=request.user,
+        description=f"Edited invoices for customer with ID {customer_id}."
+    )       
     context = {
         'invoices': invoices,
         'total_amount_total': total_amount_total,

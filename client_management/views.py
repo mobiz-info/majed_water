@@ -320,7 +320,11 @@ class Vacation_Add(View):
         template = 'client_management/vacation_add.html'
         form = Vacation_Add_Form(request.POST)
         if form.is_valid():
-            form.save()
+            vacation = form.save()
+            log_activity(
+                created_by=request.user,
+                description=f"Added vacation for customer '{vacation.customer.customer_name}' from {vacation.start_date} to {vacation.end_date}."
+            )
             return redirect(vacation_list)
         return render(request, template, {'form': form})
     
@@ -336,6 +340,10 @@ class Vacation_Edit(View):
         form = Vacation_Edit_Form(request.POST, instance=vacation)
         if form.is_valid():
             form.save()
+            log_activity(
+                created_by=request.user,
+                description=f"Updated vacation for customer '{vacation.customer.customer_name}' (ID: {vacation.vacation_id})."
+            )
             return redirect(vacation_list)
         return render(request, self.template, {'form': form, 'vacation': vacation})
 
@@ -348,6 +356,10 @@ class Vacation_Delete(View):
     def post(self, request, vacation_id):
         vacation = Vacation.objects.get(vacation_id=vacation_id)
         vacation.delete()
+        log_activity(
+            created_by=request.user,
+            description=f"Deleted vacation for customer '{vacation.customer.customer_name}' (ID: {vacation.vacation_id})."
+        )
         return redirect(vacation_list)
     
 
@@ -494,10 +506,20 @@ def customer_supply_list(request):
         instances = instances.filter(created_date__date__gte=start_date, created_date__date__lte=end_date)
         filter_data['start_date'] = start_date
         filter_data['end_date'] = end_date
+        
+        log_activity(
+            created_by=request.user,
+            description=f"Filtered customer supplies between {start_date} and {end_date}"
+        )
     
     if route_name:
         instances = instances.filter(customer__routes__route_name=route_name)
         filter_data['route_name'] = route_name
+        
+        log_activity(
+            created_by=request.user,
+            description=f"Filtered customer supplies by route: {route_name}"
+        )
         
     query = request.GET.get("q")
     if query:
@@ -507,6 +529,11 @@ def customer_supply_list(request):
             Q(customer__building_name__icontains=query)
         )
         filter_data['q'] = query
+        
+        log_activity(
+            created_by=request.user,
+            description=f"Searched customer supplies with query: {query}"
+        )
         
     for instance in instances:
         instance.can_edit = (timezone.now().date() - instance.created_date.date()).days <= 3
@@ -559,7 +586,10 @@ def customer_supply_info(request,pk):
     #     )
     #     title = "Customer Supply List - %s" % query
     #     filter_data['q'] = query
-    
+    log_activity(
+        created_by=request.user,
+        description=f"Viewed customer supply info for supply ID: {supply.pk}"
+    )
     context = {
         'supply': supply,
         'instances': instances,
@@ -953,7 +983,10 @@ def create_customer_supply(request,pk):
                         except Exception as e:
                             messages.error(request, f'Error sending notification: {e}', 'alert-danger')  
                             
-                              
+                    log_activity(
+                        created_by=request.user,
+                        description=f'Customer Supply for customer {customer_instance.customer_name} created successfully and Invoice generated. Fresh cans supplied: {item_data.quantity} ,Empty cans collected:{balance_empty_bottle},Amount collected:{invoice.amout_recieved}'
+                    )          
                     if invoice_generated:
                         response_data = {
                             "status": "true",
@@ -1403,7 +1436,11 @@ def edit_customer_supply(request, pk):
                             assign_this_to=customer_suply_form_instance.salesman,
                             customer=customer_suply_form_instance.customer
                             ).update(status='supplied')
-
+                    
+                    log_activity(
+                        created_by=request.user,
+                        description=f'Customer Supply for customer {customer_instance.customer_name} Updated successfully. '
+                    )
                     if invoice_generated:
                         response_data = {
                             "status": "true",
@@ -1513,7 +1550,10 @@ def delete_customer_supply(request, pk):
                     # Mark customer supply and items as deleted
             customer_supply_instance.delete()
             supply_items_instances.delete()
-                    
+            log_activity(
+                created_by=request.user,
+                description=f"Customer supply with ID {pk} was successfully deleted."
+            )        
             response_data = {
                         "status": "true",
                         "title": "Successfully Deleted",
@@ -1524,6 +1564,10 @@ def delete_customer_supply(request, pk):
             return HttpResponse(json.dumps(response_data), content_type='application/javascript')
     
     except Exception as e:
+        log_activity(
+            created_by=request.user,
+            description=f"Failed to delete customer supply with ID {pk}. Error: {str(e)}"
+        )
         response_data = {
             "status": "false",
             "title": "Deletion Failed",
@@ -2016,6 +2060,10 @@ def delete_count(request, pk):
         customer_pk = customer_coupon_stock.customer.pk
         customer_coupon_stock.delete()
         messages.success(request, 'Coupon count deleted successfully!')
+        log_activity(
+                created_by=request.user,
+                description=f"Coupon count with ID {pk} for customer {customer_pk} was successfully deleted."
+            )
         return redirect('coupon_count_list', pk=customer_pk)
 
     return redirect('coupon_count_list')
@@ -2885,6 +2933,11 @@ def delete_outstanding(request, pk):
             
             customer_outstanding.delete()
             
+            log_activity(
+                created_by=request.user,
+                description=f"Outstanding record with ID {pk} was successfully deleted."
+            )
+            
             status_code = status.HTTP_200_OK
             response_data = {
             "status": "true",
@@ -3107,6 +3160,10 @@ def delete_nonvisitreason(request, id):
     delete_nonvisitreason = NonVisitReason.objects.get(id=id)
     if request.method == 'POST':
         delete_nonvisitreason.delete()
+        log_activity(
+                created_by=request.user,
+                description=f"Non-visit reason with ID {id} was successfully deleted."
+            )
         return redirect('nonvisitreason_List')
     return render(request, 'client_management/NonVisitReason/delete_nonvisitreason.html', {'delete_nonvisitreason': delete_nonvisitreason})
 
@@ -4065,7 +4122,10 @@ def delete_eligible_customers_condition(request, pk):
         with transaction.atomic():
             instance = get_object_or_404(EligibleCustomerConditions, pk=pk)
             instance.delete()           
-                
+            log_activity(
+                created_by=request.user,
+                description=f"Eligible customer condition with ID {pk} was successfully deleted."
+            )    
             response_data = {
                 "status": "true",
                 "title": "Successfully Deleted",
@@ -4093,31 +4153,11 @@ def delete_eligible_customers_condition(request, pk):
         return HttpResponse(json.dumps(response_data), status=status.HTTP_500_INTERNAL_SERVER_ERROR, content_type='application/javascript')
 
 
-# def eligible_customers(request):
-#     # Fetch filters from request
-#     from_date = request.GET.get('from_date', datetime.today().strftime('%Y-%m-%d'))
-#     to_date = request.GET.get('to_date', datetime.today().strftime('%Y-%m-%d'))
-#     route_name = request.GET.get('route_name', '')
-    
-#     try:
-#         from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
-#         to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
-#     except ValueError:
-#         from_date = to_date = datetime.today().date()
-    
-#     instances = CustomerCustodyStock.objects.filter(customer__routes__route_name=route_name) if route_name else CustomerCustodyStock.objects.all()
-
-#     context = {
-#         'instances': instances,
-#         'routes': RouteMaster.objects.all(),
-#         'from_date': from_date,
-#         'to_date': to_date,
-#         'route_name': route_name,
-#     }
-
-#     return render(request, 'client_management/customer_supply/eligible_customers.html', context)
 
 
+from datetime import datetime
+from django.utils.timezone import now
+import calendar
 
 def eligible_customers(request):
     from_date = request.GET.get('from_date', datetime.today().strftime('%Y-%m-%d'))

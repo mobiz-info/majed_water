@@ -27,6 +27,7 @@ from datetime import datetime
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse, HttpResponse
 from django.db.models import Q
+from accounts.views import log_activity
 
 # Create your views here.
 # def increment_alphabetic_part(alphabetic_part):
@@ -213,6 +214,7 @@ def delete_couponType(request, coupon_type_id):
     deleteCouponType = CouponType.objects.get(coupon_type_id=coupon_type_id)
     if request.method == 'POST':
         deleteCouponType.delete()
+        log_activity(request.user.id, f"Coupon Type deleted: {deleteCouponType.coupon_type_name}")
         return redirect('couponType')
     return render(request, 'coupon_management/delete_couponType.html', {'deleteCouponType': deleteCouponType})
 
@@ -271,6 +273,7 @@ def create_Newcoupon(request):
             branch = BranchMaster.objects.get(branch_id=branch_id)
             data.branch_id = branch           
             data.save()
+            log_activity(request.user, f"New coupon created: {data.coupon_id}")
             
             for v in valuable_leafs.split(', '):
                 CouponLeaflet.objects.create(
@@ -280,7 +283,7 @@ def create_Newcoupon(request):
                     created_by=request.user.id,
                     created_date=datetime.now(),
                 )
-            
+            log_activity(request.user, f"Valuable leaflets created for coupon: {data.coupon_id}")
             if int(data.free_leaflets) > 0:
                 for f in free_leafs.split(', '):
                     FreeLeaflet.objects.create(
@@ -290,12 +293,15 @@ def create_Newcoupon(request):
                         created_by=request.user.id,
                         created_date=datetime.now(),
                     )
+                    
+                log_activity(request.user.id, f"Free leaflets created for coupon: {data.coupon_id}")
             # Create CouponStock instance
             CouponStock.objects.create(
                 couponbook=data, 
                 coupon_stock='company', 
                 created_by=str(request.user.id)
                 )
+            log_activity(request.user.id, f"Coupon stock created for coupon: {data.coupon_id}")
             product_instance=ProdutItemMaster.objects.get(product_name=data.coupon_type.coupon_type_name)
             if (stock_intances:=ProductStock.objects.filter(product_name=product_instance,branch=branch)).exists():
                 stock_intance = stock_intances.first()
@@ -307,7 +313,7 @@ def create_Newcoupon(request):
                     branch=branch,
                     quantity=1
                 )
-
+            log_activity(request.user.id, f"Product stock updated for coupon: {data.coupon_id}")
             response_data = {
                 "status": "true",
                 "title": "Successfully Created",
@@ -397,6 +403,10 @@ def delete_Newcoupon(request, coupon_id):
     deleteCoupon = NewCoupon.objects.get(coupon_id=coupon_id)
     if request.method == 'POST':
         deleteCoupon.delete()
+        log_activity(
+            created_by=request.user,
+            description=f"deleting coupon with ID {coupon_id}"
+        )
         return redirect('new_coupon')
     return render(request, 'coupon_management/delete_Newcoupon.html', {'deleteCoupon': deleteCoupon})
 
@@ -775,6 +785,10 @@ def coupon_recharge_list(request):
         'coupon_method': coupon_method,
 
     }
+    log_activity(
+            created_by=request.user,
+            description=f"Viewed coupon recharge list."
+        )
     context={
         'coupon_customer':coupon_customer,
         'filter_data': filter_data,
@@ -782,6 +796,7 @@ def coupon_recharge_list(request):
 }
 
     return render(request,'coupon_management/coupon_recharge_list.html', context)
+
 
 def edit_coupon_recharge(request, pk):
     coupon_recharge = get_object_or_404(CustomerCoupon, id=pk)
@@ -800,6 +815,11 @@ def edit_coupon_recharge(request, pk):
             
             receipt.amount_received = updated_coupon.amount_recieved
             receipt.save()
+            
+            log_activity(
+                        created_by=request.user,
+                        description=f"Edited coupon recharge with ID {pk}, updated related invoice and receipt."
+                    )
 
             messages.success(request, "Coupon recharge and related invoice updated successfully.")
             return redirect("coupon_recharge")
@@ -821,5 +841,10 @@ def delete_coupon_recharge(request, pk):
     coupon_recharge.delete()
     receipt.delete()
 
+    log_activity(
+        created_by=request.user,
+        description=f"Deleted coupon recharge with ID {pk}, invoice no {coupon_recharge.invoice_no}, and related receipt."
+    )
+    
     messages.success(request, "Coupon recharge and related invoice deleted successfully.")
     return redirect("coupon_recharge")

@@ -4627,6 +4627,7 @@ def dsr_summary(request):
         'filter_data': filter_data,
         # FOC customer
         'foc_customers':foc_customers,
+        
     }
     
     return render(request, 'sales_management/dsr_summary.html', context)
@@ -5060,6 +5061,7 @@ def print_dsr_summary(request):
         'filter_data': filter_data,
         # FOC customer
         'foc_customers':foc_customers,
+        'filter_date_formatted': date.strftime('%d-%m-%Y'),
     }
     
     return render(request, 'sales_management/dsr_summary_print.html', context)
@@ -6561,7 +6563,7 @@ def delete_collection_payment(request, receipt_number, customer_id):
         for item in collection_items:
             payment_amount = item.amount_received
             invoice = item.invoice
-
+            log_activity(request.user, f"Invoice {invoice} adjusted: Amount received reduced by {payment_amount}")
             # Adjust the invoice amount_received
             invoice.amout_recieved -= payment_amount
             if invoice.amout_recieved < 0:
@@ -6577,7 +6579,7 @@ def delete_collection_payment(request, receipt_number, customer_id):
 
             # Delete each collection item
             item.delete()
-
+        log_activity(request.user.id, f"Deleted collection payment: {collection_payment.receipt_number}")
         # Delete the collection payment after its items are handled
         collection_payment.delete()
 
@@ -7108,7 +7110,9 @@ def delete_receipt(request, receipt_number, customer_id):
 
     
     receipt.delete()
-
+    
+    log_activity(request.user, f"Successfully deleted receipt {receipt_number} and reversed associated transactions.")
+        
     response_data = {
         "status": "true",
         "title": "Successfully Deleted",
@@ -7518,7 +7522,7 @@ def offload_list_print(request):
         },
         'van_routes': van_routes,
     })
-
+    
 def download_offload_excel(request):
     # Get filter values from the request
     start_date = request.GET.get('start_date')
@@ -7619,6 +7623,7 @@ def download_offload_excel(request):
     # Save the workbook to the response
     workbook.save(response)
     return response
+
 
 def todays_cash_sales(request):
     # Get today's date
