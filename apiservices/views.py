@@ -5976,7 +5976,10 @@ class CouponSupplyCountAPIView(APIView):
             start_datetime = datetime.strptime(start_date, '%Y-%m-%d').date()
             end_datetime = datetime.strptime(end_date, '%Y-%m-%d').date()
         
-        coupon_counts = CustomerCoupon.objects.filter(created_date__date__range=[start_datetime,end_datetime])
+        coupon_counts = CustomerCoupon.objects.filter(
+            created_date__date__range=[start_datetime,end_datetime],
+            customer__routes=Van_Routes.objects.filter(van__salesman=request.user).first().routes
+            )
         serializer = CouponSupplyCountSerializer(coupon_counts, many=True)
 
         return Response({'status': True, 'data': serializer.data}, status=status.HTTP_200_OK)
@@ -5999,7 +6002,10 @@ class Coupon_Sales_APIView(APIView):
             end_datetime = datetime.strptime(end_date, '%Y-%m-%d').date()
         
             
-        coupon_sales = CustomerCouponItems.objects.filter(customer_coupon__created_date__date__range=[start_datetime,end_datetime])
+        coupon_sales = CustomerCouponItems.objects.filter(
+            customer_coupon__created_date__date__range=[start_datetime,end_datetime],
+            customer_coupon__customer__routes=Van_Routes.objects.filter(van__salesman=request.user).first().routes
+            )
         
         if sales_type:
             coupon_sales = coupon_sales.filter(customer_coupon__customer__sales_type=sales_type)
@@ -6044,7 +6050,12 @@ class RedeemedHistoryAPI(APIView):
             start_date = date.today()
             end_date = date.today()
         
-        supply_instances = CustomerSupply.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,customer__sales_type="CASH COUPON")
+        supply_instances = CustomerSupply.objects.filter(
+            created_date__date__gte=start_date,
+            created_date__date__lte=end_date,
+            customer__sales_type="CASH COUPON",
+            customer__routes=Van_Routes.objects.filter(van__salesman=request.user).first().routes
+            )
 
         if customer_id:
             supply_instances = supply_instances.filter(customer__pk=customer_id)
@@ -6082,9 +6093,9 @@ class CouponConsumptionReport(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request, *args, **kwargs):
             start_date = request.data.get('start_date')  
-            print("start_date",start_date)
+            # print("start_date",start_date)
             end_date = request.data.get('end_date')  
-            print("end_date",end_date)
+            # print("end_date",end_date)
             
             if start_date and end_date:
                 start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -6096,7 +6107,8 @@ class CouponConsumptionReport(APIView):
             supply_instance = CustomerSupply.objects.filter(
                 created_date__date__gte=start_date,
                 created_date__date__lte=end_date,
-                customer__sales_type="CASH COUPON"
+                customer__sales_type="CASH COUPON",
+                customer__routes=Van_Routes.objects.filter(van__salesman=request.user).first().routes
             )
             
             serializer = CouponConsumptionSerializer(supply_instance, many=True)
