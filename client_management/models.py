@@ -743,3 +743,53 @@ class CustomerAccountDeleteRequest(models.Model):
     
     def __str__(self):
         return f"{self.customer.customer_name}"
+    
+
+class CustomerOtherProductChargesChanges(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
+    product_item = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
+    privious_rate = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    current_rate = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    
+    created_by = models.CharField(max_length=200)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=200, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.customer.customer_name}"
+    
+class CustomerOtherProductCharges(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
+    product_item = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
+    current_rate = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    
+    def __str__(self):
+        return f"{self.customer.customer_name}"
+    
+
+class CustomerOtherProductChargesChanges(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
+    product_item = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
+    privious_rate = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    current_rate = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    
+    created_by = models.CharField(max_length=200)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=200, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.customer.customer_name}"
+    
+class CustomerOtherProductCharges(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
+    product_item = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
+    current_rate = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    
+    def __str__(self):
+        return f"{self.customer.customer_name}"

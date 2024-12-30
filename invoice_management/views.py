@@ -136,7 +136,7 @@ def invoice_list(request):
     :param request:
     :return: Invoices list view
     """
-    filter_date = request.GET.get('filter_date')
+    filter_date = request.GET.get('date')
     route_name = request.GET.get('route_name')
     query = request.GET.get("q")
     
