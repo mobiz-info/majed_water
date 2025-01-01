@@ -1,8 +1,10 @@
-from django.urls import path
-from .views import *
 from django.conf import settings
+from django.urls import path,re_path
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
+
+from .views import *
+from accounts import views
 
 urlpatterns = [
     path('login',user_login, name='login'),
@@ -24,6 +26,7 @@ urlpatterns = [
     
     path('visit_days_assign/<str:customer_id>', visit_days_assign, name="visit_days_assign"),
     path('customer_rate_history/<str:pk>/', CustomerRateHistoryListView.as_view(), name='customer_rate_history'),
+    re_path(r'^other_product_rate_change/(?P<pk>.*)/$',  OtherProductRateChangeView.as_view(), name='other_product_rate_change'),   
     
     path('latest_customers', Latest_Customer_List.as_view(), name='latest_customers'),
     path('inactive_customers', Inactive_Customer_List.as_view(), name='inactive_customers'),

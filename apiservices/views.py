@@ -5528,6 +5528,18 @@ class AddCollectionPayment(APIView):
             
         # Use atomic transaction to ensure data consistency
         with transaction.atomic():
+            remaining_amount = amount_received
+            
+            for invoice_id in invoice_ids:
+                try:
+                    invoice = Invoice.objects.get(pk=invoice_id, customer=customer)
+                except Invoice.DoesNotExist:
+                    continue
+                
+                invoice_amount = invoice.amout_total - invoice.amout_recieved
+                if invoice_amount < 0:
+                    remaining_amount = remaining_amount + abs(invoice_amount)
+            
             # Create collection payment instance
             collection_payment = CollectionPayment.objects.create(
                 payment_method=payment_method,
@@ -5536,8 +5548,10 @@ class AddCollectionPayment(APIView):
                 amount_received=amount_received,
                 receipt_number=receipt_number,
             )
-           
-            remaining_amount = amount_received
+            log_activity(
+                created_by=request.user,
+                description=f"Collection payment created: Receipt No. {receipt_number}, Amount: {amount_received}, Customer: {customer.customer_name}"
+            )
             
             invoice_numbers = []
             # Iterate over invoice IDs
@@ -5587,6 +5601,11 @@ class AddCollectionPayment(APIView):
                     if invoice.amout_recieved == invoice.amout_total:
                         invoice.invoice_status = 'paid'
                         invoice.save()
+                        
+                    log_activity(
+                        created_by=request.user,
+                        description=f"Invoice {invoice.invoice_no} partially/fully paid: {payment_amount} received, Remaining balance: {invoice.amout_total - invoice.amout_recieved}"
+                    )
                 else:
                     # Break the loop if there is no remaining amount or the current invoice is fully paid
                     break
@@ -5628,7 +5647,10 @@ class AddCollectionPayment(APIView):
                         product_type="amount",
                         value=negatieve_remaining_amount,
                     )
-                
+                log_activity(
+                    created_by=request.user.id,
+                    description=f"Outstanding balance adjusted: {negatieve_remaining_amount} for customer {customer.customer_name}"
+                )
                 try:
                     invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
                     last_invoice_number = invoice_last_no.invoice_no
@@ -5676,7 +5698,10 @@ class AddCollectionPayment(APIView):
                     invoice=invoice,
                     remarks='invoice generated from collection: ' + invoice.reference_no
                 )
-                
+                log_activity(
+                    created_by=request.user.id,
+                    description=f"Refund invoice {invoice.invoice_no} created for remaining amount: {negatieve_remaining_amount}"
+                )
         return Response({"message": "Collection payment saved successfully."}, status=status.HTTP_201_CREATED)
     
 class CouponTypesAPI(APIView):

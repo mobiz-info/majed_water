@@ -385,8 +385,18 @@ class SupplyItemProductGetSerializer(serializers.ModelSerializer):
     
     def get_rate(self, obj):
         customer_id = self.context.get('customer_id')
-        customer_rate = Customers.objects.get(pk=customer_id).rate
-        return customer_rate if int(customer_rate) > 0 else obj.rate
+        customer_rate = 0
+        if obj.product_name.lower() == "5 gallon":
+            customer_rate = Customers.objects.get(pk=customer_id).rate
+        else:
+            if (customer:=CustomerOtherProductCharges.objects.filter(customer__pk=customer_id)).exists():
+                customer_rate = customer.first().rate
+                
+        if customer_rate > 0 :
+                customer_rate = customer_rate
+        else: 
+            customer_rate = obj.rate
+        return customer_rate
     
 class CouponLeafSerializer(serializers.ModelSerializer):
 

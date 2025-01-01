@@ -14,10 +14,9 @@ def get_next_visit_day(customer_pk):
     if not customer.visit_schedule is None:
         next_visit_date = get_next_visit_date(customer.visit_schedule)
         # customer.next_visit_date = next_visit_date
-        print(next_visit_date)
         return next_visit_date
     else:
-      return None
+      return "-"
 
 @register.simple_tag
 def bottle_stock(customer_pk):
@@ -42,5 +41,13 @@ def bottle_stock(customer_pk):
 @register.filter
 def get_item(dictionary, key):
     return dictionary.get(key)
+
+
+@register.simple_tag
+def other_product_rate(customer_pk,product_id):
+    rate = ProdutItemMaster.objects.get(pk=product_id).rate
+    if (rate_change_instances:=CustomerOtherProductCharges.objects.filter(product_item__pk=product_id,customer__pk=customer_pk)).exists():
+        rate = rate_change_instances.first().current_rate
+    return rate
 
 

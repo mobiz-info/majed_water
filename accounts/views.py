@@ -1096,7 +1096,8 @@ class CustomerRateHistoryListView(View):
 
     def get(self, request, pk, *args, **kwargs):
         customer_instance = Customers.objects.get(pk=pk)
-        customer_rate_instances = CustomerPriceChange.objects.filter(customer=customer_instance)
+        customer_rate_instances = CustomerPriceChange.objects.filter(customer=customer_instance).order_by('-created_date')
+        other_product_rate_instances = CustomerOtherProductChargesChanges.objects.filter(customer=customer_instance).order_by('-created_date')
         
         new_rate_form = CustomerPriceChangeForm()
         # Log the activity for viewing customer rate history
@@ -1108,7 +1109,9 @@ class CustomerRateHistoryListView(View):
         context = {
             "customer_instance": customer_instance,
             "customer_rate_instances": customer_rate_instances,
+            "other_product_rate_instances": other_product_rate_instances,
             "new_rate_form": new_rate_form,
+            "product_items": ProdutItemMaster.objects.exclude(product_name="5 gallon")
         }
         return render(request, self.template_name, context)
     
@@ -1148,6 +1151,77 @@ class CustomerRateHistoryListView(View):
             )
 
             messages.error(request, 'Invalid form data. Please check the input.')
+            
+class OtherProductRateChangeView(View):
+    def post(self, request, pk, *args, **kwargs):
+        customer_instance = get_object_or_404(Customers, pk=pk)
+        
+        if not CustomerOtherProductCharges.objects.filter(customer=customer_instance).exists():
+            product_items = ProdutItemMaster.objects.exclude(product_name="5 gallon")
+            
+            for product_item in product_items:
+                current_rate = request.POST.get(str(product_item.pk))
+                if not current_rate:
+                    continue
+                
+                try:
+                    current_rate = float(current_rate)  # Convert to appropriate type if needed
+                except ValueError:
+                    continue
+                
+                CustomerOtherProductChargesChanges.objects.create(
+                    created_by=request.user,
+                    customer=customer_instance,
+                    product_item=product_item,
+                    privious_rate=product_item.rate,
+                    current_rate=current_rate
+                )
+                
+                customer_charge, created = CustomerOtherProductCharges.objects.get_or_create(
+                    customer=customer_instance,
+                    product_item=product_item,
+                )
+                customer_charge.current_rate = current_rate
+                customer_charge.save()
+            
+                log_activity(
+                    created_by=request.user,
+                    description=f"Updated rate for customer: {customer_instance.customer_name} (ID: {customer_instance.custom_id}) to {customer_charge.current_rate}"
+                )
+        else:
+            
+            product_item = ProdutItemMaster.objects.get(pk=request.POST.get("other_product_item"))
+            current_rate = request.POST.get("other_product_item_value")
+            current_rate = float(current_rate)
+            
+            CustomerOtherProductChargesChanges.objects.create(
+                created_by=request.user,
+                customer=customer_instance,
+                product_item=product_item,
+                privious_rate=product_item.rate,
+                current_rate=current_rate
+            )
+            
+            customer_charge, created = CustomerOtherProductCharges.objects.get_or_create(
+                customer=customer_instance,
+                product_item=product_item,
+            )
+            customer_charge.current_rate = current_rate
+            customer_charge.save()
+            
+            log_activity(
+                    created_by=request.user,
+                    description=f"Updated rate for customer: {customer_instance.customer_name} (ID: {customer_instance.custom_id}) to {customer_charge.current_rate}"
+                )
+        
+        response_data = {
+            "status": "true",
+            "title": "Successfully Created",
+            "message": "Rate updated successfully.",
+            'redirect': 'true',
+            "redirect_url": reverse('customer_rate_history', kwargs={'pk': pk})
+        }
+        return JsonResponse(response_data)
        
 class NonVisitedCustomersView(View):
     template_name = 'accounts/non_visited_customers.html'
