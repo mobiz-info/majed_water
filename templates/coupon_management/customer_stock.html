@@ -100,7 +100,7 @@
                                         <td>{{ stock.customer.customer_name }},<br>{{ stock.customer.mobile_no }}</td>
                                         <td>{{ stock.customer.building_name }},<br>{{ stock.customer.door_house_no }}</td>
                                         <td>{% if stock.coupon_method == 'digital' %}{{ stock.count }}{% endif %}</td>
-                                        <td>{% if stock.coupon_method == 'manual' %}{{ stock.count }}{% endif %}</td>
+                                        <td>{% if stock.coupon_method == 'manual' %}<a href="{% url 'customer_stock_coupon_details' customer=stock.customer.pk %}" target="__blank">{{ stock.count }}</a>{% endif %}</td>
                                         <td>{{ stock.count }}</td>
                                     </tr>
 

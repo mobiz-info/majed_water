@@ -13,6 +13,7 @@ urlpatterns = [
 #----------------------------------New Coupon-------------------------------------------------------------------
 
     path('get_next_coupon_bookno',get_next_coupon_bookno, name='get_next_coupon_bookno'),
+    path('get_leaf_used_status_change',get_leaf_used_status_change, name='get_leaf_used_status_change'),
     
     path('new_coupon',new_coupon, name='new_coupon'),
     path('create_Newcoupon/',create_Newcoupon, name='create_Newcoupon'),
@@ -35,6 +36,7 @@ urlpatterns = [
     path('coupon_recharge/', coupon_recharge_list, name='coupon_recharge'),
     path("edit_coupon_recharge/<uuid:pk>/", edit_coupon_recharge, name="edit_coupon_recharge"),
     path("delete_coupon_recharge/<uuid:pk>/", delete_coupon_recharge, name="delete_coupon_recharge"),
+
 
 
 

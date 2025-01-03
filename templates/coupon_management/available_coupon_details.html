@@ -62,7 +62,7 @@
                                     <ul id="leaflet-list" class="d-flex">
                                         {% available_valuable_coupons  manual_coupon.coupon.pk as availabele_manual_valid %}
                                         {% for lis in availabele_manual_valid %}
-                                        <li class="generated_leaf_li {% if lis.used %}used_leaf{% endif %}">{{lis.leaflet_name}}</li>
+                                        <li class="generated_leaf_li {% if lis.used %}used_leaf{% endif %}" data-id="{{lis.pk}}">{{lis.leaflet_name}}</li>
                                         {% endfor %}
                                     </ul>
                                     
@@ -70,7 +70,7 @@
                                     <ul id="free-leaflet-list" class="d-flex">
                                         {% available_free_coupons  manual_coupon.coupon.pk as availabele_manual_free %}
                                         {% for freeli in availabele_manual_free %}
-                                        <li class="generated_leaf_li {% if lis.used %}used_leaf{% endif %}">{{freeli.leaflet_name}}</li>
+                                        <li class="generated_leaf_li {% if lis.used %}used_leaf{% endif %}" data-id="{{freeli.pk}}">{{freeli.leaflet_name}}</li>
                                         {% endfor %}
                                     </ul>
                                 </div>
@@ -85,6 +85,7 @@
 </div>
 {% endblock %}
 {% block static %}
+{% load static %}
 <style>
     #leaflet-list,#free-leaflet-list {
         display: flex;
@@ -113,5 +114,28 @@
         color: white;
     }
 </style>
+<script>
+    $('li.generated_leaf_li').click(function () {
+        var pk = $(this).attr('data-id');
+        var url = "{% url 'get_leaf_used_status_change' %}";
+        var clickedElement = $(this); // Save reference to clicked element
+    
+        $.ajax({
+            url: url,
+            data: {
+                'leaf_id': pk,
+                'customer_id': "{{ customer_instance.pk }}",
+            },
+            dataType: 'json',
+            success: function (data) {
+                if (data.status === "true") {
+                    clickedElement.addClass("used_leaf");
+                }
+                if (data.status === "false") {
+                    clickedElement.removeClass("used_leaf");
+                }
+            }
+        });
+    });    
+</script>
 {% endblock static %}
-

@@ -144,6 +144,68 @@ def get_next_coupon_bookno(request):
     }
     return JsonResponse(data, safe=False)
 
+def get_leaf_used_status_change(request):
+    leaf_id = request.GET.get("leaf_id")
+    customer_id = request.GET.get("customer_id")
+    
+    if (valueable_coupon:=CouponLeaflet.objects.filter(pk=leaf_id)).exists():
+        stock = CustomerCouponStock.objects.get(customer__pk=customer_id,coupon_type_id=valueable_coupon.first().coupon.coupon_type)
+        
+        if not valueable_coupon.first().used :
+            valueable_coupon.update(used=True)
+            stock.count -= 1
+            
+            status_code = 200
+            response_data = {
+                "status": "true",
+                "message": "leaf mark as used",
+            }
+        else:
+            valueable_coupon.update(used=False)
+            stock.count += 1
+            
+            status_code = 200
+            response_data = {
+                "status": "false",
+                "message": "leaf mark as not used",
+            }
+        
+        stock.save()
+        
+    elif (free_coupon:=FreeLeaflet.objects.filter(pk=leaf_id)).exists():
+        stock = FreeLeaflet.objects.get(customer__pk=customer_id,coupon_type_id=free_coupon.first().coupon.coupon_type)
+        
+        if not free_coupon.first().used :
+            free_coupon.update(used=True)
+            stock.count -= 1
+            
+            status_code = 200
+            response_data = {
+                "status": "true",
+                "message": "leaf mark as used",
+            }
+        else:
+            free_coupon.update(used=False)
+            stock.count += 1
+            
+            status_code = 200
+            response_data = {
+                "status": "false",
+                "message": "leaf mark as not used",
+            }
+        
+        stock.save()
+        
+    else:
+        status_code = 404
+        response_data = {
+            "status": "false",
+            "title": "Failed",
+            "message": "item not found",
+        }
+
+    return HttpResponse(json.dumps(response_data),status=status_code, content_type="application/json")
+
 
 
 def get_coupon_bookno(request):
