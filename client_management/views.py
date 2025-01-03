@@ -1717,11 +1717,18 @@ def update_van_product_stock(customer_supply_instance, supply_items_instances, f
                         van_stock.empty_can_count -= customer_supply_instance.collected_empty_bottle
                 
                 if customer_supply_instance.van_stock_added :
-                    if van_stock.sold_count > 0 :
+                    if customer_supply_instance.customer.sales_type != "FOC" and van_stock.sold_count >= item_data.quantity :
                         van_stock.sold_count -= item_data.quantity
-                        # van_stock.sold_count = max(van_stock.sold_count, 0)
-                        # van_stock.sold_count -= item_data.quantity
-                    van_stock.stock += item_data.quantity
+                        van_stock.stock += item_data.quantity
+                    
+                if customer_supply_instance.van_foc_added :
+                    if customer_supply_instance.customer.sales_type == "FOC":
+                        van_stock.foc -= item_data.quantity
+                        van_stock.stock += item_data.quantity
+                    else:
+                        van_stock.foc -= customer_supply_instance.allocate_bottle_to_free
+                        van_stock.stock += customer_supply_instance.allocate_bottle_to_free
+                        
             van_stock.save()
 
 #------------------------------REPORT----------------------------------------
