@@ -5499,6 +5499,10 @@ class AddCollectionPayment(APIView):
         amount_received = Decimal(request.data.get("amount_received"))
         invoice_ids = request.data.get("invoice_ids")
         customer_id = request.data.get("customer_id")
+        cheque_details = request.data.get("cheque_details")
+        if payment_method.lower() == "cheque":
+            amount_received = cheque_details['cheque_amount']
+            
         date_part = timezone.now().strftime('%Y%m%d')
         
         # Retrieve customer object
@@ -5698,9 +5702,18 @@ class AddCollectionPayment(APIView):
                     invoice=invoice,
                     remarks='invoice generated from collection: ' + invoice.reference_no
                 )
+                
                 log_activity(
                     created_by=request.user.id,
                     description=f"Refund invoice {invoice.invoice_no} created for remaining amount: {negatieve_remaining_amount}"
+                )
+                
+            if payment_method.lower() == "cheque":
+                CollectionCheque.objects.create(
+                    cheque_amount=amount_received,
+                    cheque_no=cheque_details['cheque_no'],
+                    bank_name=cheque_details['bank_name'],
+                    collection_payment=collection_payment
                 )
         return Response({"message": "Collection payment saved successfully."}, status=status.HTTP_201_CREATED)
     
