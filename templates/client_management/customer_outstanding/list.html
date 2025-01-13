@@ -109,7 +109,6 @@
                                 {% get_outstanding_bottles customer.pk date as outstanding_bottles %}
                                 {% get_outstanding_coupons customer.pk date as outstanding_coupons %}
                                 
-                                {% if outstanding_amount != 0 or outstanding_bottles != 0 or outstanding_coupons != 0 %}
                                 <tr>
                                     <td>{{ forloop.counter }}</td>
                                     <td>{{ customer.custom_id }}</td>
@@ -134,7 +133,6 @@
                                         </div>
                                     </td>
                                 </tr>
-                                {% endif %}
                                 {% endfor %}
                             </tbody>
                             <tfoot>
