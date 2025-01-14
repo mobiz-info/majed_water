@@ -2147,7 +2147,7 @@ def customer_outstanding_list(request):
             created_date__date__lte=date
         ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
         
-        outstanding_amount -= collection_amount
+        outstanding_amount = outstanding_amount - collection_amount
         total_outstanding_amount += outstanding_amount
         
         total_bottles = OutstandingProduct.objects.filter(
