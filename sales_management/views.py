@@ -4284,6 +4284,7 @@ def dsr_summary(request):
     credit_sale_recharge_vat_total = 0
     credit_sale_recharge_grand_total = 0
     credit_sale_recharge_amount_recieved = 0
+    foc_total_quantity = 0 
    
     van_instances = Van.objects.none
     van_route = Van_Routes.objects.none
@@ -4511,8 +4512,17 @@ def dsr_summary(request):
         net_payble = total_sales_amount_collected - today_expense
         
         
-        foc_customers = CustomerSupply.objects.filter(created_date__date=date, customer__sales_type='FOC', salesman=salesman) or CustomerSupply.objects.filter(created_date__date=date, salesman=salesman, allocate_bottle_to_free__gt=0)
-        
+        foc_customers = (
+            CustomerSupply.objects.filter(created_date__date=date, customer__sales_type='FOC', salesman=salesman) |
+            CustomerSupply.objects.filter(created_date__date=date, salesman=salesman, allocate_bottle_to_free__gt=0)
+        )
+        for foc in foc_customers:
+            if foc.allocate_bottle_to_free != 0:
+                foc_total_quantity =foc_total_quantity + foc.allocate_bottle_to_free
+            else:
+                foc_total_quantity =foc_total_quantity + foc.get_total_supply_qty()
+                
+                
     context = {
         'data_filter': data_filter,
         'salesman_id': salesman_id,
@@ -4627,6 +4637,7 @@ def dsr_summary(request):
         'filter_data': filter_data,
         # FOC customer
         'foc_customers':foc_customers,
+        'foc_total_quantity':foc_total_quantity,
         
     }
     
