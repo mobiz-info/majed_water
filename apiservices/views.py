@@ -5279,7 +5279,8 @@ class customer_outstanding(APIView):
                 routes__route_id__in=assigned_routes
             )
         else:
-            customers = Customers.objects.filter(routes__pk=route_id)
+            outstanding_customer_ids = CustomerOutstanding.objects.filter(created_date__date__lte=date,customer__routes__pk=route_id).values_list('customer__pk', flat=True).distinct()
+            customers = Customers.objects.filter(pk__in=outstanding_customer_ids)
 
         if customer_id:
             customers = customers.filter(pk=customer_id)
@@ -5305,16 +5306,8 @@ class customer_outstanding(APIView):
                 customer__pk=customer.pk, 
                 created_date__date__lte=date
             ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
-            # print(outstanding_amount)
-            # print(collection_amount)
-            # outstanding_amount = max(outstanding_amount - collection_amount, 0)
+            
             outstanding_amount = outstanding_amount - collection_amount
-            
-            # if outstanding_amount > collection_amount:
-            #     outstanding_amount = outstanding_amount - collection_amount
-            # else:
-            #     outstanding_amount = collection_amount - outstanding_amount
-            
             total_outstanding_amount += outstanding_amount
             
             total_bottles = OutstandingProduct.objects.filter(

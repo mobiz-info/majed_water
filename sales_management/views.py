@@ -7291,18 +7291,24 @@ def monthly_sales_report_print(request):
 from django.utils.timezone import make_aware
 def detailed_sales_report(request):
     current_year = datetime.now().year
-    month_choices = [(f"{current_year}-{month:02}", calendar.month_name[month]) for month in range(1, 13)]
+    year_choices = [(str(year), str(year)) for year in range(current_year - 5, current_year + 1)]  
+    month_choices = [(f"{month:02}", calendar.month_name[month]) for month in range(1, 13)]
     
+    selected_year = request.GET.get('year', str(current_year)) 
     selected_month = request.GET.get('month')
+    
     try:
-        if selected_month:
-            start_date = datetime.strptime(selected_month, "%Y-%m").replace(day=1)
-            next_month = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1) 
+        if selected_month and selected_year:
+            start_date = datetime.strptime(f"{selected_year}-{selected_month}-01", "%Y-%m-%d")
+            
+            next_month = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1)
             end_date = next_month - timedelta(days=1)
+           
         else:
             start_date = datetime.now().replace(day=1)
             next_month = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1)
             end_date = next_month - timedelta(days=1)
+           
         start_date, end_date = make_aware(start_date), make_aware(end_date)
     except ValueError:
         start_date, end_date = None, None
@@ -7312,35 +7318,124 @@ def detailed_sales_report(request):
     return render(request, 'sales_management/route_sales_report.html', {
         'routes': routes,
         'month_choices': month_choices,
-        'selected_month': selected_month or f"{current_year}-{datetime.now().month:02}",
+        'year_choices': year_choices,
+        'selected_year': selected_year,
+        'selected_month': selected_month,
         'start_date': start_date,
         'end_date': end_date,
     })
    
 def print_sales_report(request):
-    selected_month = request.GET.get('month')
     current_year = datetime.now().year
+    current_month = datetime.now().month  
+    year_choices = [(str(year), str(year)) for year in range(current_year - 5, current_year + 1)]  
+    month_choices = [(f"{month:02}", calendar.month_name[month]) for month in range(1, 13)]
+
+    selected_year = request.GET.get('year', str(current_year))
+    selected_month = request.GET.get('month', str(current_month).zfill(2))  
+
+    if selected_month == 'None' or selected_month is None:
+        selected_month = str(current_month).zfill(2)  
 
     try:
-        if selected_month:
-            start_date = datetime.strptime(selected_month, "%Y-%m").replace(day=1)
-            next_month = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1)
-            end_date = next_month - timedelta(days=1)
-        else:
-            start_date = datetime.now().replace(day=1)
-            next_month = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1)
-            end_date = next_month - timedelta(days=1)
+        start_date = datetime.strptime(f"{selected_year}-{selected_month}-01", "%Y-%m-%d")
+        next_month = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1)
+        end_date = next_month - timedelta(days=1)
+
         start_date, end_date = make_aware(start_date), make_aware(end_date)
-    except ValueError:
+    except ValueError as e:
         start_date, end_date = None, None
+        print(f"Error parsing dates: {e}")
 
     routes = RouteMaster.objects.all()
-    
+
     return render(request, 'sales_management/print_sales_report.html', {
         'routes': routes,
-        'selected_month': selected_month or f"{current_year}-{datetime.now().month:02}",
+        'month_choices': month_choices,
+        'year_choices': year_choices,
+        'selected_year': selected_year,
+        'selected_month': selected_month,
         'start_date': start_date,
         'end_date': end_date,
+    })
+    
+    
+def routewise_sales_report(request, route_id):
+    today = datetime.now()
+    current_year = today.year
+    current_month = today.month
+
+    year_choices = [(str(year), str(year)) for year in range(current_year - 5, current_year + 1)]
+    month_choices = [(f"{month:02}", calendar.month_name[month]) for month in range(1, 13)]
+
+    selected_year = request.GET.get('year', str(current_year))
+    selected_month = request.GET.get('month') or f"{current_month:02}"  
+
+    try:
+        start_date = datetime.strptime(f"{selected_year}-{selected_month}-01", "%Y-%m-%d")
+        next_month = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1)
+        end_date = next_month - timedelta(days=1)
+
+        start_date, end_date = make_aware(start_date), make_aware(end_date)
+    except ValueError as e:
+        start_date, end_date = None, None
+
+    route = RouteMaster.objects.get(route_id=route_id)
+    
+    van_route = Van_Routes.objects.filter(routes=route_id).first()
+    
+    coupon_items_instances = CouponType.objects.all()
+
+    return render(request, 'sales_management/routewise_sales_report.html', {
+        'route': route,
+        'van_route': van_route,
+        'selected_year': selected_year,
+        'selected_month': selected_month,
+        'start_date': start_date,
+        'end_date': end_date,
+        'year_choices': year_choices,
+        'month_choices': month_choices,
+        'current_year': current_year,  
+        'current_month': f"{current_month:02}",
+        'coupon_items_instances': coupon_items_instances,
+        'coupon_items_instances_length': coupon_items_instances.count()
+    })
+    
+def print_routewise_sales_report(request, route_id):
+    today = datetime.now()
+    current_year = today.year
+    current_month = today.month
+
+    year_choices = [(str(year), str(year)) for year in range(current_year - 5, current_year + 1)]
+    month_choices = [(f"{month:02}", calendar.month_name[month]) for month in range(1, 13)]
+
+    selected_year = request.GET.get('year', str(current_year))
+    selected_month = request.GET.get('month') or f"{current_month:02}"  
+
+    try:
+        start_date = datetime.strptime(f"{selected_year}-{selected_month}-01", "%Y-%m-%d")
+        next_month = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1)
+        end_date = next_month - timedelta(days=1)
+
+        start_date, end_date = make_aware(start_date), make_aware(end_date)
+    except ValueError as e:
+        start_date, end_date = None, None
+    
+    route = RouteMaster.objects.get(route_id=route_id)
+    
+    van_route = Van_Routes.objects.filter(routes=route_id).first()
+
+    return render(request, 'sales_management/print_routewise_sales_report.html', {
+        'route': route,
+        'van_route': van_route,
+        'selected_year': selected_year,
+        'selected_month': selected_month,
+        'start_date': start_date,
+        'end_date': end_date,
+        'year_choices': year_choices,
+        'month_choices': month_choices,
+        'current_year': current_year, 
+        'current_month': f"{current_month:02}", 
     })
     
 def offload_list(request):

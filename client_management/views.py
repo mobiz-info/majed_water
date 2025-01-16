@@ -2113,6 +2113,7 @@ def customer_outstanding_list(request):
         outstanding_instances = outstanding_instances.filter(customer__pk=customer_pk)
         filter_data['customer_pk'] = customer_pk
 
+    
     if route_name:
         outstanding_instances = outstanding_instances.filter(customer__routes__route_name=route_name)
     else:
@@ -2128,13 +2129,13 @@ def customer_outstanding_list(request):
     customer_ids = outstanding_instances.values_list('customer__pk', flat=True).distinct()
     instances = Customers.objects.filter(pk__in=customer_ids)
     
+
     # Initialize totals
     total_outstanding_amount = 0
     total_outstanding_bottles = 0
     total_outstanding_coupons = 0
-    filtered_instances = []
 
-    # Calculate totals for each customer and filter out those with zero outstanding values
+    # Calculate totals for each customer
     for customer in instances:
         outstanding_amount = OutstandingAmount.objects.filter(
             customer_outstanding__customer__pk=customer.pk, 
@@ -2146,7 +2147,7 @@ def customer_outstanding_list(request):
             created_date__date__lte=date
         ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
         
-        outstanding_amount = outstanding_amount - collection_amount
+        outstanding_amount -= collection_amount
         total_outstanding_amount += outstanding_amount
         
         total_bottles = OutstandingProduct.objects.filter(
@@ -2161,17 +2162,13 @@ def customer_outstanding_list(request):
         ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
         total_outstanding_coupons += total_coupons
 
-        # Only add customers with non-zero outstanding values to the filtered list
-        if outstanding_amount != 0 or total_bottles != 0 or total_coupons != 0:
-            filtered_instances.append(customer)
-
     # Handle Excel export
     if request.GET.get('export') == 'excel':
-        return export_to_excel(filtered_instances, date, total_outstanding_amount, total_outstanding_bottles, total_outstanding_coupons)
+        return export_to_excel(instances, date, total_outstanding_amount, total_outstanding_bottles, total_outstanding_coupons)
 
     # Context for rendering template
     context = {
-        'instances': filtered_instances,
+        'instances': instances,
         'filter_data': filter_data,
         'route_li': route_li,
         'date': date,

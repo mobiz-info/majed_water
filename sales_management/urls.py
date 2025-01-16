@@ -133,7 +133,9 @@ urlpatterns = [
     
     path('route_sales_report/', detailed_sales_report, name='route_sales_report'),
     path('print-sales-report/', print_sales_report, name='print_sales_report'),
-
+    path('routewise_sales_report/<uuid:route_id>/', routewise_sales_report, name='routewise_sales_report'),
+    path('print_routewise_sales_report/<uuid:route_id>/', print_routewise_sales_report, name='print_routewise_sales_report'),
+    
     path('offload-list/', offload_list, name='offload_list'),
     path('offload-list-print/', offload_list_print, name='offload_list_print'),
     path('offload-list-excel/', download_offload_excel, name='download_offload_excel'),

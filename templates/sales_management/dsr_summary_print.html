@@ -592,7 +592,8 @@
                                         <th style="text-align:center;" scope="col">Rate</th>
                                         <th style="text-align:center;" scope="col">Manual Coupon Recieved</th>
                                         <th style="text-align:center;" scope="col">Digital Coupon Recieved</th>
-                                        
+                                        <th style="text-align:center;" scope="col">Outstanding Manual Coupons</th>
+                                        <th style="text-align:center;" scope="col">Outstanding Digital Coupons</th>
                                     </tr>
                                     {% for sale in coupon_sales %}
                                     <tr>
@@ -603,6 +604,9 @@
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.get_rate}}</td>
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.total_coupon_recieved.manual_coupon}}</td>
                                         <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.total_coupon_recieved.digital_coupon}}</td>
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.outstanding_manual_coupons}}</td>
+                                        <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.outstanding_digital_coupons}}</td>
+
                                     </tr>
                                     {% endfor %} 
                                     <tr>
@@ -611,6 +615,8 @@
                                         <td style="text-align:center;font-weight: bold;">-</td>
                                         <td style="text-align:center;font-weight: bold;">{{ manual_coupon_total }}</td>
                                         <td style="text-align:center;font-weight: bold;">{{ digital_coupon_total }}</td>
+                                        <td style="text-align:center; font-weight: bold;">{{ total_outstandaing_manual_coupons }}</td>
+                                        <td style="text-align:center; font-weight: bold;">{{ total_outstandaing_digital_coupons }}</td>
                                     </tr>
                                 </table>
                             </div>

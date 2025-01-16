@@ -193,6 +193,37 @@
                             </table>
                         </div>
                     </div>
+                    
+                    
+                    {% if damage_bottle_instances %}
+                    <div id="table-container">
+                        <div class="card-body">
+                            <table  class="table table-bordered text-wrap" style="width: 100%">
+                                <thead>
+                                    <tr>
+                                        <th class="text-center text-bold" colspan="10">Damage Count</th>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" style="text-align:center;">Sl No</th>
+                                        <th scope="col" style="text-align:center;">Product</th>
+                                        <th scope="col" style="text-align:center;">Quantity</th>
+                                        <th scope="col" style="text-align:center;">Reason</th>
+                                    </tr>
+                                </thead>
+                               <tbody>
+                                    {% for row in damage_bottle_instances %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ row.product.product_name }}</td>
+                                        <td style="text-align:center;">{{ row.quantity}}</td>
+                                        <td>{{ row.reason.reason }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
 
                     {% comment %} <div id="table-container">
                         <div class="card-body">
@@ -355,6 +386,12 @@
                                     </tr>
                                     {% endfor %}
                                 </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="4" style="text-align:right; font-weight:bold;">Total Quantity</td>
+                                        <td style="text-align:center; font-weight:bold;">{{ foc_total_quantity }}</td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                     </div>
@@ -600,6 +637,8 @@
                                     <th style="text-align:center;" scope="col">Rate</th>
                                     <th style="text-align:center;" scope="col">Manual Coupon Recieved</th>
                                     <th style="text-align:center;" scope="col">Digital Coupon Recieved</th>
+                                    <th style="text-align:center;" scope="col">Outstanding Manual Coupons</th>
+                                    <th style="text-align:center;" scope="col">Outstanding Digital Coupons</th>
                                     
                                 </tr>
                                 {% for sale in coupon_sales %}
@@ -611,6 +650,9 @@
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.get_rate}}</td>
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.total_coupon_recieved.manual_coupon}}</td>
                                     <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.total_coupon_recieved.digital_coupon}}</td>
+                                    <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.outstanding_manual_coupons}}</td>
+                                    <td style="text-align:center;{% if sale.is_edited %}background-color:#c0dfdf !important;{% endif %}">{{sale.outstanding_digital_coupons}}</td>
+
                                 </tr>
                                 {% endfor %} 
                                 <tr>
@@ -619,6 +661,8 @@
                                     <td style="text-align:center;font-weight: bold;">-</td>
                                     <td style="text-align:center;font-weight: bold;">{{ manual_coupon_total }}</td>
                                     <td style="text-align:center;font-weight: bold;">{{ digital_coupon_total }}</td>
+                                    <td style="text-align:center; font-weight: bold;">{{ total_outstandaing_manual_coupons }}</td>
+                                    <td style="text-align:center; font-weight: bold;">{{ total_outstandaing_digital_coupons }}</td>
                                 </tr>
                             </table>
                         </div>
