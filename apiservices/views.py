@@ -10800,3 +10800,108 @@ class CustomerAccountDeleteRequestView(APIView):
             }
         
         return Response(response_data, status=status_code)
+    
+class CustomerRequestTypeAPIView(APIView):
+    """
+    API View to retrieve all CustomerRequestType records or a specific record by ID.
+    """
+
+    def get(self, request, id=None):
+        """
+        Handle GET requests to fetch all records or a specific record if ID is provided.
+        """
+        if id:
+            try:
+                customer_request_type = CustomerRequestType.objects.get(id=id)
+                serializer = CustomerRequestTypeSerializer(customer_request_type)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except CustomerRequestType.DoesNotExist:
+                return Response(
+                    {"error": "CustomerRequestType not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        else:
+            customer_request_types = CustomerRequestType.objects.all()
+            serializer = CustomerRequestTypeSerializer(customer_request_types, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+class CustomerRequestCreateAPIView(APIView):
+    """
+    API View to allow customers to create a new request.
+    """
+    permission_classes = [IsAuthenticated]  # Ensure only authenticated users can access
+
+    def post(self, request):
+        user = request.user  # Get the logged-in user
+        customer = Customers.objects.filter(user_id=user).first()
+
+        if not customer:
+            return Response(
+                {"error": "No customer record associated with this user."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        data = request.data
+        data['customer'] = customer.customer_id  # Associate the request with the logged-in customer
+        data['status'] = 'new'  # Default status
+
+        serializer = CustomerRequestSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class CustomerRequestListAPIView(APIView):
+    """
+    API to list all CustomerRequests with optional filtering by customer_id.
+    """
+    permission_classes = [IsAuthenticated]  # Ensure only authenticated users can access
+
+    def get(self, request):
+        # Get the customer_id from the query parameters
+        customer_id = request.data.get('customer_id', None)
+
+        # Filter the CustomerRequests based on customer_id if provided
+        if customer_id:
+            customer_requests = CustomerRequests.objects.filter(customer_id=customer_id)
+        else:
+            customer_requests = CustomerRequests.objects.all()
+
+        # Serialize the data
+        serializer = CustomerRequestListSerializer(customer_requests, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class UpdateCustomerRequestStatusView(APIView):
+
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = CustomerRequestUpdateSerializer(data=request.data)
+        if serializer.is_valid():
+            customer_id = serializer.validated_data['customer_id']
+            new_status = serializer.validated_data['status']
+            cancel_reason = serializer.validated_data.get('cancel_reason')
+
+            # Fetch customer request
+            customer_request = get_object_or_404(CustomerRequests, customer__customer_id=customer_id)
+
+            # Update the status
+            customer_request.status = new_status
+            customer_request.modified_by = request.user.username
+            customer_request.modified_date = timezone.now()
+            customer_request.save()
+
+            # Handle cancellation reason if applicable
+            if new_status == 'cancel' and cancel_reason:
+                CustomerRequestCancelReason.objects.create(
+                    customer_request=customer_request,
+                    reason=cancel_reason,
+                    modified_by=request.user.username
+                )
+
+            return Response({"message": "Status updated successfully"}, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

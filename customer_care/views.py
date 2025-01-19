@@ -894,3 +894,80 @@ def new_registered_customers(request):
         },
     }
     return render(request, 'customer_care/new_registered_customers.html', context)
+
+class CustomerRequestType_List(View):
+    template_name = 'customer_care/customer_requesttype_list.html'
+
+    @method_decorator(login_required)
+    def get(self, request, *args, **kwargs):
+        request_li = CustomerRequestType.objects.all()
+        context = {'request_li': request_li}
+        return render(request, self.template_name, context)
+    
+class CustomerRequestType_Create(View):
+    template_name = 'customer_care/customerrequesttype_create.html'
+    form_class = CustomerRequestTypeForm
+
+    @method_decorator(login_required)
+    def get(self, request, *args, **kwargs):
+        context = {'form': self.form_class}
+        return render(request, self.template_name, context)
+
+    @method_decorator(login_required)
+    def post(self, request, *args, **kwargs):
+        form = self.form_class(request.POST, request.FILES)
+        if form.is_valid():
+            data = form.save(commit=False)
+            data.created_by = str(request.user.id)
+            data.save()
+            messages.success(request, 'Customer Request Successfully Added.', 'alert-success')
+            return redirect('customer_request_type_list')
+        else:
+            #print(form.errors)
+            for field, errors in form.errors.items():
+                for error in errors:
+                    print(f"Field: {field}, Error: {error}")
+            messages.success(request, 'Data is not valid.', 'alert-danger')
+            context = {'form': form}
+            return render(request, self.template_name, context)
+class CustomerRequestType_Edit(View):
+    template_name = 'customer_care/customer_requesttype_edit.html'
+    form_class = CustomerRequestType_Edit_Form
+
+    @method_decorator(login_required)
+    def get(self, request, pk, *args, **kwargs):
+        rec = CustomerRequestType.objects.get(id=pk)
+        form = self.form_class(instance=rec)
+        context = {'form': form,'rec':rec}
+        return render(request, self.template_name, context)
+
+    @method_decorator(login_required)
+    def post(self, request, pk, *args, **kwargs):
+        rec = CustomerRequestType.objects.get(id=pk)
+        form = self.form_class(request.POST, request.FILES, instance=rec)
+        if form.is_valid():
+            data = form.save(commit=False)
+            data.modified_by = str(request.user.id)
+            data.modified_date = datetime.now()
+            data.save()
+            messages.success(request, 'Request Data Successfully Updated', 'alert-success')
+            return redirect('customer_request_type_list')
+        else:
+            #print(form.errors)
+            messages.success(request, 'Data is not valid.', 'alert-danger')
+            context = {'form': form}
+            return render(request, self.template_name, context)
+
+class CustomerRequestType_Delete(View):
+
+    def get(self, request, pk, *args, **kwargs):
+        rec = get_object_or_404(CustomerRequestType, id=pk)
+        rec.delete()
+        messages.success(request, 'Request type deleted successfully', 'alert-success')
+        return redirect('customer_request_type_list')
+
+    def post(self, request, pk, *args, **kwargs):
+        rec = get_object_or_404(CustomerRequestType, id=pk)
+        rec.delete()
+        messages.success(request, 'Request type deleted successfully', 'alert-success')
+        return redirect('customer_request_type_list')
