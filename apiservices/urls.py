@@ -335,4 +335,13 @@ urlpatterns = [
     path('customer-lead-cancel-reasons/',LeadCustomersCancelReasonsView.as_view(), name='customer_lead_cancel_reason'),
     path('customer-lead-update-status/',LeadCustomersUpdateStatusView.as_view(), name='customer_lead_update_status'),
 
+    path('customer-request-types/', CustomerRequestTypeAPIView.as_view(), name='customer_request_types_list'),
+    path('customer-request-types/<uuid:id>/', CustomerRequestTypeAPIView.as_view(), name='customer_request_type_detail'),
+
+    path('customer-requests/', CustomerRequestCreateAPIView.as_view(), name='customer_request_create'),
+    path('customer-requests-lists/', CustomerRequestListAPIView.as_view(), name='customer_request_list'),
+
+    path('update-customer-request-status/', UpdateCustomerRequestStatusView.as_view(), name='update-customer-request-status'),
+
+
 ]

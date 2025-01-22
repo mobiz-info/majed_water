@@ -9,8 +9,11 @@ CUSTOMER_REQUEST_CHOICES = [
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
     ]
-
-
+CUSTOMER_TYPE_REQUEST_CHOICES = [
+        ('new', 'New'),
+        ('approved', 'Approved'),
+        ('cancel', 'Cancel'),
+    ]
 class RequestTypeMaster(models.Model):
     
     request_id   = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -165,8 +168,68 @@ class CustomerRegistrationRequest(models.Model):
     def __str__(self):
         return str(self.name)
 
+class CustomerRequestType(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=50,default=0)
+
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+    class Meta:
+        ordering = ('-created_date',)
+
+    def __str__(self):
+        return str(self.name)
+
+
+class CustomerRequests(models.Model):
     
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer = models.ForeignKey('accounts.Customers', on_delete=models.SET_NULL, null=True, blank=True,related_name='customer_requests')
+    request_type = models.ForeignKey(CustomerRequestType,on_delete=models.SET_NULL, null=True, blank=True)
+    status = models.CharField(max_length=50,default="new",choices=CUSTOMER_TYPE_REQUEST_CHOICES)
+
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        ordering = ('-created_date',)
     
 
+    def __str__(self):
+        return f"Request {self.id} -{self.request_type} - {self.customer} - {self.status}"
+
+class CustomerRequestStatus(models.Model):
+
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer_request = models.ForeignKey(CustomerRequests,on_delete=models.SET_NULL, null=True, blank=True)
+    status = models.CharField(max_length=50,default="new",choices=CUSTOMER_TYPE_REQUEST_CHOICES)
+
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ('-created_date',)
+
+    def __str__(self):
+        return f"Request {self.customer_request} - {self.status} on {self.created_date}"
+    
+class CustomerRequestCancelReason(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer_request = models.ForeignKey(CustomerRequests,on_delete=models.SET_NULL, null=True, blank=True)
+    reason = models.CharField(max_length=50,default=0)
+
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ('-created_date',)
+
+    def __str__(self):
+        return f"Cancel Reason for Request {self.customer_request.id}-{self.reason}"
 
 

@@ -2590,3 +2590,34 @@ class CustomerAccountDeleteRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerAccountDeleteRequest
         fields = ['id','customer','reason']
+
+class CustomerRequestTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerRequestType
+        fields = ['id', 'name', 'created_date', 'modified_by', 'modified_date']
+
+class CustomerRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerRequests
+        fields = ['id', 'customer', 'request_type', 'status', 'created_date']
+        read_only_fields = ['id', 'status', 'created_date']
+
+    def validate_request_type(self, value):
+        if not value:
+            raise serializers.ValidationError("Request type is required.")
+        return value
+
+class CustomerRequestListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerRequests
+        fields = ['id', 'customer', 'request_type', 'status', 'created_date', 'modified_by', 'modified_date']
+
+class CustomerRequestUpdateSerializer(serializers.Serializer):
+    customer_id = serializers.UUIDField(required=True)
+    status = serializers.ChoiceField(choices=CUSTOMER_TYPE_REQUEST_CHOICES)
+    cancel_reason = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, data):
+        if data['status'] == 'cancel' and not data.get('cancel_reason'):
+            raise serializers.ValidationError({"cancel_reason": "This field is required when status is 'cancel'."})
+        return data
