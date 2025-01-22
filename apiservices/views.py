@@ -5531,6 +5531,7 @@ class AddCollectionPayment(APIView):
                 try:
                     invoice = Invoice.objects.get(pk=invoice_id, customer=customer)
                 except Invoice.DoesNotExist:
+                    logger.warning(f"Invoice ID {invoice_id} does not exist for customer {customer.id}. Skipping.")
                     continue
                 
                 invoice_amount = invoice.amout_total - invoice.amout_recieved
@@ -5550,59 +5551,61 @@ class AddCollectionPayment(APIView):
                 description=f"Collection payment created: Receipt No. {receipt_number}, Amount: {amount_received}, Customer: {customer.customer_name}"
             )
             
+            invoices = Invoice.objects.filter(pk__in=invoice_ids, customer=customer).order_by('created_date')
+            
             invoice_numbers = []
             # Iterate over invoice IDs
-            for invoice_id in invoice_ids:
+            for invoice_id in invoices:
                 try:
                     invoice = Invoice.objects.get(pk=invoice_id, customer=customer)
                 except Invoice.DoesNotExist:
                     continue
-                
-                invoice_numbers.append(invoice.invoice_no)
-                # Calculate the amount due for this invoice
-                due_amount = invoice.amout_total - invoice.amout_recieved
-                payment_amount = due_amount
-                
-                # If remaining_amount is greater than zero and there is still due amount for the current invoice
-                if remaining_amount != Decimal('0') and due_amount != Decimal('0'):
-                    # Calculate the payment amount for this invoice
-                    if due_amount < 0 or due_amount == remaining_amount:
-                        payment_amount = due_amount
-                    elif due_amount > remaining_amount:
-                        payment_amount = remaining_amount
-                    elif due_amount < remaining_amount:
-                        payment_amount = due_amount
+                if invoice.amout_total != invoice.amout_recieved:
+                    invoice_numbers.append(invoice.invoice_no)
+                    # Calculate the amount due for this invoice
+                    due_amount = invoice.amout_total - invoice.amout_recieved
+                    payment_amount = due_amount
                     
-                    # Update the invoice balance and amount received
-                    invoice.amout_recieved += payment_amount
-                    invoice.save()
-                    
-                    # Create CollectionItems instance
-                    CollectionItems.objects.create(
-                        invoice=invoice,
-                        amount=invoice.amout_total,
-                        balance=invoice.amout_total - invoice.amout_recieved,
-                        amount_received=payment_amount,
-                        collection_payment=collection_payment
-                    )
-                    if CustomerOutstandingReport.objects.filter(customer=customer, product_type="amount").exists():
-                        outstanding_instance = CustomerOutstandingReport.objects.get(customer=customer, product_type="amount")
-                        outstanding_instance.value -= payment_amount
-                        outstanding_instance.save()
-                    
-                    if payment_amount > 0:
-                        # Update the remaining amount
-                        remaining_amount -= payment_amount
-                    
-                    # If the invoice is fully paid, update its status
-                    if invoice.amout_recieved == invoice.amout_total:
-                        invoice.invoice_status = 'paid'
+                    # If remaining_amount is greater than zero and there is still due amount for the current invoice
+                    if remaining_amount != Decimal('0') and due_amount != Decimal('0'):
+                        # Calculate the payment amount for this invoice
+                        if due_amount < 0 or due_amount == remaining_amount:
+                            payment_amount = due_amount
+                        elif due_amount > remaining_amount:
+                            payment_amount = remaining_amount
+                        elif due_amount < remaining_amount:
+                            payment_amount = due_amount
+                        
+                        # Update the invoice balance and amount received
+                        invoice.amout_recieved += payment_amount
                         invoice.save()
                         
-                    log_activity(
-                        created_by=request.user,
-                        description=f"Invoice {invoice.invoice_no} partially/fully paid: {payment_amount} received, Remaining balance: {invoice.amout_total - invoice.amout_recieved}"
-                    )
+                        # Create CollectionItems instance
+                        CollectionItems.objects.create(
+                            invoice=invoice,
+                            amount=invoice.amout_total,
+                            balance=invoice.amout_total - invoice.amout_recieved,
+                            amount_received=payment_amount,
+                            collection_payment=collection_payment
+                        )
+                        if CustomerOutstandingReport.objects.filter(customer=customer, product_type="amount").exists():
+                            outstanding_instance = CustomerOutstandingReport.objects.get(customer=customer, product_type="amount")
+                            outstanding_instance.value -= payment_amount
+                            outstanding_instance.save()
+                        
+                        if payment_amount > 0:
+                            # Update the remaining amount
+                            remaining_amount -= payment_amount
+                        
+                        # If the invoice is fully paid, update its status
+                        if invoice.amout_recieved == invoice.amout_total:
+                            invoice.invoice_status = 'paid'
+                            invoice.save()
+                            
+                        log_activity(
+                            created_by=request.user,
+                            description=f"Invoice {invoice.invoice_no} partially/fully paid: {payment_amount} received, Remaining balance: {invoice.amout_total - invoice.amout_recieved}"
+                        )
                 else:
                     # Break the loop if there is no remaining amount or the current invoice is fully paid
                     break
