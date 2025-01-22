@@ -5555,9 +5555,9 @@ class AddCollectionPayment(APIView):
             
             invoice_numbers = []
             # Iterate over invoice IDs
-            for invoice_id in invoices:
+            for invoice in invoices:
                 try:
-                    invoice = Invoice.objects.get(pk=invoice_id, customer=customer)
+                    invoice = Invoice.objects.get(pk=invoice.pk, customer=customer)
                 except Invoice.DoesNotExist:
                     continue
                 if invoice.amout_total != invoice.amout_recieved:
