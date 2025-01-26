@@ -216,12 +216,12 @@ def get_customer_outstanding_aging(route=None):
         aging_data = {
             'customer_id': customer_id,
             'customer_name': data['customer_outstanding__customer__customer_name'],
-            'less_than_30': max(data['less_than_30'] - collected['less_than_30'], 0),
-            'between_31_and_60': max(data['between_31_and_60'] - collected['between_31_and_60'], 0),
-            'between_61_and_90': max(data['between_61_and_90'] - collected['between_61_and_90'], 0),
-            'between_91_and_150': max(data['between_91_and_150'] - collected['between_91_and_150'], 0),
-            'between_151_and_365': max(data['between_151_and_365'] - collected['between_151_and_365'], 0),
-            'more_than_365': max(data['more_than_365'] - collected['more_than_365'], 0),
+            'less_than_30': data['less_than_30'] - collected['less_than_30'],
+            'between_31_and_60': data['between_31_and_60'] - collected['between_31_and_60'],
+            'between_61_and_90': data['between_61_and_90'] - collected['between_61_and_90'],
+            'between_91_and_150': data['between_91_and_150'] - collected['between_91_and_150'],
+            'between_151_and_365': data['between_151_and_365'] - collected['between_151_and_365'],
+            'more_than_365': data['more_than_365'] - collected['more_than_365'],
         }
 
         # Calculate grand total
