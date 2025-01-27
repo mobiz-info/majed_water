@@ -62,6 +62,7 @@ urlpatterns = [
     path('create_outstanding_variation_outstanding/', create_outstanding_variation_outstanding, name='create_outstanding_variation_outstanding'),
     path('update_outstanding_variation_outstanding/', update_outstanding_variation_outstanding, name='update_outstanding_variation_outstanding'),
     
+    path('customer-outstanding-variation-clearing/', customer_outstanding_variation_clearing, name='customer_outstanding_variation_clearing'),
    ]
 
 

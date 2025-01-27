@@ -1406,3 +1406,68 @@ def update_outstanding_variation_outstanding(request):
             }
                 
         return JsonResponse(response_data)
+    
+
+from decimal import Decimal
+def customer_outstanding_variation_clearing(request):
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                customer_pk = request.POST.get("customer_id")
+                total_collection_amount = request.POST.get("collection_total")
+                invoice_ids = request.POST.getlist('invoice_ids')
+                
+                print(customer_pk)
+                print(total_collection_amount)
+                print(invoice_ids)
+                
+                balance_amount = Decimal(total_collection_amount)
+                
+                amount_equal_supplys_invoice_nos = CustomerSupply.objects.filter(customer__pk=customer_pk,subtotal=F('amount_recieved')).values_list("invoice_no")
+                Invoice.objects.filter(customer__pk=customer_pk,invoice_no__in=amount_equal_supplys_invoice_nos,is_deleted=False).update(invoice_status = "paid")
+                Invoice.objects.filter(customer__pk=customer_pk,pk__in=invoice_ids,is_deleted=False).update(amout_recieved=0,invoice_status = "non_paid")
+                
+                for invoice_id in invoice_ids:
+                    
+                    invoice = Invoice.objects.get(customer__pk=customer_pk,pk=invoice_id,is_deleted=False)
+                    
+                    if invoice.amout_total < 0:
+                        balance_amount += abs(invoice.amout_total) 
+                    
+                    if balance_amount >= 0:
+                        total_amount = invoice.amout_total
+                        
+                        if balance_amount >= invoice.amout_total:
+                            invoice.amout_recieved = total_amount
+                        elif balance_amount < invoice.amout_total:
+                            invoice.amout_recieved = balance_amount
+                        if invoice.amout_total == invoice.amout_recieved:
+                            invoice.invoice_status = "paid"
+                        invoice.save()
+                    
+                    balance_amount -= Decimal(invoice.amout_total)
+            
+            response_data = {
+                "status": "true",
+                "title": "Successfully Created",
+                "message": "Created successfully.",
+                'redirect': 'true',
+                "redirect_url": f"{reverse('amount_change_list')}?customer_pk={customer_pk}"
+            }
+            
+        except IntegrityError as e:
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+
+        except Exception as e:
+            # Handle other exceptions
+            response_data = {
+                "status": "false",
+                "title": "Failed",
+                "message": str(e),
+            }
+            
+        return HttpResponse(json.dumps(response_data), content_type='application/javascript')

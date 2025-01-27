@@ -25,15 +25,20 @@
                     <div class="card-header">
                         <div class="card-title">List</div>
                         <div class="ms-auto d-flex">
-                            {% comment %} <a href="{% url 'branch_create' %}"><button type="button" class="btn btn-success btn-wave text-end d-flex me-4 my-auto"><i class="bi bi-plus-circle me-1"></i>Create</button></a> {% endcomment %}
+                            {% if request.user.is_superuser %}
                             <button type="button" class="btn btn-success btn-wave text-end d-flex me-4 my-auto" data-toggle="modal" data-target="#invoiceCreateModal" onclick="handleButtonClick(this)">Create Invoice</button>
                             <button type="button" class="btn btn-secondary btn-wave text-end d-flex me-4 my-auto" data-toggle="modal" data-target="#invoiceUpdateModal" onclick="handleButtonClick(this)">Update Invoice</button>
                             <button type="button" class="btn btn-success btn-wave text-end d-flex me-4 my-auto" data-toggle="modal" data-target="#outstandingCreateModal" onclick="handleButtonClick(this)">Create Outstanding</button>
                             <button type="button" class="btn btn-secondary btn-wave text-end d-flex me-4 my-auto" data-toggle="modal" data-target="#outstandingUpdateModal" onclick="handleButtonClick(this)">Update Outstanding</button>
+                            {% endif %}
                         </div>
                     </div>
 
                     {% load accumulation_tags %}
+                    {% if request.user.is_superuser %}
+                    <form action="{% url 'customer_outstanding_variation_clearing' %}" role="form" method="post" enctype="multipart/form-data"  class="row g-3 ajax redirect" autocomplete="off" novalidate>
+                        {% csrf_token %}
+                    {% endif %}
 
                     <div class="card-body">
                         <table class="table table-bordered text-nowrap" style="width:100%">
@@ -99,6 +104,9 @@
                                     <td style="text-align:left;">
                                         {% if invoice %}
                                             {% for i in invoice %}
+                                                {% if request.user.is_superuser %}
+                                                <input type="checkbox" value="{{i.pk}}" name="invoice_ids" checked>
+                                                {% endif %}
                                                 total: {{ i.amout_total }} - Receive: {{ i.amout_recieved }} - {{ i.invoice_no }}
                                                 {% add_to_total 'invoice_total' i.amout_total %}
                                                 {% add_to_total 'invoice_received' i.amout_recieved %}
@@ -134,9 +142,16 @@
                                         Total: {% get_total 'invoice_total' %} - - - Received: {% get_total 'invoice_received' %}
                                     </th>
                                     <th style="text-align:left;">{% get_total 'collection' %}</th>
+                                    <input type="hidden" value="{{ customer }}" name="customer_id">
+                                    <input type="hidden" value="{% get_total 'outstanding' %}" name="outstanding_total">
+                                    <input type="hidden" value="{% get_total 'collection' %}" name="collection_total">
                                 </tr>
                             </tfoot>
                         </table>
+                        {% if request.user.is_superuser %}
+                        <input type="submit">
+                        </form>
+                        {% endif %}
                     </div>
                 </div>
             </div>
