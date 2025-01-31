@@ -2608,9 +2608,18 @@ class CustomerRequestSerializer(serializers.ModelSerializer):
         return value
 
 class CustomerRequestListSerializer(serializers.ModelSerializer):
+    request_type_name = serializers.SerializerMethodField()
+    customer_name = serializers.SerializerMethodField()
+
     class Meta:
         model = CustomerRequests
-        fields = ['id', 'customer', 'request_type', 'status', 'created_date', 'modified_by', 'modified_date']
+        fields = ['id', 'customer', 'customer_name', 'request_type', 'request_type_name', 'status', 'created_date', 'modified_by', 'modified_date']
+
+    def get_request_type_name(self, obj):
+        return obj.request_type.name if obj.request_type else None
+
+    def get_customer_name(self, obj):
+        return obj.customer.customer_name if obj.customer else None
 
 class CustomerRequestUpdateSerializer(serializers.Serializer):
     customer_id = serializers.UUIDField(required=True)
