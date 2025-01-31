@@ -2621,3 +2621,24 @@ class CustomerRequestUpdateSerializer(serializers.Serializer):
         if data['status'] == 'cancel' and not data.get('cancel_reason'):
             raise serializers.ValidationError({"cancel_reason": "This field is required when status is 'cancel'."})
         return data
+
+class Overview_Dashboard_Summary(serializers.Serializer):
+    cash_sales = serializers.IntegerField()
+    credit_sales = serializers.IntegerField()
+    total_sales_count = serializers.IntegerField()
+    today_expenses = serializers.FloatField()
+    total_today_collections = serializers.FloatField()
+    total_old_payment_collections = serializers.FloatField()
+    total_collection = serializers.FloatField()
+    total_cash_in_hand = serializers.FloatField()
+    active_van_count = serializers.IntegerField()
+    delivery_progress = serializers.CharField()
+    total_customers_count = serializers.IntegerField()
+    new_customers_count = serializers.IntegerField()
+    door_lock_count = serializers.IntegerField()
+    emergency_customers_count = serializers.IntegerField()
+    total_vocation_customers_count = serializers.IntegerField()
+    yesterday_missed_customers_count = serializers.IntegerField()
+    new_customers_count_with_salesman = serializers.ListField(
+        child=serializers.DictField()
+    )

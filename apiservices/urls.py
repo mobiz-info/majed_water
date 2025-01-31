@@ -342,6 +342,7 @@ urlpatterns = [
     path('customer-requests-lists/', CustomerRequestListAPIView.as_view(), name='customer_request_list'),
 
     path('update-customer-request-status/', UpdateCustomerRequestStatusView.as_view(), name='update-customer-request-status'),
+    path('overview/', OverviewAPIView.as_view(), name='overview-api'),
 
 
 ]
