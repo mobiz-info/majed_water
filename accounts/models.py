@@ -32,6 +32,8 @@ USER_TYPE_CHOICES = (
         ('Accounts', 'Accounts'),
         ('store_keeper', 'Store Keeper'),
         ('marketing_executive', 'Marketing Executive'),
+        ('owner', 'Owner'),
+        
     )
 
 LEAD_CUSTOMER_CHOICES = (
