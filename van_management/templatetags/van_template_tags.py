@@ -10,6 +10,7 @@ from client_management.models import CustomerSupply, CustomerSupplyItems
 from master.models import CategoryMaster
 from product.models import Staff_IssueOrders, Staff_Orders_details
 from van_management.models import Offload, Van, Van_Routes, VanCouponStock, VanProductItems, VanProductStock
+from uuid import UUID
 
 register = template.Library()
 
@@ -71,6 +72,13 @@ def get_coupon_vanstock_count(van_pk,date,coupon_type):
 
 @register.simple_tag
 def get_van_coupon_wise_stock(date, van, coupon):
+    try:
+        if not isinstance(van, UUID):  
+            van = UUID(str(van))  # Convert to UUID if not already
+        if not isinstance(coupon, UUID):  
+            coupon = UUID(str(coupon))  # Convert to UUID if not already
+    except ValueError:
+        return {}
     if VanCouponStock.objects.filter(created_date=date, van=van, coupon__pk=coupon).exists():
         if date:
             date = datetime.strptime(date, '%Y-%m-%d').date()
