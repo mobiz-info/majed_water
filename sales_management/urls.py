@@ -142,5 +142,9 @@ urlpatterns = [
     
     path('todays-cash-sales/', todays_cash_sales, name='todays_cash_sales'),
     path('todays-credit-sales/', todays_credit_sales, name='todays_credit_sales'),
+    
+    path('production_onload_report/', production_onload_report_view, name='production_onload_report'),
+    path('production_onload_print/', production_onload_print, name='production_onload_print'),
+    path('download_excel_production_onload/', download_production_onload, name='download_production_onload'),
 
 ]

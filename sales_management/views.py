@@ -7779,3 +7779,311 @@ def todays_credit_sales(request):
         "total_amount_received": total_amount_received,
     }
     return render(request, "master/dashboard/todays_credit_sales.html", context)
+
+def production_onload_report_view(request):
+# Get today's date in dd-mm-yyyy format
+    today_str = date.today().strftime('%d-%m-%Y')
+    # Get the dates from the request
+    start_date_str = request.GET.get("start_date")
+    print("start_date_str", start_date_str)
+    end_date_str = request.GET.get("end_date")
+    print("end_date_str", end_date_str)
+
+    if not start_date_str or not end_date_str:
+        # If no dates are provided, default to today's date
+        start_date = end_date = date.today()
+    else:
+        try:
+            # Convert input strings to datetime in dd-mm-yyyy format
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            start_date = end_date = date.today()
+    # Fetch orders within the date range (or only today if no dates were provided)
+    orders = Staff_Orders_details.objects.select_related("product_id", "staff_order_id").filter(staff_order_id__order_date__range=[start_date, end_date]).order_by('-created_date')
+
+    issued_data = []
+    for order in orders:
+        product_item_instance = order.product_id
+
+        # Check if product is "5 Gallon"
+        if product_item_instance and product_item_instance.product_name == "5 Gallon":
+            van_instance = (
+                Van.objects.filter(salesman_id__id=order.staff_order_id.created_by).first()
+                if order.staff_order_id else None
+            )
+
+            if van_instance:
+                van_stock_instance = VanProductStock.objects.filter(
+                    created_date=order.staff_order_id.order_date,
+                    product=product_item_instance,
+                    van=van_instance
+                ).first()
+
+                product_stock = ProductStock.objects.filter(
+                    product_name=product_item_instance,
+                    branch=van_instance.branch_id
+                ).first()
+
+                scrap_stock = ScrapStock.objects.filter(product=product_item_instance).first()
+
+                # Fetch additional production damage related to the product
+                damage_data = ProductionDamage.objects.filter(
+                    product=product_item_instance,
+                    created_date__lte=order.staff_order_id.order_date
+                ).values('product_from', 'product_to').annotate(
+                    total_quantity=Sum('quantity')
+                )
+
+                # Variables for service, used, fresh, issued bottles
+                service_count = 0
+                used_bottle_count = 0
+                fresh_bottle_count = 0
+
+                for data in damage_data:
+                    if data['product_from'] == 'used' and data['product_to'] == 'service':
+                        service_count += data['total_quantity']
+                    if data['product_from'] == 'used':
+                        used_bottle_count += data['total_quantity']
+                    if data['product_from'] == 'fresh':
+                        fresh_bottle_count += data['total_quantity']
+
+                issued_bottle_count = order.issued_qty
+
+                issued_data.append({
+                    "product_name": product_item_instance.product_name,
+                    "van_name": van_instance.van_make,
+                    "order_date": order.staff_order_id.order_date.strftime('%d-%m-%Y'),
+                    "initial_van_stock": van_stock_instance.stock if van_stock_instance else 0,
+                    "updated_van_stock": (van_stock_instance.stock + issued_bottle_count) if van_stock_instance else 0,
+                    "initial_product_stock": product_stock.quantity if product_stock else 0,
+                    "updated_product_stock": (product_stock.quantity - issued_bottle_count) if product_stock else 0,
+                    "scrap_stock": scrap_stock.quantity if scrap_stock else 0,
+                    "service_count": service_count,
+                    "used_bottle_count": used_bottle_count,
+                    "fresh_bottle_count": fresh_bottle_count,
+                    "issued_bottle_count": issued_bottle_count,
+                })
+
+    context = {
+        "issued_data": issued_data,
+        "filter_data": {
+            'filter_date_from': start_date.strftime('%d-%m-%Y'),
+            'filter_date_to': end_date.strftime('%d-%m-%Y'),
+        }
+    }
+    return render(request, "sales_management/production_onload_report.html", context)
+
+def production_onload_print(request):
+    # Get today's date in dd-mm-yyyy format
+    today_str = date.today().strftime('%d-%m-%Y')
+    
+    # Get the dates from the request
+    start_date_str = request.GET.get("start_date")
+    print("start_date_str", start_date_str)
+    end_date_str = request.GET.get("end_date")
+    print("end_date_str", end_date_str)
+
+    if not start_date_str or not end_date_str:
+        # If no dates are provided, default to today's date
+        start_date = end_date = date.today()
+    else:
+        try:
+            # Adjust the date format to match the passed 'dd-mm-yyyy' format
+            start_date = datetime.strptime(start_date_str, '%d-%m-%Y').date()
+            end_date = datetime.strptime(end_date_str, '%d-%m-%Y').date()
+        except ValueError:
+            start_date = end_date = date.today()
+
+    # Fetch orders within the date range (or only today if no dates were provided)
+    orders = Staff_Orders_details.objects.select_related("product_id", "staff_order_id").filter(
+        staff_order_id__order_date__range=[start_date, end_date]
+    ).order_by('-created_date')
+
+    issued_data = []
+    for order in orders:
+        product_item_instance = order.product_id
+
+        # Check if product is "5 Gallon"
+        if product_item_instance and product_item_instance.product_name == "5 Gallon":
+            van_instance = (
+                Van.objects.filter(salesman_id__id=order.staff_order_id.created_by).first()
+                if order.staff_order_id else None
+            )
+
+            if van_instance:
+                van_stock_instance = VanProductStock.objects.filter(
+                    created_date=order.staff_order_id.order_date,
+                    product=product_item_instance,
+                    van=van_instance
+                ).first()
+
+                product_stock = ProductStock.objects.filter(
+                    product_name=product_item_instance,
+                    branch=van_instance.branch_id
+                ).first()
+
+                scrap_stock = ScrapStock.objects.filter(product=product_item_instance).first()
+
+                # Fetch additional production damage related to the product
+                damage_data = ProductionDamage.objects.filter(
+                    product=product_item_instance,
+                    created_date__lte=order.staff_order_id.order_date
+                ).values('product_from', 'product_to').annotate(
+                    total_quantity=Sum('quantity')
+                )
+
+                # Variables for service, used, fresh, issued bottles
+                service_count = 0
+                used_bottle_count = 0
+                fresh_bottle_count = 0
+
+                for data in damage_data:
+                    if data['product_from'] == 'used' and data['product_to'] == 'service':
+                        service_count += data['total_quantity']
+                    if data['product_from'] == 'used':
+                        used_bottle_count += data['total_quantity']
+                    if data['product_from'] == 'fresh':
+                        fresh_bottle_count += data['total_quantity']
+
+                issued_bottle_count = order.issued_qty
+
+                issued_data.append({
+                    "product_name": product_item_instance.product_name,
+                    "van_name": van_instance.van_make,
+                    "order_date": order.staff_order_id.order_date.strftime('%d-%m-%Y'),
+                    "initial_van_stock": van_stock_instance.stock if van_stock_instance else 0,
+                    "updated_van_stock": (van_stock_instance.stock + issued_bottle_count) if van_stock_instance else 0,
+                    "initial_product_stock": product_stock.quantity if product_stock else 0,
+                    "updated_product_stock": (product_stock.quantity - issued_bottle_count) if product_stock else 0,
+                    "scrap_stock": scrap_stock.quantity if scrap_stock else 0,
+                    "service_count": service_count,
+                    "used_bottle_count": used_bottle_count,
+                    "fresh_bottle_count": fresh_bottle_count,
+                    "issued_bottle_count": issued_bottle_count,
+                })
+
+    context = {
+        "issued_data": issued_data,
+        "filter_data": {
+            'filter_date_from': start_date.strftime('%d-%m-%Y'),
+            'filter_date_to': end_date.strftime('%d-%m-%Y'),
+        }
+    }
+    return render(request, "sales_management/production_onload_print.html", context)
+
+
+
+def download_production_onload(request):
+    # Get the dates from the request
+    start_date_str = request.GET.get("start_date")
+    print("start_date_str", start_date_str)
+    end_date_str = request.GET.get("end_date")
+    print("end_date_str", end_date_str)
+
+    if not start_date_str or not end_date_str:
+        # If no dates are provided, default to today's date
+        start_date = end_date = date.today()
+    else:
+        try:
+            # Adjust the date format to match the passed 'dd-mm-yyyy' format
+            start_date = datetime.strptime(start_date_str, '%d-%m-%Y').date()
+            end_date = datetime.strptime(end_date_str, '%d-%m-%Y').date()
+        except ValueError:
+            start_date = end_date = date.today()
+
+
+    # Fetch orders within the date range (or only today if no dates were provided)
+    orders = Staff_Orders_details.objects.select_related("product_id", "staff_order_id").filter(
+        staff_order_id__order_date__range=[start_date, end_date]
+    ).order_by('-created_date')
+
+
+    # Create an Excel workbook and sheet
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Production Onload Data"
+
+    # Define the header row
+    headers = [
+        "Sl.No", "Product Name", "Van Name", "Order Date", "Initial Van Stock", 
+        "Updated Van Stock", "Initial Product Stock", "Updated Product Stock", 
+        "Scrap Stock", "Service Count", "Used Bottle Count", "Fresh Bottle Count", "Issued Bottle Count"
+    ]
+    sheet.append(headers)
+
+    # Populate the Excel sheet with data
+    serial_no = 1
+    for order in orders:
+        product_item_instance = order.product_id
+
+        if product_item_instance and product_item_instance.product_name == "5 Gallon":
+            van_instance = (
+                Van.objects.filter(salesman_id__id=order.staff_order_id.created_by).first()
+                if order.staff_order_id else None
+            )
+            
+            if van_instance:
+                van_stock_instance = VanProductStock.objects.filter(
+                    created_date=order.staff_order_id.order_date,
+                    product=product_item_instance,
+                    van=van_instance
+                ).first()
+                
+                product_stock = ProductStock.objects.filter(
+                    product_name=product_item_instance,
+                    branch=van_instance.branch_id
+                ).first()
+                
+                scrap_stock = ScrapStock.objects.filter(product=product_item_instance).first()
+                
+                damage_data = ProductionDamage.objects.filter(
+                    product=product_item_instance,
+                    created_date__lte=order.staff_order_id.order_date
+                ).values('product_from', 'product_to').annotate(
+                    total_quantity=Sum('quantity')
+                )
+                
+                service_count = 0
+                used_bottle_count = 0
+                fresh_bottle_count = 0
+                
+                for data in damage_data:
+                    if data['product_from'] == 'used' and data['product_to'] == 'service':
+                        service_count += data['total_quantity']
+                    if data['product_from'] == 'used':
+                        used_bottle_count += data['total_quantity']
+                    if data['product_from'] == 'fresh':
+                        fresh_bottle_count += data['total_quantity']
+
+                issued_bottle_count = order.issued_qty
+                
+                row = [
+                    serial_no,
+                    product_item_instance.product_name,
+                    van_instance.van_make,
+                    order.staff_order_id.order_date,
+                    van_stock_instance.stock if van_stock_instance else 0,
+                    (van_stock_instance.stock + issued_bottle_count) if van_stock_instance else 0,
+                    product_stock.quantity if product_stock else 0,
+                    (product_stock.quantity - issued_bottle_count) if product_stock else 0,
+                    scrap_stock.quantity if scrap_stock else 0,
+                    service_count,
+                    used_bottle_count,
+                    fresh_bottle_count,
+                    issued_bottle_count,
+                ]
+                sheet.append(row)
+                serial_no += 1
+
+    # Prepare the response
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    start_date_str = start_date if start_date else 'start'
+    end_date_str = end_date if end_date else 'end'
+    response['Content-Disposition'] = f'attachment; filename=Production_Onload_{start_date_str}_to_{end_date_str}.xlsx'
+
+    # Save the workbook to the response
+    workbook.save(response)
+    return response

@@ -2651,3 +2651,17 @@ class Overview_Dashboard_Summary(serializers.Serializer):
     new_customers_count_with_salesman = serializers.ListField(
         child=serializers.DictField()
     )
+
+class ProductionOnloadReportSerializer(serializers.Serializer):
+    product_name = serializers.CharField()
+    van_name = serializers.CharField()
+    order_date = serializers.DateField(format='%d-%m-%Y')
+    initial_van_stock = serializers.IntegerField()
+    updated_van_stock = serializers.IntegerField()
+    initial_product_stock = serializers.IntegerField()
+    updated_product_stock = serializers.IntegerField()
+    scrap_stock = serializers.IntegerField()
+    service_count = serializers.IntegerField()
+    used_bottle_count = serializers.IntegerField()
+    fresh_bottle_count = serializers.IntegerField()
+    issued_bottle_count = serializers.IntegerField()
