@@ -10917,3 +10917,218 @@ class UpdateCustomerRequestStatusView(APIView):
             return Response({"message": "Status updated successfully"}, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class OverviewAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user  # Get the logged-in user
+        print("user",user)
+
+        # Ensure only "owner" user type can access
+        if user.user_type != 'owner' and (not user.designation_id or user.designation_id.designation_name.lower() != "owner"):
+            return Response({"detail": "You do not have permission to access this resource."}, status=status.HTTP_403_FORBIDDEN)
+        # Get the date from the request or use today's date
+        date_str = request.GET.get('date')
+        if date_str:
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        else:
+            date = datetime.today().date()
+
+        yesterday_date = date - timedelta(days=1)
+
+        # Calculate supply and recharge statistics
+        todays_supply_instances = CustomerSupply.objects.filter(created_date__date=date)
+        supply_cash_sales_instances = todays_supply_instances.filter(amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
+        supply_credit_sales_instances = todays_supply_instances.filter(amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC", "CASH COUPON"])
+        
+        todays_recharge_instances = CustomerCoupon.objects.filter(created_date__date=date)
+        recharge_cash_sales_instances = todays_recharge_instances.filter(amount_recieved__gt=0)
+        recharge_credit_sales_instances = todays_recharge_instances.filter(amount_recieved__lte=0)
+        
+        total_cash_sales_count = supply_cash_sales_instances.count() + recharge_cash_sales_instances.count()
+        total_credit_sales_count = supply_credit_sales_instances.count() + recharge_credit_sales_instances.count()
+        
+        total_supply_cash_sales = supply_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        total_recharge_cash_sales = recharge_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        total_today_collections = total_supply_cash_sales + total_recharge_cash_sales
+
+        # Old collections
+        old_payment_collections_instances = CollectionPayment.objects.filter(created_date__date=date)
+        total_old_payment_collections = old_payment_collections_instances.aggregate(total_amount_recieved=Sum('amount_received'))['total_amount_recieved'] or 0
+
+        # Expenses
+        expenses_instances = Expense.objects.filter(expense_date=date)
+        total_expenses = expenses_instances.aggregate(total_expense=Sum('amount'))['total_expense'] or 0
+
+        # Active vans
+        active_vans_ids = VanProductStock.objects.filter(stock__gt=0).values_list('van__pk', flat=True).distinct()
+        active_van_count = Van.objects.filter(pk__in=active_vans_ids).count()
+
+        # Customer data
+        customers_instances = Customers.objects.all()
+        vocation_customers_instances = Vacation.objects.all()
+        route_instances = RouteMaster.objects.all()
+        
+        todays_customers = []
+        yesterday_customers = []
+
+        for route in route_instances:
+            day_of_week = date.strftime('%A')
+            week_num = (date.day - 1) // 7 + 1
+            week_number = f'Week{week_num}'
+            today_vocation_customer_ids = vocation_customers_instances.filter(start_date__gte=date, end_date__lte=date).values_list('customer__pk', flat=True)
+            today_scheduled_customers = customers_instances.filter(routes=route, is_calling_customer=False).exclude(pk__in=today_vocation_customer_ids)
+
+            for customer in today_scheduled_customers:
+                if customer.visit_schedule:
+                    for day, weeks in customer.visit_schedule.items():
+                        if str(day_of_week) == str(day) and str(week_number) in weeks:
+                            todays_customers.append(customer)
+
+            y_day_of_week = yesterday_date.strftime('%A')
+            y_week_num = (yesterday_date.day - 1) // 7 + 1
+            y_week_number = f'Week{y_week_num}'
+            yesterday_vocation_customer_ids = vocation_customers_instances.filter(start_date__gte=yesterday_date, end_date__lte=yesterday_date).values_list('customer__pk', flat=True)
+            yesterday_scheduled_customers = customers_instances.filter(routes=route, is_calling_customer=False).exclude(pk__in=yesterday_vocation_customer_ids)
+
+            for customer in yesterday_scheduled_customers:
+                if customer.visit_schedule:
+                    for day, weeks in customer.visit_schedule.items():
+                        if str(y_day_of_week) == str(day) and str(y_week_number) in weeks:
+                            yesterday_customers.append(customer)
+
+        door_lock_count = NonvisitReport.objects.filter(created_date__date=date, reason__reason_text="Door Lock").count()
+        emergency_customers_count = customers_instances.filter(pk__in=DiffBottlesModel.objects.filter(delivery_date=date).values_list('customer__pk')).count()
+
+        new_customers_count_with_salesman = Customers.objects.filter(created_date__date=date).values('sales_staff__username').annotate(customer_count=Count('customer_id')).order_by('sales_staff__username')
+
+        data = {
+            "cash_sales": total_cash_sales_count,
+            "credit_sales": total_credit_sales_count,
+            "total_sales_count": total_cash_sales_count + total_credit_sales_count,
+            "today_expenses": total_expenses,
+            "total_today_collections": total_today_collections,
+            "total_old_payment_collections": total_old_payment_collections,
+            "total_collection": total_today_collections + total_old_payment_collections,
+            "total_cash_in_hand": total_today_collections + total_old_payment_collections - total_expenses,
+            "active_van_count": active_van_count,
+            "delivery_progress": f'{supply_cash_sales_instances.count() + supply_credit_sales_instances.count()} / {len(todays_customers)}',
+            "total_customers_count": customers_instances.count(),
+            "new_customers_count": customers_instances.filter(created_date__date=date).count(),
+            "door_lock_count": door_lock_count,
+            "emergency_customers_count": emergency_customers_count,
+            "total_vocation_customers_count": len(vocation_customers_instances.filter(start_date__gte=date, end_date__lte=date).values_list('customer__pk').distinct()),
+            "yesterday_missed_customers_count": len(yesterday_customers) - CustomerSupply.objects.filter(created_date__date=yesterday_date).count(),
+            "new_customers_count_with_salesman": [
+                {
+                    "salesman_names": item['sales_staff__username'] if item['sales_staff__username'] else "Unassigned",
+                    "customer_count": item['customer_count']
+                }
+                for item in new_customers_count_with_salesman
+            ],
+        }
+
+        serializer = Overview_Dashboard_Summary(data)
+        return Response(serializer.data)
+    
+class ProductionOnloadReportAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        # Get today's date in dd-mm-yyyy format
+        today_str = date.today().strftime('%d-%m-%Y')
+
+        # Get the start and end date from query parameters
+        start_date_str = request.GET.get("start_date")
+        end_date_str = request.GET.get("end_date")
+
+        if not start_date_str or not end_date_str:
+            # If no dates are provided, default to today's date
+            start_date = end_date = date.today()
+        else:
+            try:
+                # Convert input strings to datetime in %Y-%m-%d format
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                start_date = end_date = date.today()
+
+        # Fetch orders within the date range (or only today if no dates were provided)
+        orders = Staff_Orders_details.objects.select_related("product_id", "staff_order_id").filter(
+            staff_order_id__order_date__range=[start_date, end_date]
+        ).order_by('-created_date')
+
+        issued_data = []
+
+        for order in orders:
+            product_item_instance = order.product_id
+
+            # Check if product is "5 Gallon"
+            if product_item_instance and product_item_instance.product_name == "5 Gallon":
+                van_instance = Van.objects.filter(
+                    salesman_id__id=order.staff_order_id.created_by
+                ).first() if order.staff_order_id else None
+
+                if van_instance:
+                    van_stock_instance = VanProductStock.objects.filter(
+                        created_date=order.staff_order_id.order_date,
+                        product=product_item_instance,
+                        van=van_instance
+                    ).first()
+
+                    product_stock = ProductStock.objects.filter(
+                        product_name=product_item_instance,
+                        branch=van_instance.branch_id
+                    ).first()
+
+                    scrap_stock = ScrapStock.objects.filter(product=product_item_instance).first()
+
+                    # Fetch additional production damage related to the product
+                    damage_data = ProductionDamage.objects.filter(
+                        product=product_item_instance,
+                        created_date__lte=order.staff_order_id.order_date
+                    ).values('product_from', 'product_to').annotate(
+                        total_quantity=Sum('quantity')
+                    )
+
+                    # Variables for service, used, fresh, issued bottles
+                    service_count = 0
+                    used_bottle_count = 0
+                    fresh_bottle_count = 0
+
+                    for data in damage_data:
+                        if data['product_from'] == 'used' and data['product_to'] == 'service':
+                            service_count += data['total_quantity']
+                        if data['product_from'] == 'used':
+                            used_bottle_count += data['total_quantity']
+                        if data['product_from'] == 'fresh':
+                            fresh_bottle_count += data['total_quantity']
+
+                    issued_bottle_count = order.issued_qty
+
+                    issued_data.append({
+                        "product_name": product_item_instance.product_name,
+                        "van_name": van_instance.van_make,
+                        "order_date": order.staff_order_id.order_date.strftime('%d-%m-%Y'),
+                        "initial_van_stock": van_stock_instance.stock if van_stock_instance else 0,
+                        "updated_van_stock": (van_stock_instance.stock + issued_bottle_count) if van_stock_instance else 0,
+                        "initial_product_stock": product_stock.quantity if product_stock else 0,
+                        "updated_product_stock": (product_stock.quantity - issued_bottle_count) if product_stock else 0,
+                        "scrap_stock": scrap_stock.quantity if scrap_stock else 0,
+                        "service_count": service_count,
+                        "used_bottle_count": used_bottle_count,
+                        "fresh_bottle_count": fresh_bottle_count,
+                        "issued_bottle_count": issued_bottle_count,
+                    })
+
+        # Serialize the data using the ProductionReportSerializer
+        serializer = ProductionOnloadReportSerializer(issued_data, many=True)
+
+        # Return the response as JSON
+        return Response({
+            "issued_data": serializer.data,
+            "filter_data": {
+                'filter_date_from': start_date.strftime('%d-%m-%Y'),
+                'filter_date_to': end_date.strftime('%d-%m-%Y'),
+            }
+        }, status=status.HTTP_200_OK)

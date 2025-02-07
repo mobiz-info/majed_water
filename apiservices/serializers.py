@@ -2608,9 +2608,18 @@ class CustomerRequestSerializer(serializers.ModelSerializer):
         return value
 
 class CustomerRequestListSerializer(serializers.ModelSerializer):
+    request_type_name = serializers.SerializerMethodField()
+    customer_name = serializers.SerializerMethodField()
+
     class Meta:
         model = CustomerRequests
-        fields = ['id', 'customer', 'request_type', 'status', 'created_date', 'modified_by', 'modified_date']
+        fields = ['id', 'customer', 'customer_name', 'request_type', 'request_type_name', 'status', 'created_date', 'modified_by', 'modified_date']
+
+    def get_request_type_name(self, obj):
+        return obj.request_type.name if obj.request_type else None
+
+    def get_customer_name(self, obj):
+        return obj.customer.customer_name if obj.customer else None
 
 class CustomerRequestUpdateSerializer(serializers.Serializer):
     customer_id = serializers.UUIDField(required=True)
@@ -2621,3 +2630,38 @@ class CustomerRequestUpdateSerializer(serializers.Serializer):
         if data['status'] == 'cancel' and not data.get('cancel_reason'):
             raise serializers.ValidationError({"cancel_reason": "This field is required when status is 'cancel'."})
         return data
+
+class Overview_Dashboard_Summary(serializers.Serializer):
+    cash_sales = serializers.IntegerField()
+    credit_sales = serializers.IntegerField()
+    total_sales_count = serializers.IntegerField()
+    today_expenses = serializers.FloatField()
+    total_today_collections = serializers.FloatField()
+    total_old_payment_collections = serializers.FloatField()
+    total_collection = serializers.FloatField()
+    total_cash_in_hand = serializers.FloatField()
+    active_van_count = serializers.IntegerField()
+    delivery_progress = serializers.CharField()
+    total_customers_count = serializers.IntegerField()
+    new_customers_count = serializers.IntegerField()
+    door_lock_count = serializers.IntegerField()
+    emergency_customers_count = serializers.IntegerField()
+    total_vocation_customers_count = serializers.IntegerField()
+    yesterday_missed_customers_count = serializers.IntegerField()
+    new_customers_count_with_salesman = serializers.ListField(
+        child=serializers.DictField()
+    )
+
+class ProductionOnloadReportSerializer(serializers.Serializer):
+    product_name = serializers.CharField()
+    van_name = serializers.CharField()
+    order_date = serializers.DateField(format='%d-%m-%Y')
+    initial_van_stock = serializers.IntegerField()
+    updated_van_stock = serializers.IntegerField()
+    initial_product_stock = serializers.IntegerField()
+    updated_product_stock = serializers.IntegerField()
+    scrap_stock = serializers.IntegerField()
+    service_count = serializers.IntegerField()
+    used_bottle_count = serializers.IntegerField()
+    fresh_bottle_count = serializers.IntegerField()
+    issued_bottle_count = serializers.IntegerField()
