@@ -357,6 +357,7 @@ urlpatterns = [
     path('create-audit-detail/', CreateAuditDetailAPIView.as_view(), name='create-audit-detail'),
     
     path('production-onload-report/', ProductionOnloadReportAPIView.as_view(), name='production_onload_report_api'),
+    path('scrap-clearence-report/', ScrapClearanceReportAPIView.as_view(), name='scrap_clearence_report_api'),
 
     
 

@@ -146,5 +146,9 @@ urlpatterns = [
     path('production_onload_report/', production_onload_report_view, name='production_onload_report'),
     path('production_onload_print/', production_onload_print, name='production_onload_print'),
     path('download_excel_production_onload/', download_production_onload, name='download_production_onload'),
+    
+    path("scrap_clearance_report/", scrap_clearance_report, name="scrap_clearance_report"),
+    path("scrap_clearance_print/", scrap_clearance_print, name="scrap_clearance_print"),
+    path('scrap_clearance_to_excel/', scrap_clearance_to_excel, name='scrap_clearance_to_excel'),
 
 ]

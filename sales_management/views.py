@@ -8087,3 +8087,143 @@ def download_production_onload(request):
     # Save the workbook to the response
     workbook.save(response)
     return response
+
+def scrap_clearance_report(request):
+    product = ProdutItemMaster.objects.filter(product_name="5 Gallon").first()
+    scrap_clearance_records = ScrapcleanedStock.objects.filter(product=product)
+
+    # Get today's date
+    today = now().date()
+
+    # Check if date filters are applied
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    if start_date and end_date:
+        # Convert string to date objects
+        try:
+            start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+            # Filter data for the selected date range
+            scrap_clearance_records = scrap_clearance_records.filter(
+                created_date__date__range=[start_date, end_date]
+            )
+        except ValueError:
+            pass  # Handle invalid date format gracefully
+    else:
+        # Get today's records
+        todays_records = scrap_clearance_records.filter(created_date__date=today)
+
+        # If today's data is available, use it; otherwise, get all records
+        scrap_clearance_records = todays_records if todays_records.exists() else scrap_clearance_records
+
+    context = {
+    "scrap_clearance_records": scrap_clearance_records.order_by('-created_date'),
+    "product_name": "5 Gallon",
+    "filter_data": {
+        "filter_date_from": start_date.strftime("%Y-%m-%d") if start_date else "",
+        "filter_date_to": end_date.strftime("%Y-%m-%d") if end_date else "",
+    },
+}
+
+
+    return render(request, "sales_management/scrap_clearance_report.html", context)
+
+def scrap_clearance_print(request):
+    product = ProdutItemMaster.objects.filter(product_name="5 Gallon").first()
+    scrap_clearance_records = ScrapcleanedStock.objects.filter(product=product)
+
+    # Get today's date
+    today = now().date()
+
+    # Get filter parameters from URL
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    if start_date and end_date:
+        try:
+            start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+            scrap_clearance_records = scrap_clearance_records.filter(
+                created_date__date__range=[start_date, end_date]
+            )
+        except ValueError:
+            pass  # Handle invalid date formats
+
+    else:
+        # Get today's records
+        todays_records = scrap_clearance_records.filter(created_date__date=today)
+
+        # If today's data is available, use it; otherwise, get all records
+        scrap_clearance_records = todays_records if todays_records.exists() else scrap_clearance_records
+
+    context = {
+        "scrap_clearance_records": scrap_clearance_records.order_by('-created_date'),
+        "product_name": "5 Gallon",
+        "filter_data": {
+            "filter_date_from": start_date or "",
+            "filter_date_to": end_date or "",
+        },
+    }
+
+    return render(request, "sales_management/scrap_clearance_print.html", context)
+
+def scrap_clearance_to_excel(request):
+    product = ProdutItemMaster.objects.filter(product_name="5 Gallon").first()
+    scrap_clearance_records = ScrapcleanedStock.objects.filter(product=product)
+
+    # Get today's date
+    today = now().date()
+
+    # Get filter parameters from URL
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    if start_date and end_date:
+        try:
+            start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+            scrap_clearance_records = scrap_clearance_records.filter(
+                created_date__date__range=[start_date, end_date]
+            )
+        except ValueError:
+            pass  # Handle invalid date formats
+    else:
+        # Get today's records
+        todays_records = scrap_clearance_records.filter(created_date__date=today)
+
+        # If today's data is available, use it; otherwise, get all records
+        scrap_clearance_records = todays_records if todays_records.exists() else scrap_clearance_records
+
+    # Create a new Excel workbook and sheet
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Scrap Clearance Data"
+
+    # Define column headers
+    headers = ["Sl.No", "Product Name", "Cleared Date", "Cleared Quantity", "Cleared By"]
+    sheet.append(headers)
+
+    # Populate Excel rows
+    for index, record in enumerate(scrap_clearance_records, start=1):
+        sheet.append([
+            index,  # Auto-incremented serial number
+            record.product.product_name,
+            record.created_date.strftime("%Y-%m-%d") if record.created_date else "N/A",
+            record.quantity,
+            record.created_by
+        ])
+
+    # Prepare the response with the correct content type
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="Scrap_Clearance_Report.xlsx"'
+
+    # Save the workbook to the response
+    workbook.save(response)
+    return response

@@ -2717,3 +2717,9 @@ class ProductionOnloadReportSerializer(serializers.Serializer):
     used_bottle_count = serializers.IntegerField()
     fresh_bottle_count = serializers.IntegerField()
     issued_bottle_count = serializers.IntegerField()
+
+class ScrapClearanceReportSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.product_name', read_only=True)
+    class Meta:
+        model = ScrapcleanedStock
+        fields = ['id', 'product', 'product_name', 'quantity', 'created_date', 'created_by']

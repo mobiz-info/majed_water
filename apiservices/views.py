@@ -11390,3 +11390,37 @@ class ProductionOnloadReportAPIView(APIView):
                 'filter_date_to': end_date.strftime('%d-%m-%Y'),
             }
         }, status=status.HTTP_200_OK)
+        
+
+class ScrapClearanceReportAPIView(APIView):
+    serializer_class = ScrapClearanceReportSerializer
+
+    def get(self, request):
+        product = ProdutItemMaster.objects.filter(product_name="5 Gallon").first()
+        scrap_clearance_records = ScrapcleanedStock.objects.filter(product=product)
+
+        # Get today's date
+        today = now().date()
+
+        # Get filter parameters from URL
+        start_date = request.GET.get("start_date")
+        end_date = request.GET.get("end_date")
+
+        if start_date and end_date:
+            try:
+                start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+                end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+                scrap_clearance_records = scrap_clearance_records.filter(
+                    created_date__date__range=[start_date, end_date]
+                )
+            except ValueError:
+                return Response({"error": "Invalid date format. Use YYYY-MM-DD."}, status=400)
+        else:
+            # Get today's records
+            todays_records = scrap_clearance_records.filter(created_date__date=today)
+
+            # If today's data is available, use it; otherwise, get all records
+            scrap_clearance_records = todays_records if todays_records.exists() else scrap_clearance_records
+
+        serializer = ScrapClearanceReportSerializer(scrap_clearance_records.order_by('-created_date'), many=True)
+        return Response(serializer.data, status=200)
