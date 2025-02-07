@@ -2652,6 +2652,58 @@ class Overview_Dashboard_Summary(serializers.Serializer):
         child=serializers.DictField()
     )
 
+class SalesmanCustomerRequestTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SalesmanCustomerRequestType
+        fields = ['id', 'name', 'created_date', 'modified_by', 'modified_date']
+            
+class SalesmanCustomerRequestSerializer(serializers.ModelSerializer):
+    salesman_name = serializers.CharField(source='salesman.get_full_name', read_only=True)  
+    customer_name = serializers.CharField(source='customer.customer_name', read_only=True) 
+    request_type_name = serializers.CharField(source='request_type.name', read_only=True)
+
+    class Meta:
+        model = SalesmanCustomerRequests
+        fields = [
+            'id', 'salesman', 'salesman_name', 'customer', 'customer_name', 
+            'request_type', 'request_type_name', 'status', 
+            'created_date', 'modified_by', 'modified_date'
+        ]
+        read_only_fields = ['id', 'created_date', 'modified_by', 'modified_date']
+
+class SalesmanCustomerRequestListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SalesmanCustomerRequests
+        fields = ['id', 'customer', 'request_type', 'status', 'created_date', 'modified_by', 'modified_date']
+
+class SalesmanCustomerRequestUpdateSerializer(serializers.Serializer):
+    customer_id = serializers.UUIDField(required=True)
+    status = serializers.ChoiceField(choices=CUSTOMER_TYPE_REQUEST_CHOICES)
+    cancel_reason = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, data):
+        if data['status'] == 'cancel' and not data.get('cancel_reason'):
+            raise serializers.ValidationError({"cancel_reason": "This field is required when status is 'cancel'."})
+        return data
+    
+    
+class AuditBaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AuditBase
+        fields = '__all__' 
+        
+class BulkAuditDetailSerializer(serializers.ListSerializer):
+    def create(self, validated_data):
+        audit_details = [AuditDetails(**item) for item in validated_data]
+        return AuditDetails.objects.bulk_create(audit_details)
+    
+class AuditDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AuditDetails
+        fields = '__all__'
+        list_serializer_class = BulkAuditDetailSerializer
+
+
 class ProductionOnloadReportSerializer(serializers.Serializer):
     product_name = serializers.CharField()
     van_name = serializers.CharField()

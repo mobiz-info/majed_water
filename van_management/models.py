@@ -511,3 +511,98 @@ class VanSaleDamage(models.Model):
 
     def __str__(self):
         return str(self.product.product_name)
+    
+    
+class SalesmanCustomerRequestType(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=50,default=0)
+
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+    class Meta:
+        ordering = ('-created_date',)
+
+    def __str__(self):
+        return str(self.name)
+    
+class SalesmanCustomerRequests(models.Model):
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    salesman = models.ForeignKey('accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True)
+    customer = models.ForeignKey('accounts.Customers', on_delete=models.SET_NULL, null=True, blank=True)
+    request_type = models.ForeignKey(SalesmanCustomerRequestType,on_delete=models.SET_NULL, null=True, blank=True)
+    status = models.CharField(max_length=50,default="new",choices=SALESMAN_CUSTOMER_TYPE_REQUEST_CHOICES)
+
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        ordering = ('-created_date',)
+    
+
+    def __str__(self):
+        return f"Request {self.id} -{self.request_type} - {self.customer} - {self.status}"
+
+class SalesmanCustomerRequestStatus(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    salesman_customer_request = models.ForeignKey(SalesmanCustomerRequests,on_delete=models.SET_NULL, null=True, blank=True)
+    status = models.CharField(max_length=50,default="new",choices=SALESMAN_CUSTOMER_TYPE_REQUEST_CHOICES)
+
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ('-created_date',)
+
+    def __str__(self):
+        return f"Request {self.customer_request} - {self.status} on {self.created_date}"
+    
+class SalesmanCustomerRequestCancelReason(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    salesman_customer_request = models.ForeignKey(SalesmanCustomerRequests,on_delete=models.SET_NULL, null=True, blank=True)
+    reason = models.CharField(max_length=50,default=0)
+
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ('-created_date',)
+
+    def __str__(self):
+        return f"Cancel Reason for Request {self.customer_request.id}-{self.reason}"
+    
+
+class AuditBase(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_by = models.CharField(max_length=30, blank=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(auto_now=True ,blank=True, null=True)
+    
+    start_date = models.DateTimeField(null=True, blank=True)
+    end_date = models.DateTimeField(null=True, blank=True) 
+    
+    route = models.ForeignKey(RouteMaster, on_delete=models.CASCADE,null=True, blank=True)
+    marketing_executieve = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='marketing_audits',null=True, blank=True)
+    salesman = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='salesman_audits',null=True, blank=True)
+    helper  = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='helper_audits',null=True, blank=True)
+    driver   = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='driver_audits',null=True, blank=True)
+    
+    
+    def __str__(self):
+        return f"Audit {self.id} - {self.route.name} ({self.start_date} to {self.end_date})"
+    
+class AuditDetails(models.Model):
+    audit_base = models.ForeignKey(AuditBase, on_delete=models.CASCADE, related_name='audit_details')
+    customer    = models.ForeignKey(Customers, on_delete=models.CASCADE)
+    
+    outstanding_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    bottle_outstanding = models.IntegerField(default=0)
+    outstanding_coupon = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"Audit Detail - {self.customer.customer_name} (Audit {self.audit_base.id})"

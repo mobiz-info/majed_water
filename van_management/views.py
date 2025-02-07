@@ -9,7 +9,8 @@ from .models import Van, Van_Routes, Van_License, BottleAllocation
 from accounts.models import CustomUser, Customers
 from master.models import EmirateMaster, RouteMaster
 from customer_care.models import DiffBottlesModel
-from client_management.models import Vacation,CustomerSupply
+from client_management.models import *
+from sales_management.models import *
 from product.models import ProductStock, ScrapProductStock, ScrapStock, Staff_IssueOrders, WashingProductStock, WashingStock
 
 from django.db import transaction, IntegrityError
@@ -1877,3 +1878,174 @@ def excess_bottle_count_delete(request, pk):
         excess_bottle_count.delete()
         return redirect('excess_bottle_count_list')
     return render(request, 'van_management/excess_bottle_count_confirm_delete.html', {'object': excess_bottle_count})
+
+
+class SalesmanCustomerRequestType_List(View):
+    template_name = 'van_management/salesman_customer_request_type_list.html'
+
+    @method_decorator(login_required)
+    def get(self, request, *args, **kwargs):
+        request_li = SalesmanCustomerRequestType.objects.all()
+        context = {'request_li': request_li}
+        return render(request, self.template_name, context)
+    
+class SalesmanCustomerRequestType_Create(View):
+    template_name = 'van_management/salesman_customerrequest_create.html'
+    form_class = SalesmanCustomerRequestTypeForm
+
+    @method_decorator(login_required)
+    def get(self, request, *args, **kwargs):
+        context = {'form': self.form_class}
+        return render(request, self.template_name, context)
+
+    @method_decorator(login_required)
+    def post(self, request, *args, **kwargs):
+        form = self.form_class(request.POST, request.FILES)
+        if form.is_valid():
+            data = form.save(commit=False)
+            data.created_by = str(request.user.id)
+            data.save()
+            messages.success(request, 'Customer Request Successfully Added.', 'alert-success')
+            return redirect('salesman_customer_request_type_list')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    print(f"Field: {field}, Error: {error}")
+            messages.success(request, 'Data is not valid.', 'alert-danger')
+            context = {'form': form}
+            return render(request, self.template_name, context)
+        
+        
+class SalesmanCustomerRequestType_Edit(View):
+    template_name = 'van_management/salesman_customer_requesttype_edit.html'
+    form_class = SalesmanCustomerRequestType_Edit_Form
+
+    @method_decorator(login_required)
+    def get(self, request, pk, *args, **kwargs):
+        rec = SalesmanCustomerRequestType.objects.get(id=pk)
+        form = self.form_class(instance=rec)
+        context = {'form': form,'rec':rec}
+        return render(request, self.template_name, context)
+
+    @method_decorator(login_required)
+    def post(self, request, pk, *args, **kwargs):
+        rec = SalesmanCustomerRequestType.objects.get(id=pk)
+        form = self.form_class(request.POST, request.FILES, instance=rec)
+        if form.is_valid():
+            data = form.save(commit=False)
+            data.modified_by = str(request.user.id)
+            data.modified_date = datetime.now()
+            data.save()
+            messages.success(request, 'Request Data Successfully Updated', 'alert-success')
+            return redirect('salesman_customer_request_type_list')
+        else:
+            messages.success(request, 'Data is not valid.', 'alert-danger')
+            context = {'form': form}
+            return render(request, self.template_name, context)
+
+class SalesmanCustomerRequestType_Delete(View):
+
+    def get(self, request, pk, *args, **kwargs):
+        rec = get_object_or_404(SalesmanCustomerRequestType, id=pk)
+        rec.delete()
+        messages.success(request, 'Request type deleted successfully', 'alert-success')
+        return redirect('salesman_customer_request_type_list')
+
+    def post(self, request, pk, *args, **kwargs):
+        rec = get_object_or_404(SalesmanCustomerRequestType, id=pk)
+        rec.delete()
+        messages.success(request, 'Request type deleted successfully', 'alert-success')
+        return redirect('salesman_customer_request_type_list')
+    
+    
+def salesman_customer_requests_list(request):
+    requests = SalesmanCustomerRequests.objects.all()
+    return render(request, 'van_management/requests_list.html', {'requests': requests})
+
+def update_request_status(request, pk):
+    request_instance = get_object_or_404(SalesmanCustomerRequests, id=pk)
+
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        if new_status:
+            request_instance.status = new_status
+            request_instance.save()
+
+            SalesmanCustomerRequestStatus.objects.create(
+                salesman_customer_request=request_instance,
+                status=new_status,
+                modified_by=request.user.username
+            )
+            messages.success(request, "Status updated successfully!")
+        else:
+            messages.error(request, "Invalid status update.")
+
+    return redirect('salesman_customer_requests_list')
+
+#--------------------------------------auditing-------------------------------------------
+
+def audit_report(request):
+    audits = AuditBase.objects.select_related('route', 'marketing_executieve').annotate(
+        total_customers=Count('route__customer_route', distinct=True),
+        audited_customers=Count('audit_details__customer', distinct=True)
+    ).order_by('-start_date')
+
+    print(audits.query)
+
+    return render(request, 'van_management/audit_report.html', {'audits': audits})
+
+def audit_detail(request, audit_id):
+    audit = get_object_or_404(AuditBase, id=audit_id)
+    audit_details = audit.audit_details.all()
+
+    audit_combined = []  
+    for audit_detail in audit_details:
+        customer = audit_detail.customer
+        date = audit.created_date
+
+        current_amount = OutstandingAmount.objects.filter(
+            customer_outstanding__customer__pk=customer.pk, 
+            customer_outstanding__created_date__date__lte=date
+        ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+
+        collection_amount = CollectionPayment.objects.filter(
+            customer__pk=customer.pk, 
+            created_date__date__lte=date
+        ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+
+        current_amount -= collection_amount
+        
+        current_bottles = OutstandingProduct.objects.filter(
+            customer_outstanding__customer=customer, 
+            customer_outstanding__created_date__lte=date
+        ).aggregate(total_bottles=Sum('empty_bottle'))['total_bottles'] or 0
+
+        current_coupons = OutstandingCoupon.objects.filter(
+            customer_outstanding__customer=customer,
+            customer_outstanding__created_date__lte=date
+        ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
+
+        audit_amount = audit_detail.outstanding_amount or 0
+        audit_bottles = audit_detail.bottle_outstanding or 0
+        audit_coupons = audit_detail.outstanding_coupon or 0
+        
+        amount_variation = current_amount - audit_amount
+        bottle_variation = current_bottles - audit_bottles
+        coupon_variation = current_coupons - audit_coupons
+        
+        audit_combined.append({
+            'customer': customer.customer_name,
+            'outstanding_amount': audit_amount,
+            'amount_variation': amount_variation,
+            'outstanding_coupon': audit_coupons,
+            'coupon_variation': coupon_variation,
+            'bottle_count': audit_bottles,
+            'bottle_variation': bottle_variation,
+        })
+
+    context = {
+        'audit': audit,
+        'audit_combined': audit_combined,  
+    }
+    
+    return render(request, 'van_management/audit_detail.html', context)

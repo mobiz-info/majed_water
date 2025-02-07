@@ -68,5 +68,15 @@ urlpatterns = [
     path('excess-bottle-counts/<uuid:pk>/edit/', excess_bottle_count_update, name='excess_bottle_count_update'),
     path('excess-bottle-counts/<uuid:pk>/delete/', excess_bottle_count_delete, name='excess_bottle_count_delete'),
 
+    path('salesman_customer_request_type_list', SalesmanCustomerRequestType_List.as_view(), name='salesman_customer_request_type_list'),
+    path('salesman_customer_request_create',SalesmanCustomerRequestType_Create.as_view(), name='salesman_customer_request_create'),
+    path('salesman_customer_requesttype_edit/<str:pk>', SalesmanCustomerRequestType_Edit.as_view(), name='salesman_customer_requesttype_edit'),
+    path('salesman_customer_requesttype_delete/<uuid:pk>/', SalesmanCustomerRequestType_Delete.as_view(), name='salesman_customer_requesttype_delete'),
+
+    path('salesman_customer_requests_list/', salesman_customer_requests_list, name='salesman_customer_requests_list'),
+    path('update_request_status/<uuid:pk>/', update_request_status, name='update_request_status'),
+
+    path('audit_report/', audit_report, name='audit_report'),
+    path('audit_detail/<uuid:audit_id>/', audit_detail, name='audit_detail'),
     
 ]

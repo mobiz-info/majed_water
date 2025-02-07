@@ -344,7 +344,20 @@ urlpatterns = [
     path('update-customer-request-status/', UpdateCustomerRequestStatusView.as_view(), name='update-customer-request-status'),
     path('overview/', OverviewAPIView.as_view(), name='overview-api'),
     
+    path('salesman-customer-request-types/', SalesmanCustomerRequestTypeAPIView.as_view()),
+    path('salesman-customer-requests/', SalesmanCustomerRequestCreateAPIView.as_view()),
+    path('salesman-customer-requests-lists/', SalesmanCustomerRequestListAPIView.as_view()),
+    path('update-salesman-customer-request-status/<uuid:request_id>/', UpdateSalesmanCustomerRequestStatusView.as_view()),
+
+    #-----------------------------Auditing--------------------------------------------
+    path('audit-list/', AuditListAPIView.as_view(), name='audit-list'),
+    path('audit-details/<uuid:audit_id>/', AuditDetailListAPIView.as_view(), name='audit-details'),
+    path('start-audit/', StartAuditAPIView.as_view(), name='start-audit'),
+    path('end-audit/<uuid:audit_id>/', EndAuditAPIView.as_view(), name='end-audit'),
+    path('create-audit-detail/', CreateAuditDetailAPIView.as_view(), name='create-audit-detail'),
+    
     path('production-onload-report/', ProductionOnloadReportAPIView.as_view(), name='production_onload_report_api'),
 
+    
 
 ]

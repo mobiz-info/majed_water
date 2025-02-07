@@ -11032,6 +11032,264 @@ class OverviewAPIView(APIView):
 
         serializer = Overview_Dashboard_Summary(data)
         return Response(serializer.data)
+
+
+class SalesmanCustomerRequestTypeAPIView(APIView):
+    
+    def get(self, request, id=None):
+        if id:
+            try:
+                customer_request_type = SalesmanCustomerRequestType.objects.get(id=id)
+                serializer = SalesmanCustomerRequestTypeSerializer(customer_request_type)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except SalesmanCustomerRequestType.DoesNotExist:
+                return Response(
+                    {"error": "SalesmanCustomerRequestType not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        else:
+            customer_request_types = SalesmanCustomerRequestType.objects.all()
+            serializer = SalesmanCustomerRequestTypeSerializer(customer_request_types, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def post(self, request):
+        serializer = SalesmanCustomerRequestTypeSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            serializer.save(modified_by=request.user.username)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+class SalesmanCustomerRequestCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated] 
+
+    def post(self, request, *args, **kwargs):
+        salesman = request.user
+        
+        customer_id = request.data.get('customer_id')
+        customer = SalesmanCustomerRequests.objects.filter(customer_id=customer_id).first()
+        
+        if customer:
+            serializer = SalesmanCustomerRequestSerializer(customer)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        request_type = request.data.get('request_type')
+        try:
+            request_type_instance = SalesmanCustomerRequestType.objects.get(id=request_type)
+        except SalesmanCustomerRequestType.DoesNotExist:
+            return Response({'error': 'Invalid request type'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        new_request = SalesmanCustomerRequests.objects.create(
+            salesman=salesman,
+            customer_id=customer_id,
+            request_type=request_type_instance,
+            status='new'
+        )
+        
+        serializer = SalesmanCustomerRequestSerializer(new_request)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class SalesmanCustomerRequestListAPIView(APIView):
+    permission_classes = [IsAuthenticated] 
+
+    def get(self, request):
+        
+        user = request.user
+        queryset = SalesmanCustomerRequests.objects.filter(salesman=user).order_by('-created_date')
+
+        if not queryset.exists():
+            return Response({"message": "No customer requests found"}, status=status.HTTP_200_OK)
+
+        serializer = SalesmanCustomerRequestSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class UpdateSalesmanCustomerRequestStatusView(APIView):
+
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, request_id):
+        
+        user = request.user
+        customer_request = get_object_or_404(SalesmanCustomerRequests, id=request_id, salesman=user)
+
+        new_status = request.data.get('status')
+        cancel_reason = request.data.get('cancel_reason', None) 
+
+        if not new_status:
+            return Response({"error": "Status is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        customer_request.status = new_status
+        customer_request.save()
+
+        SalesmanCustomerRequestStatus.objects.create(
+            salesman_customer_request=customer_request,
+            status=new_status,
+            modified_by=user.username
+        )
+
+        if new_status.lower() == 'cancel' and cancel_reason:
+            SalesmanCustomerRequestCancelReason.objects.create(
+                salesman_customer_request=customer_request,
+                reason=cancel_reason,
+                modified_by=user.username
+            )
+
+        return Response({"message": "Request status updated successfully"}, status=status.HTTP_200_OK)
+    
+    
+#---------------------Auditing-----------------
+from django.utils.timezone import now
+   
+class AuditListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        queryset = AuditBase.objects.filter(marketing_executieve=user).order_by('-created_date')
+
+        if not queryset.exists():
+            return Response({"message": "No audits found"}, status=status.HTTP_200_OK)
+
+        serializer = AuditBaseSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class StartAuditAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+
+        if user.user_type != 'marketing_executive':
+            log_activity(
+                created_by=user,
+                description="Unauthorized attempt to start an audit."
+            )
+            return Response(
+                {"error": "User is not authorized to start audits."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        assigned_routes = Van_Routes.objects.filter(
+            van__salesman=user
+        ).values_list('routes__route_id', flat=True)
+        print("assigned_routes", assigned_routes)
+
+        salesmen = CustomUser.objects.filter(
+            user_type='Salesman',
+            salesman_van__van_master__routes__route_id__in=assigned_routes
+        ).distinct()
+
+        print("salesmen", salesmen)
+
+        if not salesmen:
+            return Response(
+                {"error": "No salesmen found under this marketing executive."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        for salesman in salesmen:
+            assigned_route = Van_Routes.objects.filter(
+                van__salesman=salesman
+            ).first() 
+
+            if not assigned_route:
+                return Response(
+                    {"error": f"No route assigned to salesman {salesman.username}."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            route_master = RouteMaster.objects.get(route_id=assigned_route.routes.route_id)
+
+            audit, created = AuditBase.objects.get_or_create(
+                marketing_executieve=user,  
+                salesman=salesman,
+                route=route_master,  
+                defaults={'start_date': now()}
+            )
+
+            if not created and audit.start_date is not None and audit.end_date is None:
+                return Response(
+                    {"message": f"Audit already in progress for salesman {salesman.username} on route {assigned_route.routes.route_id}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            audit.start_date = now()
+            audit.end_date = None
+            audit.save()
+
+        log_activity(
+            created_by=user,
+            description=f"Audit started successfully for {salesmen.count()} salesmen."
+        )
+
+        return Response(
+            {"message": "Audit started successfully for all assigned salesmen."},
+            status=status.HTTP_200_OK
+        )
+        
+class EndAuditAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, audit_id):
+        user = request.user
+
+        try:
+            audit = AuditBase.objects.get(id=audit_id, marketing_executieve=user)
+
+            if audit.end_date is not None:
+                return Response({"message": "Audit is already ended"}, status=status.HTTP_400_BAD_REQUEST)
+
+            audit.end_date = now()
+            audit.save()
+            return Response({"message": "Audit ended successfully"}, status=status.HTTP_200_OK)
+
+        except AuditBase.DoesNotExist:
+            return Response({"error": "Audit not found"}, status=status.HTTP_404_NOT_FOUND)
+
+class CreateAuditDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        audit_id = request.data.get('audit_id')
+        customer_data = request.data.get('customers', [])
+
+        try:
+            audit = AuditBase.objects.get(id=audit_id)
+
+            if audit.start_date is None or audit.end_date is not None:
+                return Response({"message": "Cannot add details. Audit is not active."}, status=status.HTTP_400_BAD_REQUEST)
+
+            for customer in customer_data:
+                customer['audit_base'] = audit.id
+
+            serializer = AuditDetailSerializer(data=customer_data, many=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({"message": "Audit details added successfully", "data": serializer.data}, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except AuditBase.DoesNotExist:
+            return Response({"error": "Audit not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+class AuditDetailListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, audit_id):
+        user = request.user
+        audit_base = AuditBase.objects.filter(id=audit_id, marketing_executieve=user).first()
+        if not audit_base:
+            return Response({"message": "No audit found for this salesman"}, status=status.HTTP_404_NOT_FOUND)
+
+        queryset = AuditDetails.objects.filter(audit_base=audit_base)
+        if not queryset.exists():
+            return Response({"message": "No audit details found"}, status=status.HTTP_200_OK)
+
+        serializer = AuditDetailSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     
 class ProductionOnloadReportAPIView(APIView):
     def get(self, request, *args, **kwargs):
