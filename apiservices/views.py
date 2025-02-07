@@ -5970,15 +5970,24 @@ class CollectionReportAPI(APIView):
         start_date_str = request.data.get('start_date')
         end_date_str = request.data.get('end_date')
 
-        if start_date_str and end_date_str:
+        if start_date_str:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
         else:
             start_date = datetime.today().date()
+        
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        else:
             end_date = datetime.today().date()
-        salesman=request.user
-        # print("salesman",salesman)    
-        instances = CollectionPayment.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,salesman=request.user)
+            
+        salesman=request.user.id
+        try:
+            van_routes = Van_Routes.objects.filter(van__salesman=salesman)
+            route_ids = van_routes.values_list('routes_id', flat=True).distinct()
+        except Van_Routes.DoesNotExist:
+            return Response({'status': False, 'message': 'No route found for this salesman'}, status=status.HTTP_404_NOT_FOUND)
+
+        instances = CollectionPayment.objects.filter(created_date__date__gte=start_date,created_date__date__lte=end_date,customer__routes__in=route_ids)
         serialized_data = CollectionReportSerializer(instances, many=True).data
         
         # total_collected_amount = CollectionItems.objects.filter(collection_payment__pk__in=instances.values_list('pk')).aggregate(total=Sum('amount_received', output_field=DecimalField()))['total'] or 0
