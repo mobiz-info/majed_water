@@ -4,7 +4,7 @@ import uuid
 from django.db import models
 from django.db.models import Sum
 
-from accounts.models import Customers
+from accounts.models import Customers, CustomUser
 from master.models import *
 from order.models import Change_Reason
 from product.models import Product, ProductionDamageReason, ProdutItemMaster
@@ -19,7 +19,11 @@ STOCK_TYPES = (
         ('damage', 'Damage'),
         ('emptycan','Empty Can')
     )
-
+SALESMAN_CUSTOMER_TYPE_REQUEST_CHOICES = [
+        ('new', 'New'),
+        ('approved', 'Approved'),
+        ('cancel', 'Cancel'),
+    ]
 class Van(models.Model):
     van_id= models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_by = models.CharField(max_length=20,  blank=True)
