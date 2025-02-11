@@ -2622,7 +2622,7 @@ class CustomerRequestListSerializer(serializers.ModelSerializer):
         return obj.customer.customer_name if obj.customer else None
 
 class CustomerRequestUpdateSerializer(serializers.Serializer):
-    customer_id = serializers.UUIDField(required=True)
+    request_id = serializers.UUIDField(required=True)  # Updated from customer_id to request_id
     status = serializers.ChoiceField(choices=CUSTOMER_TYPE_REQUEST_CHOICES)
     cancel_reason = serializers.CharField(required=False, allow_blank=True)
 

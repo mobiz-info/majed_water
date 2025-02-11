@@ -10886,19 +10886,18 @@ class CustomerRequestListAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 class UpdateCustomerRequestStatusView(APIView):
-
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = CustomerRequestUpdateSerializer(data=request.data)
         if serializer.is_valid():
-            customer_id = serializer.validated_data['customer_id']
+            request_id = serializer.validated_data['request_id']  # Use request_id instead of customer_id
             new_status = serializer.validated_data['status']
             cancel_reason = serializer.validated_data.get('cancel_reason')
 
-            # Fetch customer request
-            customer_request = get_object_or_404(CustomerRequests, customer__customer_id=customer_id)
+            # Fetch customer request using request_id
+            customer_request = get_object_or_404(CustomerRequests, id=request_id)
 
             # Update the status
             customer_request.status = new_status
