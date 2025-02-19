@@ -1636,10 +1636,11 @@ def five_gallon_stock_report(request):
     product_stock_filter = {}
     damage_bottle_filter = {}
     scrap_product_filter = {}
-    washing_product_filter={}
+    washing_product_filter = {}
+    # used_bottle_filter = {}
 
-    if start_date and end_date:
-        # Parse dates
+    if start_date and end_date and start_date != 'None' and end_date != 'None':
+        # Parse dates only if they are valid
         start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
         end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
 
@@ -1647,6 +1648,10 @@ def five_gallon_stock_report(request):
         damage_bottle_filter['created_date__range'] = (start_date, end_date)
         scrap_product_filter['created_date__range'] = (start_date, end_date)
         washing_product_filter['created_date__range'] = (start_date, end_date)
+        # used_bottle_filter['created_date__range'] = (start_date, end_date)
+    else:
+        start_date = None
+        end_date = None
 
     # Query with filters
     product_stock_total = ProductStock.objects.filter(
@@ -1663,12 +1668,17 @@ def five_gallon_stock_report(request):
         **scrap_product_filter, 
         product__product_name='5 Gallon'
     ).aggregate(Sum('quantity'))['quantity__sum'] or 0
-    
+
     washing_product_total = WashingProductStock.objects.filter(
-    **washing_product_filter, 
-    product__product_name='5 Gallon'
+        **washing_product_filter, 
+        product__product_name='5 Gallon'
     ).aggregate(Sum('quantity'))['quantity__sum'] or 0
-    
+
+    # Calculate the used bottle count
+    used_bottle_count = WashedUsedProduct.objects.filter(
+        product__product_name='5 Gallon',
+    ).aggregate(Sum('quantity'))['quantity__sum'] or 0
+
     filter_data = {
         'start_date': start_date.strftime('%Y-%m-%d') if start_date else None,
         'end_date': end_date.strftime('%Y-%m-%d') if end_date else None,
@@ -1679,17 +1689,19 @@ def five_gallon_stock_report(request):
         'product_stock_total': product_stock_total,
         'damage_bottle_total': damage_bottle_total,
         'scrap_product_total': scrap_product_total,
-        'washing_product_total':washing_product_total,
-        'filter_data':filter_data,
+        'washing_product_total': washing_product_total,
+        'used_bottle_count': used_bottle_count,
+        'filter_data': filter_data,
         'start_date': start_date,
         'end_date': end_date,
     }
-    
+
     # Log activity
     log_activity(
         created_by=request.user,
-        description=f"Viewed the '5 Gallon Stock Report' from {filter_data['start_date']} to {filter_data['end_date']} ."
+        description=f"Viewed the '5 Gallon Stock Report' from {filter_data['start_date']} to {filter_data['end_date']}."
     )
+
     return render(request, 'products/five_gallon_stock_report/five_gallon_stock_report.html', context)
 
 # @login_required
@@ -1701,10 +1713,11 @@ def five_gallon_stock_print(request):
     product_stock_filter = {}
     damage_bottle_filter = {}
     scrap_product_filter = {}
-    washing_product_filter={}
+    washing_product_filter = {}
+    # used_bottle_filter = {}
 
-    if start_date and end_date:
-        # Parse dates
+    if start_date and end_date and start_date != 'None' and end_date != 'None':
+        # Parse dates only if they are valid
         start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
         end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
 
@@ -1712,6 +1725,10 @@ def five_gallon_stock_print(request):
         damage_bottle_filter['created_date__range'] = (start_date, end_date)
         scrap_product_filter['created_date__range'] = (start_date, end_date)
         washing_product_filter['created_date__range'] = (start_date, end_date)
+        # used_bottle_filter['created_date__range'] = (start_date, end_date)
+    else:
+        start_date = None
+        end_date = None
 
     # Query with filters
     product_stock_total = ProductStock.objects.filter(
@@ -1728,32 +1745,66 @@ def five_gallon_stock_print(request):
         **scrap_product_filter, 
         product__product_name='5 Gallon'
     ).aggregate(Sum('quantity'))['quantity__sum'] or 0
-    
+
     washing_product_total = WashingProductStock.objects.filter(
-    **washing_product_filter, 
-    product__product_name='5 Gallon'
+        **washing_product_filter, 
+        product__product_name='5 Gallon'
     ).aggregate(Sum('quantity'))['quantity__sum'] or 0
-    
+
+    # Calculate the used bottle count
+    used_bottle_count = WashedUsedProduct.objects.filter(
+        # **used_bottle_filter,
+        product__product_name='5 Gallon'
+    ).aggregate(Sum('quantity'))['quantity__sum'] or 0
+
     filter_data = {
         'start_date': start_date.strftime('%Y-%m-%d') if start_date else None,
         'end_date': end_date.strftime('%Y-%m-%d') if end_date else None,
     }
-    
-    
 
     # Pass data to context
     context = {
         'product_stock_total': product_stock_total,
         'damage_bottle_total': damage_bottle_total,
         'scrap_product_total': scrap_product_total,
-        'washing_product_total':washing_product_total,
-        'filter_data':filter_data,
+        'washing_product_total': washing_product_total,
+        'used_bottle_count': used_bottle_count,
+        'filter_data': filter_data,
         'start_date': start_date,
         'end_date': end_date,
     }
+    
     # Log activity
     log_activity(
         created_by=request.user,
-        description=f"Printed the '5 Gallon Stock Report' from {filter_data['start_date']} to {filter_data['end_date']} "
+        description=f"Printed the '5 Gallon Stock Report' from {filter_data['start_date']} to {filter_data['end_date']}."
     )
+
     return render(request, 'products/five_gallon_stock_report/five_gallon_stock_print.html', context)
+
+def create_washed_used_product(request):
+    if request.method == 'POST':
+        form = WashedUsedProductForm(request.POST)
+        if form.is_valid():
+            five_gallon_product = get_object_or_404(ProdutItemMaster, product_name="5 Gallon")
+            data = form.save(commit=False)
+            data.product = five_gallon_product
+            data.save()
+            response_data = {
+                "status": "true",
+                "title": "Successfully Created",
+                "message": "Washed Used Product created successfully.",
+                "redirect": "true",
+                "redirect_url": reverse('five_gallon_stock_report')
+            }
+            return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+        else:
+            messages.error(request, 'Invalid form data. Please check the input.')
+    else:
+        form = WashedUsedProductForm()
+    
+    context = {
+        'form': form,
+    }
+
+    return render(request, 'products/five_gallon_stock_report/wash_used_product_create.html', context)
