@@ -7452,8 +7452,8 @@ class CustomerOrdersAPIView(APIView):
                 cart_item.delete() 
                 
                 salesman_body = f'A new request has been created. for {customer.customer_name}'
-                notification(customer.sales_staff.pk, "New Water Request", salesman_body, "majed water")
-                notification(customer.user_id.pk, "New Water Request", "Your Request Created Succesfull.", "majed water")
+                notification(customer.sales_staff.pk, "New Water Request", salesman_body, "Majed water")
+                notification(customer.user_id.pk, "New Water Request", "Your Request Created Succesfull.", "Majed water")
             
             customer_cart.order_status = True
             customer_cart.save()

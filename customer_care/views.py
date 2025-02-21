@@ -725,8 +725,8 @@ class NewRequestHome(View):
                     sales_man = customer.sales_staff
                     try:
                         salesman_body = f'A new request has been created. for {customer.customer_name}'
-                        notification(sales_man.pk, "New Water Request", salesman_body, "majed water")
-                        notification(customer.user_id.pk, "New Water Request", "Your Request Created Succesfull.", "majed water")
+                        notification(sales_man.pk, "New Water Request", salesman_body, "Majed water")
+                        notification(customer.user_id.pk, "New Water Request", "Your Request Created Succesfull.", "Majed water")
                     except CustomUser.DoesNotExist:
                         messages.error(request, 'Salesman does not exist.', 'alert-danger')
                     except Send_Notification.DoesNotExist:
