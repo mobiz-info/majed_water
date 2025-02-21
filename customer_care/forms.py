@@ -226,12 +226,12 @@ class ReassignRequestForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
-
+    
 class CustomerRequestTypeForm(forms.ModelForm):
     class Meta:
         model = CustomerRequestType
         fields = ['name']
-
+        
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
         }

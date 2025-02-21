@@ -20,7 +20,11 @@ PRODUCT_TRANSFER_TO_CHOICES = (
         ('scrap','Scrap'),
         ('service', 'Service'),
     )
-
+SUPERVISOR_STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('verified', 'Verified'),
+        ('rejected', 'Rejected'),
+    )
 class ProdutItemMaster(models.Model):
     id   = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_by = models.CharField(max_length=20,  blank=True)
@@ -105,6 +109,7 @@ class Staff_Orders(models.Model):
     )
     order_via = models.CharField(max_length=20, choices=VIA_CHOICES, null=True, blank=True, default='Via Staff')
     order_date = models.DateField(null=True, blank=True)
+    supervisor_status = models.CharField(max_length=20,choices=SUPERVISOR_STATUS_CHOICES,default='Pending')
     # delivery_date = models.DateField(null=True, blank=True)
     
     class Meta:
@@ -356,3 +361,37 @@ class NextDayStockRequest(models.Model):
 
     def __str__(self):
         return str(self.product)
+    
+class OrderVerifiedSupervisor(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Staff_Orders, on_delete=models.CASCADE, related_name='verified_supervisor_details')
+    date = models.DateTimeField(auto_now_add=True)
+    supervisor = models.ForeignKey('accounts.CustomUser',  null=True, blank=True, on_delete=models.SET_NULL)
+    
+    damage = models.PositiveIntegerField(default=0)
+    leak = models.PositiveIntegerField(default=0)
+    service = models.PositiveIntegerField(default=0)
+    
+    created_by = models.CharField(max_length=20,  blank=True)
+    created_date = models.DateTimeField(auto_now_add=True,blank=True, null=True)
+    modified_by = models.CharField(max_length=20, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+    class Meta:
+            ordering = ('id',)
+    
+
+    def __str__(self):
+        return f'Order: {self.order.order_number}, Verified by: {self.supervisor.get_fullname()}, Date: {self.date}'
+    
+class OrderVerifiedproductDetails(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order_varified_id =  models.ForeignKey(OrderVerifiedSupervisor, on_delete=models.CASCADE)
+    
+    product_id = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
+    issued_qty = models.PositiveIntegerField(default=0)
+    fresh_qty = models.PositiveIntegerField(default=0)
+    used_qty = models.PositiveIntegerField(default=0)
+    
+
+    def __str__(self):
+        return str(self.order_varified_id)

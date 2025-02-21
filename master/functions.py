@@ -1,9 +1,13 @@
-
-
-from datetime import timedelta, timezone
-import datetime
 import json
-from accounts.models import Staff_Day_of_Visit
+import datetime
+from datetime import timedelta, timezone
+import random
+
+from django.utils import timezone
+
+from accounts.models import Processing_Log, Staff_Day_of_Visit
+from invoice_management.models import Invoice
+from sales_management.models import Receipt
 
 
 def generate_form_errors(args,formset=False):
@@ -48,15 +52,23 @@ def generate_serializer_errors(args):
     return message[:-3]
 
 def get_custom_id(model):
-    custom_id = 1
-    # try:
-    latest_custom_id =  model.objects.all().order_by("-created_date")[:1]
-    if latest_custom_id:
-        for auto in latest_custom_id:
-            custom_id = int(auto.custom_id) + 1
-    # except:
-        # pass
+    custom_id = 1  # Default starting ID
+    
+    try:
+        # Get the latest record based on created_date
+        latest_custom_id = model.objects.all().order_by("-created_date").first()
+        if latest_custom_id:
+            custom_id = int(latest_custom_id.custom_id) + 1
+        
+        # Ensure the generated ID is unique
+        while model.objects.filter(custom_id=custom_id).exists():
+            custom_id += 1
+    except Exception as e:
+        # Handle any unexpected errors (e.g., missing fields, etc.)
+        print(f"Error generating custom_id: {e}")
+    
     return custom_id
+
 
 def get_dates_for_days(days_of_week,week_number):
     # Get today's date
@@ -138,7 +150,58 @@ def get_next_visit_date(visit_schedule):
     return "-"
 
 
+def log_activity(created_by, description, created_date=None):
+    
+    if created_date is None:
+        created_date = timezone.now()
+
+    Processing_Log.objects.create(
+        created_by=created_by,
+        description=description,
+        created_date=created_date
+    )
+
+
 # # Example usage
 # visit_schedule = '{"Friday": ["Week2", "Week4", "Week1", "Week5"], "Monday": ["Week1", "Week5", "Week4", "Week2", "Week3"], "Sunday": ["Week4", "Week1"], "Tuesday": ["Week5", "Week4"], "Saturday": ["Week4", "Week5", "Week2"], "Thursday": ["Week5", "Week1"], "Wednesday": ["Week2", "Week3", "Week4"]}'
 # next_visit_dates = get_next_visit_date(visit_schedule)
 # print(next_visit_dates)
+
+def generate_invoice_no(date):
+    if (invoices:=Invoice.objects.filter(created_date__date=date,is_deleted=False)).exists():
+        last_invoice = invoices.latest('created_date')
+        last_invoice_number = last_invoice.invoice_no
+        prefix, date_part, number_part = last_invoice_number.split('-')
+        new_number_part = int(number_part) + 1
+        invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+    else:
+        date_part = timezone.now().strftime('%Y%m%d')
+        random_part = str(random.randint(1000, 9999))
+        invoice_number = f'WTR-{date_part}-{random_part}'
+        
+    return invoice_number
+
+def generate_receipt_no(date):
+    reciepts = Receipt.objects.filter(created_date__date=date).exclude(receipt_number="").exclude(receipt_number=None)
+
+    if reciepts.exists():
+        last_receipt = reciepts.latest('created_date')
+        last_receipt_number = last_receipt.receipt_number
+
+        # Ensure last_receipt_number is valid before splitting
+        if last_receipt_number and '-' in last_receipt_number:
+            try:
+                prefix, date_part, number_part = last_receipt_number.split('-')
+                new_number_part = int(number_part) + 1
+                receipt_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+            except ValueError:
+                # Handle unexpected format gracefully
+                receipt_number = f'RCT-{timezone.now().strftime("%Y%m%d")}-{random.randint(1000, 9999)}'
+        else:
+            receipt_number = f'RCT-{timezone.now().strftime("%Y%m%d")}-{random.randint(1000, 9999)}'
+    else:
+        date_part = timezone.now().strftime('%Y%m%d')
+        random_part = str(random.randint(1000, 9999))
+        receipt_number = f'RCT-{date_part}-{random_part}'
+
+    return receipt_number

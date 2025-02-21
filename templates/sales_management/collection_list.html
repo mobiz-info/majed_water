@@ -101,7 +101,7 @@
                                             <td>
                                                 <a aria-label="anchor" class="action-button remove btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete"
                                                     data-id="{{ instance.receipt_number }}" data-text="{{ confirm_delete_message }}" data-title="Are you sure?" 
-                                                    href="{% url 'delete_collection_payment' instance.receipt_number instance.customer.customer_id %}">
+                                                    href="{% url 'delete_collection_payment' instance.pk %}">
                                                     <span class="ri-delete-bin-7-line fs-14"></span>
                                                 </a>
                                             </td>

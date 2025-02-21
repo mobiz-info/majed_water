@@ -48,7 +48,10 @@ urlpatterns = [
     re_path(r'create-production-damage/$', views.create_production_damage, name='create_production_damage'),
     re_path(r'^edit-production-damage/(?P<pk>.*)/$', views.edit_production_damage, name='edit_production_damage'),
     re_path(r'^delete-production-damage/(?P<pk>.*)/$', views.delete_production_damage, name='delete_production_damage'),
-
+    
     re_path(r'five-gallon-stock/$', views.five_gallon_stock_report, name='five_gallon_stock_report'),
     re_path(r'five-gallon-stock-print/$', views.five_gallon_stock_print, name='five_gallon_stock_print'),
+    # re_path(r'create-washed-used-product/$', views.create_washed_used_product, name='create_washed_used_product'),
+    path('create-washed-used-product/', views.create_washed_used_product, name='create_washed_used_product'),
+
    ]

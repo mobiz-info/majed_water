@@ -21,7 +21,8 @@ from django.contrib.auth.views import LoginView
 from django.urls import reverse
 
 from competitor_analysis.forms import CompetitorAnalysisFilterForm
-from master.functions import generate_form_errors, get_custom_id
+from master.functions import generate_form_errors, get_custom_id, log_activity
+from van_management.views import find_customers
 from .forms import *
 from .models import *
 from django.db.models import Q
@@ -32,7 +33,6 @@ from datetime import datetime, timedelta
 from client_management.models import *
 from django.db.models import Q, Sum, Count
 from customer_care.models import *
-from apiservices.views import find_customers
 from van_management.models import Van_Routes,Van,VanProductStock
 
 from django.contrib.auth import update_session_auth_hash
@@ -332,17 +332,18 @@ class Customer_List(View):
 
     def get(self, request, *args, **kwargs):
         filter_data = {}
-        # Retrieve the query parameter
+
+        # Retrieve query parameters
         query = request.GET.get("q")
         route_filter = request.GET.get('route_name')
         customer_type_filter = request.GET.get('customer_type')
         non_visit_reason = request.GET.get('non_visited_reason')
-        created_date_filter = request.GET.get('created_date', None)
+        created_date_filter = request.GET.get('created_date')
 
         # Start with all customers
-        user_li = Customers.objects.all().filter(is_deleted=False)
-            
-        # Apply filters if they exist
+        user_li = Customers.objects.filter(is_deleted=False).select_related('location', 'routes')
+
+        # Apply filters
         if query:
             user_li = user_li.filter(
                 Q(custom_id__icontains=query) |
@@ -356,57 +357,122 @@ class Customer_List(View):
         if route_filter:
             user_li = user_li.filter(routes__route_name=route_filter)
             filter_data['route_filter'] = route_filter
-            
+
         if customer_type_filter:
             user_li = user_li.filter(sales_type=customer_type_filter)
             filter_data['customer_type'] = customer_type_filter
+
         if created_date_filter:
-            # Convert the string date to a datetime object
-            created_date_obj = datetime.strptime(created_date_filter, '%Y-%m-%d')
-            
-            # Convert to a timezone-aware datetime object
-            created_date_obj = timezone.make_aware(created_date_obj, timezone.get_current_timezone())
-            
-            # Filter users based on the created date (without time part)
-            user_li = user_li.filter(created_date__date=created_date_obj.date())
-            
-            # Store the filter data to retain it in the template
-            filter_data = {'created_date': created_date_filter}
-        else:
-            user_li = user_li.all()  # If no filter, return all users
-            filter_data = {}
-        
+            try:
+                created_date_obj = datetime.strptime(created_date_filter, '%Y-%m-%d')
+                created_date_obj = timezone.make_aware(created_date_obj, timezone.get_current_timezone())
+                user_li = user_li.filter(created_date__date=created_date_obj.date())
+                filter_data['created_date'] = created_date_filter
+            except ValueError:
+                messages.error(request, "Invalid date format. Please use YYYY-MM-DD.")
+
         if non_visit_reason:
-            # Filter NonvisitReport by the selected reason
             customer_ids = NonvisitReport.objects.filter(reason__id=non_visit_reason).values_list('customer_id', flat=True)
-            
-            # Filter the main customer queryset
             user_li = user_li.filter(customer_id__in=customer_ids)
-            
-            # Update the filter_data dictionary
             filter_data['non_visit_reason'] = non_visit_reason
 
-        # Get all route names for the dropdown
+        # Get route and non-visit reason lists
         route_li = RouteMaster.objects.all()
         non_visit_reasons = NonVisitReason.objects.all()
 
-        
+        # Log activity
         log_activity(
             created_by=request.user, 
             description=f"Viewed customer list with filters: {filter_data}"
         )
+
         context = {
             'user_li': user_li.order_by("-created_date"),
             'route_li': route_li,
             'route_filter': route_filter,
             'q': query,
             'filter_data': filter_data,
-            'non_visit_reasons':non_visit_reasons
+            'non_visit_reasons': non_visit_reasons,
         }
 
-
-
         return render(request, self.template_name, context)
+    # def get(self, request, *args, **kwargs):
+    #     filter_data = {}
+    #     # Retrieve the query parameter
+    #     query = request.GET.get("q")
+    #     route_filter = request.GET.get('route_name')
+    #     customer_type_filter = request.GET.get('customer_type')
+    #     non_visit_reason = request.GET.get('non_visited_reason')
+    #     created_date_filter = request.GET.get('created_date', None)
+
+    #     # Start with all customers
+    #     user_li = Customers.objects.all().filter(is_deleted=False)
+            
+    #     # Apply filters if they exist
+    #     if query:
+    #         user_li = user_li.filter(
+    #             Q(custom_id__icontains=query) |
+    #             Q(customer_name__icontains=query) |
+    #             Q(mobile_no__icontains=query) |
+    #             Q(location__location_name__icontains=query) |
+    #             Q(building_name__icontains=query)
+    #         )
+    #         filter_data['q'] = query
+
+    #     if route_filter:
+    #         user_li = user_li.filter(routes__route_name=route_filter)
+    #         filter_data['route_filter'] = route_filter
+            
+    #     if customer_type_filter:
+    #         user_li = user_li.filter(sales_type=customer_type_filter)
+    #         filter_data['customer_type'] = customer_type_filter
+    #     if created_date_filter:
+    #         # Convert the string date to a datetime object
+    #         created_date_obj = datetime.strptime(created_date_filter, '%Y-%m-%d')
+            
+    #         # Convert to a timezone-aware datetime object
+    #         created_date_obj = timezone.make_aware(created_date_obj, timezone.get_current_timezone())
+            
+    #         # Filter users based on the created date (without time part)
+    #         user_li = user_li.filter(created_date__date=created_date_obj.date())
+            
+    #         # Store the filter data to retain it in the template
+    #         filter_data = {'created_date': created_date_filter}
+    #     else:
+    #         user_li = user_li.all()  # If no filter, return all users
+    #         filter_data = {}
+        
+    #     if non_visit_reason:
+    #         # Filter NonvisitReport by the selected reason
+    #         customer_ids = NonvisitReport.objects.filter(reason__id=non_visit_reason).values_list('customer_id', flat=True)
+            
+    #         # Filter the main customer queryset
+    #         user_li = user_li.filter(customer_id__in=customer_ids)
+            
+    #         # Update the filter_data dictionary
+    #         filter_data['non_visit_reason'] = non_visit_reason
+
+    #     # Get all route names for the dropdown
+    #     route_li = RouteMaster.objects.all()
+    #     non_visit_reasons = NonVisitReason.objects.all()
+
+        
+    #     log_activity(
+    #         created_by=request.user, 
+    #         description=f"Viewed customer list with filters: {filter_data}"
+    #     )
+    #     context = {
+    #         'user_li': user_li.order_by("-created_date"),
+    #         'route_li': route_li,
+    #         'route_filter': route_filter,
+    #         'q': query,
+    #         'filter_data': filter_data,
+    #         'non_visit_reasons':non_visit_reasons
+    #     }
+
+
+
+    #     return render(request, self.template_name, context)
 class Latest_Customer_List(View):
     template_name = 'accounts/latest_customer_list.html'
 
@@ -694,36 +760,53 @@ def create_customer(request):
     template_name = 'accounts/create_customer.html'
     form = CustomercreateForm(branch)
     context = {"form":form}
-    # try:
-    if request.method == 'POST':
-        form = CustomercreateForm(branch,data = request.POST)
-        context = {"form":form}
-        if form.is_valid():
-            data = form.save(commit=False)
-            data.created_by = str(request.user)
-            data.created_date = datetime.now()
-            data.emirate = data.location.emirate
-            branch_id=request.user.branch_id.branch_id
-            branch = BranchMaster.objects.get(branch_id=branch_id)
-            data.branch_id = branch
-            data.custom_id = get_custom_id(Customers)
-            data.save()
-            Staff_Day_of_Visit.objects.create(customer = data)
-            
-            log_activity(
-                created_by=request.user,
-                description=f"Created customer {data.custom_id} - {data.customer_name}"
-            )
-            
-            messages.success(request, 'Customer Created successfully!')
-            return redirect('customers')
-        else:
-            messages.success(request, 'Invalid form data. Please check the input.')
-            return render(request, template_name,context)
-    return render(request, template_name,context)
-    # except Exception as e:
-    #         messages.success(request, 'Something went wrong')
-    #         return render(request, template_name,context)
+    try:
+        if request.method == 'POST':
+            form = CustomercreateForm(branch,data = request.POST)
+            context = {"form":form}
+            if form.is_valid():
+                mobile_no = form.cleaned_data.get("mobile_no")
+                customer_name = form.cleaned_data.get("customer_name")
+
+                if mobile_no:
+                    hashed_password = make_password(mobile_no)
+
+                    customer_user_data = CustomUser.objects.create(
+                        password=hashed_password,
+                        username=mobile_no,
+                        first_name=customer_name,
+                        user_type='Customer'
+                    )
+                
+                data = form.save(commit=False)
+                data.created_by = str(request.user)
+                data.created_date = datetime.now()
+                data.emirate = data.location.emirate
+                branch_id = request.user.branch_id.branch_id
+                branch = BranchMaster.objects.get(branch_id=branch_id)
+                data.branch_id = branch
+                data.custom_id = get_custom_id(Customers)
+                if mobile_no:
+                    data.user_id = customer_user_data
+                data.save()
+                Staff_Day_of_Visit.objects.create(customer = data)
+                
+                log_activity(
+                    created_by=request.user,
+                    description=f"Created customer {data.custom_id} - {data.customer_name}"
+                )
+                
+                messages.success(request, 'Customer Created successfully!')
+                return redirect('customers')
+            else:
+                messages.success(request, 'Invalid form data. Please check the input.')
+                return render(request, template_name,context)
+        return render(request, template_name,context)
+    except Exception as e:
+        message = f'Something went wrong {e}'
+        messages.success(request, message)
+        return render(request, template_name,context)
+        
 def load_locations(request):
     emirate_id = request.GET.get('emirate_id')
     locations = LocationMaster.objects.filter(emirate__pk=emirate_id).all()
@@ -780,7 +863,7 @@ class Customer_Details(View):
 
 def edit_customer(request,pk):
     branch = request.user.branch_id
-    cust_Data = Customers.objects.get(customer_id = pk)
+    cust_Data = Customers.objects.get(customer_id = pk,is_deleted=False)
     form = CustomerEditForm(branch,instance = cust_Data)
     template_name = 'accounts/edit_customer.html'
     context = {"form":form}
@@ -795,6 +878,25 @@ def edit_customer(request,pk):
                 data = form.save(commit=False)
                 data.emirate = data.location.emirate
                 data.save()
+                
+                if not data.user_id:
+                    mobile_no = form.cleaned_data.get("mobile_no")
+                    customer_name = form.cleaned_data.get("customer_name")
+
+                    if mobile_no:
+                        hashed_password = make_password(mobile_no)
+
+                        customer_user_data,new_user = CustomUser.objects.get_or_create(
+                            username=mobile_no,
+                            first_name=customer_name,
+                            user_type='Customer'
+                        )
+                        if new_user:
+                            new_user.password=hashed_password
+                            new_user.save()
+                            
+                        data.user_id = customer_user_data
+                        data.save()
                 
                 # Create CustomerRateHistory entry
                 CustomerRateHistory.objects.create(
@@ -817,7 +919,7 @@ def edit_customer(request,pk):
         print(":::::::::::::::::::::::",e)
         messages.success(request, 'Something went wrong')
         return render(request, template_name,context)
-
+    
 import random
 
 def randomnumber(digits):
@@ -866,7 +968,7 @@ from accounts.templatetags.accounts_templatetags import get_next_visit_day
 def customer_list_excel(request):
     query = request.GET.get("q")
     route_filter = request.GET.get('route_name')
-    user_li = Customers.objects.all()
+    user_li = Customers.objects.all().filter(is_deleted=False)
 
     # Apply filters if they exist
     if query and query != '' and query != 'None':
@@ -898,6 +1000,7 @@ def customer_list_excel(request):
         'Bottles stock': [],
         'Next Visit date': [],  # Create an empty list for next visit dates
         'Sales Type': [],
+        'Rate': [],
     }
 
     for serial_number, customer in enumerate(user_li, start=1):
@@ -926,6 +1029,7 @@ def customer_list_excel(request):
         data['Bottles stock'].append(total_bottle_count)
         data['Next Visit date'].append(next_visit_date)
         data['Sales Type'].append(customer.sales_type)
+        data['Rate'].append(customer.rate)
 
     df = pd.DataFrame(data)
 
@@ -939,13 +1043,13 @@ def customer_list_excel(request):
         table_border_format = workbook.add_format({'border':1})
         worksheet.conditional_format(4, 0, len(df.index)+4, len(df.columns) - 1, {'type':'cell', 'criteria': '>', 'value':0, 'format':table_border_format})
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 16, 'border': 1})
-        worksheet.merge_range('A1:K2', f'Majed Water', merge_format)
+        worksheet.merge_range('A1:L2', f'Majed  Water', merge_format)
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
-        worksheet.merge_range('A3:K3', f'    Customer List   ', merge_format)
+        worksheet.merge_range('A3:L3', f'    Customer List   ', merge_format)
         # worksheet.merge_range('E3:H3', f'Date: {def_date}', merge_format)
         # worksheet.merge_range('I3:M3', f'Total bottle: {total_bottle}', merge_format)
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
-        worksheet.merge_range('A4:K4', '', merge_format)
+        worksheet.merge_range('A4:L4', '', merge_format)
     
     filename = f"Customer List.xlsx"
     response = HttpResponse(buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -1222,6 +1326,7 @@ class OtherProductRateChangeView(View):
             "redirect_url": reverse('customer_rate_history', kwargs={'pk': pk})
         }
         return JsonResponse(response_data)
+       
        
 class NonVisitedCustomersView(View):
     template_name = 'accounts/non_visited_customers.html'
@@ -1535,23 +1640,79 @@ class MissedOnDeliveryPrintView(View):
 
         return render(request, self.template_name, context)
 
-
-def log_activity(created_by, description, created_date=None):
-    
-    if created_date is None:
-        created_date = timezone.now()
-
-    Processing_Log.objects.create(
-        created_by=created_by,
-        description=description,
-        created_date=created_date
-    )
-
 def processing_log_list(request):
-    logs = Processing_Log.objects.all().order_by("-created_date")
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    # Use today's date as the default if no date is provided
+    if not start_date:
+        start_date = date.today()
+    else:
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+
+    if not end_date:
+        end_date = date.today()
+    else:
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+    logs = Processing_Log.objects.filter(created_date__date__range=(start_date, end_date)).order_by("-created_date")
     
     context = {
         'logs': logs,
     }
     
     return render(request, 'accounts/processing_log_list.html', context)
+
+
+class Gps_Route_List(View):
+    template_name = 'accounts/gps_route_list.html'
+
+    def get(self, request, *args, **kwargs):
+        route_li = RouteMaster.objects.filter()
+        context = {'route_li': route_li}
+        return render(request, self.template_name, context)
+    
+
+def activate_gps_for_route(request, route_id):
+    route = get_object_or_404(RouteMaster, route_id=route_id)
+    
+    gps_active = Customers.objects.filter(routes=route, gps_module_active=True).exists()
+    
+    if gps_active:
+        Customers.objects.filter(routes=route).update(gps_module_active=False)
+
+        GpsLog.objects.filter(route=route, gps_enabled=True, turn_off_time__isnull=True).update(turn_off_time=now())
+
+        GpsLog.objects.create(
+            route=route,
+            user=request.user,
+            gps_enabled=False,
+            turn_on_time=now(),  
+            turn_off_time=now() 
+        )
+
+        messages.success(request, f"GPS Lock disabled for all customers in route: {route.route_name}")
+
+    else:
+        Customers.objects.filter(routes=route).update(gps_module_active=True)
+
+        GpsLog.objects.create(
+            route=route,
+            user=request.user,
+            gps_enabled=True,
+            turn_on_time=now(),
+            turn_off_time=None 
+        )
+
+        messages.success(request, f"GPS Lock enabled for all customers in route: {route.route_name}")
+
+    return redirect('gps_settings')
+
+def gps_lock_view(request, route_id):
+    route = get_object_or_404(RouteMaster, route_id=route_id)
+    gps_logs = GpsLog.objects.filter(route=route).order_by("-turn_on_time") 
+
+    context = {
+        "route": route,
+        "gps_logs": gps_logs
+    }
+    return render(request, "accounts/gps_log_view.html", context)

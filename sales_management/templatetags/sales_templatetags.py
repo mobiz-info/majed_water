@@ -96,6 +96,21 @@ def get_sales_report(route_id, start_date, end_date):
     
     sales_quantity = supplies.aggregate(total_qty=Sum(F('customersupplyitems__quantity')))['total_qty'] or 0
     avg_price = supplies.aggregate(average_rate=Avg('customer__rate'))['average_rate'] or 0
+    
+    cash_sales_qnty = CustomerSupplyItems.objects.filter(
+        customer_supply__in=supplies,
+        customer_supply__customer__sales_type="CASH"
+    ).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+    
+    credit_sales_qnty = CustomerSupplyItems.objects.filter(
+        customer_supply__in=supplies
+    ).exclude(customer_supply__customer__sales_type__in=["FOC", "CASH COUPON"]).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+
+    coupon_sales_qnty = CustomerSupplyItems.objects.filter(
+        customer_supply__in=supplies,
+        customer_supply__customer__sales_type="CASH COUPON"
+    ).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+
     cash_sales = supplies.filter(amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON").aggregate(total=Sum('amount_recieved'))['total'] or 0
     credit_sales = supplies.filter(amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"]).aggregate(total=Sum('net_payable'))['total'] or 0
     
@@ -121,8 +136,11 @@ def get_sales_report(route_id, start_date, end_date):
     return {
         "sales_quantity": sales_quantity,
         "avg_price": avg_price,
+        "cash_sales_qnty":cash_sales_qnty,
         "cash_sales": cash_sales,
+        "credit_sales_qnty":credit_sales_qnty,
         "credit_sales": credit_sales,
+        "coupon_sales_qnty":coupon_sales_qnty,
         "coupon_sales": coupon_sales,
         "foc_sales": foc_sales,
         "credit_collection": credit_collection,

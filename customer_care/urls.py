@@ -47,4 +47,6 @@ path('customer_requesttype_create',CustomerRequestType_Create.as_view(), name='c
 path('customer_requesttype_edit/<str:pk>', CustomerRequestType_Edit.as_view(), name='customer_requesttype_edit'),
 path('customer_requesttype_delete/<uuid:pk>/', CustomerRequestType_Delete.as_view(), name='customer_requesttype_delete'),
 
+
+
 ]

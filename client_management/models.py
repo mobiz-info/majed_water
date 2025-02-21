@@ -7,7 +7,7 @@ from accounts.models import *
 from coupon_management.models import COUPON_METHOD_CHOICES, Coupon, CouponLeaflet, CouponType, FreeLeaflet, NewCoupon
 from product.models import *
 from django.http import HttpResponse
-from django.db.models import Count,Sum
+from django.db.models import Count,Sum,Q
 from invoice_management.models import InvoiceItems
 COUPON_TYPE = (
     ('cash_coupon','Cash Coupon'),
@@ -39,6 +39,7 @@ CUSTOMER_ORDER_STATUS = (
     ('pending','Pending'),
     ('approve','Approved'),
     ('deliverd','Deliverd'),
+    ('emergency','Added in emergency schedule'),
     ('reject','Reject'),
 )
 
@@ -515,10 +516,52 @@ class CustomerSupply(models.Model):
         
     def get_rate(self):
         try:
-            invoice_item = InvoiceItems.objects.filter(product_items__product_name="5 Gallon",invoice__invoice_no=self.invoice_no).first()
+            invoice_item = InvoiceItems.objects.filter(product_items__product_name="5 Gallon",invoice__customer=self.customer,invoice__invoice_no=self.invoice_no).first()
             return invoice_item.rate / invoice_item.qty
         except:
             return 0
+    
+    def outstanding_manual_coupons(self):
+        # Assuming CouponLeaflet and FreeLeaflet have a field 'is_used' to track usage
+        used_coupons = CustomerSupplyCoupon.objects.filter(customer_supply=self).aggregate(
+            used_manual=Count('leaf', filter=Q(leaf__used=True)),
+            used_free=Count('free_leaf', filter=Q(free_leaf__used=True))
+        )
+        total_manual = self.total_coupon_recieved()["manual_coupon"]
+        outstanding = total_manual - (used_coupons['used_manual'] + used_coupons['used_free'])
+        return outstanding
+
+    def outstanding_digital_coupons(self):
+        used_digital = CustomerSupplyDigitalCoupon.objects.filter(
+            customer_supply=self, count__gt=0
+        ).aggregate(total_used=Sum('count', filter=Q(count__gt=0)))['total_used'] or 0
+        total_digital = self.total_coupon_recieved()["digital_coupon"]
+        outstanding = total_digital - used_digital
+        return outstanding
+    
+    def is_repeated_customer(self):
+        # Fetch all supply items related to this customer supply
+        supply_items = CustomerSupplyItems.objects.filter(customer_supply=self)
+        
+        for item in supply_items:
+            # Check if there are other supplies for the same customer, same product, and same date
+            repeated_supply = CustomerSupplyItems.objects.filter(
+                product=item.product,
+                customer_supply__customer=self.customer,
+                customer_supply__created_date__date=self.created_date.date()
+            ).exclude(customer_supply=self)  # Exclude the current supply to avoid self-match
+            
+            # Restrict to supplies from the same customer only
+            repeated_supply = repeated_supply.filter(customer_supply__customer=self.customer)
+            
+            # If any match is found, return True
+            if repeated_supply.exists():
+                return True
+        
+        # If no match is found, return False
+        return False
+
+
 
 class CustomerSupplyItems(models.Model):
         id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -615,7 +658,7 @@ class CustomerOrders(models.Model):
     
 class CustomerOrdersItems(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    customer_order = models.ForeignKey(CustomerOrders, on_delete=models.CASCADE)
+    customer_order = models.ForeignKey(CustomerOrders, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE,null=True,blank=True)
     quantity = models.DecimalField(default=1, max_digits=10, decimal_places=0)
     price = models.DecimalField(default=0, max_digits=10, decimal_places=2)
@@ -740,31 +783,6 @@ class CustomerAccountDeleteRequest(models.Model):
     created_date = models.DateTimeField(auto_now_add=True)
     modified_by = models.CharField(max_length=200, null=True, blank=True)
     modified_date = models.DateTimeField(blank=True, null=True)
-    
-    def __str__(self):
-        return f"{self.customer.customer_name}"
-    
-
-class CustomerOtherProductChargesChanges(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
-    product_item = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
-    privious_rate = models.DecimalField(default=0, max_digits=10, decimal_places=2)
-    current_rate = models.DecimalField(default=0, max_digits=10, decimal_places=2)
-    
-    created_by = models.CharField(max_length=200)
-    created_date = models.DateTimeField(auto_now_add=True)
-    modified_by = models.CharField(max_length=200, null=True, blank=True)
-    modified_date = models.DateTimeField(blank=True, null=True)
-    
-    def __str__(self):
-        return f"{self.customer.customer_name}"
-    
-class CustomerOtherProductCharges(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
-    product_item = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
-    current_rate = models.DecimalField(default=0, max_digits=10, decimal_places=2)
     
     def __str__(self):
         return f"{self.customer.customer_name}"

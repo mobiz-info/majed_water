@@ -32,6 +32,8 @@ USER_TYPE_CHOICES = (
         ('Accounts', 'Accounts'),
         ('store_keeper', 'Store Keeper'),
         ('marketing_executive', 'Marketing Executive'),
+        ('Production', 'Production'),
+        ('owner', 'Owner'),
     )
 
 LEAD_CUSTOMER_CHOICES = (
@@ -107,8 +109,8 @@ class Customers(models.Model):
     mobile_no = models.CharField(max_length=250, null=True, blank=True)
     whats_app = models.CharField(max_length=250, null=True, blank=True)
     email_id = models.CharField(max_length=250, null=True, blank=True)
-    gps_latitude = models.CharField(max_length=100, null=True, blank=True)
-    gps_longitude = models.CharField(max_length=100, null=True, blank=True)
+    gps_latitude = models.CharField(max_length=100, default=0)
+    gps_longitude = models.CharField(max_length=100, default=0)
     customer_type = models.CharField(max_length=100, choices=CUSTOMER_TYPE_CHOICES, null=True, blank=True)
     sales_type = models.CharField(max_length=100, choices=SALES_TYPE_CHOICES, null=True, blank=True)
     no_of_bottles_required = models.IntegerField(default=0)
@@ -132,6 +134,7 @@ class Customers(models.Model):
     five_g_count_limit = models.IntegerField(default=0)
     eligible_foc = models.IntegerField(default=0)
     is_deleted = models.BooleanField(default=False)
+    gps_module_active = models.BooleanField(default=False)
     
     def __str__(self):
         return str(self.customer_name)
@@ -144,15 +147,11 @@ class Customers(models.Model):
         else:
             rate = Decimal(ProdutItemMaster.objects.get(product_name="5 Gallon").rate)
         return rate
+    
     @property
     def get_rate(self):
         return self.rate
-        # if int(self.rate) > 0 :
-        #     rate = self.rate
-        # else:
-        #     rate = ProdutItemMaster.objects.get(product_name="5 Gallon").rate
-        # return rate
-
+       
 class Staff_Day_of_Visit(models.Model):
     visit_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     customer = models.ForeignKey(Customers, on_delete=models.SET_NULL, null=True, blank=False)
@@ -342,3 +341,15 @@ class CustomerPriceChange(models.Model):
     
     def __str__(self):
         return f"{self.customer.customer_name} - {self.new_price}"
+
+from django.utils.timezone import now
+class GpsLog(models.Model):
+    route = models.ForeignKey('master.RouteMaster', on_delete=models.CASCADE)
+    user = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True)
+    gps_enabled = models.BooleanField()
+    turn_on_time = models.DateTimeField(default=now) 
+    turn_off_time = models.DateTimeField(null=True, blank=True)  
+
+    def __str__(self):
+        status = "Enabled" if self.gps_enabled else "Disabled"
+        return f"{self.route.route_name} - GPS {status} by {self.user}"

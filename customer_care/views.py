@@ -29,8 +29,7 @@ import calendar
 from datetime import date, timedelta
 from django.db.models import Max
 from apiservices.notification import *
-from accounts.views import log_activity
-
+from master.functions import log_activity
 
 
 class RequestType_List(View):
@@ -43,8 +42,8 @@ class RequestType_List(View):
         return render(request, self.template_name, context)
 
 class RequestType_Create(View):
-    template_name = 'customer_care/requesttype_create.html'
-    form_class = RequestType_Create_Form
+    template_name = 'customer_care/customer_requesttype_create.html'
+    form_class = CustomerRequestTypeForm
 
     @method_decorator(login_required)
     def get(self, request, *args, **kwargs):
@@ -550,7 +549,7 @@ class Coupon_Purchse_Create(View):
                         f'Number of leaflets: {no_of_leaflets}. '
                         f'Your total leaflets count is {total_leaflets}.'
                     )
-                    notification(id_customer.user_id.pk, "Coupon Purchase", notification_body, "Sanawatercustomer")
+                    notification(id_customer.user_id.pk, "Coupon Purchase", notification_body, "Majed watercustomer")
                 except Exception as e:
                     print(f"Notification error: {e}")
                     messages.error(request, f'Error sending notification: {e}', 'alert-danger')
@@ -652,7 +651,7 @@ class NewRequestHome(View):
             else:
                 initial_data['assign_this_to'] = None  # Default to None if no salesman is assigned
             form = self.form_class(initial=initial_data)
-            print("customer.sales_staff", customer.sales_staff)
+            # print("customer.sales_staff", customer.sales_staff)
             form = self.form_class(initial=initial_data)
 
             context = {
@@ -695,7 +694,7 @@ class NewRequestHome(View):
     #             if customer.sales_staff:
     #                 sales_man = customer.sales_staff
     #                 print(sales_man,'sales_man')
-    #                 notification_customer(sales_man.pk, "New Request", "A new request has been created.", "Sanawatercustomer")
+    #                 notification_customer(sales_man.pk, "New Request", "A new request has been created.", "Majed watercustomer")
 
     #             messages.success(request, 'Bottles Successfully Added.', 'alert-success')
     #             return redirect('requestType')
@@ -726,8 +725,8 @@ class NewRequestHome(View):
                     sales_man = customer.sales_staff
                     try:
                         salesman_body = f'A new request has been created. for {customer.customer_name}'
-                        notification(sales_man.pk, "New Water Request", salesman_body, "sanawater")
-                        notification(customer.user_id.pk, "New Water Request", "Your Request Created Succesfull.", "sanawater")
+                        notification(sales_man.pk, "New Water Request", salesman_body, "majed water")
+                        notification(customer.user_id.pk, "New Water Request", "Your Request Created Succesfull.", "majed water")
                     except CustomUser.DoesNotExist:
                         messages.error(request, 'Salesman does not exist.', 'alert-danger')
                     except Send_Notification.DoesNotExist:
@@ -836,7 +835,7 @@ class ReassignRequestView(View):
             'diff_bottle': diff_bottle,
         }
         return render(request, 'customer_care/reassign_request_form.html', context)
-    
+
 def new_registered_customers(request):
     # Fetch filters from GET parameters
     start_date = request.GET.get('start_date')
@@ -894,6 +893,7 @@ def new_registered_customers(request):
         },
     }
     return render(request, 'customer_care/new_registered_customers.html', context)
+
 
 class CustomerRequestType_List(View):
     template_name = 'customer_care/customer_requesttype_list.html'

@@ -80,6 +80,7 @@
                     </div>
 
                     <div id="table-container" class="card-body">
+                        
                         <table id="" class="table table-bordered text-wrap" style="width: 100%">
                             <thead>
                                 <tr>
@@ -92,10 +93,10 @@
                                     {% if filter_data.product_type == 'amount' %}
                                     <th>Amount</th>
                                     {% endif %}
-                                    {% if filter_data.product_type == 'empty_can' %}
+                                    {% if filter_data.product_type == 'emptycan' %}
                                     <th>Empty Can</th>
                                     {% endif %}
-                                    {% if filter_data.product_type == 'coupon' %}
+                                    {% if filter_data.product_type == 'coupons' %}
                                     <th>Coupon</th>
                                     {% endif %}
                                     <th>Action</th>
@@ -108,6 +109,7 @@
                                 {% get_outstanding_amount customer.pk date as outstanding_amount %}
                                 {% get_outstanding_bottles customer.pk date as outstanding_bottles %}
                                 {% get_outstanding_coupons customer.pk date as outstanding_coupons %}
+                                
                                 
                                 <tr>
                                     <td>{{ forloop.counter }}</td>
@@ -141,10 +143,10 @@
                                     {% if filter_data.product_type == 'amount' %}
                                     <td class="fw-bold">{{ net_total_outstanding }}</td>
                                     {% endif %}
-                                    {% if filter_data.product_type == 'empty_can' %}
+                                    {% if filter_data.product_type == 'emptycan' %}
                                     <td class="fw-bold">{{ total_outstanding_bottles }}</td>
                                     {% endif %}
-                                    {% if filter_data.product_type == 'coupon' %}
+                                    {% if filter_data.product_type == 'coupons' %}
                                     <td class="fw-bold">{{ total_outstanding_coupons }}</td>
                                     {% endif %}
                                     <td></td>

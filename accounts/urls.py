@@ -43,4 +43,7 @@ urlpatterns = [
     
     path('processing_log', processing_log_list, name='processing_log'),
     
+    path('gps_settings/', Gps_Route_List.as_view(), name='gps_settings'),
+    path('gps_active/<uuid:route_id>/', activate_gps_for_route, name='gps_active'),
+    path("gps_lock_view/<uuid:route_id>/", gps_lock_view, name="gps_lock_view"),
 ]

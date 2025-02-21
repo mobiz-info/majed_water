@@ -1,4 +1,5 @@
 from django import template
+from django.db.models import Sum,Count,F,Q,DecimalField
 
 from client_management.models import CustomerCoupon, CustomerOutstanding, CustomerSupply
 from invoice_management.models import Invoice
@@ -27,8 +28,9 @@ def get_outstanding(customer_id, created_date):
 
 @register.simple_tag
 def get_invoice(customer_id, created_date):
+    # amount_equal_supplys_invoice_nos = CustomerSupply.objects.filter(customer__pk=customer_id,subtotal=F('amount_recieved')).values_list("invoice_no")
     # Replace this with your actual logic for fetching supplies
-    return Invoice.objects.filter(customer__pk=customer_id, created_date__date=created_date,is_deleted=False)
+    return Invoice.objects.filter(customer__pk=customer_id,created_date__date=created_date,is_deleted=False) #.exclude(invoice_no__in=amount_equal_supplys_invoice_nos)
 
 @register.simple_tag
 def get_collected(customer_id, created_date):

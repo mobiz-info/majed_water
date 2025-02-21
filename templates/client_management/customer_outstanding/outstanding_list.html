@@ -100,21 +100,9 @@
                         </form>
 
                     </div>
-                    
+                    {% if filters_applied %}
                     <div id="table-container">
                         <div class="card-body">
-                            {% comment %}
-                            <div style="float:right;padding:10px 0px">
-                                <form method="GET">
-                                    <div class="input-group">
-                                        <input type="text" name="q" class="form-control" placeholder="Search ..." value="{{ filter_data.q }}">
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="bi bi-search"></i> Search
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                            {% endcomment %}
                             <table class="table table-bordered text-wrap" style="width: 100%">
                                 <thead>
                                     <tr>
@@ -170,6 +158,7 @@
                         </div>
                         
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </div>

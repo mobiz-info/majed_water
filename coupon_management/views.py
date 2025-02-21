@@ -27,7 +27,7 @@ from datetime import datetime
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse, HttpResponse
 from django.db.models import Q
-from accounts.views import log_activity
+from master.functions import log_activity
 
 # Create your views here.
 # def increment_alphabetic_part(alphabetic_part):
@@ -205,8 +205,6 @@ def get_leaf_used_status_change(request):
         }
 
     return HttpResponse(json.dumps(response_data),status=status_code, content_type="application/json")
-
-
 
 def get_coupon_bookno(request):
     request_id = request.GET.get("request_id")

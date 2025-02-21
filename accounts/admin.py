@@ -3,7 +3,7 @@ from .models import *
 
 # Register your models here.
 class CustomUserAdmin(admin.ModelAdmin):
-    list_display = ('id','first_name', 'last_name')
+    list_display = ('id','first_name', 'last_name','username')
     ordering = ('-id',)
 admin.site.register(CustomUser,CustomUserAdmin)
 
@@ -16,3 +16,4 @@ class SendNotificationAdmin(admin.ModelAdmin):
     list_display = ('device_token', 'user', 'created_on')
     ordering = ('-created_on',)
 admin.site.register(Send_Notification,SendNotificationAdmin)
+admin.site.register(GpsLog)

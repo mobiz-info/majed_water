@@ -31,18 +31,23 @@
                                 </div>
 
                             </div>
+                            
                             <div  id="table-container" style="overflow:scroll;">
                                 <div class="card-body">
-                                    {% comment %} <div style="float:right;padding:10px 0px">
-                                        <form >
+                                    <div style="float:right;padding:10px 0px;">
+                                        <form method="get">
                                             <div class="input-group">
-                                                <input type="text" name="q" class="form-control" placeholder="Search ...">
+                                                <input type="date" name="start_date" class="form-control" value="{{ start_date|date:'Y-m-d' }}" placeholder="Start Date">
+                                                <input type="date" name="end_date" class="form-control" value="{{ end_date|date:'Y-m-d' }}" placeholder="End Date">
                                                 <button type="submit" class="btn btn-primary">
-                                                    <i class="bi bi-search"></i> Search
+                                                    <i class="bi bi-filter"></i> Filter
                                                 </button>
+                                                <a href="{% url 'processing_log' %}" class="btn btn-secondary">
+                                                    <i class="bi bi-x-circle"></i> Clear
+                                                </a>
                                             </div>
                                         </form>
-                                    </div> {% endcomment %}
+                                    </div>
                                     <table  class="table table-bordered text-wrap"  style="width:100%">
                                         <thead>
                                             <tr>

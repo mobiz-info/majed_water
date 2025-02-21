@@ -14,6 +14,8 @@ CUSTOMER_TYPE_REQUEST_CHOICES = [
         ('approved', 'Approved'),
         ('cancel', 'Cancel'),
     ]
+
+
 class RequestTypeMaster(models.Model):
     
     request_id   = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -231,5 +233,3 @@ class CustomerRequestCancelReason(models.Model):
 
     def __str__(self):
         return f"Cancel Reason for Request {self.customer_request.id}-{self.reason}"
-
-

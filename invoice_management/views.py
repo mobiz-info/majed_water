@@ -26,7 +26,7 @@ from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import api_view,renderer_classes, permission_classes
 #local
 from accounts.models import Customers
-from master.functions import generate_form_errors
+from master.functions import generate_form_errors, generate_invoice_no
 from master.models import CategoryMaster, RouteMaster
 from invoice_management.models import Invoice, InvoiceDailyCollection, InvoiceItems
 from product.models import Product, Product_Default_Price_Level
@@ -35,7 +35,7 @@ from invoice_management.serializers import BuildingNameSerializers, ProductSeria
 from van_management.models import VanCouponStock
 from sales_management.models import Receipt
 from sales_management.views import delete_receipt
-from accounts.views import log_activity
+from master.functions import log_activity
 
 # Create your views here.
 @api_view(['GET'])
@@ -151,7 +151,7 @@ def invoice_list(request):
 
     if filter_date:
         filter_date = datetime.datetime.strptime(filter_date, '%Y-%m-%d').date()
-        instances = instances.filter(created_date=filter_date)
+        instances = instances.filter(created_date__date=filter_date)
         filter_data['filter_date'] = filter_date.strftime('%Y-%m-%d')
 
     if query:
@@ -242,22 +242,22 @@ def create_invoice(request, customer_pk):
         
         if invoice_form.is_valid() and invoice_items_formset.is_valid():
             
-            try:
-                invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
-                last_invoice_number = invoice_last_no.invoice_no
-                prefix, date_part, number_part = last_invoice_number.split('-')
-                new_number_part = int(number_part) + 1
-                invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
-            except Invoice.DoesNotExist:
-                date_part = timezone.now().strftime('%Y%m%d')
-                random_part = str(random.randint(1000, 9999))
-                invoice_number = f'WTR-{date_part}-{random_part}'
+            # try:
+            #     invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
+            #     last_invoice_number = invoice_last_no.invoice_no
+            #     prefix, date_part, number_part = last_invoice_number.split('-')
+            #     new_number_part = int(number_part) + 1
+            #     invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
+            # except Invoice.DoesNotExist:
+            #     date_part = timezone.now().strftime('%Y%m%d')
+            #     random_part = str(random.randint(1000, 9999))
+            #     invoice_number = f'WTR-{date_part}-{random_part}'
             
             try:
                 with transaction.atomic():
                     invoice = invoice_form.save(commit=False)
                     invoice.created_date = datetime.datetime.today()
-                    invoice.invoice_no = invoice_number
+                    invoice.invoice_no = generate_invoice_no(datetime.datetime.today().date())
                     invoice.customer = customer_instance
                     invoice.save()
                     
@@ -492,7 +492,7 @@ def delete_invoice(request, pk):
                     coupon_items = CustomerCouponItems.objects.filter(customer_coupon=customer_coupon)
                     for item in coupon_items:
                         coupon_stock = CustomerCouponStock.objects.get(customer=customer_coupon.customer,coupon_type_id=item.coupon.coupon_type)
-                        print(int(item.coupon.coupon_type.no_of_leaflets))
+                        # print(int(item.coupon.coupon_type.no_of_leaflets))
                         if coupon_stock.count >= int(item.coupon.coupon_type.no_of_leaflets):
                             coupon_stock.count -= int(item.coupon.coupon_type.no_of_leaflets)
                         else:

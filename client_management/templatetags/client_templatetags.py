@@ -6,6 +6,7 @@ from django import template
 from django.db.models import Q, Sum, F, Case, When, IntegerField
 
 from accounts.models import Customers
+from apiservices.serializers import CouponLeafSerializer, FreeLeafletSerializer
 from client_management.models import *
 from sales_management.models import *
 
@@ -92,6 +93,20 @@ def get_outstanding_coupons(customer_id, date):
     
     return outstanding_coupons.get('total_coupons') or 0
 
+
+@register.simple_tag
+def get_customer_coupon_leafs(customer_id):
+    leafs = {}
+    coupon_ids_queryset = CustomerCouponItems.objects.filter(customer_coupon__customer_id=customer_id).values_list('coupon__pk', flat=True)
+    
+    coupon_leafs = CouponLeaflet.objects.filter(used=False,coupon__pk__in=list(coupon_ids_queryset)).order_by("leaflet_name")
+    coupon_leafs_data = CouponLeafSerializer(coupon_leafs, many=True).data
+    
+    free_leafs = FreeLeaflet.objects.filter(used=False,coupon__pk__in=list(coupon_ids_queryset)).order_by("leaflet_name")
+    free_leafs_data = FreeLeafletSerializer(free_leafs, many=True).data
+    
+    leafs = coupon_leafs_data + free_leafs_data
+    return leafs
 
 @register.simple_tag
 def get_customer_outstanding_aging(route=None):
@@ -189,22 +204,22 @@ def get_customer_outstanding_aging(route=None):
             'between_31_and_60': CollectionPayment.objects.filter(
                 customer__customer_id=customer_id,
                 created_date__date__gte=current_date - timezone.timedelta(days=60),
-                created_date__date__lt=current_date - timezone.timedelta(days=30)
+                created_date__date__lte=current_date - timezone.timedelta(days=30)
             ).aggregate(total_collected=Sum('amount_received'))['total_collected'] or 0,
             'between_61_and_90': CollectionPayment.objects.filter(
                 customer__customer_id=customer_id,
                 created_date__date__gte=current_date - timezone.timedelta(days=90),
-                created_date__date__lt=current_date - timezone.timedelta(days=60)
+                created_date__date__lte=current_date - timezone.timedelta(days=60)
             ).aggregate(total_collected=Sum('amount_received'))['total_collected'] or 0,
             'between_91_and_150': CollectionPayment.objects.filter(
                 customer__customer_id=customer_id,
                 created_date__date__gte=current_date - timezone.timedelta(days=150),
-                created_date__date__lt=current_date - timezone.timedelta(days=90)
+                created_date__date__lte=current_date - timezone.timedelta(days=90)
             ).aggregate(total_collected=Sum('amount_received'))['total_collected'] or 0,
             'between_151_and_365': CollectionPayment.objects.filter(
                 customer__customer_id=customer_id,
                 created_date__date__gte=current_date - timezone.timedelta(days=365),
-                created_date__date__lt=current_date - timezone.timedelta(days=150)
+                created_date__date__lte=current_date - timezone.timedelta(days=150)
             ).aggregate(total_collected=Sum('amount_received'))['total_collected'] or 0,
             'more_than_365': CollectionPayment.objects.filter(
                 customer__customer_id=customer_id,
@@ -234,5 +249,3 @@ def get_customer_outstanding_aging(route=None):
             aging_report.append(aging_data)
 
     return aging_report
-
-

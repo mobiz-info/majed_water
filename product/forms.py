@@ -140,3 +140,12 @@ class ProductionDamageForm(forms.ModelForm):
             'product_to': forms.Select(attrs={'class': 'form-control'}),
             'quantity': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
         }
+
+class WashedUsedProductForm(forms.ModelForm):
+    class Meta:
+        model = WashedUsedProduct
+        fields = ['product', 'quantity']
+        widgets = {
+            'product': forms.Select(attrs={'class': 'form-control', 'required': 'true'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'required': 'true'}),
+        }

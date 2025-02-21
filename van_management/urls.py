@@ -61,12 +61,28 @@ urlpatterns = [
     path('edit_bottle_allocation/<uuid:route_id>/',EditBottleAllocation, name='edit_bottle_allocation'),
     
     path('van_coupon_stock/', VanCouponStockList.as_view(), name='van_coupon_stock'),
+    path('van_damage_stock/', VanDamageBottleList.as_view(), name='van_damage_stock'),
+    path('van_damage_stock_report/', van_damage_stock_report, name='van_damage_stock_report'),
+    path('van_damage_stock_print/', van_damage_stock_print, name='van_damage_stock_print'),
+    path('van_damage_stock_excel/', van_damage_stock_excel, name='van_damage_stock_excel'),
 
+    path('route-damage/<uuid:route_id>/', route_damage_detail, name='route_damage_detail'),
+    path('route-damage-print/<uuid:route_id>/', route_damage_detail_print, name='route_damage_detail_print'),
+    path('route-damage-excel/<uuid:route_id>/', route_damage_detail_excel, name='route_damage_detail_excel'),
 
     path('excess-bottle-counts/', excess_bottle_count_list, name='excess_bottle_count_list'),
     path('excess-bottle-counts/new/', excess_bottle_count_create, name='excess_bottle_count_create'),
     path('excess-bottle-counts/<uuid:pk>/edit/', excess_bottle_count_update, name='excess_bottle_count_update'),
     path('excess-bottle-counts/<uuid:pk>/delete/', excess_bottle_count_delete, name='excess_bottle_count_delete'),
 
-    
+    path('salesman_customer_request_type_list', SalesmanCustomerRequestType_List.as_view(), name='salesman_customer_request_type_list'),
+    path('salesman_customer_request_create',SalesmanCustomerRequestType_Create.as_view(), name='salesman_customer_request_create'),
+    path('salesman_customer_requesttype_edit/<str:pk>', SalesmanCustomerRequestType_Edit.as_view(), name='salesman_customer_requesttype_edit'),
+    path('salesman_customer_requesttype_delete/<uuid:pk>/', SalesmanCustomerRequestType_Delete.as_view(), name='salesman_customer_requesttype_delete'),
+
+    path('salesman_customer_requests_list/', salesman_customer_requests_list, name='salesman_customer_requests_list'),
+    path('update_request_status/<uuid:pk>/', update_request_status, name='update_request_status'),
+
+    path('audit_report/', audit_report, name='audit_report'),
+    path('audit_detail/<uuid:audit_id>/', audit_detail, name='audit_detail'),
 ]

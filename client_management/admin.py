@@ -16,7 +16,7 @@ admin.site.register(ChequeCouponPayment)
 class CustomerOutstandingAdmin(admin.ModelAdmin):
     list_display = ('id','invoice_no','created_by','created_date','product_type','customer')
     ordering = ("-created_date",)
-    search_fields = ('invoice_no',)
+    search_fields = ('invoice_no','customer__custom_id')
 
     def delete_button(self, obj):
         delete_url = reverse('admin:%s_%s_delete' % (obj._meta.app_label, obj._meta.model_name), args=[obj.id])
@@ -69,11 +69,14 @@ admin.site.register(CustomerOutstandingReport,CustomerOutstandingReportAdmin)
 
 class CustomerSupplyAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'customer', 'salesman', 'grand_total', 'allocate_bottle_to_pending',
+        'id','created_date','customer', 'salesman', 'grand_total', 'allocate_bottle_to_pending',
         'allocate_bottle_to_custody', 'allocate_bottle_to_paid', 'discount',
-        'net_payable', 'vat', 'subtotal', 'amount_recieved'
+        'net_payable', 'vat', 'subtotal', 'amount_recieved','outstanding_amount_added',
+        'outstanding_coupon_added','outstanding_bottle_added','van_stock_added','van_foc_added',
+        'van_emptycan_added','custody_added'
     )
     list_filter = ('salesman',)  # Other filters if needed
+    list_filter = ('customer__routes',)  # Other filters if needed
     search_fields = ('customer__customer_name',)  # Search by customer name (ForeignKey field)
 
 admin.site.register(CustomerSupply, CustomerSupplyAdmin)
@@ -81,6 +84,9 @@ admin.site.register(CustomerSupply, CustomerSupplyAdmin)
 admin.site.register(CustomerSupplyItems)
 admin.site.register(CustomerSupplyStock)
 admin.site.register(CustomerCart)
+admin.site.register(CustomerCartItems)
+admin.site.register(CustomerOtherProductChargesChanges)
+admin.site.register(CustomerOtherProductCharges)
 
 class DialyCustomersAdmin(admin.ModelAdmin):
     list_display = ('id','date','customer','route','qty','is_emergency','is_supply')

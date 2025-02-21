@@ -189,3 +189,21 @@ class VanProductStockForm(forms.ModelForm):
             'stock': forms.TextInput(attrs={'class':'form-control'}),
             'foc': forms.TextInput(attrs={'class':'form-control'}),
         }
+        
+        
+class SalesmanCustomerRequestTypeForm(forms.ModelForm):
+    class Meta:
+        model = SalesmanCustomerRequestType
+        fields = ['name']
+        
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
+        }
+class SalesmanCustomerRequestType_Edit_Form(forms.ModelForm):
+
+    class Meta:
+        model = SalesmanCustomerRequestType
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
+        }

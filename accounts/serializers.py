@@ -37,7 +37,7 @@ class CustomersSerializers(serializers.ModelSerializer):
             'credit_days', 'no_of_permitted_invoices', 'trn', 'billing_address', 'preferred_time',
             'branch_id', 'is_active', 'visit_schedule', 'is_editable', 'user_id', 'rate',
             'coupon_count', 'five_g_count_limit', 'eligible_foc', 'is_calling_customer',
-            'total_supply_count','location_name','location'
+            'total_supply_count','location_name','location','gps_module_active'
         ]
 
     def get_location(self, obj):

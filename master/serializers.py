@@ -8,10 +8,15 @@ from client_management.models import CustomerCoupon, CustomerSupply, CustomerSup
 
 
 class RouteMasterSerializers(serializers.ModelSerializer):
-    class Meta :
+    van_id = serializers.SerializerMethodField()
+    
+    class Meta:
         model = RouteMaster
         fields = '__all__'
 
+    def get_van_id(self, obj):
+        van_route = obj.van_routes.first()  
+        return van_route.van.van_id if van_route and van_route.van else None
 
 
 class LocationMasterSerializers(serializers.ModelSerializer):

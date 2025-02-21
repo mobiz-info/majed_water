@@ -16,6 +16,10 @@ class OffloadRequestAdmin(admin.ModelAdmin):
     list_display = ('created_date','van','salesman')
 admin.site.register(OffloadRequest,OffloadRequestAdmin)
 
+class OffloadRequestItemsAdmin(admin.ModelAdmin):
+    list_display = ('quantity','offloaded_quantity','stock_type','product','offload_request')
+admin.site.register(OffloadRequestItems,OffloadRequestItemsAdmin)
+
 class OffloadAdmin(admin.ModelAdmin):
     list_display = ('created_date','van','product','quantity','stock_type')
 admin.site.register(Offload,OffloadAdmin)

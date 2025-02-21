@@ -72,7 +72,7 @@ class RouteMaster(models.Model):
         return str(self.route_name)
 
 class LocationMaster(models.Model):
-    location_id   = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    location_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_by = models.CharField(max_length=20,  blank=True)
     created_date = models.DateTimeField(auto_now_add=True,blank=True, null=True)
     modified_by = models.CharField(max_length=20, null=True, blank=True)

@@ -8,10 +8,10 @@
     <meta charset="UTF-8">
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Majed Water</title>
-    <meta name="Description" content="Majed water admin dashboard">
+    <title>Majed  Water</title>
+    <meta name="Description" content="Majed  water admin dashboard">
     <meta name="Author" content="Mobiz Technologies">
-	<meta name="keywords" cSanant="Majed water admin dashboard">
+	<meta name="keywords" cMajed nt="Majed  water admin dashboard">
 
     <!-- Favicon -->
     <link rel="icon" href="{%static 'images/brand-logos/desktop-logos.png'%}" type="image/x-icon">
@@ -45,6 +45,8 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.12.1/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.3.0/css/responsive.bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.2.3/css/buttons.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
 
     <style>
         .my-pagina{
@@ -1075,7 +1077,7 @@
                                     <a href="{% url 'route_sales_report' %}" class="side-menu__item">Detailed Sales Report</a>
                                 </li> 
                                 <li class="slide">
-                                    <a href="{% url 'collectionreport' %}" class="side-menu__item">Collection Report</a>
+                                    <a href="{% url 'collection_report' %}" class="side-menu__item">Collection Report</a>
                                 </li>
                                  <li class="slide">
                                     <a href="{% url 'yearmonthsalesreport' %}" class="side-menu__item">Year and Month Report</a>
@@ -1093,6 +1095,9 @@
                                     <a href="{% url 'collection_list' %}" class="side-menu__item">Collection</a>
                                 </li>
                                 <li class="slide">
+                                    <a href="{% url 'cheque_collections' %}" class="side-menu__item">Cheque Collection</a>
+                                </li>
+                                <li class="slide">
                                     <a href="{% url 'coupon_sales_report' %}" class="side-menu__item">Coupon Sales</a>
                                 </li>
                                 {% comment %} <li class="slide">
@@ -1107,7 +1112,7 @@
                                 <span class=" side-menu__icon">
                                     <i class='bx bx-desktop'></i>
                                 </span>
-                                <span class="side-menu__label">Daily Sales Reports <span class="badge bg-warning-transparent ms-2 d-inline-block">11</span></span>
+                                <span class="side-menu__label">Daily Sales Reports <span class="badge bg-warning-transparent ms-2 d-inline-block">3</span></span>
                                 <i class="fe fe-chevron-right side-menu__angle"></i>
                             </a>
                             <ul class="slide-menu child1">
@@ -1122,6 +1127,9 @@
                                     <a href="{% url 'dsr_summary' %}" class="side-menu__item">DSR Summary</a>
                                 </li>
                                 <li class="slide">
+                                    <a href="{% url 'dsr_summary1' %}" class="side-menu__item">DSR Summary 1</a>
+                                </li> 
+                                <li class="slide">
                                     <a href="{% url 'dsr' %}" class="side-menu__item">DSR </a>
                                 </li>
                             </ul>
@@ -1134,7 +1142,7 @@
                                 <span class=" side-menu__icon">
                                     <i class='bx bx-desktop'></i>
                                 </span>
-                                <span class="side-menu__label">Reports<span class="badge bg-warning-transparent ms-2 d-inline-block">11</span></span>
+                                <span class="side-menu__label">Reports<span class="badge bg-warning-transparent ms-2 d-inline-block">14</span></span>
                                 <i class="fe fe-chevron-right side-menu__angle"></i>
                             </a>
                             <ul class="slide-menu child1">
@@ -1177,6 +1185,19 @@
                                 <li class="slide">
                                     <a href="{% url 'offload_list' %}" class="side-menu__item"> offloaded List</a>
                                 </li>
+                                {% comment %} <li class="slide">
+                                    <a href="{% url 'van_damage_stock' %}" class="side-menu__item">Van Sale Damage</a>
+                                </li> {% endcomment %}
+                                <li class="slide">
+                                    <a href="{% url 'van_damage_stock_report' %}" class="side-menu__item">Van Sale Damage</a>
+                                </li>
+                                <li class="slide">
+                                    <a href="{% url 'production_onload_report' %}" class="side-menu__item">Production Onload Report</a>
+                                </li>
+                                <li class="slide">
+                                    <a href="{% url 'scrap_clearance_report' %}" class="side-menu__item">Scrap Clearence Report</a>
+                                </li>
+                                
                             </ul>
                         </li>
                         
@@ -1235,6 +1256,12 @@
                                 </li>
                                 <li class="slide">
                                     <a href="{% url 'excess_bottle_count_list' %}" class="side-menu__item">Excess Bottle Count</a>
+                                </li> 
+                                <li class="slide">
+                                    <a href="{% url 'salesman_customer_request_type_list' %}" class="side-menu__item">Salesman Customer Request</a>
+                                </li> 
+                                <li class="slide">
+                                    <a href="{% url 'audit_report' %}" class="side-menu__item">Audit Report</a>
                                 </li>  
                             </ul>
                         </li>
@@ -1245,7 +1272,7 @@
                                 <span class=" side-menu__icon">
                                     <i class='bx bx-desktop'></i>
                                 </span>
-                                <span class="side-menu__label">Product Management<span class="badge bg-warning-transparent ms-2 d-inline-block">3</span></span>
+                                <span class="side-menu__label">Product Management<span class="badge bg-warning-transparent ms-2 d-inline-block">8</span></span>
                                 <i class="fe fe-chevron-right side-menu__angle"></i>
                             </a>
                             <ul class="slide-menu child1">
@@ -1419,7 +1446,7 @@
                                 <li class="slide">
                                     <a href="{% url 'new_customer_request' %}" class="side-menu__item">New Request</a>
                                 </li>
-                                <li class="slide">
+                                 <li class="slide">
                                     <a href="{% url 'water_delivery_status' %}" class="side-menu__item">Status</a>
                                 </li>
                                 <li class="slide">
@@ -1500,6 +1527,23 @@
                                 </li>
                             </ul>
                         </li>
+                        <li class="slide has-sub ">
+                            <a href="javascript:void(0);" class="side-menu__item">
+                                <span class=" side-menu__icon">
+                                    <i class='bx bx-desktop'></i>
+                                </span>
+                                <span class="side-menu__label">GPS</span>
+                                <i class="fe fe-chevron-right side-menu__angle"></i>
+                            </a>
+                            <ul class="slide-menu child1">
+                                <li class="slide side-menu__label1">
+                                    <a href="javascript:void(0)"></a>
+                                </li>
+                                <li class="slide">
+                                    <a href="{% url 'gps_settings' %}" class="side-menu__item">GPS Settings</a>
+                                </li>
+                            </ul>
+                        </li>
                         <!-- End::slide -->
                     </ul>
                     <a href="{% url 'receipt_list' %}" class="side-menu__item">
@@ -1531,6 +1575,7 @@
                         </span>
                         <span class="side-menu__label">Credit Note</span>
                     </a>
+                   
                     <a href="{% url 'privacy_list' %}" class="side-menu__item">
                         <span class=" side-menu__icon">
                             <i class='bx bx-desktop'></i>
@@ -1629,7 +1674,7 @@
        <footer class="footer mt-auto py-3 bg-white text-center">
            <div class="container">
                <span class="text-muted"> Copyright © <span id="year"></span> <a
-                       href="javascript:void(0);" class="text-dark fSanamibold">Majed Waters</a>.
+                       href="javascript:void(0);" class="text-dark fMajed mibold">Majed  Waters</a>.
                    powered by <a href="https://www.mobiztechnologies.com/">
                        <span class="fw-semibold text-primary text-decoration-underline">Mobiz Technologies</span>
                    </a> All
@@ -2112,6 +2157,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
   <script src="https://cdn.datatables.net/buttons/2.2.3/js/buttons.html5.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
   <!-- Internal Datatables JS -->
   <script src="{%static 'js/datatables.js'%}"></script>

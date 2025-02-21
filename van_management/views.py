@@ -1,6 +1,6 @@
-from django.contrib import messages
-from django.shortcuts import render, redirect, get_object_or_404
-from django.utils.timezone import now
+import json
+import math
+
 
 from coupon_management.models import CouponStock
 from coupon_management.serializers import couponStockSerializers
@@ -9,33 +9,36 @@ from .models import Van, Van_Routes, Van_License, BottleAllocation
 from accounts.models import CustomUser, Customers
 from master.models import EmirateMaster, RouteMaster
 from customer_care.models import DiffBottlesModel
-from client_management.models import Vacation,CustomerSupply
+from client_management.models import *
+from sales_management.models import *
 from product.models import ProductStock, ScrapProductStock, ScrapStock, Staff_IssueOrders, WashingProductStock, WashingStock
 
-from django.db import transaction, IntegrityError
-from .forms import  *
-import json
-from django.core.serializers import serialize
-from django.views import View
+import openpyxl
+from openpyxl.styles import Font, Alignment
 from datetime import datetime
-from collections import defaultdict
 from reportlab.pdfgen import canvas
 import pandas as pd
 from io import BytesIO
-from django.http import HttpResponse
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from django.db.models import Q,Count,Sum
 from datetime import datetime
-import math
+
+from django.views import View
+from django.urls import reverse
+from django.db.models import Max
+from django.contrib import messages
+from django.utils.timezone import now
+from django.db.models import Q,Count,Sum
+from django.core.serializers import serialize
+from django.db import transaction, IntegrityError
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
-from django.urls import reverse
 
-from .forms import BottleAllocationForm
-from django.db.models import Max
-from accounts.views import log_activity
+from .forms import  *
+from collections import defaultdict
+from master.functions import log_activity
 
 
 def get_van_coupon_bookno(request):
@@ -1011,7 +1014,7 @@ def excel_download(request, route_id, def_date, trip):
 
         # Merge cells and write other information with borders
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 16, 'border': 1})
-        worksheet.merge_range('A1:N2', f'Majed Water', merge_format)
+        worksheet.merge_range('A1:N2', f'Majed  Water', merge_format)
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
         worksheet.merge_range('A3:D3', f'Route:    {route.route_name}    {trip}', merge_format)
         worksheet.merge_range('E3:I3', f'Date: {def_date}', merge_format)
@@ -1341,6 +1344,11 @@ class VanProductStockUpdate(View):
                     
                     stock_instance = van_stock_form.save(commit=False)
                     stock_instance.save()
+                    
+                    log_activity(
+                        created_by=request.user,
+                        description=f"Van stock Updated from edit button: stock - {stock_instance.stock}, sold - {stock_instance.sold_count} empty {stock_instance.empty_can_count}"
+                    )
             
                     response_data = {
                         "status": "true",
@@ -1420,187 +1428,172 @@ class EditProductView(View):
         item = VanProductStock.objects.get(pk=pk)
         # print(stock_type)
         # print(count)
-        try:
-            with transaction.atomic():
-                if item.product.product_name == "5 Gallon" and stock_type == "stock":
-                    # print("stock")
-                    item.stock -= int(count)
-                    item.save()
-                    log_activity(
-                        created_by=request.user.id,
-                        description=f"Reduced stock for product '{item.product.product_name}' by {count}."
-                    )
-                    
-                    product_stock = ProductStock.objects.get(branch=item.van.branch_id,product_name=item.product)
-                    product_stock.quantity += int(count)
-                    product_stock.save()
-                    log_activity(
-                        created_by=request.user.id,
-                        description=f"Increased product stock for '{item.product.product_name}' by {count}."
-                    )
-                    
-                elif item.product.product_name == "5 Gallon" and stock_type == "empty_can":
-                    # print("empty")
-                    item.empty_can_count -= int(count)
-                    item.save()
-                    log_activity(
-                        created_by=request.user.id,
-                        description=f"Reduced empty can count for product '{item.product.product_name}' by {count}."
-                    )
-                    
-                    emptycan=EmptyCanStock.objects.create(
-                        product=item.product,
-                        quantity=int(count)
-                    )
-                    emptycan.save()
-                    log_activity(
-                        created_by=request.user.id,
-                        description=f"Added {count} to empty can stock for product '{item.product.product_name}'."
-                    )
-                    
-                elif item.product.product_name == "5 Gallon" and stock_type == "return_count":
-                    # print("return")
-                    scrap_count = int(request.POST.get('scrap_count'))
-                    washing_count = int(request.POST.get('washing_count'))
-                    
-                    # print(scrap_count)
-                    # print(washing_count)
-                    
-                    OffloadReturnStocks.objects.create(
-                        created_by=request.user.id,
-                        created_date=datetime.today(),
-                        salesman=item.van.salesman,
-                        van=item.van,
-                        product=item.product,
-                        scrap_count=scrap_count,
-                        washing_count=washing_count
-                    )
-                    log_activity(
-                        created_by=request.user.id,
-                        description=f"Created offload return stocks with scrap count {scrap_count} and washing count {washing_count} for product '{item.product.product_name}'."
-                    )
-                    
-                    if scrap_count > 0 :
-                        if not ScrapProductStock.objects.filter(created_date__date=datetime.today().date(),product=item.product).exists():
-                            scrap_instance=ScrapProductStock.objects.create(created_by=request.user.id,created_date=datetime.today(),product=item.product)
-                        else:
-                            scrap_instance=ScrapProductStock.objects.get(created_date__date=datetime.today().date(),product=item.product)
-                        scrap_instance.quantity = scrap_count
-                        scrap_instance.save()
-                        
-                        if ScrapStock.objects.filter(product=scrap_instance.product).exists():
-                            scrap_stock = ScrapStock.objects.get_or_create(product=scrap_instance.product)
-                            scrap_stock.quantity += scrap_count
-                            scrap_stock.save()
-                    
-                    if washing_count > 0 :
-                        if not WashingProductStock.objects.filter(created_date__date=datetime.today().date(),product=item.product).exists():
-                            washing_instance=WashingProductStock.objects.create(created_by=request.user.id,created_date=datetime.today(),product=item.product)
-                        else:
-                            washing_instance=WashingProductStock.objects.get(created_date__date=datetime.today().date(),product=item.product)
-                        washing_instance.quantity = washing_count
-                        washing_instance.save()
-                        
-                        if WashingStock.objects.filter(product=scrap_instance.product).exists():
-                            washing_stock = WashingStock.objects.get_or_create(product=scrap_instance.product)
-                            washing_stock.quantity += washing_count
-                            washing_stock.save()
-                        
-                    count = scrap_count + washing_count
-                    # print(count)
-                    item.return_count -= int(count)
-                    item.save()
+        # try:
+        #     with transaction.atomic():
+        if item.product.product_name == "5 Gallon" and stock_type == "stock":
+            # print("stock")
+            item.stock -= int(count)
+            item.save()
+            log_activity(
+                created_by=request.user.id,
+                description=f"Reduced stock for product '{item.product.product_name}' by {count}."
+            )
+            
+            product_stock = ProductStock.objects.get(branch=item.van.branch_id,product_name=item.product)
+            product_stock.quantity += int(count)
+            product_stock.save()
+            log_activity(
+                created_by=request.user.id,
+                description=f"Increased product stock for '{item.product.product_name}' by {count}."
+            )
+            
+        elif item.product.product_name == "5 Gallon" and stock_type == "empty_can":
+            # print("empty")
+            item.empty_can_count -= int(count)
+            item.save()
+            log_activity(
+                created_by=request.user.id,
+                description=f"Reduced empty can count for product '{item.product.product_name}' by {count}."
+            )
+            
+            emptycan=EmptyCanStock.objects.create(
+                product=item.product,
+                quantity=int(count)
+            )
+            emptycan.save()
+            log_activity(
+                created_by=request.user.id,
+                description=f"Added {count} to empty can stock for product '{item.product.product_name}'."
+            )
+            
+        elif item.product.product_name == "5 Gallon" and stock_type == "return_count":
+            # print("return")
+            scrap_count = int(request.POST.get('scrap_count'),0)
+            washing_count = int(request.POST.get('washing_count'),0)
+            
+            # print(scrap_count)
+            # print(washing_count)
+            
+            OffloadReturnStocks.objects.create(
+                created_by=request.user.id,
+                created_date=datetime.today(),
+                salesman=item.van.salesman,
+                van=item.van,
+                product=item.product,
+                scrap_count=scrap_count,
+                washing_count=washing_count
+            )
+            log_activity(
+                created_by=request.user.id,
+                description=f"Created offload return stocks with scrap count {scrap_count} and washing count {washing_count} for product '{item.product.product_name}'."
+            )
+            
+            
+            if scrap_count > 0 :
+                if not ScrapProductStock.objects.filter(created_date__date=datetime.today().date(),product=item.product).exists():
+                    scrap_instance=ScrapProductStock.objects.create(created_by=request.user.id,created_date=datetime.today(),product=item.product)
+                else:
+                    scrap_instance=ScrapProductStock.objects.get(created_date__date=datetime.today().date(),product=item.product)
+                scrap_instance.quantity = scrap_count
+                scrap_instance.save()
                 
-                elif item.product.product_name == "5 Gallon" and stock_type == "damage_count":
-                    # print("return")
-                    scrap_count = int(request.POST.get('damage_scrap_count'))
-                    washing_count = int(request.POST.get('damage_washing_count'))
-                    
-                    # print(scrap_count)
-                    # print(washing_count)
-                    
-                    OffloadDamageStocks.objects.create(
-                        created_by=request.user.id,
-                        created_date=datetime.today(),
-                        salesman=item.van.salesman,
-                        van=item.van,
-                        product=item.product,
-                        scrap_count=scrap_count,
-                        washing_count=washing_count
-                    )
-                    
-                    if scrap_count > 0 :
-                        if not ScrapProductStock.objects.filter(created_date__date=datetime.today().date(),product=item.product).exists():
-                            scrap_instance=ScrapProductStock.objects.create(created_by=request.user.id,created_date=datetime.today(),product=item.product)
-                        else:
-                            scrap_instance=ScrapProductStock.objects.get(created_date__date=datetime.today().date(),product=item.product)
-                        scrap_instance.quantity = scrap_count
-                        scrap_instance.save()
-                        
-                        if ScrapStock.objects.filter(product=scrap_instance.product).exists():
-                            scrap_stock = ScrapStock.objects.get_or_create(product=scrap_instance.product)
-                            scrap_stock.quantity += scrap_count
-                            scrap_stock.save()
-                    
-                    if washing_count > 0 :
-                        if not WashingProductStock.objects.filter(created_date__date=datetime.today().date(),product=item.product).exists():
-                            washing_instance=WashingProductStock.objects.create(created_by=request.user.id,created_date=datetime.today(),product=item.product)
-                        else:
-                            washing_instance=WashingProductStock.objects.get(created_date__date=datetime.today().date(),product=item.product)
-                        washing_instance.quantity = washing_count
-                        washing_instance.save()
-                        
-                        if WashingStock.objects.filter(product=scrap_instance.product).exists():
-                            washing_stock = WashingStock.objects.get_or_create(product=scrap_instance.product)
-                            washing_stock.quantity += washing_count
-                            washing_stock.save()
-                        
-                    count = scrap_count + washing_count
-                    # print(count)
-                    item.damage_count -= int(count)
-                    item.save()
-                    
-                else : 
-                    # print("else")
-                    item.stock -= int(count)
-                    item.save()
-                    
-                    product_stock = ProductStock.objects.get(branch=item.van.branch_id,product_name=item.product)
-                    product_stock.quantity += int(count)
-                    product_stock.save()
+                if ScrapStock.objects.filter(product=scrap_instance.product).exists():
+                    scrap_stock,scrap_stock_create = ScrapStock.objects.get_or_create(product=scrap_instance.product)
+                    scrap_stock.quantity += scrap_count
+                    scrap_stock.save()
+            
+            if washing_count > 0 :
+                if not WashingProductStock.objects.filter(created_date__date=datetime.today().date(),product=item.product).exists():
+                    washing_instance=WashingProductStock.objects.create(created_by=request.user.id,created_date=datetime.today(),product=item.product)
+                else:
+                    washing_instance=WashingProductStock.objects.get(created_date__date=datetime.today().date(),product=item.product)
+                washing_instance.quantity = washing_count
+                washing_instance.save()
                 
-                Offload.objects.create(
-                    created_by=request.user.id,
-                    created_date=datetime.today(),
-                    salesman=item.van.salesman,
-                    van=item.van,
-                    product=item.product,
-                    quantity=int(count),
-                    stock_type=stock_type
-                )
+                if WashingStock.objects.filter(product=scrap_instance.product).exists():
+                    washing_stock,washing_stock_create = WashingStock.objects.get_or_create(product=scrap_instance.product)
+                    washing_stock.quantity += washing_count
+                    washing_stock.save()
                 
-                response_data = {
-                    "status": "true",
-                    "title": "Successfully Offloaded",
-                    "message": "Offload successfully.",
-                    'reload': 'true',
-                }
+            count = scrap_count + washing_count
+            # print(count)
+            item.return_count -= int(count)
+            item.save()
+        
+        elif item.product.product_name == "5 Gallon" and stock_type == "damage_count":
+            # print("return")
+            scrap_count = int(count)
+            washing_count = 0
+            
+            OffloadDamageStocks.objects.create(
+                created_by=request.user.id,
+                created_date=datetime.today(),
+                salesman=item.van.salesman,
+                van=item.van,
+                product=item.product,
+                scrap_count=scrap_count,
+                washing_count=washing_count
+            )
+            
+            if scrap_count > 0 :
+                if not ScrapProductStock.objects.filter(created_date__date=datetime.today().date(),product=item.product).exists():
+                    scrap_instance=ScrapProductStock.objects.create(created_by=request.user.id,created_date=datetime.today(),product=item.product)
+                else:
+                    scrap_instance=ScrapProductStock.objects.get(created_date__date=datetime.today().date(),product=item.product)
+                scrap_instance.quantity = scrap_count
+                scrap_instance.save()
                 
-        except IntegrityError as e:
-            # Handle database integrity error
-            response_data = {
-                "status": "false",
-                "title": "Failed",
-                "message": str(e),
-            }
+                if ScrapStock.objects.filter(product=scrap_instance.product).exists():
+                    scrap_stock,scrap_stock_create = ScrapStock.objects.get_or_create(product=scrap_instance.product)
+                    scrap_stock.quantity += scrap_count
+                    scrap_stock.save()
+            
+            count = scrap_count
+            # print(count)
+            item.damage_count -= int(count)
+            item.save()
+            
+        else : 
+            # print("else")
+            item.stock -= int(count)
+            item.save()
+            
+            product_stock = ProductStock.objects.get(branch=item.van.branch_id,product_name=item.product)
+            product_stock.quantity += int(count)
+            product_stock.save()
+        
+        Offload.objects.create(
+            created_by=request.user.id,
+            created_date=datetime.today(),
+            salesman=item.van.salesman,
+            van=item.van,
+            product=item.product,
+            quantity=int(count),
+            stock_type=stock_type
+        )
+        
+        response_data = {
+            "status": "true",
+            "title": "Successfully Offloaded",
+            "message": "Offload successfully.",
+            'reload': 'true',
+        }
+                
+        # except IntegrityError as e:
+        #     # Handle database integrity error
+        #     response_data = {
+        #         "status": "false",
+        #         "title": "Failed",
+        #         "message": str(e),
+        #     }
 
-        except Exception as e:
-            # Handle other exceptions
-            response_data = {
-                "status": "false",
-                "title": "Failed",
-                "message": str(e),
-            }
+        # except Exception as e:
+        #     # Handle other exceptions
+        #     response_data = {
+        #         "status": "false",
+        #         "title": "Failed",
+        #         "message": str(e),
+        #     }
             
         return HttpResponse(json.dumps(response_data), content_type='application/javascript')
             
@@ -1667,7 +1660,6 @@ class EditCouponView(View):
                 'reload': 'true',
             }
         
-        return JsonResponse(response_data)
     
 def salesman_requests(request):
     
@@ -1815,6 +1807,7 @@ def excess_bottle_count_create(request):
     else:
         form = ExcessBottleCountForm()
     return render(request, 'van_management/excess_bottle_count_create.html', {'form': form})
+
 # Update view
 def excess_bottle_count_update(request, pk):
     # Retrieve the existing ExcessBottleCount instance
@@ -1830,7 +1823,7 @@ def excess_bottle_count_update(request, pk):
         if form.is_valid():
             # Save the form without committing to the database
             excess_bottle_count = form.save(commit=False)
-            excess_bottle_count.created_by = request.user  # Update the created_by field
+            excess_bottle_count.created_by = request.user.pk  # Update the created_by field
             excess_bottle_count.save()
 
             # Update the related VanProductStock instance
@@ -1856,7 +1849,6 @@ def excess_bottle_count_update(request, pk):
 
     # Render the update template with the form
     return render(request, 'van_management/excess_bottle_count_edit.html', {'form': form})
-
 # Delete view
 def excess_bottle_count_delete(request, pk):
     excess_bottle_count = get_object_or_404(ExcessBottleCount, pk=pk)
@@ -1877,3 +1869,689 @@ def excess_bottle_count_delete(request, pk):
         excess_bottle_count.delete()
         return redirect('excess_bottle_count_list')
     return render(request, 'van_management/excess_bottle_count_confirm_delete.html', {'object': excess_bottle_count})
+
+
+class VanDamageBottleList(View):
+    def get(self, request, *args, **kwargs):
+        filter_data = {}
+        route = request.GET.get('route')
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        export = request.GET.get('export')
+        print_status = request.GET.get('print')
+
+        if start_date:
+            start_date = datetime.strptime(str(start_date), '%Y-%m-%d').date()
+        else:
+            start_date = datetime.today().date()
+            
+        if end_date:
+            end_date = datetime.strptime(str(end_date), '%Y-%m-%d').date()
+        else:
+            end_date = datetime.today().date()
+        
+        route_li = RouteMaster.objects.all()
+        filter_data['start_date'] = start_date.strftime('%Y-%m-%d')
+        filter_data['end_date'] = end_date.strftime('%Y-%m-%d')
+        
+        van_damage_stock = VanSaleDamage.objects.filter(
+            created_date__gte=start_date,
+            created_date__lt=end_date
+        )
+        
+        if route:
+            van_route = Van_Routes.objects.get(van__salesman__user_type="Salesman",routes__route_name=route)
+            van_damage_stock = van_damage_stock.filter(van=van_route.van)
+            filter_data['route_filter'] = route
+        
+        # Export to Excel if 'export' parameter is present
+        if export == 'excel':
+            return self.export_to_excel(van_damage_stock)
+
+        log_activity(
+            created_by=request.user,
+            description=f"Viewed Van Damage stock page."
+        )
+        
+        if not print_status == "print":
+            
+            context = {
+                'van_damage_stock': van_damage_stock.order_by("-created_date"),
+                'total_damage_count': van_damage_stock.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0,
+                'filter_data': filter_data,
+                'route_li': route_li
+            }
+            return render(request, 'van_management/van_damage_stock.html', context)
+        
+        else:
+            context = {
+                'van_damage_stock': van_damage_stock.order_by("-created_date"),
+                'total_damage_count': van_damage_stock.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0,
+                'filter_data': filter_data,
+                'route_li': route_li,
+            }
+            return render(request, 'van_management/van_damage_stock_print.html', context)
+
+    
+    def export_to_excel(self, van_damage_stock):
+        # Create a new workbook and select the active worksheet
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Van Damage Stock"
+
+        # Add headers to the worksheet
+        headers = ["Date", "Van Name", "Route", "Product", "Quantity"]
+        ws.append(headers)
+
+        # Apply styles to headers
+        for col in ws.iter_cols(min_row=1, max_row=1, min_col=1, max_col=len(headers)):
+            for cell in col:
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # Add data rows
+        for damage in van_damage_stock:
+            ws.append([
+                damage.created_date.strftime('%Y-%m-%d') if damage.created_date else "N/A",
+                damage.van.salesman.get_fullname() if damage.van else "N/A",
+                damage.van.get_van_route() if damage.van and damage.van.get_van_route() else "N/A",
+                damage.product.product_name if damage.product else "N/A",
+                damage.quantity
+            ])
+
+        # Create an HTTP response with the Excel file
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response['Content-Disposition'] = 'attachment; filename="van_damage_stock.xlsx"'
+        wb.save(response)
+        return response
+    
+    
+class SalesmanCustomerRequestType_List(View):
+    template_name = 'van_management/salesman_customer_request_type_list.html'
+
+    @method_decorator(login_required)
+    def get(self, request, *args, **kwargs):
+        request_li = SalesmanCustomerRequestType.objects.all()
+        context = {'request_li': request_li}
+        return render(request, self.template_name, context)
+    
+class SalesmanCustomerRequestType_Create(View):
+    template_name = 'van_management/salesman_customerrequest_create.html'
+    form_class = SalesmanCustomerRequestTypeForm
+
+    @method_decorator(login_required)
+    def get(self, request, *args, **kwargs):
+        context = {'form': self.form_class}
+        return render(request, self.template_name, context)
+
+    @method_decorator(login_required)
+    def post(self, request, *args, **kwargs):
+        form = self.form_class(request.POST, request.FILES)
+        if form.is_valid():
+            data = form.save(commit=False)
+            data.created_by = str(request.user.id)
+            data.save()
+            messages.success(request, 'Customer Request Successfully Added.', 'alert-success')
+            return redirect('salesman_customer_request_type_list')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    print(f"Field: {field}, Error: {error}")
+            messages.success(request, 'Data is not valid.', 'alert-danger')
+            context = {'form': form}
+            return render(request, self.template_name, context)
+        
+        
+class SalesmanCustomerRequestType_Edit(View):
+    template_name = 'van_management/salesman_customer_requesttype_edit.html'
+    form_class = SalesmanCustomerRequestType_Edit_Form
+
+    @method_decorator(login_required)
+    def get(self, request, pk, *args, **kwargs):
+        rec = SalesmanCustomerRequestType.objects.get(id=pk)
+        form = self.form_class(instance=rec)
+        context = {'form': form,'rec':rec}
+        return render(request, self.template_name, context)
+
+    @method_decorator(login_required)
+    def post(self, request, pk, *args, **kwargs):
+        rec = SalesmanCustomerRequestType.objects.get(id=pk)
+        form = self.form_class(request.POST, request.FILES, instance=rec)
+        if form.is_valid():
+            data = form.save(commit=False)
+            data.modified_by = str(request.user.id)
+            data.modified_date = datetime.now()
+            data.save()
+            messages.success(request, 'Request Data Successfully Updated', 'alert-success')
+            return redirect('salesman_customer_request_type_list')
+        else:
+            messages.success(request, 'Data is not valid.', 'alert-danger')
+            context = {'form': form}
+            return render(request, self.template_name, context)
+
+class SalesmanCustomerRequestType_Delete(View):
+
+    def get(self, request, pk, *args, **kwargs):
+        rec = get_object_or_404(SalesmanCustomerRequestType, id=pk)
+        rec.delete()
+        messages.success(request, 'Request type deleted successfully', 'alert-success')
+        return redirect('salesman_customer_request_type_list')
+
+    def post(self, request, pk, *args, **kwargs):
+        rec = get_object_or_404(SalesmanCustomerRequestType, id=pk)
+        rec.delete()
+        messages.success(request, 'Request type deleted successfully', 'alert-success')
+        return redirect('salesman_customer_request_type_list')
+    
+    
+def salesman_customer_requests_list(request):
+    requests = SalesmanCustomerRequests.objects.all()
+    return render(request, 'van_management/requests_list.html', {'requests': requests})
+
+def update_request_status(request, pk):
+    request_instance = get_object_or_404(SalesmanCustomerRequests, id=pk)
+
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        if new_status:
+            request_instance.status = new_status
+            request_instance.save()
+
+            SalesmanCustomerRequestStatus.objects.create(
+                salesman_customer_request=request_instance,
+                status=new_status,
+                modified_by=request.user.username
+            )
+            messages.success(request, "Status updated successfully!")
+        else:
+            messages.error(request, "Invalid status update.")
+
+    return redirect('salesman_customer_requests_list')
+
+#--------------------------------------auditing-------------------------------------------
+
+def audit_report(request):
+    audits = AuditBase.objects.select_related('route', 'marketing_executieve').annotate(
+        total_customers=Count('route__customer_route', distinct=True),
+        audited_customers=Count('audit_details__customer', distinct=True)
+    ).order_by('-start_date')
+
+    print(audits.query)
+
+    return render(request, 'van_management/audit_report.html', {'audits': audits})
+
+def audit_detail(request, audit_id):
+    audit = get_object_or_404(AuditBase, id=audit_id)
+    audit_details = audit.audit_details.all()
+
+    audit_combined = []  
+    for audit_detail in audit_details:
+        customer = audit_detail.customer
+        date = audit.created_date
+
+        current_amount = OutstandingAmount.objects.filter(
+            customer_outstanding__customer__pk=customer.pk, 
+            customer_outstanding__created_date__date__lte=date
+        ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+
+        collection_amount = CollectionPayment.objects.filter(
+            customer__pk=customer.pk, 
+            created_date__date__lte=date
+        ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+
+        current_amount -= collection_amount
+        
+        current_bottles = OutstandingProduct.objects.filter(
+            customer_outstanding__customer=customer, 
+            customer_outstanding__created_date__lte=date
+        ).aggregate(total_bottles=Sum('empty_bottle'))['total_bottles'] or 0
+
+        current_coupons = OutstandingCoupon.objects.filter(
+            customer_outstanding__customer=customer,
+            customer_outstanding__created_date__lte=date
+        ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
+
+        audit_amount = audit_detail.outstanding_amount or 0
+        audit_bottles = audit_detail.bottle_outstanding or 0
+        audit_coupons = audit_detail.outstanding_coupon or 0
+        
+        amount_variation = current_amount - audit_amount
+        bottle_variation = current_bottles - audit_bottles
+        coupon_variation = current_coupons - audit_coupons
+        
+        audit_combined.append({
+            'customer': customer.customer_name,
+            'outstanding_amount': audit_amount,
+            'amount_variation': amount_variation,
+            'outstanding_coupon': audit_coupons,
+            'coupon_variation': coupon_variation,
+            'bottle_count': audit_bottles,
+            'bottle_variation': bottle_variation,
+        })
+
+    context = {
+        'audit': audit,
+        'audit_combined': audit_combined,  
+    }
+    
+    return render(request, 'van_management/audit_detail.html', context)
+
+
+
+def van_damage_stock_report(request):
+    # Get filter parameters
+    route_name = request.GET.get('route_name', '')
+    product_name = request.GET.get('product_name', '')
+    search_query = request.GET.get('q', '')
+
+    # Get all available routes
+    routes = RouteMaster.objects.all()
+    if route_name:
+        routes = routes.filter(route_name=route_name)
+
+    # Collect total damage stock per route and product
+    damage_data = []
+
+    for route in routes:
+        # Get all vans assigned to this route
+        van_routes = Van_Routes.objects.filter(routes=route).select_related('van')
+        vans = [van_route.van for van_route in van_routes]
+
+        # Get damaged products for this route, grouped by product
+        damaged_products = VanSaleDamage.objects.filter(van__in=vans).values(
+            'product__product_name'
+        ).annotate(total_quantity=Sum('quantity'))
+
+        # Apply product filter
+        if product_name:
+            damaged_products = damaged_products.filter(product__product_name__icontains=product_name)
+
+        # Apply search query filter
+        if search_query:
+            damaged_products = damaged_products.filter(
+                Q(product__product_name__icontains=search_query)
+            )
+
+        # Append data
+        for product in damaged_products:
+            damage_data.append({
+                'route_id': route.route_id,
+                'route': route.route_name,
+                'product_name': product['product__product_name'],
+                'total_quantity': product['total_quantity'],
+            })
+
+    context = {
+        'damage_data': damage_data,
+        'van_routes': RouteMaster.objects.all(),
+        'product_names': ProdutItemMaster.objects.all(),
+        'filter_data': {
+            'route_name': route_name,
+            'product_name': product_name,
+            'q': search_query
+        },
+    }
+    return render(request, 'van_management/van_routewise_damage/van_damage_stock_report.html', context)
+
+
+def van_damage_stock_print(request):
+    # Get filter parameters
+    route_name = request.GET.get('route_name', '')
+    product_name = request.GET.get('product_name', '')
+    search_query = request.GET.get('q', '')
+
+    # Get all available routes
+    routes = RouteMaster.objects.all()
+    if route_name:
+        routes = routes.filter(route_name=route_name)
+
+    # Collect total damage stock per route and product
+    damage_data = []
+
+    for route in routes:
+        # Get all vans assigned to this route
+        van_routes = Van_Routes.objects.filter(routes=route).select_related('van')
+        vans = [van_route.van for van_route in van_routes]
+
+        # Get damaged products for this route, grouped by product
+        damaged_products = VanSaleDamage.objects.filter(van__in=vans).values(
+            'product__product_name'
+        ).annotate(total_quantity=Sum('quantity'))
+
+        # Apply product filter
+        if product_name:
+            damaged_products = damaged_products.filter(product__product_name__icontains=product_name)
+
+        # Apply search query filter
+        if search_query:
+            damaged_products = damaged_products.filter(
+                Q(product__product_name__icontains=search_query)
+            )
+
+        # Append data
+        for product in damaged_products:
+            damage_data.append({
+                'route_id': route.route_id,
+                'route': route.route_name,
+                'product_name': product['product__product_name'],
+                'total_quantity': product['total_quantity'],
+            })
+
+    context = {
+        'damage_data': damage_data,
+        'van_routes': RouteMaster.objects.all(),
+        'product_names': ProdutItemMaster.objects.all(),
+        'filter_data': {
+            'route_name': route_name,
+            'product_name': product_name,
+            'q': search_query
+        },
+    }
+    return render(request, 'van_management/van_routewise_damage/van_damage_stock_print.html', context)
+
+def van_damage_stock_excel(request):
+    # Get filter parameters
+    route_name = request.GET.get('route_name', '')
+    product_name = request.GET.get('product_name', '')
+    search_query = request.GET.get('q', '')
+
+    # Create a new Excel workbook and sheet
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Van Damage Stock Report"
+
+    # Add headers
+    headers = ["Sl.No", "Route Name", "Product Name", "Total Quantity"]
+    sheet.append(headers)
+
+    # Apply bold style to headers
+    for col_num, col_name in enumerate(headers, 1):
+        sheet.cell(row=1, column=col_num, value=col_name).font = openpyxl.styles.Font(bold=True)
+
+    # Get all available routes
+    routes = RouteMaster.objects.all()
+    if route_name:
+        routes = routes.filter(route_name=route_name)
+
+    # Collect total damage stock per route and product
+    damage_data = []
+    sl_no = 1  # Auto-incremented index
+
+    for route in routes:
+        # Get all vans assigned to this route
+        van_routes = Van_Routes.objects.filter(routes=route).select_related('van')
+        vans = [van_route.van for van_route in van_routes]
+
+        # Get damaged products for this route, grouped by product
+        damaged_products = VanSaleDamage.objects.filter(van__in=vans).values(
+            'product__product_name'
+        ).annotate(total_quantity=Sum('quantity'))
+
+        # Apply product filter
+        if product_name:
+            damaged_products = damaged_products.filter(product__product_name__icontains=product_name)
+
+        # Apply search query filter
+        if search_query:
+            damaged_products = damaged_products.filter(
+                Q(product__product_name__icontains=search_query)
+            )
+
+        # Append data to Excel
+        for product in damaged_products:
+            sheet.append([
+                sl_no,  # Auto-incremented serial number
+                route.route_name,
+                product['product__product_name'],
+                product['total_quantity'],
+            ])
+            sl_no += 1  # Increment serial number
+
+    # Prepare the response with the correct content type
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="Van_Damage_Stock_Report.xlsx"'
+
+    # Save the workbook to the response
+    workbook.save(response)
+    return response
+
+def route_damage_detail(request, route_id):
+    """
+    Display all van sale damage details for a given route with filtering options.
+    """
+    # Get the selected route
+    route = get_object_or_404(RouteMaster, route_id=route_id)
+
+    # Get all vans assigned to this route
+    van_routes = Van_Routes.objects.filter(routes=route).select_related("van")
+    vans = [van_route.van for van_route in van_routes]  # Get only the van instances
+
+    # Fetch all van sale damage records ONLY for the vans assigned to this route
+    damage_records = VanSaleDamage.objects.filter(van__in=vans)
+
+    # Get filter parameters from request
+    start_date = request.GET.get("start_date", "")
+    end_date = request.GET.get("end_date", "")
+    product_name = request.GET.get("product_name", "")
+    van_name = request.GET.get("van_name", "")
+    reason = request.GET.get("reason", "")
+    search_query = request.GET.get("q", "")
+
+    # Apply filters
+    if start_date:
+        damage_records = damage_records.filter(created_date__gte=start_date)
+    if end_date:
+        damage_records = damage_records.filter(created_date__lte=end_date)
+    if product_name:
+        damage_records = damage_records.filter(product__product_name__icontains=product_name)
+    if van_name:
+        damage_records = damage_records.filter(van__van_make__icontains=van_name)
+    if reason:
+        damage_records = damage_records.filter(reason__reason__icontains=reason)
+    if search_query:
+        damage_records = damage_records.filter(
+            Q(product__product_name__icontains=search_query) |
+            Q(reason__reason__icontains=search_query) |
+            Q(van__van_make__icontains=search_query)
+        )
+
+    # Aggregate total quantities
+    damage_records = damage_records.values(
+        "created_date", "product__product_name", "reason__reason", "van__van_make"
+    ).annotate(total_quantity=Sum("quantity")).order_by("created_date")
+
+    # Calculate grand total quantity
+    grand_total_quantity = sum(item["total_quantity"] for item in damage_records)
+
+    # Fetch all van names, product names, and damage reasons for dropdowns (but only for related records)
+    available_vans = Van.objects.filter(van_id__in=[van.van_id for van in vans])
+    available_products = ProdutItemMaster.objects.filter(id__in=damage_records.values_list("product__id", flat=True))
+    available_reasons = ProductionDamageReason.objects.filter(id__in=damage_records.values_list("reason__id", flat=True))
+
+    context = {
+        "route": route,
+        "damage_records": damage_records,
+        "grand_total_quantity": grand_total_quantity,
+        "available_vans": available_vans,
+        "product_names": available_products,
+        "damage_reasons": available_reasons,
+        "filter_data": {
+            "start_date": start_date,
+            "end_date": end_date,
+            "product_name": product_name,
+            "van_name": van_name,
+            "reason": reason,
+            "q": search_query,
+        },
+    }
+
+    return render(request, "van_management/van_routewise_damage/route_damage_detail.html", context)
+
+def route_damage_detail_print(request, route_id):
+    """
+    Print view for van sale damage details of a given route.
+    """
+    # Get the selected route
+    route = get_object_or_404(RouteMaster, route_id=route_id)
+
+    # Get all vans assigned to this route
+    van_routes = Van_Routes.objects.filter(routes=route).select_related("van")
+    vans = [van_route.van for van_route in van_routes]  # Extract van instances
+
+    # Fetch damage records only for the vans assigned to this route
+    damage_records = VanSaleDamage.objects.filter(van__in=vans)
+
+    # Get filter parameters
+    start_date = request.GET.get("start_date", "")
+    end_date = request.GET.get("end_date", "")
+    product_name = request.GET.get("product_name", "")
+    van_name = request.GET.get("van_name", "")
+    reason = request.GET.get("reason", "")
+    search_query = request.GET.get("q", "")
+
+    # Apply filters
+    if start_date:
+        damage_records = damage_records.filter(created_date__gte=start_date)
+    if end_date:
+        damage_records = damage_records.filter(created_date__lte=end_date)
+    if product_name:
+        damage_records = damage_records.filter(product__product_name__icontains=product_name)
+    if van_name:
+        damage_records = damage_records.filter(van__van_make__icontains=van_name)
+    if reason:
+        damage_records = damage_records.filter(reason__reason__icontains=reason)
+    if search_query:
+        damage_records = damage_records.filter(
+            Q(product__product_name__icontains=search_query) |
+            Q(reason__reason__icontains=search_query) |
+            Q(van__van_make__icontains=search_query)
+        )
+
+    # Aggregate total quantities
+    damage_records = damage_records.values(
+        "created_date", "product__product_name", "reason__reason", "van__van_make"
+    ).annotate(total_quantity=Sum("quantity")).order_by("created_date")
+
+    # Calculate grand total quantity
+    grand_total_quantity = sum(item["total_quantity"] for item in damage_records)
+
+    # Fetch related dropdown data
+    available_vans = Van.objects.filter(van_id__in=[van.van_id for van in vans])
+    available_products = ProdutItemMaster.objects.filter(id__in=damage_records.values_list("product__id", flat=True))
+    available_reasons = ProductionDamageReason.objects.filter(id__in=damage_records.values_list("reason__id", flat=True))
+
+    context = {
+        "route": route,
+        "damage_records": damage_records,
+        "grand_total_quantity": grand_total_quantity,
+        "available_vans": available_vans,
+        "product_names": available_products,
+        "damage_reasons": available_reasons,
+        "filter_data": {
+            "start_date": start_date,
+            "end_date": end_date,
+            "product_name": product_name,
+            "van_name": van_name,
+            "reason": reason,
+            "q": search_query,
+        },
+    }
+
+    return render(request, "van_management/van_routewise_damage/route_damage_detail_print.html", context)
+def route_damage_detail_excel(request, route_id):
+    """
+    Export van sale damage details for a given route as an Excel file with a footer.
+    """
+    # Get the selected route
+    route = get_object_or_404(RouteMaster, route_id=route_id)
+
+    # Get all vans assigned to this route
+    van_routes = Van_Routes.objects.filter(routes=route).select_related("van")
+    vans = [van_route.van for van_route in van_routes]
+
+    # Fetch all van sale damage records for the assigned vans
+    damage_records = VanSaleDamage.objects.filter(van__in=vans)
+
+    # Get filter parameters
+    start_date = request.GET.get("start_date", "")
+    end_date = request.GET.get("end_date", "")
+    product_name = request.GET.get("product_name", "")
+    van_name = request.GET.get("van_name", "")
+    reason = request.GET.get("reason", "")
+    search_query = request.GET.get("q", "")
+
+    # Apply filters
+    if start_date:
+        damage_records = damage_records.filter(created_date__gte=start_date)
+    if end_date:
+        damage_records = damage_records.filter(created_date__lte=end_date)
+    if product_name:
+        damage_records = damage_records.filter(product__product_name__icontains=product_name)
+    if van_name:
+        damage_records = damage_records.filter(van__van_make__icontains=van_name)
+    if reason:
+        damage_records = damage_records.filter(reason__reason__icontains=reason)
+    if search_query:
+        damage_records = damage_records.filter(
+            Q(product__product_name__icontains=search_query) |
+            Q(reason__reason__icontains=search_query) |
+            Q(van__van_make__icontains=search_query)
+        )
+
+    # Aggregate total quantities
+    damage_records = damage_records.values(
+        "created_date", "product__product_name", "reason__reason", "van__van_make"
+    ).annotate(total_quantity=Sum("quantity")).order_by("created_date")
+
+    # Calculate the grand total
+    grand_total_quantity = sum(item["total_quantity"] for item in damage_records)
+
+    # Create an Excel workbook and sheet
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Van Damage Stock Report"
+
+    # Define column headers
+    headers = ["Sl. No", "Date", "Van Name", "Product Name", "Reason", "Total Quantity"]
+    sheet.append(headers)
+
+    # Style headers (bold)
+    for col in range(1, len(headers) + 1):
+        sheet.cell(row=1, column=col).font = Font(bold=True)
+
+    # Add data to the sheet with auto-incremented serial numbers
+    sl_no = 1
+    row_num = 2  # Start writing data from the second row
+    for record in damage_records:
+        sheet.append([
+            sl_no,
+            record["created_date"].strftime("%Y-%m-%d"),
+            record["van__van_make"],
+            record["product__product_name"],
+            record["reason__reason"],
+            record["total_quantity"],
+        ])
+        sl_no += 1
+        row_num += 1  # Move to the next row
+
+    # Add a footer row (Grand Total)
+    footer_row = ["", "", "", "", "Grand Total:", grand_total_quantity]
+    sheet.append(footer_row)
+
+    # Style the footer row (bold)
+    for col in range(5, 7):  # Make "Grand Total" and total quantity bold
+        sheet.cell(row=row_num, column=col).font = Font(bold=True)
+
+    # Prepare the response with the correct content type
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="Van_And_Route_Damage_Stock_Report.xlsx"'
+
+    # Save the workbook to the response
+    workbook.save(response)
+    return response

@@ -56,7 +56,6 @@ class EditNewCouponForm(forms.ModelForm):
             'status': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
         
-        
 class CustomerCouponForm(forms.ModelForm):
     class Meta:
         model = CustomerCoupon

@@ -4,6 +4,8 @@ from rest_framework import serializers
 #from . models import *
 from rest_framework.generics import ListAPIView
 from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
+
 
 from invoice_management.models import Invoice
 from order.models import *
@@ -112,8 +114,8 @@ class StaffOrderDetailsSerializers(serializers.ModelSerializer):
         fields = '__all__'
 class  CustomerCartItemsSerializer(serializers.ModelSerializer):
     product_id = serializers.SerializerMethodField()
-    product_name = serializers.SerializerMethodField() 
-   
+    product_name = serializers.SerializerMethodField()
+    price = serializers.SerializerMethodField()
     
     class Meta:
         model = CustomerCartItems
@@ -125,8 +127,13 @@ class  CustomerCartItemsSerializer(serializers.ModelSerializer):
         if obj.product:
             product_id = obj.product.pk
         return product_id
+    
     def get_product_name(self,obj):
-        return obj.product.product_name    
+        return obj.product.product_name 
+    
+    def get_price(self,obj):
+        return obj.price * obj.quantity
+     
         
 class  CustomerCartSerializer(serializers.ModelSerializer):
     items = serializers.SerializerMethodField()
@@ -137,8 +144,9 @@ class  CustomerCartSerializer(serializers.ModelSerializer):
         read_only_fields = ['id','customer','grand_total','order_status','items']
         
     def get_items(self, obj):
+        customer_id = self.context.get('customer_pk')
         instances = CustomerCartItems.objects.filter(customer_cart=obj)
-        serializer = CustomerCartItemsSerializer(instances, many=True)
+        serializer = CustomerCartItemsSerializer(instances, many=True, context={'customer_pk': customer_id})
         
         return serializer.data
 
@@ -149,21 +157,21 @@ class CustomerCartItemsPostSerializer(serializers.ModelSerializer):
         fields = ['product', 'quantity', 'price']
 
 class CustomerCartPostSerializer(serializers.ModelSerializer):
-    items = CustomerCartItemsPostSerializer()
+    # items = CustomerCartItemsPostSerializer()
 
     class Meta:
         model = CustomerCart
-        fields = ['grand_total', 'delivery_date', 'items']
+        fields = ['grand_total', 'delivery_date']
 
-    def create(self, validated_data):
-        # Extract the single item data
-        item_data = validated_data.pop('items')
-        cart_instance = super().create(validated_data)
+    # def create(self, validated_data):
+    #     # Extract the single item data
+    #     item_data = validated_data.pop('items')
+    #     cart_instance = super().create(validated_data)
         
-        # Create the single cart item
-        CustomerCartItems.objects.create(customer_cart=cart_instance, **item_data)
+    #     # Create the single cart item
+    #     CustomerCartItems.objects.create(customer_cart=cart_instance, **item_data)
         
-        return cart_instance
+    #     return cart_instance
         
         
 class  CustomerOrderItemsSerializer(serializers.ModelSerializer):
@@ -665,7 +673,7 @@ class CustomerOutstandingSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Customers
-        fields = ['customer_id','customer_name','building_name','route_name','route_id','door_house_no','amount','empty_can','coupons']
+        fields = ['customer_id','customer_name','building_name','sales_type','route_name','route_id','door_house_no','amount','empty_can','coupons']
     
     def get_amount(self,obj):
         outstanding_amounts = 0
@@ -677,7 +685,7 @@ class CustomerOutstandingSerializer(serializers.ModelSerializer):
         return outstanding_amounts - collection_amount
         # if outstanding_amounts > collection_amount:
         # else:
-            # return collection_amount - outstanding_amounts
+        #     return collection_amount - outstanding_amounts
     
     def get_empty_can(self,obj):
         date_str = self.context.get('date_str')
@@ -1059,10 +1067,12 @@ class NewSalesCustomerSupplySerializer(serializers.ModelSerializer):
     customer_code = serializers.SerializerMethodField()
     taxable_amount = serializers.SerializerMethodField() 
     amount_recieved = serializers.SerializerMethodField()
+    quantity = serializers.SerializerMethodField()  
+    price = serializers.SerializerMethodField()  
     
     class Meta:
         model = CustomerSupply
-        fields = ['created_date','invoice_no','reference_number','customer_name','customer_code','invoice_type','taxable_amount','total','vat','amount_recieved']
+        fields = ['created_date','invoice_no','reference_number','customer_name','customer_code','invoice_type','taxable_amount','total','vat','amount_recieved','quantity', 'price']
     
     def get_taxable_amount(self, obj):
         return obj.grand_total
@@ -1084,6 +1094,12 @@ class NewSalesCustomerSupplySerializer(serializers.ModelSerializer):
             return Invoice.objects.get(invoice_no=obj.invoice_no).invoice_type
         except:
             return ""
+        
+    def get_quantity(self, obj):
+        return obj.get_total_supply_qty()  
+
+    def get_price(self, obj):
+        return obj.get_rate() 
 
 class NewSalesCustomerCouponSerializer(serializers.ModelSerializer):
     created_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
@@ -1094,10 +1110,12 @@ class NewSalesCustomerCouponSerializer(serializers.ModelSerializer):
     customer_code = serializers.SerializerMethodField() 
     vat = serializers.SerializerMethodField()
     invoice_type = serializers.SerializerMethodField()
+    quantity = serializers.SerializerMethodField()  
+    price = serializers.SerializerMethodField()  
     
     class Meta:
         model = CustomerCoupon
-        fields = ['created_date','invoice_no','reference_number','customer_name','customer_code','invoice_type','taxable_amount','total','vat','amount_recieved']
+        fields = ['created_date','invoice_no','reference_number','customer_name','customer_code','invoice_type','taxable_amount','total','vat','amount_recieved','quantity', 'price']
     
     def get_taxable_amount(self, obj):
         return obj.grand_total
@@ -1122,6 +1140,12 @@ class NewSalesCustomerCouponSerializer(serializers.ModelSerializer):
     
     def get_vat(self, obj):
         return ""
+    
+    def get_quantity(self, obj):
+        return sum(item.quantity for item in obj.customercouponitems_set.all())
+
+    def get_price(self, obj):
+        return sum(item.rate for item in obj.customercouponitems_set.all())
 
 class NewSalesCollectionPaymentSerializer(serializers.ModelSerializer):
     class Meta:
@@ -1595,37 +1619,49 @@ class StockMovementProductsSerializer(serializers.ModelSerializer):
 
 class StockMovementSerializer(serializers.ModelSerializer):
     products = StockMovementProductsSerializer(many=True, write_only=True)
-
+    
     class Meta:
         model = StockMovement
         fields = ['id', 'salesman', 'from_van', 'to_van', 'products']
         read_only = ['id']
-
+        
     def create(self, validated_data):
-        if self.context.get("date_str"):
-            date_str = self.context.get("date_str")
-        else :
-            date_str = str(datetime.today().date())
+        date_str = self.context.get("date_str", str(datetime.today().date()))
         products_data = validated_data.pop('products')
         stock_movement = StockMovement.objects.create(
             created_by=self.context.get("request").user.pk,
-            **validated_data)
+            **validated_data
+        )
         
         for product_data in products_data:
             StockMovementProducts.objects.create(stock_movement=stock_movement, **product_data)
-
-            # Update stock for from_van
-            from_van_product = VanProductStock.objects.get(created_date=date_str,van=stock_movement.from_van, product=product_data['product'])
+            
+            try:
+                from_van_product = VanProductStock.objects.get(
+                    created_date=date_str, 
+                    van=stock_movement.from_van, 
+                    product=product_data['product']
+                )
+            except VanProductStock.DoesNotExist:
+                raise ValidationError(f"No stock found in van {stock_movement.from_van} for product {product_data['product']} on {date_str}.")
+            
+            if from_van_product.stock < product_data['quantity']:
+                raise ValidationError(f"Insufficient stock in van {stock_movement.from_van} for product {product_data['product']}.")
+            
             from_van_product.stock -= product_data['quantity']
             from_van_product.save()
 
-            # Update stock for to_van
-            to_van_product, created = VanProductStock.objects.get_or_create(created_date=date_str,van=stock_movement.to_van, product=product_data['product'])
+            to_van_product, created = VanProductStock.objects.get_or_create(
+                created_date=date_str, 
+                van=stock_movement.to_van, 
+                product=product_data['product'], 
+                defaults={'stock': 0} 
+            )
             to_van_product.stock += product_data['quantity']
             to_van_product.save()
         
         return stock_movement
-    
+        
     
 class NonVisitReasonSerializer(serializers.ModelSerializer):
     class Meta:
@@ -2010,11 +2046,13 @@ class StaffOrdersDetailsSerializer(serializers.ModelSerializer):
     is_issued = serializers.SerializerMethodField()
     item_type = serializers.SerializerMethodField()
     empty_bottle_count = serializers.SerializerMethodField()
+    fresh_bottle_count = serializers.SerializerMethodField()
+    requested_count = serializers.SerializerMethodField()
 
 
     class Meta:
         model = Staff_Orders_details
-        fields = ['staff_order_details_id','product_id','product_name','count','issued_qty','is_issued','item_type', 'empty_bottle_count']
+        fields = ['staff_order_details_id','product_id','product_name','requested_count','issued_qty','is_issued','item_type', 'empty_bottle_count','fresh_bottle_count']
 
     def get_product_name(self, obj):
         return obj.product_id.product_name
@@ -2040,6 +2078,25 @@ class StaffOrdersDetailsSerializer(serializers.ModelSerializer):
             empty_bottle_stock = VanProductStock.objects.get(van=van_instance.first(),product=obj.product_id,created_date=obj.staff_order_id.created_date.date()).empty_can_count
         
         return empty_bottle_stock
+    
+    def get_fresh_bottle_count(self, obj):
+        fresh_bottle_stock = 0
+        if obj.product_id.product_name == "5 Gallon" and (van_instance:=Van.objects.filter(salesman_id__id=obj.staff_order_id.created_by)).exists():
+            fresh_bottle_stock = VanProductStock.objects.get(van=van_instance.first(),product=obj.product_id,created_date=obj.staff_order_id.created_date.date()).stock
+        
+        return fresh_bottle_stock
+    
+    def get_requested_count(self, obj):
+        user_type = self.context.get('user_type')
+        if (user_type == "Production") and obj.product_id.product_name == "5 Gallon":
+            order_details = OrderVerifiedproductDetails.objects.get(product_id__product_name="5 Gallon",order_varified_id__order__pk=obj.staff_order_id.pk)
+            return {
+                "issued_qty": order_details.issued_qty,
+                "fresh_qty": order_details.fresh_qty,
+                "used_qty": order_details.used_qty
+            }
+        else:
+            return obj.count
     #------------------------------------Location Api -----------------------------------------------------
 
 class LocationUpdateSerializer(serializers.ModelSerializer):
@@ -2336,10 +2393,12 @@ class SalesReportSerializer(serializers.ModelSerializer):
     amout_recieved = serializers.SerializerMethodField()  
     amout_total = serializers.SerializerMethodField()  
     invoice_type = serializers.SerializerMethodField() 
+    quantity = serializers.SerializerMethodField()  
+    price = serializers.SerializerMethodField()
     
     class Meta:
         model = CustomerSupply
-        fields = ['created_date','invoice_no','reference_number','customer_name','customer_code','amout_total','vat','discount','net_taxable','amout_recieved', 'total_supply_qty','invoice_type',]
+        fields = ['created_date','invoice_no','reference_number','customer_name','customer_code','amout_total','vat','discount','net_taxable','amout_recieved', 'total_supply_qty','invoice_type','quantity','price']
 
     def get_net_taxable(self, obj):
         return obj.net_payable
@@ -2356,7 +2415,12 @@ class SalesReportSerializer(serializers.ModelSerializer):
         elif obj.amount_recieved <= 0 and obj.customer.sales_type != "FOC":
             return "credit_invoive"
         return "all"
+    
+    def get_quantity(self, obj):
+        return obj.get_total_supply_qty()  
 
+    def get_price(self, obj):
+        return obj.get_rate()
 
 class SalesInvoiceSerializer(serializers.ModelSerializer):
     created_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
@@ -2590,7 +2654,6 @@ class CustomerAccountDeleteRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerAccountDeleteRequest
         fields = ['id','customer','reason']
-
 class CustomerRequestTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerRequestType
@@ -2608,11 +2671,66 @@ class CustomerRequestSerializer(serializers.ModelSerializer):
         return value
 
 class CustomerRequestListSerializer(serializers.ModelSerializer):
+    request_type_name = serializers.SerializerMethodField()
+    customer_name = serializers.SerializerMethodField()
+
     class Meta:
         model = CustomerRequests
-        fields = ['id', 'customer', 'request_type', 'status', 'created_date', 'modified_by', 'modified_date']
+        fields = ['id', 'customer', 'customer_name', 'request_type', 'request_type_name', 'status', 'created_date', 'modified_by', 'modified_date']
+
+    def get_request_type_name(self, obj):
+        return obj.request_type.name if obj.request_type else None
+
+    def get_customer_name(self, obj):
+        return obj.customer.customer_name if obj.customer else None
 
 class CustomerRequestUpdateSerializer(serializers.Serializer):
+    request_id = serializers.UUIDField(required=True)  # Updated from customer_id to request_id
+    status = serializers.ChoiceField(choices=CUSTOMER_TYPE_REQUEST_CHOICES)
+    cancel_reason = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, data):
+        if data['status'] == 'cancel' and not data.get('cancel_reason'):
+            raise serializers.ValidationError({"cancel_reason": "This field is required when status is 'cancel'."})
+        return data
+
+
+# class CustomerRequestUpdateSerializer(serializers.Serializer):
+#     customer_id = serializers.UUIDField(required=True)
+#     status = serializers.ChoiceField(choices=CUSTOMER_TYPE_REQUEST_CHOICES)
+#     cancel_reason = serializers.CharField(required=False, allow_blank=True)
+
+#     def validate(self, data):
+#         if data['status'] == 'cancel' and not data.get('cancel_reason'):
+#             raise serializers.ValidationError({"cancel_reason": "This field is required when status is 'cancel'."})
+#         return data
+    
+
+class SalesmanCustomerRequestTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SalesmanCustomerRequestType
+        fields = ['id', 'name', 'created_date', 'modified_by', 'modified_date']
+            
+class SalesmanCustomerRequestSerializer(serializers.ModelSerializer):
+    salesman_name = serializers.CharField(source='salesman.get_full_name', read_only=True)  
+    customer_name = serializers.CharField(source='customer.customer_name', read_only=True) 
+    request_type_name = serializers.CharField(source='request_type.name', read_only=True)
+
+    class Meta:
+        model = SalesmanCustomerRequests
+        fields = [
+            'id', 'salesman', 'salesman_name', 'customer', 'customer_name', 
+            'request_type', 'request_type_name', 'status', 
+            'created_date', 'modified_by', 'modified_date'
+        ]
+        read_only_fields = ['id', 'created_date', 'modified_by', 'modified_date']
+
+class SalesmanCustomerRequestListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SalesmanCustomerRequests
+        fields = ['id', 'customer', 'request_type', 'status', 'created_date', 'modified_by', 'modified_date']
+
+class SalesmanCustomerRequestUpdateSerializer(serializers.Serializer):
     customer_id = serializers.UUIDField(required=True)
     status = serializers.ChoiceField(choices=CUSTOMER_TYPE_REQUEST_CHOICES)
     cancel_reason = serializers.CharField(required=False, allow_blank=True)
@@ -2621,3 +2739,98 @@ class CustomerRequestUpdateSerializer(serializers.Serializer):
         if data['status'] == 'cancel' and not data.get('cancel_reason'):
             raise serializers.ValidationError({"cancel_reason": "This field is required when status is 'cancel'."})
         return data
+    
+    
+class AuditBaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AuditBase
+        fields = '__all__' 
+        
+class BulkAuditDetailSerializer(serializers.ListSerializer):
+    def create(self, validated_data):
+        audit_details = [AuditDetails(**item) for item in validated_data]
+        return AuditDetails.objects.bulk_create(audit_details)
+    
+class AuditDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AuditDetails
+        fields = '__all__'
+        list_serializer_class = BulkAuditDetailSerializer
+
+class ProductionOnloadReportSerializer(serializers.Serializer):
+    product_name = serializers.CharField()
+    van_name = serializers.CharField()
+    order_date = serializers.DateField(format='%d-%m-%Y')
+    initial_van_stock = serializers.IntegerField()
+    updated_van_stock = serializers.IntegerField()
+    initial_product_stock = serializers.IntegerField()
+    updated_product_stock = serializers.IntegerField()
+    scrap_stock = serializers.IntegerField()
+    service_count = serializers.IntegerField()
+    used_bottle_count = serializers.IntegerField()
+    fresh_bottle_count = serializers.IntegerField()
+    issued_bottle_count = serializers.IntegerField()
+    
+class ScrapClearanceReportSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.product_name', read_only=True)
+    class Meta:
+        model = ScrapcleanedStock
+        fields = ['id', 'product', 'product_name', 'quantity', 'created_date', 'created_by']
+class Overview_Dashboard_Summary(serializers.Serializer):
+    cash_sales = serializers.IntegerField()
+    credit_sales = serializers.IntegerField()
+    total_sales_count = serializers.IntegerField()
+    today_expenses = serializers.FloatField()
+    total_today_collections = serializers.FloatField()
+    total_old_payment_collections = serializers.FloatField()
+    total_collection = serializers.FloatField()
+    total_cash_in_hand = serializers.FloatField()
+    active_van_count = serializers.IntegerField()
+    delivery_progress = serializers.CharField()
+    total_customers_count = serializers.IntegerField()
+    new_customers_count = serializers.IntegerField()
+    door_lock_count = serializers.IntegerField()
+    emergency_customers_count = serializers.IntegerField()
+    total_vocation_customers_count = serializers.IntegerField()
+    yesterday_missed_customers_count = serializers.IntegerField()
+    new_customers_count_with_salesman = serializers.ListField(
+        child=serializers.DictField()
+    )
+
+class SalesDashboardSerializer(serializers.Serializer):
+    selected_date = serializers.DateField(format='%Y-%m-%d')
+    yesterday_date = serializers.DateField(format='%Y-%m-%d')
+    
+    total_cash_sales_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_credit_sales_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_sales_grand_total = serializers.DecimalField(max_digits=10, decimal_places=2)
+    
+    total_recharge_sales_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    
+    total_old_payment_cash_collections = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_old_payment_credit_collections = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_old_payment_grand_total_collections = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_old_payment_coupon_collections = serializers.DecimalField(max_digits=10, decimal_places=2)
+    
+    total_cash_outstanding_amounts = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_credit_outstanding_amounts = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_outstanding_amounts = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_coupon_outstanding_amounts = serializers.DecimalField(max_digits=10, decimal_places=2)
+    
+    this_week_sales = serializers.ListField()
+    last_week_sales = serializers.ListField()
+    second_last_week_sales = serializers.ListField()
+    third_last_week_sales = serializers.ListField()
+    last_year_monthly_avg_sales = serializers.ListField()
+
+class BottleStatisticsSerializer(serializers.Serializer):
+    today_supply_bottle_count = serializers.IntegerField()
+    today_custody_issued_count = serializers.IntegerField()
+    today_empty_bottle_collected_count = serializers.IntegerField()
+    today_pending_bottle_given_count = serializers.IntegerField()
+    today_pending_bottle_collected_count = serializers.IntegerField()
+    today_outstanding_bottle_count = serializers.IntegerField()
+    today_scrap_bottle_count = serializers.IntegerField()
+    today_service_bottle_count = serializers.IntegerField()
+    today_fresh_bottle_stock = serializers.IntegerField()
+    total_used_bottle_count = serializers.IntegerField()

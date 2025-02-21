@@ -1,5 +1,4 @@
 from django.db import models
-from django.db import models
 from django.db.models import Sum,DecimalField
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -147,7 +146,8 @@ class Transactionn(models.Model):
 class CollectionPayment(models.Model):
     PAYMENT_TYPE_CHOICES = (
         ('CASH', 'CASH'),
-        ('CHEQUE', 'CHEQUE')
+        ('CHEQUE', 'CHEQUE'),
+        ('CARD', 'CARD')
     )
     payment_method = models.CharField(max_length=100, choices=PAYMENT_TYPE_CHOICES, null=True, blank=True)
     customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
@@ -198,6 +198,9 @@ class CollectionPayment(models.Model):
     def collected_amount(self):
         return CollectionItems.objects.filter(collection_payment=self).aggregate(total=Sum('amount_received', output_field=DecimalField()))['total'] or 0
     
+    def is_repeated_customer(self):
+        collection_count = CollectionPayment.objects.filter(customer=self.customer,created_date__date=self.created_date.date()).count()
+        return collection_count > 1
     
     
 class CollectionItems(models.Model):
@@ -218,13 +221,38 @@ class CollectionCheque(models.Model):
     cheque_amount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
     cheque_no = models.CharField(max_length=20)
     bank_name = models.CharField(max_length=20)
+    cheque_date = models.DateField(null=True, blank=True)
+    STATUS_CHOICES = [
+        ('PENDING', 'PENDING'), 
+        ('CLEARED', 'CLEARED')
+    ]
+    status = models.CharField(max_length=10,choices=STATUS_CHOICES,default='PENDING')
+    invoices = models.ManyToManyField(Invoice)
 
     class Meta:
         ordering = ('-id',)
 
-    def __str__(self):
-        return self.bank_name
-    
+    def _str_(self):
+        return f"{self.bank_name} - {self.cheque_no} ({self.status})"
+class CollectionCard(models.Model):
+    collection_payment = models.OneToOneField(CollectionPayment, on_delete=models.CASCADE)
+    customer_name = models.CharField(max_length=500, null=True, blank=True)
+    card_number = models.CharField(max_length=255, null=True, blank=True)
+    card_date = models.DateField(null=True, blank=True)
+    card_type = models.CharField(max_length=100, null=True, blank=True)
+    card_category = models.CharField(max_length=100, null=True, blank=True)
+    card_amount = models.DecimalField(default=0, max_digits=10, decimal_places=2, null=True, blank=True)
+    STATUS_CHOICES = [
+        ('PENDING', 'PENDING'),
+        ('CLEARED', 'CLEARED')
+    ]
+    status = models.CharField(max_length=10,choices=STATUS_CHOICES,default='PENDING')
+
+    class Meta:
+        ordering = ('-id',)
+
+    def _str_(self):
+        return f"{self.card_number} ({self.status})"
 
 class SalesmanSpendingLog(models.Model):
     created_date = models.DateTimeField(auto_now_add=True)

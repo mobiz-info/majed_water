@@ -102,7 +102,8 @@ urlpatterns = [
     
     # supply
     re_path(r'^supply-product/', supply_product.as_view()),
-    re_path(r'^create-customer-supply/$', create_customer_supply.as_view()),
+    # re_path(r'^create-customer-supply/$', create_customer_supply.as_view()),
+    path('create-customer-supply/', create_customer_supply.as_view()),
     path('edit-customer-supply/<uuid:pk>/', edit_customer_supply.as_view()),
     # path('delete-customer-supply/<uuid:pk>/', delete_customer_supply.as_view()),
     re_path(r'^customer-outstanding/$', customer_outstanding.as_view()),
@@ -274,6 +275,10 @@ urlpatterns = [
     path('api_staff_issue_orders_list/', StaffIssueOrdersListAPIView.as_view(), name='api_staff_issue_orders_list'),
     path('api_staffIssueOrdersCreate/<uuid:staff_order_id>/', StaffIssueOrdersAPIView.as_view(), name='api_staffIssueOrdersCreate'),
     path('get_coupon_bookno/', GetCouponBookNoView.as_view(), name='get_coupon_bookno'),
+    path('approve-order/<uuid:order_id>/', ApproveOrderAPIView.as_view(), name='approve_order'),
+    
+    path('onload-van/', VanOnloadAPIView.as_view(), name='van_onload'),
+    path('onload-van-production/', VanOnloadProductionAPIView.as_view(), name='van_onload_production'),
     #------------------------------------Store Appp Orders Api Completes-----------------------------------------------------
     #------------------------------------Location Api -----------------------------------------------------
 
@@ -335,13 +340,33 @@ urlpatterns = [
     path('customer-lead-cancel-reasons/',LeadCustomersCancelReasonsView.as_view(), name='customer_lead_cancel_reason'),
     path('customer-lead-update-status/',LeadCustomersUpdateStatusView.as_view(), name='customer_lead_update_status'),
 
+    path('damage-control/', DamageControlAPIView.as_view(), name='damage_control'),
     path('customer-request-types/', CustomerRequestTypeAPIView.as_view(), name='customer_request_types_list'),
     path('customer-request-types/<uuid:id>/', CustomerRequestTypeAPIView.as_view(), name='customer_request_type_detail'),
-
+    
     path('customer-requests/', CustomerRequestCreateAPIView.as_view(), name='customer_request_create'),
     path('customer-requests-lists/', CustomerRequestListAPIView.as_view(), name='customer_request_list'),
-
+    
     path('update-customer-request-status/', UpdateCustomerRequestStatusView.as_view(), name='update-customer-request-status'),
 
 
-]
+    path('salesman-customer-request-types/', SalesmanCustomerRequestTypeAPIView.as_view()),
+    path('salesman-customer-requests/', SalesmanCustomerRequestCreateAPIView.as_view()),
+    path('salesman-customer-requests-lists/', SalesmanCustomerRequestListAPIView.as_view()),
+    path('update-salesman-customer-request-status/<uuid:request_id>/', UpdateSalesmanCustomerRequestStatusView.as_view()),
+    path('all-salesman-customer-requests-lists/', AllSalesmanCustomerRequestListAPIView.as_view()),
+    #-----------------------------Auditing--------------------------------------------
+    path('audit-list/', AuditListAPIView.as_view(), name='audit-list'),
+    path('audit-details/<uuid:audit_id>/', AuditDetailListAPIView.as_view(), name='audit-details'),
+    path('start-audit/', StartAuditAPIView.as_view(), name='start-audit'),
+    path('end-audit/<uuid:audit_id>/', EndAuditAPIView.as_view(), name='end-audit'),
+    path('create-audit-detail/', CreateAuditDetailAPIView.as_view(), name='create-audit-detail'),
+    
+    path('production-onload-report/', ProductionOnloadReportAPIView.as_view(), name='production_onload_report_api'),
+    path('scrap-clearence-report/', ScrapClearanceReportAPIView.as_view(), name='scrap_clearence_report_api'),
+    
+    path('overview/', OverviewAPIView.as_view(), name='overview-api'),
+    path('sales-dashboard/', SalesDashbordAPIView.as_view(), name='sales-dashboard'),
+    path('bottle-statistics-dashboard/', BottleStatisticsDashboardAPIView.as_view(), name='bottle-statistics-dashboard'),
+
+]   

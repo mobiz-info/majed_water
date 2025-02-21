@@ -77,8 +77,8 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                        {% load el_pagination_tags %}
-                                        {% paginate 20 collection_payments %}
+                                        {% comment %} {% load el_pagination_tags %} {% endcomment %}
+                                        {% comment %} {% paginate 20 collection_payments %} {% endcomment %}
                                         {% for data in collection_payments %}
                                         <tr>
                                             <td style="text-align:right;">{{ forloop.counter }}</td>
@@ -96,9 +96,18 @@
                                         </tr>
                                     {%endfor%}
                                     </tbody>
+                                    <tfoot>
+                                        <tr style="font-weight: bold; background-color: #f8f9fa;">
+                                            <td colspan="6" style="text-align:right !important;">Grand Total:</td>
+                                            <td style="text-align:center !important;">{{grand_total_amount }}</td>
+                                            <td style="text-align:center !important;">{{ grand_total_collected}}</td>
+                                            <td style="text-align:center !important;">{{ grand_total_balance }}</td>
+                                            <td colspan="2"></td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
-                            {% get_pages %}
+                            {% comment %} {% get_pages %}
                             <div class="clearfix"></div>
                             <div class="row pagi my-3">
                                 <div class="col-sm-6 col-xs-6 tot my-pagination">
@@ -110,7 +119,7 @@
                                     </div>
                                 </div>
                                 <div class="col-sm-6 col-xs-6 text-end pagination-btn-div">{% show_pages %}</div>
-                            </div>
+                            </div> {% endcomment %}
                         </div>
                     </div>
                 </div>

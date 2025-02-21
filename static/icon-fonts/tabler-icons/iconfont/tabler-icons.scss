@@ -383,7 +383,7 @@ $ti-icon-brand-angular: unicode('ef6b');
 $ti-icon-brand-apple: unicode('ec17');
 $ti-icon-brand-apple-arcade: unicode('ed69');
 $ti-icon-brand-appstore: unicode('ed24');
-$ti-icon-brand-asana: unicode('edc5');
+$ti-icon-brand-amajed : unicode('edc5');
 $ti-icon-brand-behance: unicode('ec6e');
 $ti-icon-brand-bing: unicode('edc6');
 $ti-icon-brand-bitbucket: unicode('edc7');
@@ -2363,7 +2363,7 @@ $ti-icon-zoom-question: unicode('edeb');
 .#{$ti-prefix}-brand-apple:before { content: $ti-icon-brand-apple; }
 .#{$ti-prefix}-brand-apple-arcade:before { content: $ti-icon-brand-apple-arcade; }
 .#{$ti-prefix}-brand-appstore:before { content: $ti-icon-brand-appstore; }
-.#{$ti-prefix}-brand-asana:before { content: $ti-icon-brand-asana; }
+.#{$ti-prefix}-brand-amajed :before { content: $ti-icon-brand-amajed ; }
 .#{$ti-prefix}-brand-behance:before { content: $ti-icon-brand-behance; }
 .#{$ti-prefix}-brand-bing:before { content: $ti-icon-brand-bing; }
 .#{$ti-prefix}-brand-bitbucket:before { content: $ti-icon-brand-bitbucket; }

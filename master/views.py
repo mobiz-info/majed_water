@@ -1196,6 +1196,7 @@ class AmountChangesList(View):
         }
         return render(request, self.template_name, context)
     
+    
 def create_outstanding_variation_invoice(request):
     if request.method == 'POST':
         date = request.POST.get("date")

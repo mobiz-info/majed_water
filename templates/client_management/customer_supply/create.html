@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block content %}
+{% load client_templatetags %}
 
 <div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
     <h4 class="fw-medium mb-0">Create Customer Supply</h4>
@@ -22,7 +23,7 @@
                         </div>
                     </div>
                     <div class="card-body">
-                        <form action="." role="form" method="POST" enctype="multipart/form-data"  class="row g-3 ajax redirect" autocomplete="off" novalidate>
+                        <form action="." role="form" method="POST" enctype="multipart/form-data" id="supply_form"  class="row g-3 ajax redirect" autocomplete="off" novalidate>
                             {% csrf_token %}
                             <input class="d-none" name="customer_id_field" id="customer_id_hfield" value="{{customer_instance.customer_id}}">
                             <!--row 1-->
@@ -142,6 +143,43 @@
                                                 <span style="color: red;">{{ customer_supply_form.reference_number.errors }}</span>
                                             </div>
                                         </div>
+                                        
+                                        {% if customer_instance.sales_type == "CASH COUPON" %}
+                                        <div class="row">
+                                            <div class="form-group required">
+                                                <label class="control-label">Coupon Type</label>
+                                                <div class="form-check">
+                                                    <input type="radio" class="form-check-input" id="manual_coupon" name="coupon_method" value="manual" checked>
+                                                    <label class="form-check-label" for="manual_coupon">Manual</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input type="radio" class="form-check-input" id="digital_coupon" name="coupon_method" value="digital">
+                                                    <label class="form-check-label" for="digital_coupon">Digital</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="form-group required">
+                                                <label class='control-label'>No of Coupons Collected</label>
+                                                <input type="number" class="form-control" name="total_coupon_collected">
+                                            </div>
+                                        </div>
+                                        <div class="row row-for-select-leafs">
+                                            <div class="form-group required">
+                                                <label class='control-label'>Collected Leafs</label>
+                                                {% get_customer_coupon_leafs customer_instance.pk as leafs %}
+                                                <select class="form-select" id="multiple-select-field" 
+                                                    data-placeholder="Choose leaflets" multiple name="collected_coupon_ids">
+                                                    {% for leaf in leafs %}
+                                                        <option value="{{ leaf.couponleaflet_id }}">{{ leaf.leaflet_name }}</option>
+                                                    {% empty %}
+                                                        <option disabled>No leaflets available</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>  
+                                        {% endif %}                                      
                                     </div>
 
                                     <div class="col-2">
@@ -352,7 +390,7 @@
     });
 </script>
 <script>
-    function createCustomer SupplyBtn(button){
+    function createCustomerSupplyBtn(button){
         var customerId = $(button).data("customer_id");
         $('#customer_id_hfield').val(customerId);        
     };
@@ -386,6 +424,39 @@
         dateInput.max = today;
     });
 </script>
-    
+{% if customer_instance.sales_type == "CASH COUPON" %}
+<script>
+    $( '#multiple-select-field' ).select2( {
+        theme: "bootstrap-5",
+        width: $( this ).data( 'width' ) ? $( this ).data( 'width' ) : $( this ).hasClass( 'w-100' ) ? '100%' : 'style',
+        placeholder: $( this ).data( 'placeholder' ),
+        closeOnSelect: false,
+    } );
+    $('#supply_form').submit(function() {
+        var selectedValues = $('#multiple-select-field').val();
+        console.log('Selected Values:', selectedValues);  // Debugging output
+    });
+</script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        function toggleLeafSelection() {
+            var isDigital = document.getElementById("digital_coupon").checked;
+            var leafRow = document.querySelector(".row-for-select-leafs");
 
+            if (isDigital) {
+                leafRow.style.display = "none"; // Hide when Digital is selected
+            } else {
+                leafRow.style.display = "block"; // Show when Manual is selected
+            }
+        }
+
+        // Run the function on page load to set the correct state
+        toggleLeafSelection();
+
+        // Attach event listeners to radio buttons
+        document.getElementById("manual_coupon").addEventListener("change", toggleLeafSelection);
+        document.getElementById("digital_coupon").addEventListener("change", toggleLeafSelection);
+    });
+</script>
+{% endif %}
 {% endblock static %}

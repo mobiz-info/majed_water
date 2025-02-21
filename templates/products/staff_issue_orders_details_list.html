@@ -68,7 +68,7 @@
                                             {% endif %}
                                         </div>
                                         {% else %}
-                                        <span>Item Issued to van</span>
+                                        <button class="btn btn-primary-light btn-sm" data-request_id="{{data.pk}}" data-current_issued="{{data.issued_qty}}" data-href="" onclick="bottleRebackButton(this)"><span class="bi bi-arrow-repeat fs-14"></span> Reback</button>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -110,6 +110,47 @@
                             </div>
                             <input type="hidden" name="request_id" id="modalRequestId">
                         </div>
+                    </div>
+                </div>                             
+                <div class="modal-footer">
+                    <button type="submit" class="btn bg-gradient-secondary">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Reback Modal -->
+<div class="modal fade" id="rebackModal" tabindex="-1" role="dialog" aria-labelledby="rebackModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header text-center">
+            <h5 class="modal-title" id="rebackModalLabel">Stock Reback</h5>
+            <button type="button" class="btn-close text-dark" data-bs-dismiss="modal" aria-label="Close" onclick="clearForm()"></button>
+            </div>
+            <form action="" role="form" method="post" enctype="multipart/form-data"  class="row g-3 ajax redirect" autocomplete="off" novalidate>
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row justify-content-center">
+                        <div class="col-12">
+                            <input type="hidden" name="request_id" id="modalRequestId">
+                        </div>
+                    </div>
+                    <div class="row justify-content-center">
+                        <div class="col-12">
+                            <div class="form-group required">
+                                <input type="radio" name="reback_type" value="increase"> Increase
+                                <input type="radio" name="reback_type" value="decrease"> Decrease
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <div class="form-group required">
+                                <label class='control-label'>Count</label>
+                                <input class="form-control" type="text" name="reback_count">
+                            </div>
+                        </div> 
                     </div>
                 </div>                             
                 <div class="modal-footer">
@@ -164,6 +205,12 @@
         });
     }
 
+    function bottleRebackButton(button) {
+        var requestId = $(button).data("request_id");
+        $("#modalRequestId").val(requestId);
+        $('#rebackModal').modal('show');
+    }
+
 
 
     {% comment %} function handleButtonClick(button) {
@@ -192,49 +239,6 @@
         document.getElementById('modalCouponBookNo').value = '';
         }
     </script>
-    {% comment %} <script>
-        $("#couponBookVarifyBtn").click(function(){
-            var requestId = $("#modalRequestId").val();
-            var couponBookNo = $("#modalCouponBookNo").val();
-            var url = "{% url 'varify_coupon' %}"
-    
-            $.ajax({
-                type: 'GET',
-                url: url,
-                dataType: 'json',
-                data: {
-                    'request_id': requestId,
-                    'coupon_book_no': couponBookNo,
-                },
-        
-                success: function (data) {
-                    if (data["varify_status"] === true){
-                        var coupo_no = $("#modalCouponBookNo").val();
-                        var submitUrl = $("#couponBookSubmitBtn").attr('href');
-
-                        $(".coupon-verification-status").html("Available coupon");
-                        $("#couponBookVerifyBtn").addClass("d-none");
-                        $("#couponBookSubmitBtn").removeClass("d-none");
-
-                        $(".coupon-verification-status").addClass("text-success");
-                        $(".coupon-verification-status").removeClass("text-danger");
-                        $("#couponBookSubmitBtn").attr('href', submitUrl + "?coupo_no=" + encodeURIComponent(coupo_no));
-                    }else{
-                        $(".coupon-varification-status").html("no valid coupons");
-                        $("#couponBookVarifyBtn").removeClass("d-none");
-                        $("#couponBookSubmitBtn").addClass("d-none");
-                        $(".coupon-varification-status").addClass("text-danger");
-                        $(".coupon-varification-status").removeClass("text-success");
-                    }
-                },
-                error: function (data) {
-                    var title = data["title"];
-                    var errorMessagesStr = data["responseJSON"]["message"];
-                },
-            });
-    
-        });
-    </script> {% endcomment %}
 {% endblock static %}
 
 

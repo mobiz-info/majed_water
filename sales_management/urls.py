@@ -28,7 +28,7 @@ urlpatterns = [
     path('download-salesreport-excel/', download_salesreport_excel, name='download_salesreport_excel'),
 
     
-    path('collectionreport', collectionreport, name='collectionreport'),
+    path('collection_report', collection_report, name='collection_report'),
     # path('dailycollectionreport', dailycollectionreport, name='dailycollectionreport'),
     path('collection_report_excel/', collection_report_excel, name='collection_report_excel'),
     path('print_collection_report/', print_collection_report, name='print_collection_report'),
@@ -102,7 +102,7 @@ urlpatterns = [
     path('dsr-summary/', dsr_summary, name='dsr_summary'),
     path('print-dsr-summary/', print_dsr_summary, name='print_dsr_summary'),
     # path('export-dsr-summary/', export_daily_summary_report, name='export_dsr_summary'),
-    
+    path('dsr-summary1/', dsr_summary1, name='dsr_summary1'),
     #------------------------------Bottle Count-------------------------------------
     path('van-route-bottle-count/', van_route_bottle_count, name='van_route_bottle_count'),
     path('vans-route-bottle-count-add/<uuid:pk>/',VansRouteBottleCountAdd, name='bottle_count_add'),
@@ -116,7 +116,7 @@ urlpatterns = [
     path('print-dsr/', print_dsr, name='print_dsr'),
     
     path('collection_list/', collection_list_view, name='collection_list'),
-    path('delete_collection_payment/<str:receipt_number>/<uuid:customer_id>/', delete_collection_payment, name='delete_collection_payment'),
+    path('delete_collection_payment/<int:pk>/', delete_collection_payment, name='delete_collection_payment'),
     
     path('coupon_sales_report/', coupon_sales_report_view, name='coupon_sales_report'),
     path('coupon_sales_excel/', coupon_sales_excel_view, name='coupon_sales_excel'),
@@ -139,8 +139,20 @@ urlpatterns = [
     path('offload-list/', offload_list, name='offload_list'),
     path('offload-list-print/', offload_list_print, name='offload_list_print'),
     path('offload-list-excel/', download_offload_excel, name='download_offload_excel'),
-    
+
     path('todays-cash-sales/', todays_cash_sales, name='todays_cash_sales'),
     path('todays-credit-sales/', todays_credit_sales, name='todays_credit_sales'),
+    
+    path('cheque_collections/', cheque_collections_view, name='cheque_collections'),
+    path('cheque_clearance/<int:collection_id>/', cheque_clearance, name='cheque_clearance'),
+    
+    path('production_onload_report/', production_onload_report_view, name='production_onload_report'),
+    path('production_onload_print/', production_onload_print, name='production_onload_print'),
+    path('download_excel_production_onload/', download_production_onload, name='download_production_onload'),
+    
+    path("scrap_clearance_report/", scrap_clearance_report, name="scrap_clearance_report"),
+    path("scrap_clearance_print/", scrap_clearance_print, name="scrap_clearance_print"),
+    path('scrap_clearance_to_excel/', scrap_clearance_to_excel, name='scrap_clearance_to_excel'),
+
 
 ]
