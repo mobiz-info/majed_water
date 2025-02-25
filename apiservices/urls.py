@@ -364,9 +364,12 @@ urlpatterns = [
     
     path('production-onload-report/', ProductionOnloadReportAPIView.as_view(), name='production_onload_report_api'),
     path('scrap-clearence-report/', ScrapClearanceReportAPIView.as_view(), name='scrap_clearence_report_api'),
-    
+
     path('overview/', OverviewAPIView.as_view(), name='overview-api'),
     path('sales-dashboard/', SalesDashbordAPIView.as_view(), name='sales-dashboard'),
     path('bottle-statistics-dashboard/', BottleStatisticsDashboardAPIView.as_view(), name='bottle-statistics-dashboard'),
+    path('coupon-overview-dashboard/', CouponDashboardAPIView.as_view(), name='coupon-overview-dashboard'),
+    path('customer-statistics-dashboard/', CustomerStatisticsDashboardAPIView.as_view(), name='customer-statistics-dashboard'),
+    path('others-dashboard/', OthersDashboardAPIView.as_view(), name='others-dashboard'),
 
-]   
+]
