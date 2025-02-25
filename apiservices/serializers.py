@@ -332,8 +332,14 @@ class SupplyItemFiveCanWaterProductGetSerializer(serializers.ModelSerializer):
     def get_rate(self, obj):
         customer_id = self.context.get('customer_id')
         try:
-            customer = Customers.objects.get(pk=customer_id)
-            rate = customer.rate
+            if obj.product_name.product_name.lower() == "5 gallon":
+                customer = Customers.objects.get(pk=customer_id)
+                rate = customer.rate
+            else:
+                if (othr_product_charges:=CustomerOtherProductCharges.objects.filter(customer__pk=customer_id,product_item=obj.product_name)).exists():
+                    rate = othr_product_charges.first().current_rate
+                else:
+                    rate = rate = obj.rate
         except Customers.DoesNotExist:
             rate = obj.rate
         return rate
@@ -356,7 +362,10 @@ class SupplyItemFiveGallonWaterGetSerializer(serializers.ModelSerializer):
             except Customers.DoesNotExist:
                 rate = obj.rate
         else:
-            obj.rate
+            if (othr_product_charges:=CustomerOtherProductCharges.objects.filter(customer__pk=customer_id,product_item=obj)).exists():
+                rate = othr_product_charges.first().current_rate
+            else:
+                rate = rate = obj.rate
         return rate
     
     def get_quantity(self, obj):
