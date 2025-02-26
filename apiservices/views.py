@@ -12583,7 +12583,14 @@ class SalesDashbordAPIView(APIView):
         total_credit_outstanding_amounts = today_outstandings.filter(customer_outstanding__customer__sales_type="CREDIT").aggregate(total_amount=Sum('amount'))['total_amount'] or 0
         total_outstanding_amounts = total_cash_outstanding_amounts + total_credit_outstanding_amounts
         total_coupon_outstanding_amounts = today_outstandings.filter(customer_outstanding__customer__sales_type="CASH COUPON").aggregate(total_amount=Sum('amount'))['total_amount'] or 0       
+        # Recharge Sales
+        todays_recharge_instances = CustomerCoupon.objects.filter(created_date__date=selected_date)
+        recharge_cash_sales_instances = todays_recharge_instances.filter(amount_recieved__gt=0)
+        recharge_credit_sales_instances = todays_recharge_instances.filter(amount_recieved__lte=0)
+        total_recharge_cash_sales = recharge_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        total_supply_cash_sales = supply_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
 
+        total_today_collections = total_supply_cash_sales + total_recharge_cash_sales
         # Final response data
         response_data = {
             "selected_date": selected_date,
@@ -12592,6 +12599,8 @@ class SalesDashbordAPIView(APIView):
             "total_credit_sales_amount": total_credit_sales_amount,
             "total_sales_grand_total": total_sales_grand_total,
             "total_recharge_sales_amount": total_recharge_sales_amount,
+            "total_today_collections": total_today_collections,  # Added field
+            "total_recharge_cash_sales": total_recharge_cash_sales,  # Added field
             "total_old_payment_cash_collections": total_old_payment_cash_collections,
             "total_old_payment_credit_collections": total_old_payment_credit_collections,
             "total_old_payment_grand_total_collections": total_old_payment_cash_collections + total_old_payment_credit_collections,
@@ -12665,6 +12674,31 @@ class BottleStatisticsDashboardAPIView(APIView):
         total_used_bottle_count = WashedUsedProduct.objects.filter(
             product__product_name="5 Gallon"
         ).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+        
+        # Fetch all salesmen instances
+        salesmans_instances = CustomUser.objects.filter(user_type="Salesman")
+
+        # Prepare structured data for the serializer
+        salesman_chart_data = []
+        for salesman in salesmans_instances:
+            salesman_chart_data.append({
+                "salesman_name": salesman.username,
+                "supply_count": (
+                    CustomerSupplyItems.objects.filter(
+                        customer_supply__salesman=salesman,
+                        customer_supply__created_date__date=date,
+                        product__product_name="5 Gallon",
+                    ).aggregate(total_qty=Sum("quantity"))["total_qty"] or 0
+                ),
+                "empty_bottle_count": (
+                    CustomerSupply.objects.filter(salesman=salesman, created_date__date=date)
+                    .aggregate(total_qty=Sum("collected_empty_bottle"))["total_qty"] or 0
+                ),
+            })
+
+        # Serialize the prepared data
+        chart_data = SalesmanSupplyChartSerializer(salesman_chart_data, many=True).data
+
 
         # Create response dictionary
         data = {
@@ -12678,7 +12712,234 @@ class BottleStatisticsDashboardAPIView(APIView):
             "today_service_bottle_count": today_service_bottle_count,
             "today_fresh_bottle_stock": today_fresh_bottle_stock,
             "total_used_bottle_count": total_used_bottle_count,
+            "salesman_based_bottle_chart": chart_data,
+
         }
 
         serializer = BottleStatisticsSerializer(data)
+        return Response(serializer.data)
+class CouponDashboardAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user  # Get the logged-in user
+        print("user",user)
+
+        # Ensure only "owner" user type can access
+        if user.user_type != 'owner' and (not user.designation_id or user.designation_id.designation_name.lower() != "owner"):
+            return Response({"detail": "You do not have permission to access this resource."}, status=status.HTTP_403_FORBIDDEN)
+        date = request.GET.get("date", now().date())  # Default to today
+        todays_recharge_instances = CustomerCoupon.objects.filter(created_date__date=date)
+        todays_supply_instances = CustomerSupplyItems.objects.filter(customer_supply__created_date__date=date)
+
+        # Sold Coupons
+        manual_coupon_sold_count = todays_recharge_instances.filter(coupon_method="manual").count()
+        digital_coupon_sold_count = todays_recharge_instances.filter(coupon_method="digital").count()
+
+        # Collected Coupons
+        collected_manual_coupons_count = (
+            CustomerSupplyCoupon.objects.filter(customer_supply__pk__in=todays_supply_instances.values_list("pk"))
+            .aggregate(manual_count=Count('leaf'), free_count=Count('free_leaf'))
+        )
+        collected_manual_coupons_count = (collected_manual_coupons_count['manual_count'] or 0) + (collected_manual_coupons_count['free_count'] or 0)
+
+        collected_digital_coupons_count = (
+            CustomerSupplyDigitalCoupon.objects.filter(customer_supply__pk__in=todays_supply_instances.values_list("pk"))
+            .aggregate(total_count=Sum('count'))
+        )['total_count'] or 0
+
+        # Outstanding Coupons
+        today_manual_coupon_outstanding_count = (
+            OutstandingCoupon.objects.filter(customer_outstanding__created_date__date=date)
+            .exclude(coupon_type__coupon_type_name="Digital")
+            .aggregate(total_count=Sum('count'))
+        )['total_count'] or 0
+
+        today_digital_coupon_outstanding_count = (
+            OutstandingCoupon.objects.filter(customer_outstanding__created_date__date=date, coupon_type__coupon_type_name="Digital")
+            .aggregate(total_count=Sum('count'))
+        )['total_count'] or 0
+
+        # Pending Coupons
+        today_supply_quantity_ex_foc_count = (
+            CustomerSupplyItems.objects.filter(
+                product__product_name="5 Gallon",
+                customer_supply__pk__in=todays_supply_instances.values_list("pk"),
+                customer_supply__customer__sales_type="CASH COUPON"
+            ).aggregate(total_qty=Sum('quantity'))
+        )['total_qty'] or 0
+
+        collected_total_coupon = collected_manual_coupons_count + collected_digital_coupons_count
+
+        today_pending_manual_coupons_count = max(0, today_supply_quantity_ex_foc_count - collected_manual_coupons_count)
+        today_pending_digital_coupons_count = max(0, today_supply_quantity_ex_foc_count - collected_digital_coupons_count)
+
+        today_pending_manual_coupons_collected_count = max(0, collected_manual_coupons_count - today_supply_quantity_ex_foc_count)
+        today_pending_digital_coupons_collected_count = max(0, collected_digital_coupons_count - today_supply_quantity_ex_foc_count)
+
+        # Salesman Recharge Data
+        coupon_salesmans_instances = CustomUser.objects.filter(pk__in=CustomerCoupon.objects.filter(created_date__date=date).values_list('salesman__pk'))
+        coupon_salesman_recharge_data = [
+            {
+                "salesman_id": user.pk,
+                "salesman_name": user.username,
+                "total_coupons_sold": CustomerCoupon.objects.filter(salesman=user, created_date__date=date).count()
+            }
+            for user in coupon_salesmans_instances
+        ]
+
+        data = {
+            "manual_coupon_sold_count": manual_coupon_sold_count,
+            "digital_coupon_sold_count": digital_coupon_sold_count,
+            "collected_manual_coupons_count": collected_manual_coupons_count,
+            "collected_digital_coupons_count": collected_digital_coupons_count,
+            "today_pending_manual_coupons_count": today_pending_manual_coupons_count,
+            "today_pending_digital_coupons_count": today_pending_digital_coupons_count,
+            "today_pending_manual_coupons_collected_count": today_pending_manual_coupons_collected_count,
+            "today_pending_digital_coupons_collected_count": today_pending_digital_coupons_collected_count,
+            "today_manual_coupon_outstanding_count": today_manual_coupon_outstanding_count,
+            "today_digital_coupon_outstanding_count": today_digital_coupon_outstanding_count,
+            "coupon_salesman_recharge_data": coupon_salesman_recharge_data,
+
+        }
+
+        serializer = CouponDashboardSerializer(data)
+        return Response(serializer.data)
+
+class CustomerStatisticsDashboardAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user  # Get the logged-in user
+        print("user",user)
+
+        # Ensure only "owner" user type can access
+        if user.user_type != 'owner' and (not user.designation_id or user.designation_id.designation_name.lower() != "owner"):
+            return Response({"detail": "You do not have permission to access this resource."}, status=status.HTTP_403_FORBIDDEN)
+        today = now().date()
+        start_of_month = today.replace(day=1)
+        last_20_days = today - timedelta(days=20)
+
+        customers_instances = Customers.objects.all()
+        route_instances = RouteMaster.objects.all()
+        vocation_customers_instances = Vacation.objects.all()
+
+        # Total Customers
+        total_customers_count = customers_instances.count()
+
+        # Call Customers Count
+        call_customers_count = customers_instances.filter(is_calling_customer=True).count()
+
+        # Inactive Customers Count
+        inactive_customers_count = 0
+        route_inactive_customer_count = {}
+
+        # # Customers on Vacation
+        # total_vocation_customers_count = vocation_customers_instances.count()
+
+        # New Customers by Route
+        route_data = Customers.objects.filter(routes__route_name__isnull=False).values(
+            'routes__route_name'
+        ).annotate(
+            today_new_customers=Count('customer_id', filter=Q(created_date__date=today)),
+            month_new_customers=Count('customer_id', filter=Q(created_date__date__gte=start_of_month))
+        )
+
+        # Inactive Customers by Route
+        for route in route_instances:
+            route_customers = Customers.objects.filter(routes=route)
+
+            visited_customers = CustomerSupply.objects.filter(
+                created_date__date__range=(last_20_days, today)
+            ).values_list('customer_id', flat=True)
+
+            todays_customers = Customers.objects.filter(
+                created_date__date=today, routes=route
+            ).values_list('customer_id', flat=True)
+
+            inactive_customers = route_customers.exclude(pk__in=visited_customers).exclude(pk__in=todays_customers)
+
+            route_inactive_customer_count[route.route_name] = inactive_customers.count()
+            inactive_customers_count += inactive_customers.count()
+
+        # Non-visited Customers Data
+        non_visited_customers_data = []
+        for route in route_instances:
+            today_vocation_customer_ids = vocation_customers_instances.filter(
+                start_date__lte=today, end_date__gte=today
+            ).values_list('customer__pk', flat=True)
+
+            scheduled_customers = customers_instances.filter(
+                routes=route,
+                is_calling_customer=False
+            ).exclude(pk__in=today_vocation_customer_ids)
+
+            scheduled_customers_filtered = []
+            for customer in scheduled_customers:
+                if customer.visit_schedule:
+                    for day, weeks in customer.visit_schedule.items():
+                        if str(today.weekday()) == str(day) and str((today.day - 1) // 7 + 1) in weeks:
+                            scheduled_customers_filtered.append(customer.pk)
+
+            
+            non_visited_customers = set(scheduled_customers_filtered) - set(
+            NonvisitReport.objects.filter(
+                created_date__date=today, 
+                customer__routes=route
+            ).values_list('customer__pk', flat=True)
+        )
+
+            non_visited_customers_data.append({
+                'route': route.route_name,
+                'non_visited_customers_count': len(non_visited_customers)
+            })
+
+        # Serialize data
+        data = {
+            'total_customers_count': total_customers_count,
+            'inactive_customers_count': inactive_customers_count,
+            'call_customers_count': call_customers_count,
+            "total_vocation_customers_count": len(vocation_customers_instances.filter(start_date__gte=today, end_date__lte=today).values_list('customer__pk').distinct()),
+            'route_data': list(route_data),
+            'route_inactive_customer_count': route_inactive_customer_count,
+            'non_visited_customers_data': non_visited_customers_data,
+        }
+
+        serializer = CustomerStatisticsSerializer(data)
+        return Response(serializer.data)
+
+class OthersDashboardAPIView(APIView):
+
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user  # Get the logged-in user
+        print("user",user)
+
+        # Ensure only "owner" user type can access
+        if user.user_type != 'owner' and (not user.designation_id or user.designation_id.designation_name.lower() != "owner"):
+            return Response({"detail": "You do not have permission to access this resource."}, status=status.HTTP_403_FORBIDDEN)
+        date = request.GET.get("date", now().date())  # Default to today
+        
+        pending_complaints_count = CustomerComplaint.objects.filter(status='Pending').count()
+        resolved_complaints_count = CustomerComplaint.objects.filter(status='Completed').count()
+        
+        today_expenses = Expense.objects.filter(expense_date=date)
+        total_expense = today_expenses.aggregate(total=Sum('amount'))['total'] or 0
+        
+        today_orders_count = Staff_Orders.objects.filter(created_date__date=date).count()
+        today_coupon_requests_count = CustomerCoupon.objects.filter(created_date__date=date).count()
+        
+        data = {
+            "total_expense": total_expense,
+            "today_coupon_requests_count": today_coupon_requests_count,
+            "today_orders_count": today_orders_count,
+            "pending_complaints_count": pending_complaints_count,
+            "resolved_complaints_count": resolved_complaints_count,
+        }
+
+        serializer = OthersDashboardSerializer(data)
         return Response(serializer.data)
