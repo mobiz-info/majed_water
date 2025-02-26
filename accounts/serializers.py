@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from . models import *
-from client_management.models import CustomerSupplyItems
+from client_management.models import CustomerOtherProductCharges, CustomerSupplyItems
 from django.db.models import Sum
 
 class CustomUserSerializers(serializers.ModelSerializer):
@@ -23,10 +23,44 @@ class CustomersCreateSerializers(serializers.ModelSerializer):
         model = Customers
         fields = '__all__'
 
+class OtherProductCustomerRateSerializers(serializers.ModelSerializer):
+    product_id = serializers.SerializerMethodField()
+    product_name = serializers.SerializerMethodField()
+    
+    class Meta :
+        model = CustomerOtherProductCharges
+        fields = ['product_id','product_name','current_rate']
+        
+    def get_product_id(self, obj):
+        return obj.product_item.pk
+    
+    def get_product_name(self, obj):
+        return obj.product_item.product_name
+    
+class OtherProductItemsCustomerRateSerializers(serializers.ModelSerializer):
+    product_id = serializers.SerializerMethodField()
+    product_name = serializers.SerializerMethodField()
+    current_rate = serializers.SerializerMethodField()
+    
+    class Meta :
+        model = ProdutItemMaster
+        fields = ['product_id','product_name','current_rate']
+        
+    def get_product_id(self, obj):
+        return obj.pk
+    
+    def get_product_name(self, obj):
+        return obj.product_name
+    
+    def get_current_rate(self, obj):
+        return obj.rate
+
 class CustomersSerializers(serializers.ModelSerializer):
     location = serializers.SerializerMethodField()
     location_name = serializers.SerializerMethodField()
     total_supply_count = serializers.SerializerMethodField()
+    other_product_rate = serializers.SerializerMethodField()
+    
     class Meta :
         model = Customers
         fields = [
@@ -37,7 +71,7 @@ class CustomersSerializers(serializers.ModelSerializer):
             'credit_days', 'no_of_permitted_invoices', 'trn', 'billing_address', 'preferred_time',
             'branch_id', 'is_active', 'visit_schedule', 'is_editable', 'user_id', 'rate',
             'coupon_count', 'five_g_count_limit', 'eligible_foc', 'is_calling_customer',
-            'total_supply_count','location_name','location','gps_module_active'
+            'total_supply_count','location_name','location','gps_module_active','other_product_rate'
         ]
 
     def get_location(self, obj):
@@ -57,6 +91,13 @@ class CustomersSerializers(serializers.ModelSerializer):
             customer_supply__customer=obj
         ).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
         return total_quantity
+    
+    def get_other_product_rate(self, obj):
+        if (other_product_rate:=CustomerOtherProductCharges.objects.filter(customer=obj)).exists():
+            return OtherProductCustomerRateSerializers(other_product_rate,many=True).data
+        else:
+            item_instances = ProdutItemMaster.objects.exclude(product_name="5 Gallon")
+            return OtherProductItemsCustomerRateSerializers(item_instances,many=True).data
     
         
 class Create_Customers_Serializers(serializers.ModelSerializer):

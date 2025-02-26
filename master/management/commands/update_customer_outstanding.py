@@ -13,7 +13,7 @@ from product.models import ProdutItemMaster
 from sales_management.models import CollectionPayment
 
 # Read the Excel file
-file_path = '/home/ra/Downloads/S-42new.xlsx'
+file_path = '/home/ra/Downloads/VAN525022025.xlsx'
 data = pd.read_excel(file_path)
 print("File path:", file_path)
 print("DataFrame columns:", data.columns)
@@ -31,21 +31,8 @@ if 'amount' not in data.columns:
 
 @transaction.atomic
 def populate_models_from_excel(data):
-    user = CustomUser.objects.get(username="S-42")
-    date = datetime.strptime("2025-02-13", '%Y-%m-%d')
-    
-    # outstanding_in = CustomerOutstanding.objects.filter(created_date__date__lte=date,customer__routes__route_name="S-42",product_type='amount')
-    # Invoice.objects.filter(created_date__date__lte=date,customer__routes__route_name="S-42").delete()
-    # for outstanding in outstanding_in:
-        
-    #     ou_report = CustomerOutstandingReport.objects.get(
-    #         customer=outstanding.customer,
-    #         product_type='amount'
-    #         )
-    #     ou_report.value -= OutstandingAmount.objects.filter(customer_outstanding=outstanding).aggregate(total=Sum('amount', output_field=DecimalField()))['total'] or 0
-        
-    # outstanding_in.delete()
-    # CollectionPayment.objects.filter(created_date__date__lte=date,customer__routes__route_name="S-42").delete()
+    user = CustomUser.objects.get(username="Saqib")
+    date = datetime.strptime("2025-02-25", '%Y-%m-%d')
     
     for index, row in data.iterrows():
         customer_id = int(row['customer_id'])
@@ -63,6 +50,21 @@ def populate_models_from_excel(data):
         except Customers.DoesNotExist:
             print(f"Customer {customer_name} does not exist.")
             continue
+        
+        # # outstanding delete code start
+        # outstanding_in = CustomerOutstanding.objects.filter(created_date__date__lt=date,customer=customer,product_type='amount')
+        # Invoice.objects.filter(created_date__date__lt=date,customer=customer).delete()
+        # for outstanding in outstanding_in:
+            
+        #     ou_report = CustomerOutstandingReport.objects.get(
+        #         customer=outstanding.customer,
+        #         product_type='amount'
+        #         )
+        #     ou_report.value -= OutstandingAmount.objects.filter(customer_outstanding=outstanding).aggregate(total=Sum('amount', output_field=DecimalField()))['total'] or 0
+            
+        # outstanding_in.delete()
+        # CollectionPayment.objects.filter(created_date__date__lt=date,customer=customer).delete()
+        # outstanding delete code end
         
         customer_outstanding = CustomerOutstanding.objects.create(
             customer=customer,
@@ -139,7 +141,7 @@ def populate_models_from_excel(data):
         
         # for route in routes:
         #     branch = BranchMaster.objects.get(user_id__username="ajman")
-        # routes = RouteMaster.objects.get(route_name="S-42")
+        # routes = RouteMaster.objects.get(route_name="V-5")
         # customer.routes=routes
         # customer.branch_id=routes.branch_id
         # customer.save()
