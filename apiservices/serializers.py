@@ -20,7 +20,7 @@ from coupon_management.models import *
 from accounts.models import *
 from credit_note.models import CreditNote
 from product.templatetags.purchase_template_tags import get_van_current_stock
-
+from master.serializers import SalesmanSupplyCountSerializer
 
 class CustomerCustodyItemSerializers(serializers.ModelSerializer):
     class Meta:
@@ -1858,7 +1858,7 @@ class StaffOrdersSerializer(serializers.ModelSerializer):
         try:
             route = Van_Routes.objects.get(van__salesman__pk=obj.created_by)
             return route.routes.route_name
-        except Van_Routes.DoesNotExist:
+        except:
             return "--"
         
     def get_status(self, obj):
@@ -2669,15 +2669,33 @@ class CustomerRequestTypeSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'created_date', 'modified_by', 'modified_date']
 
 class CustomerRequestSerializer(serializers.ModelSerializer):
+    route_name = serializers.CharField(source='customer.routes.route_name', read_only=True)
+    address = serializers.SerializerMethodField() 
+    phone_no = serializers.CharField(source='customer.mobile_no', read_only=True) 
+    
     class Meta:
         model = CustomerRequests
-        fields = ['id', 'customer', 'request_type', 'status', 'created_date']
-        read_only_fields = ['id', 'status', 'created_date']
+        fields = ['id', 'customer', 'request_type', 'status', 'created_date', 'route_name', 'address', 'phone_no']
+        read_only_fields = ['id', 'status', 'created_date', 'route_name', 'address', 'phone_no']
 
     def validate_request_type(self, value):
         if not value:
             raise serializers.ValidationError("Request type is required.")
         return value
+    
+    def get_address(self, obj):
+        """Returns full address using customer details"""
+        customer = obj.customer
+        if customer:
+            address_parts = filter(None, [
+                customer.building_name,
+                customer.door_house_no,
+                customer.floor_no,
+                customer.location.location_name if customer.location else None,
+                customer.emirate.name if customer.emirate else None
+            ])
+            return ", ".join(address_parts)
+        return None
 
 class CustomerRequestListSerializer(serializers.ModelSerializer):
     request_type_name = serializers.SerializerMethodField()
@@ -2724,16 +2742,32 @@ class SalesmanCustomerRequestSerializer(serializers.ModelSerializer):
     salesman_name = serializers.CharField(source='salesman.get_full_name', read_only=True)  
     customer_name = serializers.CharField(source='customer.customer_name', read_only=True) 
     request_type_name = serializers.CharField(source='request_type.name', read_only=True)
-
+    route_name = serializers.CharField(source='customer.routes.route_name', read_only=True)
+    address = serializers.SerializerMethodField() 
+    phone_no = serializers.CharField(source='customer.mobile_no', read_only=True) 
+    
     class Meta:
         model = SalesmanCustomerRequests
         fields = [
             'id', 'salesman', 'salesman_name', 'customer', 'customer_name', 
             'request_type', 'request_type_name', 'status', 
-            'created_date', 'modified_by', 'modified_date'
+            'created_date', 'modified_by', 'modified_date', 'route_name', 'address', 'phone_no'
         ]
-        read_only_fields = ['id', 'created_date', 'modified_by', 'modified_date']
-
+        read_only_fields = ['id', 'created_date', 'modified_by', 'modified_date', 'route_name', 'address', 'phone_no']
+    
+    def get_address(self, obj):
+        """Returns full address using customer details"""
+        customer = obj.customer
+        if customer:
+            address_parts = filter(None, [
+                customer.building_name,
+                customer.door_house_no,
+                customer.floor_no,
+                customer.location.location_name if customer.location else None,
+                customer.emirate.name if customer.emirate else None
+            ])
+            return ", ".join(address_parts)
+        return None
 class SalesmanCustomerRequestListSerializer(serializers.ModelSerializer):
     class Meta:
         model = SalesmanCustomerRequests
