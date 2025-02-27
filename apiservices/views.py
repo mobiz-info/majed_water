@@ -12943,3 +12943,170 @@ class OthersDashboardAPIView(APIView):
 
         serializer = OthersDashboardSerializer(data)
         return Response(serializer.data)
+
+
+
+class TodayCollectionAPIView(APIView):
+    authentication_classes = [BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user  # Get the logged-in user
+        print("user", user)
+
+        # Ensure only "owner" user type can access
+        if user.user_type != 'owner' and (not user.designation_id or user.designation_id.designation_name.lower() != "owner"):
+            return Response({"detail": "You do not have permission to access this resource."}, status=status.HTTP_403_FORBIDDEN)
+
+        today = now().date()
+        route_name = request.query_params.get("route", None)  # Get route from request parameters
+
+        # Fetch today's supplies and prefetch related fields
+        todays_supply_instances = CustomerSupply.objects.filter(
+            created_date__date=today
+        ).select_related("customer", "salesman", "customer__routes")
+
+        # Apply route filtering if provided
+        if route_name:
+            todays_supply_instances = todays_supply_instances.filter(customer__routes__route_name=route_name)
+
+        # Filter for cash sales excluding "CASH COUPON"
+        supply_cash_sales_instances = todays_supply_instances.filter(amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
+
+        # Filter for credit sales excluding "FOC" and "CASH COUPON"
+        supply_credit_sales_instances = todays_supply_instances.filter(amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC", "CASH COUPON"])
+
+        # Calculate total amounts
+        total_supply_cash_sales = supply_cash_sales_instances.aggregate(
+            total_amount_received=Sum('amount_recieved')
+        )['total_amount_received'] or 0
+
+        total_credit_sales = supply_credit_sales_instances.aggregate(
+            total_amount_received=Sum('amount_recieved')
+        )['total_amount_received'] or 0
+
+        total_today_collections = total_supply_cash_sales  # Assuming no recharge component for now
+
+        data = {
+            "total_supply_cash_sales": total_supply_cash_sales,
+            "total_credit_sales": total_credit_sales,
+            "total_today_collections": total_today_collections,
+        }
+
+        serializer = TodayCollectionSerializer(todays_supply_instances, many=True)
+        return Response(serializer.data)
+
+class OldCollectionAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+
+        # Ensure only "owner" user type can access
+        if user.user_type != 'owner' and (not user.designation_id or user.designation_id.designation_name.lower() != "owner"):
+            return Response({"detail": "You do not have permission to access this resource."}, status=403)
+
+        date = request.query_params.get('date', now().date())  # Default to today if no date is provided
+        route = request.query_params.get('route', None)
+
+        old_collections = CollectionPayment.objects.filter(created_date__date=date)
+        
+
+        if route:
+            old_collections = old_collections.filter(customer__routes__route_name=route)
+
+        # Aggregate total old collections amount
+        total_old_payment_collections = old_collections.aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+
+        # Initialize serializer before using it
+        serializer = OldCollectionSerializer(old_collections, many=True)
+
+        response_data = {
+            "total_old_payment_collections": total_old_payment_collections,
+            "old_collections": serializer.data
+        }
+
+        return Response(response_data)
+
+class TotalCollectionAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+
+        # Ensure only "owner" user type can access
+        if user.user_type != 'owner' and (not user.designation_id or user.designation_id.designation_name.lower() != "owner"):
+            return Response({"detail": "You do not have permission to access this resource."}, status=403)
+
+        # Get date parameter (default: today)
+        date_str = request.query_params.get('date')
+        if date_str:
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        else:
+            date = datetime.today().date()
+
+        # Get route parameter (optional)
+        route_name = request.query_params.get('route_name')
+
+        # Fetch today's supply instances (filtered by route if provided)
+        todays_supply_instances = CustomerSupply.objects.filter(created_date__date=date)
+        if route_name:
+            todays_supply_instances = todays_supply_instances.filter(customer__routes__route_name=route_name)
+
+        # Filter supply cash sales (excluding CASH COUPON)
+        supply_cash_sales_instances = todays_supply_instances.filter(amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
+        
+        # Filter recharge cash sales
+        recharge_cash_sales_instances = CustomerCoupon.objects.filter(created_date__date=date, amount_recieved__gt=0)
+        if route_name:
+            recharge_cash_sales_instances = recharge_cash_sales_instances.filter(customer__routes__route_name=route_name)
+
+        # Calculate total supply cash sales
+        total_supply_cash_sales = supply_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+        
+        # Calculate total recharge cash sales
+        total_recharge_cash_sales = recharge_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+
+        # Calculate total today's collections
+        total_today_collections = total_supply_cash_sales + total_recharge_cash_sales
+
+        # Fetch old payment collections
+        old_payment_collections_instances = CollectionPayment.objects.filter(created_date__date=date)
+        if route_name:
+            old_payment_collections_instances = old_payment_collections_instances.filter(customer__routes__route_name=route_name)
+        
+        # Calculate total old payment collections
+        total_old_payment_collections = old_payment_collections_instances.aggregate(total_amount_recieved=Sum('amount_received'))['total_amount_recieved'] or 0
+
+        # Calculate total collection (Today + Old)
+        total_collection = total_today_collections + total_old_payment_collections
+
+        # Prepare sales report data
+        sales_report_data = []
+        for sale in supply_cash_sales_instances:
+            sales_report_data.append({
+                'date': sale.created_date.date(),
+                'ref_invoice_no': sale.reference_number,
+                'invoice_number': sale.invoice_no,
+                'customer_name': sale.customer.customer_name,
+                'custom_id': sale.customer.custom_id,
+                'building_name': sale.customer.building_name,
+                'sales_type': sale.customer.sales_type,
+                'route_name': sale.customer.routes.route_name,
+                'salesman': sale.customer.sales_staff.get_fullname(),
+                'amount': sale.grand_total,
+                'discount': sale.discount,
+                'net_taxable': sale.subtotal,
+                'vat_amount': sale.vat,
+                'grand_total': sale.grand_total,
+                'amount_collected': sale.amount_recieved,
+            })
+
+        response_data = {
+            # "total_today_collections": total_today_collections,
+            # "total_old_payment_collections": total_old_payment_collections,
+            "total_collection": total_collection,
+            "sales_report": sales_report_data
+        }
+
+        return Response(response_data)
