@@ -21,19 +21,15 @@ def get_next_visit_day(customer_pk):
 @register.simple_tag
 def bottle_stock(customer_pk):
     customer = Customers.objects.get(pk=customer_pk)
-   
     custody_count = 0
-    outstanding_bottle_count = 0
 
     if (custody_stock:=CustomerCustodyStock.objects.filter(customer=customer,product__product_name="5 Gallon")).exists() :
         custody_count = custody_stock.first().quantity 
 
-    if (outstanding_count:=CustomerOutstandingReport.objects.filter(customer=customer,product_type="emptycan")).exists() :
-        outstanding_bottle_count = outstanding_count.first().value
+    total_supplied_count = CustomerSupplyItems.objects.filter(customer_supply__customer=customer).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+    total_empty_collected = CustomerSupply.objects.filter(customer=customer).aggregate(total_quantity=Sum('collected_empty_bottle'))['total_quantity'] or 0
 
-    last_supplied_count = CustomerSupplyItems.objects.filter(customer_supply__customer=customer).order_by('-customer_supply__created_date').values_list('quantity', flat=True).first() or 0
-
-    total_bottle_count = custody_count + outstanding_bottle_count + last_supplied_count
+    total_bottle_count = custody_count + total_supplied_count - total_empty_collected
 
     return total_bottle_count
 
