@@ -2913,3 +2913,114 @@ class OthersDashboardSerializer(serializers.Serializer):
     today_orders_count = serializers.IntegerField()
     pending_complaints_count = serializers.IntegerField()
     resolved_complaints_count = serializers.IntegerField()
+
+class TodayCollectionSerializer(serializers.Serializer):
+    customer_name = serializers.SerializerMethodField()
+    custom_id = serializers.SerializerMethodField()
+    sales_type = serializers.SerializerMethodField()
+    building_name = serializers.SerializerMethodField()
+    route_name = serializers.SerializerMethodField()
+    salesman = serializers.SerializerMethodField()
+    
+    invoice_no = serializers.CharField(allow_null=True, allow_blank=True)
+    grand_total = serializers.DecimalField(max_digits=10, decimal_places=2)
+    discount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    net_payable = serializers.DecimalField(max_digits=10, decimal_places=2)
+    vat = serializers.DecimalField(max_digits=10, decimal_places=2)
+    subtotal = serializers.DecimalField(max_digits=10, decimal_places=2)
+    amount_recieved = serializers.DecimalField(max_digits=10, decimal_places=2)
+    rate = serializers.SerializerMethodField()
+    collected_empty_bottle = serializers.IntegerField()
+    allocate_bottle_to_pending = serializers.IntegerField()
+    allocate_bottle_to_custody = serializers.IntegerField()
+    allocate_bottle_to_paid = serializers.IntegerField()
+    allocate_bottle_to_free = serializers.IntegerField()
+    created_date = serializers.DateTimeField(format="%Y-%m-%d")
+    
+    def get_customer_name(self, obj):
+        return obj.customer.customer_name if obj.customer else "Unknown"
+
+    def get_custom_id(self, obj):
+        return obj.customer.custom_id if obj.customer else None
+
+    def get_sales_type(self, obj):
+        return obj.customer.sales_type if obj.customer else None
+
+    def get_building_name(self, obj):
+        return obj.customer.building_name if obj.customer else None
+
+    def get_route_name(self, obj):
+        return obj.customer.routes.route_name if obj.customer and obj.customer.routes else None
+
+    def get_salesman(self, obj):
+        return obj.customer.sales_staff.get_fullname() if obj.customer and obj.customer.sales_staff else None
+
+    def get_rate(self, obj):
+        return obj.get_rate()
+
+class OldCollectionSerializer(serializers.Serializer):
+    customer_name = serializers.SerializerMethodField()
+    custom_id = serializers.SerializerMethodField()
+    sales_type = serializers.SerializerMethodField()
+    building_name = serializers.SerializerMethodField()
+    route_name = serializers.SerializerMethodField()
+    salesman = serializers.SerializerMethodField()
+    payment_method = serializers.CharField()
+    amount_received = serializers.DecimalField(max_digits=10, decimal_places=2)
+    receipt_number = serializers.CharField(allow_null=True, allow_blank=True)
+    created_date = serializers.DateTimeField(format="%Y-%m-%d")
+    total_amount = serializers.SerializerMethodField()
+    total_discounts = serializers.SerializerMethodField()
+    total_net_taxeble = serializers.SerializerMethodField()
+    total_vat = serializers.SerializerMethodField()
+    collected_amount = serializers.SerializerMethodField()
+
+    def get_customer_name(self, obj):
+        return obj.customer.customer_name if obj.customer else "Unknown"
+
+    def get_custom_id(self, obj):
+        return obj.customer.custom_id if obj.customer else None
+
+    def get_sales_type(self, obj):
+        return obj.customer.sales_type if obj.customer else None
+
+    def get_building_name(self, obj):
+        return obj.customer.building_name if obj.customer else None
+
+    def get_route_name(self, obj):
+        return obj.customer.routes.route_name if obj.customer and obj.customer.routes else None
+
+    def get_salesman(self, obj):
+        return obj.customer.sales_staff.get_fullname() if obj.customer and obj.customer.sales_staff else None
+
+    def get_total_amount(self, obj):
+        return obj.total_amount()
+
+    def get_total_discounts(self, obj):
+        return obj.total_discounts()
+
+    def get_total_net_taxeble(self, obj):
+        return obj.total_net_taxeble()
+
+    def get_total_vat(self, obj):
+        return obj.total_vat()
+
+    def get_collected_amount(self, obj):
+        return obj.collected_amount()
+
+class TotalCollectionSerializer(serializers.Serializer):
+    date = serializers.DateField()
+    ref_invoice_no = serializers.CharField()
+    invoice_number = serializers.CharField()
+    customer_name = serializers.CharField()
+    custom_id = serializers.CharField()
+    building_name = serializers.CharField()
+    sales_type = serializers.CharField()
+    route_name = serializers.CharField()
+    salesman = serializers.CharField()
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    discount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    net_taxable = serializers.DecimalField(max_digits=10, decimal_places=2)
+    vat_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    grand_total = serializers.DecimalField(max_digits=10, decimal_places=2)
+    amount_collected = serializers.DecimalField(max_digits=10, decimal_places=2)

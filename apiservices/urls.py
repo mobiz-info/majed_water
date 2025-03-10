@@ -371,5 +371,8 @@ urlpatterns = [
     path('coupon-overview-dashboard/', CouponDashboardAPIView.as_view(), name='coupon-overview-dashboard'),
     path('customer-statistics-dashboard/', CustomerStatisticsDashboardAPIView.as_view(), name='customer-statistics-dashboard'),
     path('others-dashboard/', OthersDashboardAPIView.as_view(), name='others-dashboard'),
+    path('today-collection-dashboard/', TodayCollectionAPIView.as_view(), name='today-collection-dashboard'),
+    path('old-collections/', OldCollectionAPIView.as_view(), name='old-collections'),
+    path('total-collections/', TotalCollectionAPIView.as_view(), name='total-collections'),
 
 ]
