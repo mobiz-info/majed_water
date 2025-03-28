@@ -248,10 +248,15 @@ from .models import *
 #         }
 
 class CustodyCustomForm(forms.ModelForm):
+
+    amount_collected = forms.DecimalField(
+        max_digits=10, decimal_places=2, required=False, widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+
     class Meta:
         model = CustodyCustom
         fields = ['agreement_no','total_amount','deposit_type','amount_collected']
-        
+
         widgets = {
             'agreement_no': forms.TextInput(attrs={'class': 'form-control'}),
             'total_amount': forms.TextInput(attrs={'class': 'form-control'}),
