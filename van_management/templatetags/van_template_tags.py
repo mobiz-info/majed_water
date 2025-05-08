@@ -6,10 +6,11 @@ from django.db.models import Q, Sum,Subquery,Value
 from django.db.models.functions import Coalesce
 
 from accounts.models import CustomUser
-from client_management.models import CustomerSupply, CustomerSupplyItems
+from client_management.models import CustomerSupply, CustomerSupplyItems, OutstandingAmount, OutstandingCoupon, OutstandingProduct
 from master.models import CategoryMaster
-from product.models import Staff_IssueOrders, Staff_Orders_details
-from van_management.models import Offload, Van, Van_Routes, VanCouponStock, VanProductItems, VanProductStock
+from product.models import Staff_IssueOrders, Staff_Orders_details,ProdutItemMaster
+from sales_management.models import CollectionPayment
+from van_management.models import AuditDetails, Offload, Van, Van_Routes, VanCouponStock, VanProductItems, VanProductStock,FreelanceVehicleOtherProductCharges
 
 register = template.Library()
 
@@ -112,3 +113,57 @@ def get_van_coupon_wise_stock(date, van, coupon):
             "total_stock": total_stock
         }
     return {}
+
+
+@register.simple_tag
+def other_product_rate(van_pk,product_id):
+    rate = ProdutItemMaster.objects.get(pk=product_id).rate
+    if (rate_change_instances:=FreelanceVehicleOtherProductCharges.objects.filter(product_item__pk=product_id,van__pk=van_pk)).exists():
+        rate = rate_change_instances.first().current_rate
+    return rate
+
+
+@register.simple_tag
+def get_audit_details(audit_detail_id):
+    audit_detail_instance = AuditDetails.objects.get(pk=audit_detail_id)
+    
+    customer_current_outstanding_amount = 0
+    customer_current_outstanding_coupon = 0
+    customer_current_outstanding_bottle = 0
+    
+    # audit amount
+    current_amount = OutstandingAmount.objects.filter(
+            customer_outstanding__customer__pk=audit_detail_instance.customer.pk, 
+            customer_outstanding__created_date__date__lte=audit_detail_instance.audit_base.start_date.date()
+        ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+
+    collection_amount = CollectionPayment.objects.filter(
+        customer__pk=audit_detail_instance.customer.pk, 
+        created_date__date__lte=audit_detail_instance.audit_base.start_date.date()
+    ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+    
+    customer_current_outstanding_amount = current_amount - collection_amount
+    
+    #audit bottle
+    customer_current_outstanding_bottle = OutstandingProduct.objects.filter(
+        customer_outstanding__customer__pk=audit_detail_instance.customer.pk, 
+        customer_outstanding__created_date__date__lte=audit_detail_instance.audit_base.start_date.date()
+    ).aggregate(total_bottles=Sum('empty_bottle'))['total_bottles'] or 0
+    
+    # audit coupons
+    customer_current_outstanding_coupon = OutstandingCoupon.objects.filter(
+        customer_outstanding__customer__pk=audit_detail_instance.customer.pk,
+        customer_outstanding__created_date__date__lte=audit_detail_instance.audit_base.start_date.date()
+    ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
+    
+    response = {
+        "customer_current_outstanding_amount": customer_current_outstanding_amount,
+        "amount_variation": customer_current_outstanding_amount - audit_detail_instance.outstanding_amount,
+        
+        "customer_current_outstanding_coupon": customer_current_outstanding_coupon,
+        "coupon_variation": customer_current_outstanding_coupon - audit_detail_instance.outstanding_coupon,
+        
+        "customer_current_outstanding_bottle": customer_current_outstanding_bottle,
+        "bottle_variation": customer_current_outstanding_bottle - audit_detail_instance.bottle_outstanding,
+    }
+    return response

@@ -40,15 +40,50 @@ from django.shortcuts import render, redirect, get_object_or_404
 from .forms import CustomPasswordChangeForm
 
 # Create your views here.
+@csrf_exempt
+def move_schedule_view(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        date = data.get('date')
+        customers = data.get('customers')
+        
+        for customer_id in customers:
+            customer_instance = Customers.objects.get(pk=customer_id)
+            product_instance = ProdutItemMaster.objects.get(product_name="5 Gallon")
+            
+            if not DiffBottlesModel.objects.filter(product_item=product_instance,customer=customer_instance,delivery_date=date).exists():
+                DiffBottlesModel.objects.create(
+                    product_item=product_instance,
+                    quantity_required=customer_instance.no_of_bottles_required,
+                    delivery_date=date,
+                    assign_this_to=customer_instance.sales_staff,
+                    mode="paid",
+                    amount=customer_instance.no_of_bottles_required * customer_instance.get_water_rate(),
+                    discount_net_total=customer_instance.no_of_bottles_required * customer_instance.get_water_rate(),
+                    created_by=request.user.id,
+                    created_date=datetime.today(),
+                    customer=customer_instance,
+                )
+
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'error': 'Invalid request'}, status=400)
+    
+
 def user_login(request):
     template_name = 'registration/user_login.html'
 
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-        user = CustomUser.objects.get(username = username)
-        user = authenticate(username=username, password=password)
-        # print("::::::::::::::::::::::::::",user)
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '').strip()
+
+        # Ensure fields are not empty
+        if not username or not password:
+            messages.error(request, "Username and password are required.")
+            return render(request, template_name)
+
+        # Authenticate user
+        user = authenticate(request, username=username, password=password)
+
         if user is not None:
             if user.is_active:
                 login(request, user)
@@ -58,20 +93,18 @@ def user_login(request):
                 )
                 return redirect('dashboard')
             else:
-                context = {'error_msg': 'Invalid Username or Password'}
+                messages.error(request, "Your account is inactive. Contact admin.")
                 log_activity(
                     created_by=username,
-                    description=f"User {username} failed to log in due to incorrect username or password."
+                    description=f"User {username} attempted login but account is inactive."
                 )
-                return render(request, template_name, context)
         else:
-            context = {'error_msg': 'User Doest Not exist'}
+            messages.error(request, "Invalid username or password.")
             log_activity(
                 created_by=username,
-                description=f"Login attempt failed: User {username} does not exist."
+                description=f"Failed login attempt for username: {username}."
             )
-            return render(request, template_name, context)
-        
+
     return render(request, template_name)   
 
 class UserLogout(View):
@@ -968,10 +1001,11 @@ from accounts.templatetags.accounts_templatetags import get_next_visit_day
 def customer_list_excel(request):
     query = request.GET.get("q")
     route_filter = request.GET.get('route_name')
-    user_li = Customers.objects.all().filter(is_deleted=False)
 
-    # Apply filters if they exist
-    if query and query != '' and query != 'None':
+    # Optimize by selecting only required fields
+    user_li = Customers.objects.filter(is_deleted=False).select_related('routes', 'location')
+
+    if query and query not in ('', 'None'):
         user_li = user_li.filter(
             Q(custom_id__icontains=query) |
             Q(customer_name__icontains=query) |
@@ -980,14 +1014,27 @@ def customer_list_excel(request):
             Q(location__location_name__icontains=query) |
             Q(building_name__icontains=query)
         )
-    
-    print('route_filter :', route_filter)
-    if route_filter and route_filter != '' and route_filter != 'None':
+
+    if route_filter and route_filter not in ('', 'None'):
         user_li = user_li.filter(routes__route_name=route_filter)
 
-    # Get all route names for the dropdown
-    route_li = RouteMaster.objects.all()
+    # Prefetch related data to reduce queries in loop
+    custody_stock_data = {
+        cs.customer_id: cs.quantity
+        for cs in CustomerCustodyStock.objects.filter(product__product_name="5 Gallon")
+    }
     
+    outstanding_bottle_data = {
+        co.customer_id: co.value
+        for co in CustomerOutstandingReport.objects.filter(product_type="emptycan")
+    }
+
+    last_supplied_data = {
+        ls.customer_supply.customer_id: ls.quantity
+        for ls in CustomerSupplyItems.objects.select_related('customer_supply')
+        .order_by('-customer_supply__created_date')
+    }
+
     data = {
         'Serial Number': [],
         'Customer ID': [],
@@ -998,26 +1045,20 @@ def customer_list_excel(request):
         'Building Name': [],
         'House No': [],
         'Bottles stock': [],
-        'Next Visit date': [],  # Create an empty list for next visit dates
+        'Next Visit date': [],
         'Sales Type': [],
         'Rate': [],
     }
 
     for serial_number, customer in enumerate(user_li, start=1):
         next_visit_date = get_next_visit_day(customer.pk)
-        custody_count = 0
-        outstanding_bottle_count = 0
 
-        if (custody_stock:=CustomerCustodyStock.objects.filter(customer=customer,product__product_name="5 Gallon")).exists() :
-            custody_count = custody_stock.first().quantity 
+        custody_count = custody_stock_data.get(customer.pk, 0)
+        outstanding_bottle_count = outstanding_bottle_data.get(customer.pk, 0)
+        last_supplied_count = last_supplied_data.get(customer.pk, 0)
 
-        if (outstanding_count:=CustomerOutstandingReport.objects.filter(customer=customer,product_type="emptycan")).exists() :
-            outstanding_bottle_count = outstanding_count.first().value
+        total_bottle_count = custody_count + outstanding_bottle_count + last_supplied_count
 
-        last_supplied_count = CustomerSupplyItems.objects.filter(customer_supply__customer=customer).order_by('-customer_supply__created_date').values_list('quantity', flat=True).first() or 0
-
-        total_bottle_count = custody_count + outstanding_bottle_count + last_supplied_count 
-        print("final_bottle_count",total_bottle_count)
         data['Serial Number'].append(serial_number)
         data['Customer ID'].append(customer.custom_id)
         data['Customer name'].append(customer.customer_name)
@@ -1033,33 +1074,31 @@ def customer_list_excel(request):
 
     df = pd.DataFrame(data)
 
-    # Excel writing code...
-
+    # Excel writing optimization
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
         df.to_excel(writer, sheet_name='Sheet1', index=False, startrow=4)
         workbook = writer.book
         worksheet = writer.sheets['Sheet1']
-        table_border_format = workbook.add_format({'border':1})
-        worksheet.conditional_format(4, 0, len(df.index)+4, len(df.columns) - 1, {'type':'cell', 'criteria': '>', 'value':0, 'format':table_border_format})
+        table_border_format = workbook.add_format({'border': 1})
+        worksheet.conditional_format(4, 0, len(df.index) + 4, len(df.columns) - 1, 
+                                     {'type': 'cell', 'criteria': '>', 'value': 0, 'format': table_border_format})
+        
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 16, 'border': 1})
-        worksheet.merge_range('A1:L2', f'Majed  Water', merge_format)
+        worksheet.merge_range('A1:L2', f'Majed Water', merge_format)
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
         worksheet.merge_range('A3:L3', f'    Customer List   ', merge_format)
-        # worksheet.merge_range('E3:H3', f'Date: {def_date}', merge_format)
-        # worksheet.merge_range('I3:M3', f'Total bottle: {total_bottle}', merge_format)
-        merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
         worksheet.merge_range('A4:L4', '', merge_format)
-    
-    filename = f"Customer List.xlsx"
+
+    filename = "Customer List.xlsx"
     response = HttpResponse(buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'inline; filename = "{filename}"'
-    
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+
     log_activity(
         created_by=request.user,
         description="Generated and downloaded customer list Excel report"
     )
-    
+
     return response
 
 # def visit_days_assign(request,customer_id):
@@ -1356,7 +1395,9 @@ class NonVisitedCustomersView(View):
 
                 # Actual visit
                 visited_customers = CustomerSupply.objects.filter(salesman_id=salesman_id, created_date__date=date)
-                todays_customers = find_customers(request, str(date), van_route.routes.pk)
+                todays_customers = find_customers(request, str(date), van_route.routes.pk) or []
+
+                # todays_customers = find_customers(request, str(date), van_route.routes.pk)
                 # # Convert each dictionary to a tuple of items for hashing
                 # planned_visit = set(tuple(customer.items()) for customer in todays_customers)
                 # visited = set(visited_customers.values_list('customer_id', flat=True))
@@ -1424,60 +1465,70 @@ class MissingCustomersView(View):
     template_name = 'accounts/missing_customers.html'
 
     def get(self, request, *args, **kwargs):
-        date = datetime.now().date()  # Or pass this as an argument if needed
+        filter_data = {}
+        request_date = request.GET.get('date')
+        
+        if request_date:
+            request_date = datetime.strptime(request_date, '%Y-%m-%d').date()
+            filter_data['filter_date'] = request_date.strftime('%Y-%m-%d')
+        else:
+            request_date = datetime.now().date()
+            filter_data['filter_date'] = request_date.strftime('%Y-%m-%d')
 
         routes = RouteMaster.objects.all()  # Get all RouteMaster instances
-        route_data = []
+        # route_data = []
 
-        for route in routes:
-            route_id = route.route_id  # Use route_id from RouteMaster
-            actual_visitors = Customers.objects.filter(routes__pk=route_id, is_active=True).count()
+        # for route in routes:
+        #     route_id = route.route_id  # Use route_id from RouteMaster
+        #     actual_visitors = Customers.objects.filter(routes__pk=route_id, is_active=True).count()
 
-            planned_visitors_list = find_customers(request, str(date), route_id)  # Ensure this returns a list
-            planned_visitors = len(planned_visitors_list) if planned_visitors_list else 0
+        #     planned_visitors_list = find_customers(request, str(date), route_id)  # Ensure this returns a list
+        #     planned_visitors = len(planned_visitors_list) if planned_visitors_list else 0
 
-            supplied_customers = CustomerSupply.objects.filter(
-                customer__routes__pk=route_id,
-                created_date__date=date
-            ).count()
+        #     supplied_customers = CustomerSupply.objects.filter(
+        #         customer__routes__pk=route_id,
+        #         created_date__date=date
+        #     ).count()
 
-            if isinstance(planned_visitors_list, list):
-                todays_customers_dict = planned_visitors_list
-            else:
-                todays_customers_dict = []
+        #     if isinstance(planned_visitors_list, list):
+        #         todays_customers_dict = planned_visitors_list
+        #     else:
+        #         todays_customers_dict = []
 
-            visited_customers_ids = set(
-                CustomerSupply.objects.filter(
-                    customer__routes__pk=route_id,
-                    created_date__date=date
-                ).values_list('customer_id', flat=True)
-            )
+        #     visited_customers_ids = set(
+        #         CustomerSupply.objects.filter(
+        #             customer__routes__pk=route_id,
+        #             created_date__date=date
+        #         ).values_list('customer_id', flat=True)
+        #     )
 
-            # Filter out visited customers
-            missed_customers = [
-                customer for customer in todays_customers_dict 
-                if customer['customer_id'] not in visited_customers_ids
-            ]
+        #     # Filter out visited customers
+        #     missed_customers = [
+        #         customer for customer in todays_customers_dict 
+        #         if customer['customer_id'] not in visited_customers_ids
+        #     ]
 
-            missed_customers_count = len(missed_customers)
-            print("missed_customers_count", missed_customers_count)
+        #     missed_customers_count = len(missed_customers)
+        #     # print("missed_customers_count", missed_customers_count)
 
-            route_data.append({
-                'route_name': route.route_name,  
-                'actual_visitors': actual_visitors,
-                'planned_visitors': planned_visitors,
-                'missed_customers': missed_customers_count,
-                'supplied_customers': supplied_customers,
-                'route_id': route.route_id  
-            })
+            # route_data.append({
+            #     'route_name': route.route_name,  
+            #     'actual_visitors': actual_visitors,
+            #     'planned_visitors': planned_visitors,
+            #     'missed_customers': missed_customers_count,
+            #     'supplied_customers': supplied_customers,
+            #     'route_id': route.route_id  
+            # })
 
-        log_activity(
-                created_by=request.user.username, 
-                description=f"Processed route: {route.route_name}. Missed customers count: {missed_customers_count}"
-            )
+        # log_activity(
+        #         created_by=request.user.username, 
+        #         description=f"Processed route: {route.route_name}. Missed customers count: {missed_customers_count}"
+        #     )
         
         context = {
-            'route_data': route_data
+            'route_data': routes,
+            'filter_data': filter_data,
+            'request_date': request_date
         }
 
         return render(request, self.template_name, context)
@@ -1547,29 +1598,40 @@ class MissedOnDeliveryView(View):
     template_name = 'accounts/missed_on_delivery.html'
 
     def get(self, request, route_id, *args, **kwargs):
-        date = timezone.now().date()
-        van_route = get_object_or_404(Van_Routes, routes__route_id=route_id)
-        print("van_route",van_route)
-        planned_customers = find_customers(request, str(date), route_id)
+        filter_data = {}
+        request_date_str = request.GET.get('request_date')
+
+        if request_date_str:
+            # try:
+            request_date = datetime.strptime(request_date_str, '%Y-%m-%d').date()
+            # except ValueError:
+                # request_date = datetime.now().date()
+        else:
+            request_date = datetime.now().date()
+
+        filter_data['filter_date'] = request_date.strftime('%Y-%m-%d')
+        
+        planned_customers = find_customers(request, str(request_date), route_id) or []
 
         supplied_customers_ids = CustomerSupply.objects.filter(
             customer__routes__route_id=route_id,
-            created_date__date=date
+            created_date__date=request_date
         ).values_list('customer_id', flat=True)
 
         missed_customers = []
         for customer in planned_customers:
             if customer['customer_id'] not in supplied_customers_ids:
-                last_supply = CustomerSupply.objects.filter(
-                    customer_id=customer['customer_id']
-                ).order_by('-created_date').last()
+                if (last_supply_instances:=CustomerSupply.objects.filter(customer_id=customer['customer_id'])).exists():
+                    last_supply = last_supply_instances.latest('-created_date')
 
-                last_sold_date = last_supply.created_date if last_supply else None
+                    last_sold_date = last_supply.created_date if last_supply else None
+                else:
+                    last_sold_date = None
 
                 # Get the reason for non-visit if exists
                 non_visit_report = NonvisitReport.objects.filter(
                     customer_id=customer['customer_id'],
-                    supply_date=date
+                    supply_date=request_date
                 ).last()
 
                 reason_for_non_visit = non_visit_report.reason if non_visit_report else None
@@ -1580,8 +1642,8 @@ class MissedOnDeliveryView(View):
 
         log_activity(
                     created_by=request.user.username,
-                    description=f"Missed customer ID: {customer['customer_id']} for route ID: {route_id} on date: {date}. Last sold date: {last_sold_date}, Reason: {reason_for_non_visit}"
-                )
+                    description=f"Missed Page for route ID: {route_id} on date: {date}."
+                    )                   
         
         context = {
             'missed_customers': missed_customers,
@@ -1598,7 +1660,7 @@ class MissedOnDeliveryPrintView(View):
     
     def get(self, request, route_id, *args, **kwargs):
         date = timezone.now().date()
-        van_route = get_object_or_404(Van_Routes, routes__route_id=route_id)
+        route = get_object_or_404(RouteMaster, route_id=route_id)
 
         planned_customers = find_customers(request, str(date), route_id)
 

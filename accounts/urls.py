@@ -7,6 +7,8 @@ from .views import *
 from accounts import views
 
 urlpatterns = [
+    path('move-schedule-view',move_schedule_view, name='move_schedule_view'),
+    
     path('login',user_login, name='login'),
     path('users', Users_List.as_view(), name='users'),
     path('user_create',User_Create.as_view(), name='user_create'),

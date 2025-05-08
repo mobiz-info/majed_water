@@ -24,7 +24,7 @@ from .forms import  *
 from .models import *
 from product.models import *
 from accounts.models import *
-from master.functions import generate_form_errors
+from master.functions import generate_form_errors, generate_invoice_no
 from master.models import RouteMaster, LocationMaster
 from van_management.models import Van, Van_Routes
 from sales_management.models import CollectionItems
@@ -92,7 +92,7 @@ def customer_custody_item(request,customer_id):
                             stock_instance = CustomerCustodyStock.objects.get(customer=custody_custom_data.customer, product=item.product)
                             stock_instance.quantity += item.quantity
                             stock_instance.serialnumber = (stock_instance.serialnumber + ',' + item.serialnumber) if stock_instance.serialnumber else item.serialnumber
-                            stock_instance.agreement_no = (stock_instance.agreement_no + ',' + item.agreement_no) if stock_instance.agreement_no else item.agreement_no
+                            stock_instance.agreement_no = (stock_instance.agreement_no + ',' + item.custody_custom.agreement_no) if stock_instance.agreement_no else item.custody_custom.agreement_no
                             stock_instance.save()
                         else:
                             CustomerCustodyStock.objects.create(
@@ -1887,7 +1887,7 @@ def custody_issue(request):
                     f'Customer custody issued for {customer}. Bottles issued: {total_bottles_issued}, '
                     f'Quotation deposit amount: {deposit_amount}, Agreement number: {agreement_no}.'
                 )
-                notification(sales_man.pk, "Custody Issued", salesman_body, "Majed waterfcm")
+                notification(sales_man.pk, "Custody Issued", salesman_body, "Sanawaterfcm")
                 
                 # Customer notification
                 customer_body = (
@@ -1896,7 +1896,7 @@ def custody_issue(request):
                     f'\nQuotation deposit amount: {deposit_amount}, '
                     f'\nAgreement number: {agreement_no}.'
                 )
-                notification(customer.user_id.pk, "Custody Issued", customer_body, "Majed watercustomer")
+                notification(customer.user_id.pk, "Custody Issued", customer_body, "Sanawatercustomer")
 
             except CustomUser.DoesNotExist:
                 messages.error(request, 'Salesman does not exist.', 'alert-danger')
@@ -2740,27 +2740,10 @@ def create_customer_outstanding(request):
                             )
                         
                         date_part = timezone.now().strftime('%Y%m%d')
-                        try:
-                            invoice_last_no = Invoice.objects.filter(is_deleted=False).latest('created_date')
-                            last_invoice_number = invoice_last_no.invoice_no
-
-                            # Validate the format of the last invoice number
-                            parts = last_invoice_number.split('-')
-                            if len(parts) == 3 and parts[0] == 'WTR' and parts[1] == date_part:
-                                prefix, old_date_part, number_part = parts
-                                new_number_part = int(number_part) + 1
-                                invoice_number = f'{prefix}-{date_part}-{new_number_part:04d}'
-                            else:
-                                # If the last invoice number is not in the expected format, generate a new one
-                                random_part = str(random.randint(1000, 9999))
-                                invoice_number = f'WTR-{date_part}-{random_part}'
-                        except Invoice.DoesNotExist:
-                            random_part = str(random.randint(1000, 9999))
-                            invoice_number = f'WTR-{date_part}-{random_part}'
                         
                         # Create the invoice
                         invoice = Invoice.objects.create(
-                            invoice_no=invoice_number,
+                            invoice_no=generate_invoice_no(outstanding_data.created_date.date()),
                             created_date=datetime.today(),
                             net_taxable=outstanding_amount.amount,
                             vat=0,
@@ -3556,7 +3539,7 @@ def customer_outstanding_detail(request,customer_id):
         filter_data['q'] = query
     
     context = {
-        'instances': instances,
+        'instances': instances.order_by("-created_date"),
         'page_name' : 'Customer Outstanding List',
         'page_title' : 'Customer Outstanding List',
         'customer_id': customer_id,
@@ -4235,9 +4218,11 @@ def eligible_customers(request):
         custody_data.append({
             "customer_code": custody_item.customer.custom_id,
             "customer_name": custody_item.customer.customer_name,
-            "customer_route": custody_item.customer.routes.route_name ,
+            "customer_route": custody_item.customer.routes.route_name if custody_item.customer.routes else "No Route",
+            # "customer_route": custody_item.customer.routes.route_name ,
             "customer_mob_no": custody_item.customer.mobile_no ,
-            "customer_product_name": custody_item.product.product_name,
+            "customer_product_name": custody_item.product.product_name if custody_item.product else "No Product",
+            # "customer_product_name": custody_item.product.product_name,
             "eligibility_status": eligibility.get("status"),
             "supply_count": eligibility.get("supply_count"),
             "condition_count": eligibility.get("condition_count"),
@@ -4264,3 +4249,300 @@ def eligible_customers(request):
     }
 
     return render(request, 'client_management/customer_supply/eligible_customers.html', context)
+
+
+#-----------------------Audit------------------------------------
+
+class MarketingExecutiveRoutesView(View):
+    def get(self, request):
+        executives = None
+        selected_executive = None
+
+        if request.user.user_type == "marketing_executive":
+            selected_executive = request.user.id  
+        else:
+            executives = CustomUser.objects.filter(user_type="marketing_executive")
+            selected_executive = request.GET.get("executive")
+
+        routes = None
+        if selected_executive:
+            assigned_routes = Van_Routes.objects.filter(van__salesman=selected_executive).values_list("routes", flat=True)
+            routes = RouteMaster.objects.filter(route_id__in=assigned_routes)
+
+        return render(
+            request,
+            "client_management/audit/select_executive_routes.html",
+            {
+                "executives": executives,
+                "routes": routes,
+                "selected_executive": selected_executive,
+                "is_marketing_executive": request.user.user_type == "marketing_executive", 
+            },
+        )
+
+    def post(self, request):
+        selected_executive = request.POST.get("executive") or request.user.id  
+        selected_route = request.POST.get("route")
+
+        if selected_executive and selected_route:
+            request.session["selected_executive"] = selected_executive
+            return redirect("audit_customer_list", route_id=selected_route)
+
+        return redirect("select_executive")
+    
+    
+class CustomerListView(View):
+    def get(self, request, route_id):
+        route = get_object_or_404(RouteMaster, route_id=route_id)
+
+        customers = Customers.objects.filter(routes=route)
+
+        query = request.GET.get("q", "")
+        if query:
+            customers = customers.filter(
+                Q(customer_name__icontains=query) | 
+                Q(custom_id__icontains=query) |
+                Q(mobile_no__icontains=query) |
+                Q(building_name__icontains=query)
+            )
+        audit = AuditBase.objects.filter(route=route, end_date__isnull=True).first()
+        audit_in_progress = bool(audit)  
+
+        return render(
+            request,
+            "client_management/audit/customer_list.html",
+            {
+                "route": route,
+                "customers": customers,
+                "audit_in_progress": audit_in_progress,  
+                "filter_data": {"q": query},
+            },
+        )
+        
+    def post(self, request, route_id):
+        route = get_object_or_404(RouteMaster, route_id=route_id)
+
+        selected_executive_id = request.POST.get("executive") or request.session.get("selected_executive")
+       
+
+        marketing_executive = None
+        if selected_executive_id:
+            marketing_executive = CustomUser.objects.filter(id=selected_executive_id, user_type="marketing_executive").first()
+
+        audit = AuditBase.objects.filter(route=route, end_date__isnull=True).first()
+
+        if audit:
+            audit.end_date = timezone.now()
+            audit.save()
+        else:
+            audit = AuditBase.objects.create(
+                route=route, 
+                start_date=timezone.now(),
+                marketing_executieve=marketing_executive  
+            )
+
+        return redirect("audit_customer_list", route_id=route_id)
+
+class AuditDetailsView(View):
+    def get(self, request, customer_id):
+        customer = get_object_or_404(Customers, customer_id=customer_id)
+
+        audit_base, created = AuditBase.objects.get_or_create(
+            route=customer.routes,  
+            end_date__isnull=True,  
+            defaults={"start_date": timezone.now()},
+        )
+
+        audit_details, created = AuditDetails.objects.get_or_create(
+            audit_base=audit_base, 
+            customer=customer,
+        )
+
+        form = AuditDetailsForm(instance=audit_details)
+
+        return render(
+            request,
+            "client_management/audit/audit_details.html",
+            {
+                "customer": customer,
+                "form": form,
+            },
+        )
+
+    def post(self, request, customer_id):
+        customer = get_object_or_404(Customers, customer_id=customer_id)
+
+        audit_base = AuditBase.objects.filter(
+            route=customer.routes, 
+            end_date__isnull=True   
+        ).first()
+
+        if not audit_base:
+            messages.error(request, "No active audit found for this route. Start an audit first.")
+            return redirect("audit_customer_list", route_id=customer.routes.route_id)
+
+        audit_details, created = AuditDetails.objects.get_or_create(
+            audit_base=audit_base,  
+            customer=customer
+        )
+
+        form = AuditDetailsForm(request.POST, instance=audit_details)
+        if form.is_valid():
+            audit_obj = form.save()
+            # # ------- Calculate customer's current outstanding amount ----------
+            # today = timezone.now().date()
+            # print("today",today)
+            # # 1. Get amount outstanding
+            # outstanding_amount = OutstandingAmount.objects.filter(
+            #     customer_outstanding__customer=customer,
+            #     customer_outstanding__created_date__date__lte=today
+            # ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+            # print("outstanding_amount",outstanding_amount)
+            # # 2. Get collection amount
+            # collection_amount = CollectionPayment.objects.filter(
+            #     customer=customer,
+            #     created_date__date__lte=today
+            # ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+
+            # current_outstanding_amount = outstanding_amount - collection_amount
+            # print("current_outstanding_amount",current_outstanding_amount)
+            # print("audit_obj.outstanding_amount ",audit_obj.outstanding_amount )
+            # # ------- Compare & Update ----------
+            # if audit_obj.outstanding_amount > current_outstanding_amount:
+            #     # You can choose how to update: create new entry or update existing
+            #     # Example: create a new OutstandingAmount entry
+            #     CustomerOutstanding.objects.create(
+            #         customer=customer,
+            #         created_date=timezone.now(),
+            #         product_type='amount',  # or however you tag this
+            #     )
+            #     ab=OutstandingAmount.objects.create(
+            #         customer_outstanding=customer.customer_outstanding_set.latest('created_date'),  # assuming FK relation
+            #         amount=audit_obj.outstanding_amount 
+            #     )
+            #     print("ab",ab)
+            return redirect("audit_customer_list", route_id=customer.routes.route_id)
+
+        return render(
+            request,
+            "client_management/audit/audit_details.html",
+            {
+                "customer": customer,
+                "form": form,
+            },
+        )
+
+
+def customer_custody_stock(request):
+    custody_stocks = CustomerCustodyStock.objects.all()
+    context = {"custody_stocks": custody_stocks}
+    return render(request, "client_management/customer_custody_stock/customer_custody_stock.html", context)
+
+def custody_item_return_view(request, stock_id):
+    custody_stock_instance = get_object_or_404(CustomerCustodyStock, pk=stock_id)
+
+    if request.method == "POST":
+        form = CustodyItemReturnForm(request.POST)
+
+        if form.is_valid():
+            try:
+                customer = custody_stock_instance.customer
+                agreement_no = custody_stock_instance.agreement_no
+                deposit_type = custody_stock_instance.deposit_type
+                product = custody_stock_instance.product
+                reference_no = custody_stock_instance.reference_no
+                print("reference_no:", reference_no)
+
+                quantity = form.cleaned_data['quantity']
+                print("quantity", quantity)
+                total_amount = form.cleaned_data['amount']
+                print("total_amount", total_amount)
+                serialnumber = form.cleaned_data['serialnumber']
+                print("serialnumber", serialnumber)
+
+                custody_return_instance = CustomerReturn.objects.create(
+                    customer=customer,
+                    agreement_no=agreement_no,
+                    deposit_type=deposit_type,
+                    reference_no=reference_no
+                )
+
+                item_instance = form.save(commit=False)
+                item_instance.customer_return = custody_return_instance
+                item_instance.product = product
+                item_instance.save()
+
+                try:
+                    stock_instance, created = CustomerReturnStock.objects.get_or_create(
+                        customer=customer, product=product,
+                        defaults={
+                            'agreement_no': agreement_no,
+                            'deposit_type': deposit_type,
+                            'reference_no': reference_no,
+                            'quantity': quantity,
+                            'serialnumber': serialnumber,
+                            'amount': total_amount
+                        }
+                    )
+
+                    if not created:
+                        stock_instance.agreement_no += ', ' + agreement_no
+                        stock_instance.serialnumber += ', ' + serialnumber
+                        stock_instance.quantity += quantity
+                        stock_instance.amount += total_amount
+                        stock_instance.save()
+
+                except CustomerReturnStock.DoesNotExist:
+                    CustomerReturnStock.objects.create(
+                        agreement_no=agreement_no,
+                        deposit_type=deposit_type,
+                        reference_no=reference_no,
+                        product=product,
+                        quantity=quantity,
+                        serialnumber=serialnumber,
+                        amount=total_amount
+                    )
+
+                custody_stock_instance.amount_collected -= total_amount
+                custody_stock_instance.quantity -= quantity
+                custody_stock_instance.save()
+
+                vanstock = VanProductStock.objects.get(
+                    created_date=datetime.today().date(),
+                    product=product,
+                    van__salesman=request.user
+                )
+                vanstock.return_count += quantity
+                vanstock.save()
+
+                if item_instance.product.product_name == "5 Gallon":
+                    bottle_count_queryset = BottleCount.objects.filter(
+                        van__salesman=request.user,
+                        created_date__date=custody_return_instance.created_date.date()
+                    )
+                    if bottle_count_queryset.exists():
+                        bottle_count = bottle_count_queryset.first()
+                        bottle_count.custody_issue += item_instance.quantity
+                        bottle_count.save()
+
+                # Fix: Redirect instead of returning JSON
+                return redirect("customer_custody_stock")
+
+            except Exception as e:
+                return HttpResponse(json.dumps({
+                    "status": "false",
+                    "title": "Error",
+                    "message": str(e)
+                }), content_type="application/javascript")
+
+        else:
+            messages.error(request, "Invalid form data. Please check the input.")
+
+    else:
+        form = CustodyItemReturnForm()
+
+    context = {
+        "form": form,
+        "custody_stock_instance": custody_stock_instance
+    }
+    return render(request, "client_management/customer_custody_stock/custody_item_return.html", context)

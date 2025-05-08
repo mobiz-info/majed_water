@@ -94,6 +94,7 @@ urlpatterns = [
     path('staff_assigned_routes/',Route_Assign_Staff_Api.as_view(), name='staff_assigned_routes'),
     path('create/customer/',Customer_API.as_view()),
     path('create/customer/<str:id>/',Customer_API.as_view()),
+    path('get_items_api/',Get_Items_API.as_view()),
     path('get_items_api/<str:id>/',Get_Items_API.as_view()),
     path('add_custody_item/',Add_Customer_Custody_Item_API.as_view()),
     path('add_custody_item/<str:id>/',Add_Customer_Custody_Item_API.as_view()),
@@ -348,6 +349,7 @@ urlpatterns = [
     path('customer-requests-lists/', CustomerRequestListAPIView.as_view(), name='customer_request_list'),
     
     path('update-customer-request-status/', UpdateCustomerRequestStatusView.as_view(), name='update-customer-request-status'),
+    path('all-customer-requests-lists/', AllCustomerRequestListAPIView.as_view(), name='all-customer-requests-lists'),
 
 
     path('salesman-customer-request-types/', SalesmanCustomerRequestTypeAPIView.as_view()),
@@ -364,7 +366,7 @@ urlpatterns = [
     
     path('production-onload-report/', ProductionOnloadReportAPIView.as_view(), name='production_onload_report_api'),
     path('scrap-clearence-report/', ScrapClearanceReportAPIView.as_view(), name='scrap_clearence_report_api'),
-
+    
     path('overview/', OverviewAPIView.as_view(), name='overview-api'),
     path('sales-dashboard/', SalesDashbordAPIView.as_view(), name='sales-dashboard'),
     path('bottle-statistics-dashboard/', BottleStatisticsDashboardAPIView.as_view(), name='bottle-statistics-dashboard'),

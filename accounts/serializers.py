@@ -26,16 +26,21 @@ class CustomersCreateSerializers(serializers.ModelSerializer):
 class OtherProductCustomerRateSerializers(serializers.ModelSerializer):
     product_id = serializers.SerializerMethodField()
     product_name = serializers.SerializerMethodField()
+    current_rate = serializers.SerializerMethodField()
     
     class Meta :
-        model = CustomerOtherProductCharges
+        model = ProdutItemMaster
         fields = ['product_id','product_name','current_rate']
         
     def get_product_id(self, obj):
-        return obj.product_item.pk
+        return obj.pk
     
     def get_product_name(self, obj):
-        return obj.product_item.product_name
+        return obj.product_name
+    
+    def get_current_rate(self, obj):
+        customer_id = self.context.get('customer_id')
+        return CustomerOtherProductCharges.objects.filter(customer__pk=customer_id,product_item__pk=obj.pk).first().current_rate
     
 class OtherProductItemsCustomerRateSerializers(serializers.ModelSerializer):
     product_id = serializers.SerializerMethodField()
@@ -94,7 +99,9 @@ class CustomersSerializers(serializers.ModelSerializer):
     
     def get_other_product_rate(self, obj):
         if (other_product_rate:=CustomerOtherProductCharges.objects.filter(customer=obj)).exists():
-            return OtherProductCustomerRateSerializers(other_product_rate,many=True).data
+            product_item_ids = other_product_rate.values_list("product_item__pk", flat=True).distinct()
+            product_items = ProdutItemMaster.objects.filter(pk__in=product_item_ids) 
+            return OtherProductCustomerRateSerializers(product_items,many=True,context={"customer_id":obj.pk}).data
         else:
             item_instances = ProdutItemMaster.objects.exclude(product_name="5 Gallon")
             return OtherProductItemsCustomerRateSerializers(item_instances,many=True).data

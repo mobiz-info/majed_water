@@ -1,6 +1,6 @@
 from datetime import timedelta
 import uuid
-
+from django.utils.timezone import now
 from django.db import models
 from django.db.models import Sum
 
@@ -24,6 +24,14 @@ SALESMAN_CUSTOMER_TYPE_REQUEST_CHOICES = [
         ('approved', 'Approved'),
         ('cancel', 'Cancel'),
     ]
+VAN_TYPE_CHOICES = [
+        ('company', 'Company'),
+        ('freelance', 'Freelance'),
+    ]
+ISSUE_STATUS=[
+    ('paid','Paid'),
+    ('non_paid', 'Non Paid'),
+]
 class Van(models.Model):
     van_id= models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_by = models.CharField(max_length=20,  blank=True)
@@ -39,6 +47,8 @@ class Van(models.Model):
     driver = models.ForeignKey('accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True,related_name='driver_van')
     salesman = models.ForeignKey('accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True,related_name='salesman_van')
     branch_id = models.ForeignKey('master.BranchMaster', on_delete=models.SET_NULL, null=True, blank=True,related_name='van_branch')
+    van_type = models.CharField(max_length=10, choices=VAN_TYPE_CHOICES, default='company')
+    is_exported = models.BooleanField(default=False)
 
     class Meta:
         ordering = ('van_make',)
@@ -67,7 +77,20 @@ class Van(models.Model):
         if van_route and van_route.routes:
             return van_route.routes.route_name
         return "No Route Assigned"
+
+
+class VanExportStatus(models.Model):
+    van = models.ForeignKey(Van, on_delete=models.CASCADE, related_name='van_export_status')
+    erp_van_id = models.CharField(max_length=50, unique=True)
+    exported_date = models.DateTimeField(auto_now_add=True)  
     
+    class Meta:
+        ordering = ('-exported_date',)
+
+    def __str__(self):
+        return f"Exported {self.van.van_make} with ERP ID {self.erp_van_id}"  
+    
+        
 class Van_Routes(models.Model):
     van_route_id= models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_by = models.CharField(max_length=20,  blank=True)
@@ -367,16 +390,27 @@ class BottleCount(models.Model):
     
     class Meta:
         ordering = ('-created_date',)
-        
+    
     def save(self, *args, **kwargs):
-        self.closing_stock = (
-            self.opening_stock 
-            + self.qty_added 
-            + self.custody_return 
-            - self.qty_deducted 
-            - self.custody_issue
-        )
+        self.closing_stock = max(0, (
+        self.opening_stock 
+        + self.qty_added 
+        + self.custody_return 
+        - self.qty_deducted 
+        - self.custody_issue
+        ))
         super(BottleCount, self).save(*args, **kwargs)
+
+        
+    # def save(self, *args, **kwargs):
+    #     self.closing_stock = (
+    #         self.opening_stock 
+    #         + self.qty_added 
+    #         + self.custody_return 
+    #         - self.qty_deducted 
+    #         - self.custody_issue
+    #     )
+    #     super(BottleCount, self).save(*args, **kwargs)
         
     def __str__(self):
         return str(self.id)
@@ -615,15 +649,100 @@ class AuditBase(models.Model):
     
     
     def __str__(self):
-        return f"Audit {self.id} - {self.route.name} ({self.start_date} to {self.end_date})"
+        return f"Audit {self.id} - {self.route.route_name} ({self.start_date} to {self.end_date})"
     
 class AuditDetails(models.Model):
     audit_base = models.ForeignKey(AuditBase, on_delete=models.CASCADE, related_name='audit_details')
     customer    = models.ForeignKey(Customers, on_delete=models.CASCADE)
     
+    previous_outstanding_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     outstanding_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    previous_bottle_outstanding = models.IntegerField(default=0)
     bottle_outstanding = models.IntegerField(default=0)
+    
+    previous_outstanding_coupon = models.IntegerField(default=0)
     outstanding_coupon = models.IntegerField(default=0)
 
     def __str__(self):
         return f"Audit Detail - {self.customer.customer_name} (Audit {self.audit_base.id})"
+    
+    def get_amount_variation(self):
+        return self.previous_outstanding_amount - self.outstanding_amount
+    
+    def get_bottle_variation(self):
+        return self.previous_bottle_outstanding - self.bottle_outstanding
+    
+    def get_coupon_variation(self):
+        return self.previous_outstanding_coupon - self.outstanding_coupon
+    
+    
+class FreelanceVehicleRateChange(models.Model):
+    id= models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    van = models.ForeignKey(Van, on_delete=models.CASCADE)
+    created_by = models.CharField(max_length=250)
+    created_date = models.DateTimeField(auto_now_add=True, editable=False)
+    old_rate = models.DecimalField(max_digits=10, decimal_places=2)
+    new_rate = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        ordering = ('van',)
+
+    def __str__(self):
+        return str(self.van)
+    
+class FreelanceVehicleOtherProductChargesChanges(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    van = models.ForeignKey(Van, on_delete=models.CASCADE)
+    product_item = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
+    privious_rate = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    current_rate = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    
+    created_by = models.CharField(max_length=200)
+    created_date = models.DateTimeField(auto_now_add=True)
+    modified_by = models.CharField(max_length=200, null=True, blank=True)
+    modified_date = models.DateTimeField(blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.van}"
+    
+class FreelanceVehicleOtherProductCharges(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    van = models.ForeignKey(Van, on_delete=models.CASCADE)
+    product_item = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
+    current_rate = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    
+    def __str__(self):
+        return f"{self.van}"    
+    
+class FreelanceVanOutstanding(models.Model):
+    id= models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    van = models.ForeignKey(Van, on_delete=models.CASCADE)
+    created_by = models.CharField(max_length=250)
+    created_date = models.DateTimeField(auto_now_add=True, editable=False)
+    outstanding_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+
+    class Meta:
+        ordering = ('van',)
+
+    def __str__(self):
+        return str(self.van)
+    
+class FreelanceVanProductIssue(models.Model):
+    issue_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    van = models.ForeignKey(Van, on_delete=models.CASCADE, related_name="product_issues")
+    product = models.ForeignKey('product.ProdutItemMaster', on_delete=models.CASCADE, related_name="product_issues")
+    empty_bottles = models.PositiveIntegerField(default=0)  
+    extra_bottles = models.PositiveIntegerField(default=0)  
+    total_bottles_issued = models.IntegerField(default=0)  
+    issued_by = models.CharField(max_length=50)
+    issued_date = models.DateTimeField(default=now)
+    status = models.CharField(max_length=50,choices=ISSUE_STATUS)
+
+    def save(self, *args, **kwargs):
+        self.total_bottles_issued = self.empty_bottles + self.extra_bottles
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.van} - {self.total_bottles_issued} Bottles Issued"

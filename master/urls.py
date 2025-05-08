@@ -5,7 +5,12 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('', home, name='dashboard'),
-    path('overview', overview, name='overview'),
+    path('overview/', overview, name='overview'),
+    path('sales/', sales, name='sales'),
+    path('bottles/', bottles, name='bottles'),
+    path('coupons/', coupons, name='coupons'),
+    path('customer-statistics/', customer_statistics, name='customer-statistics'),
+    path('others/', others, name='others'),
     path('branch', Branch_List.as_view(), name='branch'),
     path('branch_create', Branch_Create.as_view(), name='branch_create'),
     path('branch_edit/<str:pk>', Branch_Edit.as_view(), name='branch_edit'),
@@ -63,6 +68,12 @@ urlpatterns = [
     path('update_outstanding_variation_outstanding/', update_outstanding_variation_outstanding, name='update_outstanding_variation_outstanding'),
     
     path('customer-outstanding-variation-clearing/', customer_outstanding_variation_clearing, name='customer_outstanding_variation_clearing'),
+    
+    path('permission-management/', permission_management_tab_list, name='permission_management_tab_list'),
+    path('permission-management/create/', permission_management_tab_create, name='permission_management_tab_create'),
+    path('permission-management/update/<uuid:pk>/', permission_management_tab_update, name='permission_management_tab_update'),
+    path('permission-management/delete/<uuid:pk>/', permission_management_tab_delete, name='permission_management_tab_delete'),
+    
    ]
 
 

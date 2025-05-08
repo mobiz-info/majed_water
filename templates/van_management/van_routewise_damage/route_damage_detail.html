@@ -70,7 +70,7 @@
                             <input type="text" name="q" class="form-control" placeholder="Search ..." value="{{ filter_data.q }}">
                         </div>
                         <div class="col d-flex align-items-end justify-content-end">
-                            <button type="submit" class="btn btn-primary btn-sm mx-1">Apply Filter</button>
+                            <button type="submit" class="btn btn-primary btn-sm mx-1">Apply </button>
                             <button type="button" class="btn btn-secondary btn-sm mx-1" onclick="resetFilters()">Reset</button>
                             <a href="{% url 'route_damage_detail_print' route.route_id %}?start_date={{ request.GET.start_date }}&end_date={{ request.GET.end_date }}&product_name={{ request.GET.product_name }}&van_name={{ request.GET.van_name }}&reason={{ request.GET.reason }}&q={{ request.GET.q }}"
                                 class="btn btn-outline-success btn-sm mx-1" 

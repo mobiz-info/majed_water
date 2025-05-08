@@ -73,7 +73,7 @@ def get_van_coupon_bookno(request):
 #     context = {'all_van': all_van}
 #     return render(request, 'van_management/van.html', context)
 def van(request):
-    all_van = Van.objects.all()
+    all_van = Van.objects.filter(van_type="company")
     
     routes_assigned = {}  # Initialize an empty dictionary
     
@@ -1014,7 +1014,7 @@ def excel_download(request, route_id, def_date, trip):
 
         # Merge cells and write other information with borders
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 16, 'border': 1})
-        worksheet.merge_range('A1:N2', f'Majed  Water', merge_format)
+        worksheet.merge_range('A1:N2', f'Majed Water', merge_format)
         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
         worksheet.merge_range('A3:D3', f'Route:    {route.route_name}    {trip}', merge_format)
         worksheet.merge_range('E3:I3', f'Date: {def_date}', merge_format)
@@ -2071,14 +2071,12 @@ def update_request_status(request, pk):
     return redirect('salesman_customer_requests_list')
 
 #--------------------------------------auditing-------------------------------------------
-
+from van_management.templatetags.van_template_tags import get_audit_details
 def audit_report(request):
     audits = AuditBase.objects.select_related('route', 'marketing_executieve').annotate(
         total_customers=Count('route__customer_route', distinct=True),
         audited_customers=Count('audit_details__customer', distinct=True)
     ).order_by('-start_date')
-
-    print(audits.query)
 
     return render(request, 'van_management/audit_report.html', {'audits': audits})
 
@@ -2086,54 +2084,94 @@ def audit_detail(request, audit_id):
     audit = get_object_or_404(AuditBase, id=audit_id)
     audit_details = audit.audit_details.all()
 
-    audit_combined = []  
-    for audit_detail in audit_details:
-        customer = audit_detail.customer
-        date = audit.created_date
+    # audit_combined = []  
+    # for audit_detail in audit_details:
+    #     customer = audit_detail.customer
+    #     date = audit.created_date
 
-        current_amount = OutstandingAmount.objects.filter(
-            customer_outstanding__customer__pk=customer.pk, 
-            customer_outstanding__created_date__date__lte=date
-        ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+    #     current_amount = OutstandingAmount.objects.filter(
+    #         customer_outstanding__customer__pk=customer.pk, 
+    #         customer_outstanding__created_date__date__lte=date
+    #     ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
 
-        collection_amount = CollectionPayment.objects.filter(
-            customer__pk=customer.pk, 
-            created_date__date__lte=date
-        ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
-
-        current_amount -= collection_amount
+    #     collection_amount = CollectionPayment.objects.filter(
+    #         customer__pk=customer.pk, 
+    #         created_date__date__lte=date
+    #     ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
         
-        current_bottles = OutstandingProduct.objects.filter(
-            customer_outstanding__customer=customer, 
-            customer_outstanding__created_date__lte=date
-        ).aggregate(total_bottles=Sum('empty_bottle'))['total_bottles'] or 0
+    #     print(current_amount)
+    #     print(collection_amount)
 
-        current_coupons = OutstandingCoupon.objects.filter(
-            customer_outstanding__customer=customer,
-            customer_outstanding__created_date__lte=date
-        ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
+    #     current_amount -= collection_amount
+        
+    #     current_bottles = OutstandingProduct.objects.filter(
+    #         customer_outstanding__customer=customer, 
+    #         customer_outstanding__created_date__lte=date
+    #     ).aggregate(total_bottles=Sum('empty_bottle'))['total_bottles'] or 0
 
-        audit_amount = audit_detail.outstanding_amount or 0
-        audit_bottles = audit_detail.bottle_outstanding or 0
-        audit_coupons = audit_detail.outstanding_coupon or 0
+    #     current_coupons = OutstandingCoupon.objects.filter(
+    #         customer_outstanding__customer=customer,
+    #         customer_outstanding__created_date__lte=date
+    #     ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
+
+    #     audit_amount = audit_detail.outstanding_amount or 0
+    #     audit_bottles = audit_detail.bottle_outstanding or 0
+    #     audit_coupons = audit_detail.outstanding_coupon or 0
+    #     print(audit_amount)
+    #     amount_variation = audit_amount - current_amount
+    #     bottle_variation = audit_bottles - current_bottles
+    #     coupon_variation = audit_coupons - current_coupons
         
-        amount_variation = current_amount - audit_amount
-        bottle_variation = current_bottles - audit_bottles
-        coupon_variation = current_coupons - audit_coupons
-        
-        audit_combined.append({
-            'customer': customer.customer_name,
-            'outstanding_amount': audit_amount,
-            'amount_variation': amount_variation,
-            'outstanding_coupon': audit_coupons,
-            'coupon_variation': coupon_variation,
-            'bottle_count': audit_bottles,
-            'bottle_variation': bottle_variation,
-        })
+    #     audit_combined.append({
+    #         'customer': customer.customer_name,
+    #         'outstanding_amount': audit_amount,
+    #         'amount_variation': amount_variation,
+    #         'outstanding_coupon': audit_coupons,
+    #         'coupon_variation': coupon_variation,
+    #         'bottle_count': audit_bottles,
+    #         'bottle_variation': bottle_variation,
+    #     })
+    total_previous_outstanding_amount = 0
+    total_audit_outstanding_amount = 0
+    total_amount_variation = 0
+
+    total_previous_outstanding_coupon = 0
+    total_audit_outstanding_coupon = 0
+    total_coupon_variation = 0
+
+    total_previous_bottle = 0
+    total_audit_bottle = 0
+    total_bottle_variation = 0
+
+    for item in audit_details:
+        audit_data = get_audit_details(item.pk)
+
+        total_previous_outstanding_amount += item.previous_outstanding_amount or 0
+        total_audit_outstanding_amount += item.outstanding_amount or 0
+        total_amount_variation += audit_data["amount_variation"]
+
+        total_previous_outstanding_coupon += item.previous_outstanding_coupon or 0
+        total_audit_outstanding_coupon += item.outstanding_coupon or 0
+        total_coupon_variation += audit_data["coupon_variation"]
+
+        total_previous_bottle += item.previous_bottle_outstanding or 0
+        total_audit_bottle += item.bottle_outstanding or 0
+        total_bottle_variation += audit_data["bottle_variation"]
 
     context = {
         'audit': audit,
-        'audit_combined': audit_combined,  
+        'audit_details': audit_details,  
+        'totals': {
+            'previous_outstanding_amount': total_previous_outstanding_amount,
+            'audit_outstanding_amount': total_audit_outstanding_amount,
+            'amount_variation': total_amount_variation,
+            'previous_outstanding_coupon': total_previous_outstanding_coupon,
+            'audit_outstanding_coupon': total_audit_outstanding_coupon,
+            'coupon_variation': total_coupon_variation,
+            'previous_bottle': total_previous_bottle,
+            'audit_bottle': total_audit_bottle,
+            'bottle_variation': total_bottle_variation,
+        }
     }
     
     return render(request, 'van_management/audit_detail.html', context)
@@ -2555,3 +2593,326 @@ def route_damage_detail_excel(request, route_id):
     # Save the workbook to the response
     workbook.save(response)
     return response
+
+def freelancevan(request):
+    all_van = Van.objects.filter(van_type="freelance")
+    
+    log_activity(
+        created_by=request.user,
+        description="Viewed all freelance vans "
+    ) 
+    context = {
+        'all_van': all_van,
+       
+    }
+    
+    return render(request, 'van_management/freelancevan.html', context)
+
+# def freelancevan_rate_change(request, pk):
+#     van = get_object_or_404(Van, pk=pk)
+
+#     # Ensure only freelance vans can have their rate changed
+#     if van.van_type != 'freelance':
+#         messages.error(request, "Only freelance vans can have their rate changed.")
+#         return redirect('van_list')
+
+#     # Fetch all rate change history
+#     rate_change_history = FreelanceVehicleRateChange.objects.filter(van=van).order_by('-created_date')
+
+#     # Get the last rate change entry for old rate reference
+#     last_rate_change = rate_change_history.first()
+#     old_rate = last_rate_change.new_rate if last_rate_change else 0  
+
+#     if request.method == 'POST':
+#         form = FreelanceVehicleRateChangeForm(request.POST)
+#         if form.is_valid():
+#             rate_change = form.save(commit=False)
+#             rate_change.van = van
+#             rate_change.old_rate = old_rate 
+#             rate_change.created_by = request.user.username
+#             rate_change.save()
+
+#             messages.success(request, "Freelance van rate updated successfully.")
+            
+#             # Reload the same page after successful form submission
+#             return redirect(reverse('freelancevan_rate_change', kwargs={'pk': pk}))
+#         else:
+#             messages.error(request, "Invalid form data. Please check the input.")
+
+#     else:
+#         form = FreelanceVehicleRateChangeForm(initial={'old_rate': old_rate})
+
+#     return render(request,'van_management/freelancevan_rate_change.html',{'form': form,'van': van,'rate_change_history': rate_change_history}
+#     )
+    
+    
+class FreelanceVanRateHistoryView(View):
+    template_name = 'van_management/freelance_van_rate_history.html'
+
+    def get(self, request, pk, *args, **kwargs):
+        van_instance = Van.objects.get(pk=pk)
+        van_rate_instances = FreelanceVehicleRateChange.objects.filter(van=van_instance).order_by('-created_date')
+        other_product_rate_instances = FreelanceVehicleOtherProductChargesChanges.objects.filter(van=van_instance).order_by('-created_date')
+        print("other_product_rate_instances",other_product_rate_instances)
+        
+        last_rate_change = van_rate_instances.first()
+        old_rate = last_rate_change.new_rate if last_rate_change else 0  
+        # Create the form with the old_rate as initial data
+        new_rate_form = FreelanceVehicleRateChangeForm(initial={'old_rate': old_rate})
+        
+        context = {
+            "van_instance": van_instance,
+            "van_rate_instances": van_rate_instances,
+            "new_rate_form": new_rate_form,
+            "other_product_rate_instances": other_product_rate_instances,
+            "product_items": ProdutItemMaster.objects.exclude(product_name="5 gallon")
+        }
+        return render(request, self.template_name, context)
+    
+    def post(self, request, pk, *args, **kwargs):
+        van_instance = Van.objects.get(pk=pk)
+        van_rate_instances = FreelanceVehicleRateChange.objects.filter(van=van_instance).order_by('-created_date')
+         # Ensure that there is at least one instance in van_rate_instances
+        last_rate_change = van_rate_instances.first()
+        old_rate = last_rate_change.new_rate if last_rate_change else 0 
+    
+        form = FreelanceVehicleRateChangeForm(data=request.POST)
+        
+        if form.is_valid():
+            data = form.save(commit=False)
+            data.created_by = str(request.user.username)
+            data.old_rate = old_rate
+            data.van = van_instance
+            data.save()
+            
+            van_instance.rate = data.new_rate
+            van_instance.save()
+            
+            # Log activity for rate update
+            log_activity(
+                created_by=request.user,
+                description=f"Updated rate for van: {van_instance.van_make} (ID: {pk}) to {data.new_rate}"
+            )
+            
+            response_data = {
+                "status": "true",
+                "title": "Successfully Created",
+                "message": "Rate Updated successfully.",
+                'redirect': 'true',
+                "redirect_url": reverse('freelancevan_rate_change', kwargs={'pk': pk})
+            }
+            return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+        else:
+            # Log failed update attempt
+            log_activity(
+                created_by=request.user,
+                description=f"Failed to update rate for van: {van_instance.van_make} (ID: {pk}) due to invalid form data"
+            )
+
+            messages.error(request, 'Invalid form data. Please check the input.')
+
+class FreelanceVanOtherProductRateChangeView(View):
+    def post(self, request, pk, *args, **kwargs):
+        van_instance = get_object_or_404(Van, pk=pk)
+        
+        if not FreelanceVehicleOtherProductCharges.objects.filter(van=van_instance).exists():
+            product_items = ProdutItemMaster.objects.exclude(product_name="5 gallon")
+            print("product_items",product_items)
+            for product_item in product_items:
+                current_rate = request.POST.get(str(product_item.pk))
+                if not current_rate:
+                    continue
+                
+                try:
+                    current_rate = float(current_rate)
+                except ValueError:
+                    continue
+                
+                FreelanceVehicleOtherProductChargesChanges.objects.create(
+                    created_by=request.user,
+                    van=van_instance,
+                    product_item=product_item,
+                    privious_rate=product_item.rate,
+                    current_rate=current_rate
+                )
+                
+                van_charge, created = FreelanceVehicleOtherProductCharges.objects.get_or_create(
+                    van=van_instance,
+                    product_item=product_item,
+                )
+                van_charge.current_rate = current_rate
+                van_charge.save()
+                
+                log_activity(
+                    created_by=request.user,
+                    description=f"Updated rate for van: {van_instance.van_name} (ID: {van_instance.van_id}) to {van_charge.current_rate}"
+                )
+        else:
+            product_item = ProdutItemMaster.objects.get(pk=request.POST.get("other_product_item"))
+            current_rate = request.POST.get("other_product_item_value")
+            current_rate = float(current_rate)
+            
+            FreelanceVehicleOtherProductChargesChanges.objects.create(
+                created_by=request.user,
+                van=van_instance,
+                product_item=product_item,
+                privious_rate=product_item.rate,
+                current_rate=current_rate
+            )
+            
+            van_charge, created = FreelanceVehicleOtherProductCharges.objects.get_or_create(
+                van=van_instance,
+                product_item=product_item,
+            )
+            van_charge.current_rate = current_rate
+            van_charge.save()
+            
+            log_activity(
+                created_by=request.user,
+                description=f"Updated rate for van: {van_instance.van_name} (ID: {van_instance.van_id}) to {van_charge.current_rate}"
+            )
+        
+        response_data = {
+            "status": "true",
+            "title": "Successfully Created",
+            "message": "Rate updated successfully.",
+            'redirect': 'true',
+            "redirect_url": reverse('freelance_van_rate_history', kwargs={'pk': pk})
+        }
+        return JsonResponse(response_data)
+
+def freelance_van_bottle_issue(request, van_id):
+    van = get_object_or_404(Van, van_id=van_id)
+    print("van.branch_id",van.salesman.branch_id)
+    if request.method == 'POST':
+        form = FreelanceVanProductIssueForm(request.POST)
+        
+  
+        if form.is_valid():
+            product = form.cleaned_data.get('product')
+            empty_bottles = form.cleaned_data.get('empty_bottles', 0)
+            extra_bottles = form.cleaned_data.get('extra_bottles', 0)
+            status = form.cleaned_data.get('status')
+            total_bottles_issued = extra_bottles + empty_bottles  
+
+            if total_bottles_issued > van.bottle_count :  
+                messages.error(request, "Bottle count out of range.")
+                return redirect('freelance_van_bottle_issue', van_id=van_id)
+
+            try:
+                with transaction.atomic():
+                    issue = FreelanceVanProductIssue.objects.create(
+                        van=van,
+                        product=product,
+                        empty_bottles=empty_bottles,
+                        extra_bottles=extra_bottles,
+                        total_bottles_issued=total_bottles_issued,
+                        issued_by=request.user.username,
+                        issued_date=now(),
+                        status=status,
+                    )
+                    
+                    # van.bottle_count += total_bottles_issued
+                    # van.save()
+
+                    product_stock = ProductStock.objects.get(
+                        branch=van.salesman.branch_id,
+                        product_name=product,
+                    )
+                    product_stock.quantity -= total_bottles_issued
+                    product_stock.save()
+
+                    van_product_stock, _ = VanProductStock.objects.get_or_create(
+                        created_date=now().date(),
+                        product=product,
+                        van=van,
+                        defaults={'stock': 0}
+                    )
+                    van_product_stock.stock += total_bottles_issued
+                    van_product_stock.save()
+                    
+                    if issue.status == "non_paid":
+                        if product.product_name == "5 Gallon":
+                            product_rate = FreelanceVehicleRateChange.objects.filter(van=van).latest("created_date").new_rate
+                        else:
+                            product_rate = FreelanceVehicleOtherProductCharges.objects.filter(van=van,product_item=product).latest("created_date").current_rate
+                        
+                        new_rate = product_rate
+                        
+                        total_amount = total_bottles_issued * new_rate
+                        outstanding = FreelanceVanOutstanding.objects.create(
+                            van=van,
+                            created_by=request.user.id,
+                            created_date=datetime.now(),
+                            outstanding_amount=total_amount,
+                            )
+
+                    # Log success
+                    log_activity(
+                        created_by=request.user,
+                        description=f"Van Bottle Issue recorded: {van} - {total_bottles_issued} bottles"
+                    )
+
+                    messages.success(request, "Van bottle issue recorded successfully!")
+                    return redirect('freelancevan')  # Redirect to the van list page
+
+            except IntegrityError as e:
+                messages.error(request, f"Integrity error: {str(e)}")
+            except Exception as e:
+                messages.error(request, f"Error: {str(e)}")
+
+        else:
+            messages.error(request, "Invalid form data. Please check your input.")
+
+    else:
+        form = FreelanceVanProductIssueForm()
+
+    context = {
+        'form': form,
+        'van': van,
+        'current_bottle_count': van.bottle_count,
+    }
+    return render(request, 'van_management/freelance_van_bottle_issue.html', context)
+
+def freelance_van_outstanding_details(request, van_id):
+    van = get_object_or_404(Van, van_id=van_id)
+    
+    outstanding = FreelanceVanOutstanding.objects.filter( van=van)
+    
+    context = {
+        'van': van,
+        'outstanding': outstanding,
+    }
+    
+    return render(request, 'van_management/freelance_van_outstanding_details.html', context)
+
+def freelance_van_issue_report(request):
+    vans = Van.objects.filter(van_type="freelance")
+
+    report_data = []
+    for van in vans:
+        total_outstanding = FreelanceVanOutstanding.objects.filter(van=van).aggregate(
+            total_outstanding=Sum('outstanding_amount')
+        )['total_outstanding'] or 0 
+
+        report_data.append({
+            "van": van,
+            "total_outstanding": total_outstanding,
+        })
+
+    context = {
+        "report_data": report_data
+    }
+    return render(request, "van_management/freelance_van_issue_report.html", context)
+
+
+def freelance_van_issue_list(request, van_id):
+    van = get_object_or_404(Van, van_id=van_id)
+    issues = FreelanceVanProductIssue.objects.filter(van=van)
+
+    context = {
+        "van": van,
+        "issues": issues
+    }
+    return render(request, "van_management/freelance_van_issue_list.html", context)
+

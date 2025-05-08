@@ -119,6 +119,66 @@ def overview(request):
     
     new_customers_count_with_salesman = (Customers.objects.filter(created_date__date=date).values('sales_staff__username').annotate(customer_count=Count('customer_id')).order_by('sales_staff__username'))
     
+    
+    context = {
+        # overview section
+        "cash_sales": total_cash_sales_count,
+        "credit_sales": total_credit_sales_count,
+        "total_sales_count": total_cash_sales_count + total_credit_sales_count,
+        "today_expenses": total_expences,
+        "total_today_collections": total_today_collections,
+        "total_old_payment_collections": total_old_payment_collections,
+        "total_collection": total_today_collections + total_old_payment_collections,
+        "total_cash_in_hand": total_today_collections + total_old_payment_collections - total_expences,
+        "active_van_count": active_van_count,
+        "delivery_progress": f'{supply_cash_sales_instances.count() + supply_credit_sales_instances.count()} / {len(todays_customers)}',
+        "total_customers_count": customers_instances.count(),
+        "new_customers_count": customers_instances.filter(created_date__date=date).count(),
+        "door_lock_count": door_lock_count,
+        "emergency_customers_count": emergency_customers_count,
+        "total_vocation_customers_count": len(vocation_customers_instances.filter(start_date__gte=date,end_date__lte=date).values_list('customer__pk').distinct()),        
+        "yesterday_missed_customers_count": len(yesterday_customers) - CustomerSupply.objects.filter(created_date__date=yesterday_date).count(),
+        "new_customers_count_with_salesman": [
+            {
+                "salesman_names": item['sales_staff__username'] if item['sales_staff__username'] else "Unassigned",
+                "customer_count": item['customer_count']
+            }
+            for item in new_customers_count_with_salesman
+        ],
+       
+    }
+
+    return render(request, 'master/dashboard/overview_dashboard.html', context) 
+
+def sales(request):
+    # Get the date from the request or use today's date
+    date = request.GET.get('date')
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+    else:
+        date = datetime.today().date()
+        
+    yesterday_date = date - timedelta(days=1)
+    
+    # supply
+    todays_supply_instances = CustomerSupply.objects.filter(created_date__date=date)
+    supply_cash_sales_instances = todays_supply_instances.filter(amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
+    supply_credit_sales_instances = todays_supply_instances.filter(amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
+    # recharge
+    todays_recharge_instances = CustomerCoupon.objects.filter(created_date__date=date)
+    recharge_cash_sales_instances = todays_recharge_instances.filter(amount_recieved__gt=0)
+    recharge_credit_sales_instances = todays_recharge_instances.filter(amount_recieved__lte=0)
+    # total cash and credit
+    total_cash_sales_count = supply_cash_sales_instances.count() + recharge_cash_sales_instances.count()
+    total_credit_sales_count = supply_credit_sales_instances.count() + recharge_credit_sales_instances.count()
+    # total collection
+    total_supply_cash_sales = supply_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+    total_rechage_cash_sales = recharge_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+    total_today_collections = total_supply_cash_sales + total_rechage_cash_sales
+    # old collections
+    old_payment_collections_instances = CollectionPayment.objects.filter(created_date__date=date)
+   
+    
     # sales section
     total_cash_sales_amount = supply_cash_sales_instances.aggregate(total_amount=Sum('subtotal'))['total_amount'] or 0
     total_credit_sales_amount = supply_cash_sales_instances.aggregate(total_amount=Sum('subtotal'))['total_amount'] or 0
@@ -203,6 +263,40 @@ def overview(request):
     third_last_week_sales_json = json.dumps(third_last_week_sales)
     last_year_monthly_avg_sales_json = json.dumps(full_sales_data)
     
+    context = {
+        # sales section
+        "total_cash_sales_amount": total_cash_sales_amount,
+        "total_credit_sales_amount": total_credit_sales_amount,
+        "total_sales_grand_total": total_sales_grand_total,
+        "total_reachage_sales_amount": total_reachage_sales_amount,
+        "total_rechage_collections": total_rechage_cash_sales,
+        "total_old_payment_cash_collections": total_old_payment_cash_collections,
+        "total_old_payment_credit_collections": total_old_payment_credit_collections,
+        "total_old_payment_grand_total_collections": total_old_payment_cash_collections + total_old_payment_credit_collections,
+        "total_old_payment_coupon_collections": total_old_payment_coupon_collections,
+        "total_cash_outstanding_amounts": total_cash_outstanding_amounts,
+        "total_credit_outstanding_amounts": total_credit_outstanding_amounts,
+        "total_outstanding_amounts": total_outstanding_amounts,
+        "total_coupon_outstanding_amounts": total_coupon_outstanding_amounts,
+        'this_week_sales': this_week_sales_json,
+        'last_week_sales': last_week_sales_json,
+        'second_last_week_sales': second_last_week_sales_json,
+        'third_last_week_sales': third_last_week_sales_json,
+        'last_year_monthly_avg_sales': last_year_monthly_avg_sales_json,
+      
+    }
+    return render(request, 'master/dashboard/sales.html', context) 
+
+def bottles(request):
+    # Get the date from the request or use today's date
+    date = request.GET.get('date')
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+    else:
+        date = datetime.today().date()
+    # supply
+    todays_supply_instances = CustomerSupply.objects.filter(created_date__date=date)
+   
     # Bottle Section
     today_supply_bottle_count = CustomerSupplyItems.objects.filter(product__product_name="5 Gallon",customer_supply__pk__in=todays_supply_instances.values_list("pk")).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
     today_custody_issued_count = CustodyCustomItems.objects.filter(product__product_name="5 Gallon",custody_custom__created_date__date=date).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
@@ -218,6 +312,96 @@ def overview(request):
     salesmans_instances = CustomUser.objects.filter(pk__in=todays_supply_instances.values_list('salesman__pk'))
     salesman_sales_serializer = SalesmanSupplyCountSerializer(salesmans_instances,many=True,context={"date": date}).data
     
+    context = {
+        # Bottle Section 
+        "today_supply_bottle_count": today_supply_bottle_count,
+        "today_custody_issued_count": today_custody_issued_count,
+        "today_pending_bottle_given_count": today_pending_bottle_given_count,
+        "today_pending_bottle_collected_count": today_pending_bottle_collected_count,
+        "today_outstanding_bottle_count": today_outstanding_bottle_count,
+        "today_scrap_bottle_count": today_scrap_bottle_count,
+        "today_service_bottle_count": today_service_bottle_count,
+        "today_fresh_bottle_stock": today_fresh_bottle_stock,
+        "total_used_bottle_count": total_used_bottle_count,
+        "salesman_sales_serializer": json.dumps(salesman_sales_serializer),
+        
+    }
+
+    return render(request, 'master/dashboard/bottle.html', context)
+
+
+def coupons(request):
+    # Get the date from the request or use today's date
+    date = request.GET.get('date')
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+    else:
+        date = datetime.today().date()
+        
+    yesterday_date = date - timedelta(days=1)
+    
+    # supply
+    todays_supply_instances = CustomerSupply.objects.filter(created_date__date=date)
+    supply_cash_sales_instances = todays_supply_instances.filter(amount_recieved__gt=0).exclude(customer__sales_type="CASH COUPON")
+    supply_credit_sales_instances = todays_supply_instances.filter(amount_recieved__lte=0).exclude(customer__sales_type__in=["FOC","CASH COUPON"])
+    # recharge
+    todays_recharge_instances = CustomerCoupon.objects.filter(created_date__date=date)
+    recharge_cash_sales_instances = todays_recharge_instances.filter(amount_recieved__gt=0)
+    recharge_credit_sales_instances = todays_recharge_instances.filter(amount_recieved__lte=0)
+    # total cash and credit
+    total_cash_sales_count = supply_cash_sales_instances.count() + recharge_cash_sales_instances.count()
+    total_credit_sales_count = supply_credit_sales_instances.count() + recharge_credit_sales_instances.count()
+    # total collection
+    total_supply_cash_sales = supply_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+    total_rechage_cash_sales = recharge_cash_sales_instances.aggregate(total_amount_recieved=Sum('amount_recieved'))['total_amount_recieved'] or 0
+    total_today_collections = total_supply_cash_sales + total_rechage_cash_sales
+    # old collections
+    old_payment_collections_instances = CollectionPayment.objects.filter(created_date__date=date)
+    total_old_payment_collections = old_payment_collections_instances.aggregate(total_amount_recieved=Sum('amount_received'))['total_amount_recieved'] or 0
+    # expences
+    expenses_instanses = Expense.objects.filter(expense_date=date)
+    total_expences = expenses_instanses.aggregate(total_expense=Sum('amount'))['total_expense'] or 0
+    # active vans
+    active_vans_ids = VanProductStock.objects.filter(stock__gt=0).values_list('van__pk').distinct()
+    active_van_count = Van.objects.filter(pk__in=active_vans_ids).count()
+    
+    customers_instances = Customers.objects.all()
+    vocation_customers_instances = Vacation.objects.all()
+    # scheduled customers
+    route_instances = RouteMaster.objects.all()
+    todays_customers = []
+    yesterday_customers = []
+        
+    for route in route_instances:
+        # todays
+        day_of_week = date.strftime('%A')
+        week_num = (date.day - 1) // 7 + 1
+        week_number = f'Week{week_num}'
+        
+        today_vocation_customer_ids = vocation_customers_instances.filter(start_date__gte=date,end_date__lte=date).values_list('customer__pk')
+        today_scheduled_customers = customers_instances.filter(routes=route, is_calling_customer=False).exclude(pk__in=today_vocation_customer_ids)
+        
+        for customer in today_scheduled_customers:
+            if customer.visit_schedule:
+                for day, weeks in customer.visit_schedule.items():
+                    if str(day_of_week) == str(day) and str(week_number) in weeks:
+                        todays_customers.append(customer)
+                        
+        # yesterdays
+        y_day_of_week = yesterday_date.strftime('%A')
+        y_week_num = (yesterday_date.day - 1) // 7 + 1
+        y_week_number = f'Week{y_week_num}'
+        
+        yesterday_vocation_customer_ids = vocation_customers_instances.filter(start_date__gte=yesterday_date,end_date__lte=yesterday_date).values_list('customer__pk')
+        yesterday_scheduled_customers = customers_instances.filter(routes=route, is_calling_customer=False).exclude(pk__in=yesterday_vocation_customer_ids)
+        
+        for customer in yesterday_scheduled_customers:
+            if customer.visit_schedule:
+                for day, weeks in customer.visit_schedule.items():
+                    if str(y_day_of_week) == str(day) and str(y_week_number) in weeks:
+                        yesterday_customers.append(customer)
+                        
+  
     # Coupon Section
     manual_coupon_sold_instances = todays_recharge_instances.filter(coupon_method="manual")
     digital_coupon_sold_instances = todays_recharge_instances.filter(coupon_method="digital")
@@ -246,6 +430,75 @@ def overview(request):
     coupon_salesmans_instances = CustomUser.objects.filter(pk__in=CustomerCoupon.objects.filter(created_date__date=date).values_list('salesman__pk'))
     salesman_recharge_serializer = SalesmanRechargeCountSerializer(coupon_salesmans_instances,many=True,context={"date": date}).data
     
+ 
+    
+
+    
+    context = {
+        
+        # Coupon Sections
+        "manual_coupon_sold_count": manual_coupon_sold_count,
+        "digital_coupon_sold_count": digital_coupon_sold_count,
+        "collected_manual_coupons_count": collected_manual_coupons_count,
+        "collected_digital_coupons_count": collected_digital_coupons_count,
+        "today_manual_coupon_outstanding_count": today_manual_coupon_outstanding_count,
+        "today_digital_coupon_outstanding_count": today_digital_coupon_outstanding_count,
+        "today_pending_manual_coupons_count": today_pending_manual_coupons_count,
+        "today_pending_digital_coupons_count": today_pending_digital_coupons_count,
+        "today_pending_manual_coupons_collected_count": today_pending_manual_coupons_collected_count,
+        "today_pending_digital_coupons_collected_count": today_pending_digital_coupons_collected_count,
+        "salesman_recharge_serializer": json.dumps(salesman_recharge_serializer),
+     
+    }
+
+    return render(request, 'master/dashboard/coupons.html', context)
+
+def customer_statistics(request):
+    # Get the date from the request or use today's date
+    date = request.GET.get('date')
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d').date()
+    else:
+        date = datetime.today().date()
+        
+    yesterday_date = date - timedelta(days=1)
+    customers_instances = Customers.objects.all()
+    vocation_customers_instances = Vacation.objects.all()
+    # scheduled customers
+    route_instances = RouteMaster.objects.all()
+    todays_customers = []
+    yesterday_customers = []
+        
+    for route in route_instances:
+        # todays
+        day_of_week = date.strftime('%A')
+        week_num = (date.day - 1) // 7 + 1
+        week_number = f'Week{week_num}'
+        
+        today_vocation_customer_ids = vocation_customers_instances.filter(start_date__gte=date,end_date__lte=date).values_list('customer__pk')
+        today_scheduled_customers = customers_instances.filter(routes=route, is_calling_customer=False).exclude(pk__in=today_vocation_customer_ids)
+        
+        for customer in today_scheduled_customers:
+            if customer.visit_schedule:
+                for day, weeks in customer.visit_schedule.items():
+                    if str(day_of_week) == str(day) and str(week_number) in weeks:
+                        todays_customers.append(customer)
+                        
+        # yesterdays
+        y_day_of_week = yesterday_date.strftime('%A')
+        y_week_num = (yesterday_date.day - 1) // 7 + 1
+        y_week_number = f'Week{y_week_num}'
+        
+        yesterday_vocation_customer_ids = vocation_customers_instances.filter(start_date__gte=yesterday_date,end_date__lte=yesterday_date).values_list('customer__pk')
+        yesterday_scheduled_customers = customers_instances.filter(routes=route, is_calling_customer=False).exclude(pk__in=yesterday_vocation_customer_ids)
+        
+        for customer in yesterday_scheduled_customers:
+            if customer.visit_schedule:
+                for day, weeks in customer.visit_schedule.items():
+                    if str(y_day_of_week) == str(day) and str(y_week_number) in weeks:
+                        yesterday_customers.append(customer)
+                        
+   
     # Customer  statistics
     call_customers_count = customers_instances.filter(is_calling_customer=True).count()
     # inactive_customers_count = customers_instances.filter(is_active=False).count()
@@ -380,6 +633,31 @@ def overview(request):
     ]
     
 
+
+    
+    context = {
+        # Customer  statistics
+        "total_customers_count": customers_instances.count(),
+
+        "call_customers_count": call_customers_count,
+        "inactive_customers_count" : inactive_customers_count,
+        "total_vocation_customers_count": len(vocation_customers_instances.filter(start_date__gte=date,end_date__lte=date).values_list('customer__pk').distinct()),        
+
+        "route_data" : route_data,
+        "route_inactive_customer_count" : route_inactive_customer_count,
+        "non_visited_customers_data": non_visited_customers_data,
+        "chart_data": json.dumps(chart_data),
+        'routes_data': routes_data,
+        'planned_data': planned_data,
+        'actual_data': actual_data,
+        'salesman_supply_data': salesman_supply_data,
+    }
+
+    return render(request, 'master/dashboard/customer_statistics.html', context)
+
+def others(request):
+        
+    today = now().date()
     # others    
     pending_complaints_count = CustomerComplaint.objects.filter(status='Pending').count()
     resolved_complaints_count = CustomerComplaint.objects.filter(status='Completed').count()
@@ -393,83 +671,7 @@ def overview(request):
 
     
     context = {
-        # overview section
-        "cash_sales": total_cash_sales_count,
-        "credit_sales": total_credit_sales_count,
-        "total_sales_count": total_cash_sales_count + total_credit_sales_count,
-        "today_expenses": total_expences,
-        "total_today_collections": total_today_collections,
-        "total_old_payment_collections": total_old_payment_collections,
-        "total_collection": total_today_collections + total_old_payment_collections,
-        "total_cash_in_hand": total_today_collections + total_old_payment_collections - total_expences,
-        "active_van_count": active_van_count,
-        "delivery_progress": f'{supply_cash_sales_instances.count() + supply_credit_sales_instances.count()} / {len(todays_customers)}',
-        "total_customers_count": customers_instances.count(),
-        "new_customers_count": customers_instances.filter(created_date__date=date).count(),
-        "door_lock_count": door_lock_count,
-        "emergency_customers_count": emergency_customers_count,
-        "total_vocation_customers_count": len(vocation_customers_instances.filter(start_date__gte=date,end_date__lte=date).values_list('customer__pk').distinct()),        
-        "yesterday_missed_customers_count": len(yesterday_customers) - CustomerSupply.objects.filter(created_date__date=yesterday_date).count(),
-        "new_customers_count_with_salesman": [
-            {
-                "salesman_names": item['sales_staff__username'] if item['sales_staff__username'] else "Unassigned",
-                "customer_count": item['customer_count']
-            }
-            for item in new_customers_count_with_salesman
-        ],
-        # sales section
-        "total_cash_sales_amount": total_cash_sales_amount,
-        "total_credit_sales_amount": total_credit_sales_amount,
-        "total_sales_grand_total": total_sales_grand_total,
-        "total_reachage_sales_amount": total_reachage_sales_amount,
-        "total_rechage_collections": total_rechage_cash_sales,
-        "total_old_payment_cash_collections": total_old_payment_cash_collections,
-        "total_old_payment_credit_collections": total_old_payment_credit_collections,
-        "total_old_payment_grand_total_collections": total_old_payment_cash_collections + total_old_payment_credit_collections,
-        "total_old_payment_coupon_collections": total_old_payment_coupon_collections,
-        "total_cash_outstanding_amounts": total_cash_outstanding_amounts,
-        "total_credit_outstanding_amounts": total_credit_outstanding_amounts,
-        "total_outstanding_amounts": total_outstanding_amounts,
-        "total_coupon_outstanding_amounts": total_coupon_outstanding_amounts,
-        'this_week_sales': this_week_sales_json,
-        'last_week_sales': last_week_sales_json,
-        'second_last_week_sales': second_last_week_sales_json,
-        'third_last_week_sales': third_last_week_sales_json,
-        'last_year_monthly_avg_sales': last_year_monthly_avg_sales_json,
-        # Bottle Section 
-        "today_supply_bottle_count": today_supply_bottle_count,
-        "today_custody_issued_count": today_custody_issued_count,
-        "today_pending_bottle_given_count": today_pending_bottle_given_count,
-        "today_pending_bottle_collected_count": today_pending_bottle_collected_count,
-        "today_outstanding_bottle_count": today_outstanding_bottle_count,
-        "today_scrap_bottle_count": today_scrap_bottle_count,
-        "today_service_bottle_count": today_service_bottle_count,
-        "today_fresh_bottle_stock": today_fresh_bottle_stock,
-        "total_used_bottle_count": total_used_bottle_count,
-        "salesman_sales_serializer": json.dumps(salesman_sales_serializer),
-        # Coupon Sections
-        "manual_coupon_sold_count": manual_coupon_sold_count,
-        "digital_coupon_sold_count": digital_coupon_sold_count,
-        "collected_manual_coupons_count": collected_manual_coupons_count,
-        "collected_digital_coupons_count": collected_digital_coupons_count,
-        "today_manual_coupon_outstanding_count": today_manual_coupon_outstanding_count,
-        "today_digital_coupon_outstanding_count": today_digital_coupon_outstanding_count,
-        "today_pending_manual_coupons_count": today_pending_manual_coupons_count,
-        "today_pending_digital_coupons_count": today_pending_digital_coupons_count,
-        "today_pending_manual_coupons_collected_count": today_pending_manual_coupons_collected_count,
-        "today_pending_digital_coupons_collected_count": today_pending_digital_coupons_collected_count,
-        "salesman_recharge_serializer": json.dumps(salesman_recharge_serializer),
-        # Customer  statistics
-        "call_customers_count": call_customers_count,
-        "inactive_customers_count" : inactive_customers_count,
-        "route_data" : route_data,
-        "route_inactive_customer_count" : route_inactive_customer_count,
-        "non_visited_customers_data": non_visited_customers_data,
-        "chart_data": json.dumps(chart_data),
-        'routes_data': routes_data,
-        'planned_data': planned_data,
-        'actual_data': actual_data,
-        'salesman_supply_data': salesman_supply_data,
+       
         #others
         "pending_complaints_count":pending_complaints_count,
         "total_expense": total_expense,
@@ -478,8 +680,7 @@ def overview(request):
         "resolved_complaints_count":resolved_complaints_count,
     }
 
-    return render(request, 'master/dashboard/overview_dashboard.html', context) 
-
+    return render(request, 'master/dashboard/others.html', context)
 
 class Branch_List(View):
     template_name = 'master/branch_list.html'
@@ -1472,3 +1673,37 @@ def customer_outstanding_variation_clearing(request):
             }
             
         return HttpResponse(json.dumps(response_data), content_type='application/javascript')
+
+def permission_management_tab_list(request):
+    instances = PermissionManagementTab.objects.all()
+    return render(request, 'master/permissions/permission_management_tab_list.html', {'instances': instances})
+# Create View
+def permission_management_tab_create(request):
+    if request.method == "POST":
+        form = PermissionManagementTabForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('permission_management_tab_list')
+    else:
+        form = PermissionManagementTabForm()
+    return render(request, 'master/permissions/permission_management_tab_form.html', {'form': form})
+
+# Update View
+def permission_management_tab_update(request, pk):
+    tab = get_object_or_404(PermissionManagementTab, pk=pk)
+    if request.method == "POST":
+        form = PermissionManagementTabForm(request.POST, instance=tab)
+        if form.is_valid():
+            form.save()
+            return redirect('permission_management_tab_list')
+    else:
+        form = PermissionManagementTabForm(instance=tab)
+    return render(request, 'master/permissions/permission_management_edit.html', {'form': form})
+
+# Delete View
+def permission_management_tab_delete(request, pk):
+    tab = get_object_or_404(PermissionManagementTab, pk=pk)
+    if request.method == "POST":
+        tab.delete()
+        return redirect('permission_management_tab_list')
+    return render(request, 'master/permissions/permission_management_tab_confirm_delete.html', {'tab': tab})

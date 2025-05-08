@@ -7,6 +7,8 @@ admin.site.register(Van_Routes)
 admin.site.register(VanStock)
 admin.site.register(VanProductItems)
 admin.site.register(VanCouponItems)
+admin.site.register(FreelanceVehicleOtherProductChargesChanges)
+admin.site.register(FreelanceVehicleOtherProductCharges)
 
 class ExpenseAdmin(admin.ModelAdmin):
     list_display = ('date_created','expense_date','expence_type','amount')

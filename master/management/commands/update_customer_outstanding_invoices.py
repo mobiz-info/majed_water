@@ -14,10 +14,10 @@ class Command(BaseCommand):
     help = 'Generate usernames and passwords for customers based on their name and mobile number'
 
     def handle(self, *args, **kwargs):
-        date = datetime.strptime("2024-12-20", '%Y-%m-%d')
+        date = datetime.strptime("2025-03-05", '%Y-%m-%d')
         date_part = date.strftime('%Y%m%d')
         
-        oustandings = CustomerOutstanding.objects.filter(created_date__date=date,customer__routes__route_name="S-22")
+        oustandings = CustomerOutstanding.objects.filter(created_date__date=date,customer__routes__route_name="S-03")
         
         for oustanding in oustandings:
             # oustanding_amount = OutstandingAmount.objects.filter(customer_outstanding=oustanding).aggregate(total_amount=Sum('amount'))['total_amount'] or 0

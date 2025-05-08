@@ -103,10 +103,11 @@ urlpatterns = [
     path('print-dsr-summary/', print_dsr_summary, name='print_dsr_summary'),
     # path('export-dsr-summary/', export_daily_summary_report, name='export_dsr_summary'),
     path('dsr-summary1/', dsr_summary1, name='dsr_summary1'),
+    path("get-salesmen/", get_salesmen_by_route, name="get_salesmen_by_route"),
     #------------------------------Bottle Count-------------------------------------
     path('van-route-bottle-count/', van_route_bottle_count, name='van_route_bottle_count'),
-    path('vans-route-bottle-count-add/<uuid:pk>/',VansRouteBottleCountAdd, name='bottle_count_add'),
-    path('vans-route-bottle-count-deduct/<uuid:pk>/',VansRouteBottleCountDeduct, name='bottle_count_deduct'),
+    path('vans-route-bottle-count-add/<uuid:van_id>/',VansRouteBottleCountAdd, name='bottle_count_add'),
+    path('vans-route-bottle-count-deduct/<uuid:van_id>/',VansRouteBottleCountDeduct, name='bottle_count_deduct'),
     
     
     #------------------DSR Outstanding Amount Collected Report-------------------------------------
@@ -154,5 +155,8 @@ urlpatterns = [
     path("scrap_clearance_print/", scrap_clearance_print, name="scrap_clearance_print"),
     path('scrap_clearance_to_excel/', scrap_clearance_to_excel, name='scrap_clearance_to_excel'),
 
+    path('route_wise_bottle_count/', route_wise_bottle_count, name='route_wise_bottle_count'),
+    path('custody_custom_list/', custody_custom_list, name='custody_custom_list'),
+    path('custody-custom/<uuid:custody_id>/', custody_custom_detail, name='custody_custom_detail'),
 
 ]

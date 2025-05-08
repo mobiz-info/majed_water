@@ -9,10 +9,10 @@
     <meta charset="UTF-8">
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Majed  Waters-Sign in</title>
-    <meta name="Description" content="This is the sign in pageMajed Majed  waters admin dashboard">
+    <title>Majed Waters-Sign in</title>
+    <meta name="Description" content="This is the sign in pageSanaSana waters admin dashboard">
     <meta name="Author" content="Mobiz Technologies">
-	<meta name="keywords" content="This is the sign in Majed  of Majed  waters admin dashboard">
+	<meta name="keywords" content="This is the sign in Majed of Majed waters admin dashboard">
 
 
     <!-- Favicon -->
@@ -73,6 +73,11 @@
                                             <input type="password" class="form-control form-control-lg" id="password" name="password" placeholder="password" required>
                                             <button class="btn btn-light bg-transparent" type="button" onclick="createpassword('password',this)" id="button-addon2"><i class="ri-eye-off-line align-middle"></i></button>
                                         </div>
+                                        {% if messages %}
+                                        {% for message in messages %}
+                                            <p class="text-danger error">{{ message }}</p>
+                                        {% endfor %}
+                                        {% endif %}
                                         <div class="mt-2">
                                             <div class="form-check">
                                                 <input class="form-check-input" type="checkbox" value="" id="defaultCheck1">

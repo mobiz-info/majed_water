@@ -21,6 +21,7 @@ def available_free_coupons(coupon_pk):
 
 @register.simple_tag
 def get_coupon_designation(pk):
+    context = {}
     instance = NewCoupon.objects.get(pk=pk)
     coupon_status = CouponStock.objects.get(couponbook=instance).coupon_stock
     # print(CouponStock.objects.get(couponbook=instance).couponbook.pk)
@@ -38,12 +39,14 @@ def get_coupon_designation(pk):
         }
     
     elif coupon_status == "van":
-        van_instance = VanCouponStock.objects.filter(coupon=instance).latest("created_date").van
+        van_instance = VanCouponStock.objects.filter(coupon=instance)
+        if van_instance.exists():
+            van_instance = van_instance.latest("created_date").van
         
-        context = {
-            "pk": van_instance.pk,
-            "name": f"{van_instance.plate} - {van_instance.get_van_route()}",
-        }
+            context = {
+                "pk": van_instance.pk,
+                "name": f"{van_instance.plate} - {van_instance.get_van_route()}",
+            }
     
     elif coupon_status == "company":
         name = ""

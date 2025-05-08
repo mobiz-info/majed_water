@@ -137,6 +137,7 @@ class  CustomerCartItemsSerializer(serializers.ModelSerializer):
         
 class  CustomerCartSerializer(serializers.ModelSerializer):
     items = serializers.SerializerMethodField()
+    grand_total = serializers.SerializerMethodField()
     
     class Meta:
         model = CustomerCart
@@ -149,6 +150,9 @@ class  CustomerCartSerializer(serializers.ModelSerializer):
         serializer = CustomerCartItemsSerializer(instances, many=True, context={'customer_pk': customer_id})
         
         return serializer.data
+
+    def get_grand_total(self, obj):
+        return sum(item.total_amount for item in CustomerCartItems.objects.filter(customer_cart=obj))
 
 
 class CustomerCartItemsPostSerializer(serializers.ModelSerializer):
@@ -1601,25 +1605,77 @@ class  CustomerOrdersSerializer(serializers.ModelSerializer):
         fields = ('id','product','quantity','total_amount','no_empty_bottle_return','empty_bottle_required','no_empty_bottle_required','empty_bottle_amount','total_net_amount','delivery_date','payment_option','order_status')
         read_only_fields = ('id','order_status')
         
+# class CustomerOrderssSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = CustomerOrders
+#         fields = ['id', 'product', 'order_status', 'delivery_date']
+class CustomerOrdersItemsSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.product_name', read_only=True)
+
+    class Meta:
+        model = CustomerOrdersItems
+        fields = ['product_name', 'quantity', 'price', 'total_amount']
+
+
 class CustomerOrderssSerializer(serializers.ModelSerializer):
+    items = serializers.SerializerMethodField()
+
     class Meta:
         model = CustomerOrders
-        fields = ['id', 'product', 'order_status', 'delivery_date']
+        fields = ['id', 'order_status', 'delivery_date', 'items']
+
+    def get_items(self, obj):
+        items = obj.items.filter(product__category__category_name__in=['Hot and Cool', 'Dispenser'])
+        return CustomerOrdersItemsSerializer(items, many=True).data
 
 
 
 
 
 class CustomerCouponPurchaseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CustomerOrders
-        fields = ['id', 'created_date', 'order_status']
+    order_no = serializers.SerializerMethodField()
+    order_date = serializers.DateTimeField(source='created_date', format='%d-%m-%Y')
+    # order_status = serializers.SerializerMethodField()
+    # coupon_count = serializers.SerializerMethodField()
 
+    class Meta:
+        model = CustomerSupply
+        fields = [
+            'order_no',
+            'order_date',
+            # 'order_status',
+            # 'coupon_count',
+        ]
+
+    def get_order_no(self, obj):
+        return obj.invoice_no or obj.reference_number
+
+    # def get_order_status(self, obj):
+    #     return obj.customer.sales_type or "Unknown"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        # Get purchase type from related customer's sales_type
+        order_status = instance.customer.sales_type or 'UNKNOWN'
+        data['order_status'] = order_status
+
+        if order_status.upper() == 'CASH COUPON':
+            coupons = instance.total_coupon_recieved()
+            data['total_quantity'] = coupons['manual_coupon'] + coupons['digital_coupon']
+        
+        return data
 
 class WaterCustomerOrderSerializer(serializers.ModelSerializer):
+    items = serializers.SerializerMethodField()
+    
     class Meta:
         model = CustomerOrders
-        fields = ['id', 'product', 'order_status', 'delivery_date']
+        fields = ['id', 'order_status', 'delivery_date', 'items']
+        
+    def get_items(self, obj):
+        items = obj.items.filter(product__category__category_name__in=['Water'])
+        return CustomerOrdersItemsSerializer(items, many=True).data
 
 class StockMovementProductsSerializer(serializers.ModelSerializer):
     class Meta:
@@ -2084,14 +2140,16 @@ class StaffOrdersDetailsSerializer(serializers.ModelSerializer):
     def get_empty_bottle_count(self, obj):
         empty_bottle_stock = 0
         if obj.product_id.product_name == "5 Gallon" and (van_instance:=Van.objects.filter(salesman_id__id=obj.staff_order_id.created_by)).exists():
-            empty_bottle_stock = VanProductStock.objects.get(van=van_instance.first(),product=obj.product_id,created_date=obj.staff_order_id.created_date.date()).empty_can_count
+            if VanProductStock.objects.filter(van=van_instance.first(),product=obj.product_id,created_date=obj.staff_order_id.created_date.date()).exists():
+                empty_bottle_stock = VanProductStock.objects.get(van=van_instance.first(),product=obj.product_id,created_date=obj.staff_order_id.created_date.date()).empty_can_count
         
         return empty_bottle_stock
     
     def get_fresh_bottle_count(self, obj):
         fresh_bottle_stock = 0
         if obj.product_id.product_name == "5 Gallon" and (van_instance:=Van.objects.filter(salesman_id__id=obj.staff_order_id.created_by)).exists():
-            fresh_bottle_stock = VanProductStock.objects.get(van=van_instance.first(),product=obj.product_id,created_date=obj.staff_order_id.created_date.date()).stock
+            if VanProductStock.objects.filter(van=van_instance.first(),product=obj.product_id,created_date=obj.staff_order_id.created_date.date()).exists():
+                fresh_bottle_stock = VanProductStock.objects.get(van=van_instance.first(),product=obj.product_id,created_date=obj.staff_order_id.created_date.date()).stock
         
         return fresh_bottle_stock
     
@@ -2785,14 +2843,71 @@ class SalesmanCustomerRequestUpdateSerializer(serializers.Serializer):
     
     
 class AuditBaseSerializer(serializers.ModelSerializer):
+    marketing_executieve_name = serializers.SerializerMethodField()
+    salesman_name = serializers.SerializerMethodField()
+    driver_name = serializers.SerializerMethodField()
+    route_name = serializers.SerializerMethodField()
+
     class Meta:
         model = AuditBase
         fields = '__all__' 
+        extra_fields = ['marketing_executieve_name', 'salesman_name', 'driver_name', 'route_name']
+
+    def get_marketing_executieve_name(self, obj):
+        return obj.marketing_executieve.get_full_name() if obj.marketing_executieve else None
+
+    def get_salesman_name(self, obj):
+        return obj.salesman.get_full_name() if obj.salesman else None
+
+    def get_driver_name(self, obj):
+        return obj.driver.get_full_name() if obj.driver else None
+
+    def get_route_name(self, obj):
+        return obj.route.route_name if obj.route else None
         
 class BulkAuditDetailSerializer(serializers.ListSerializer):
     def create(self, validated_data):
-        audit_details = [AuditDetails(**item) for item in validated_data]
-        return AuditDetails.objects.bulk_create(audit_details)
+        audit_details_instances = []
+
+        for item in validated_data:
+            customer = item['customer']
+            audit = item['audit_base']
+            
+            # Calculate outstanding amount
+            outstanding_amount = OutstandingAmount.objects.filter(
+                customer_outstanding__customer=customer, 
+                customer_outstanding__created_date__date__lte=audit.start_date.date()
+            ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+
+            # Calculate collection amount
+            collection_amount = CollectionPayment.objects.filter(
+                customer=customer, 
+                created_date__date__lte=audit.start_date.date()
+            ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+            
+            current_outstanding_amount = outstanding_amount - collection_amount
+            
+            customer_current_outstanding_bottle = OutstandingProduct.objects.filter(
+                customer_outstanding__customer=customer.pk, 
+                customer_outstanding__created_date__date__lte=audit.start_date.date()
+            ).aggregate(total_bottles=Sum('empty_bottle'))['total_bottles'] or 0
+            
+            # audit coupons
+            customer_current_outstanding_coupon = OutstandingCoupon.objects.filter(
+                customer_outstanding__customer=customer.pk,
+                customer_outstanding__created_date__date__lte=audit.start_date.date()
+            ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
+            
+            # Append new AuditDetails instance
+            audit_details_instances.append(AuditDetails(
+                previous_outstanding_amount=current_outstanding_amount,
+                previous_bottle_outstanding=customer_current_outstanding_bottle,
+                previous_outstanding_coupon=customer_current_outstanding_coupon,
+                **item
+                ))
+
+        return AuditDetails.objects.bulk_create(audit_details_instances)
+
     
 class AuditDetailSerializer(serializers.ModelSerializer):
     class Meta:
@@ -3024,3 +3139,61 @@ class TotalCollectionSerializer(serializers.Serializer):
     vat_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
     grand_total = serializers.DecimalField(max_digits=10, decimal_places=2)
     amount_collected = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
+
+class WaterBottlePurchaseSerializer(serializers.ModelSerializer):
+    order_no = serializers.SerializerMethodField()
+    order_date = serializers.DateTimeField(source='created_date', format='%d-%m-%Y')
+    order_status = serializers.SerializerMethodField()
+    total_quantity = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomerSupply
+        fields = [
+            'order_no',
+            'order_date',
+            'order_status',
+            'total_quantity',
+        ]
+
+    def get_order_no(self, obj):
+        return obj.invoice_no or obj.reference_number
+
+    def get_order_status(self, obj):
+        return obj.customer.sales_type or "Unknown"
+
+    def get_total_quantity(self, obj):
+        bottle_name = "5 Gallon"
+        total = CustomerSupplyItems.objects.filter(
+            customer_supply=obj,
+            product__product_name=bottle_name
+        ).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+        return total
+    
+class DispenserCoolerPurchaseSerializer(serializers.ModelSerializer):
+    order_no = serializers.SerializerMethodField()
+    order_date = serializers.DateTimeField(source='created_date', format='%d-%m-%Y')
+    order_status = serializers.SerializerMethodField()
+    total_quantity = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomerSupply
+        fields = [
+            'order_no',
+            'order_date',
+            'order_status',
+            'total_quantity',
+        ]
+
+    def get_order_no(self, obj):
+        return obj.invoice_no or obj.reference_number
+
+    def get_order_status(self, obj):
+        return obj.customer.sales_type or "Unknown"
+
+    def get_total_quantity(self, obj):
+        return CustomerSupplyItems.objects.filter(
+            customer_supply=obj,
+            product__category__category_name__in=['Hot and Cool', 'Dispenser']
+        ).aggregate(total_qty=Sum('quantity'))['total_qty'] or 0

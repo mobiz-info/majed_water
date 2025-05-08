@@ -1276,7 +1276,7 @@ def download_salesreport_excel(request):
 #         table_border_format = workbook.add_format({'border':1})
 #         worksheet.conditional_format(4, 0, len(df.index)+4, len(df.columns) - 1, {'type':'cell', 'criteria': '>', 'value':0, 'format':table_border_format})
 #         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 16, 'border': 1})
-#         worksheet.merge_range('A1:J2'Majed Majed  Water', merge_format)
+#         worksheet.merge_range('A1:J2'SanaSana Water', merge_format)
 #         merge_format = workbook.add_format({'align': 'center', 'bold': True, 'border': 1})
 #         worksheet.merge_range('A3:J3', f'    Daily Collection Report   ', merge_format)
 #         # worksheet.merge_range('E3:H3', f'Date: {def_date}', merge_format)
@@ -4294,7 +4294,14 @@ def dsr_summary(request):
     credit_sale_recharge_vat_total = 0
     credit_sale_recharge_grand_total = 0
     credit_sale_recharge_amount_recieved = 0
-    foc_total_quantity = 0 
+    foc_total_quantity = 0
+    
+    customer_custody_instances = CustodyCustom.objects.none
+    collected_amount_from_custody_issue = 0
+    customer_custody_items_fgallon_instances = CustodyCustomItems.objects.none
+    customer_custody_items_fgallon_count = 0
+    customer_custody_items_nonfgallon_instances = CustodyCustomItems.objects.none
+    customer_custody_items_nonfgallon_count = 0
    
     salesman_id =  ""
     van_instances = Van.objects.none
@@ -4514,6 +4521,16 @@ def dsr_summary(request):
         total_credit_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__amount_recieved=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"]).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         total_coupon_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__customer__sales_type="CASH COUPON").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         
+        # Custody Issue 
+        customer_custody_instances = CustodyCustom.objects.filter(created_date__date=date,customer__routes=van_route.routes)
+        collected_amount_from_custody_issue = customer_custody_instances.aggregate(total_amount=Sum('amount_collected'))['total_amount'] or 0
+        
+        customer_custody_items_fgallon_instances = CustodyCustomItems.objects.filter(custody_custom__pk__in=customer_custody_instances.values_list('pk'),product__product_name="5 Gallon")
+        customer_custody_items_fgallon_count = customer_custody_items_fgallon_instances.aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+        # custody other products
+        customer_custody_items_nonfgallon_instances = CustodyCustomItems.objects.filter(custody_custom__pk__in=customer_custody_instances.values_list('pk')).exclude(product__product_name="5 Gallon")
+        customer_custody_items_nonfgallon_count = customer_custody_items_nonfgallon_instances.aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+        
         # cash sales amount collected
         supply_amount_collected = cash_total_amount_recieved
         cash_sales_amount_collected = supply_amount_collected
@@ -4526,8 +4543,8 @@ def dsr_summary(request):
         no_of_collected_cheque = cheque_collection.count()
         collected_cheque_amount = cheque_collection.aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         
-        balance_in_hand = total_sales_amount_collected - collected_cheque_amount - today_expense
-        net_payble = total_sales_amount_collected - today_expense
+        balance_in_hand = total_sales_amount_collected + collected_amount_from_custody_issue - collected_cheque_amount - today_expense
+        net_payble = total_sales_amount_collected + collected_amount_from_custody_issue - today_expense
         
         foc_customers = (
             CustomerSupply.objects.filter(created_date__date=date, customer__sales_type='FOC', salesman=salesman) |
@@ -4651,6 +4668,13 @@ def dsr_summary(request):
         'cash_sales_amount_collected': cash_sales_amount_collected,
         'total_sales_amount_collected': total_sales_amount_collected,
         'credit_sales_amount_collected': credit_sales_amount_collected,
+        # custody details
+        'customer_custody_instances': customer_custody_instances,
+        'collected_amount_from_custody_issue': collected_amount_from_custody_issue,
+        'customer_custody_items_fgallon_instances': customer_custody_items_fgallon_instances,
+        'customer_custody_items_fgallon_count': customer_custody_items_fgallon_count,
+        'customer_custody_items_nonfgallon_instances': customer_custody_items_nonfgallon_instances,
+        'customer_custody_items_nonfgallon_count': customer_custody_items_nonfgallon_count,
         
         'damage_bottle_instances': damage_bottle_instances,
         
@@ -4665,6 +4689,8 @@ def dsr_summary(request):
     }
     
     return render(request, 'sales_management/dsr_summary.html', context)
+
+
 
 def dsr_summary1(request):
     
@@ -4778,13 +4804,13 @@ def dsr_summary1(request):
     five_gallon_credit_sales = CustomerSupply.objects.none
     dialy_collections = InvoiceDailyCollection.objects.none
     pending_bottle_customer_instances = CustomerSupply.objects.none
-    salesman_instances = CustomUser.objects.filter(
-        Q(user_type='Salesman') | Q(user_type='marketing_executive')
-    )
     
     date = request.GET.get('date')
-    salesman_id = request.GET.get('salesman_id')
+    route_name = request.GET.get('route_name')
+    salesman_id = request.GET.get("salesman_id")
     
+    if salesman_id:
+        filter_data["salesman_id"] = salesman_id
     if date:
         date = datetime.strptime(date, '%Y-%m-%d').date()
         filter_data['filter_date'] = date.strftime('%Y-%m-%d')
@@ -4792,13 +4818,18 @@ def dsr_summary1(request):
         date = datetime.today().date()
         filter_data['filter_date'] = date.strftime('%Y-%m-%d')
     
-    if salesman_id:
+    if route_name:
         data_filter = True
+        van_route = Van_Routes.objects.filter(routes__route_name=route_name).first()
         
-        van_route = Van_Routes.objects.filter(van__salesman=salesman_id).first()
-        salesman = van_route.van.salesman
-        salesman_id = salesman.pk
-        filter_data['salesman_id'] = salesman_id
+        if van_route and van_route.van:
+            salesman = van_route.van.salesman
+            # salesman_id = salesman.pk
+            filter_data["route_name"] = route_name
+    
+    
+    
+    
         #new customers created
         new_customers_count = Customers.objects.filter(created_date__date=date,sales_staff_id=salesman).count()
         #emergency supply
@@ -5008,7 +5039,7 @@ def dsr_summary1(request):
         'van_route': van_route,
         'data_filter': data_filter,
         'salesman_id': salesman_id,
-        'salesman_instances':salesman_instances,
+        # 'salesman_instances':salesman_instances,
         # visit statistics
         'routes_instances': routes_instances,
         'non_visited_count': non_visited_count,
@@ -5130,21 +5161,34 @@ def dsr_summary1(request):
     
     return render(request, 'sales_management/dsr_summary1.html', context)
 
+
+def get_salesmen_by_route(request):
+    route_name = request.GET.get('route_name')
+    if route_name:
+        van_routes = Van_Routes.objects.filter(routes__route_name=route_name)
+        salesmen = [
+            {"id": route.van.salesman.pk, "name": route.van.salesman.username}
+            for route in van_routes if route.van and route.van.salesman
+        ]
+        return JsonResponse({"salesmen": salesmen})
+    return JsonResponse({"salesmen": []})
+
+
 def print_dsr_summary(request):
     
     filter_data = {}
     data_filter = False
-    new_customers_count = 0
-    emergency_supply_count = 0
-    visited_customers_count = 0
+    total_count = 0
     non_visited_count = 0
+    new_customers_count = 0
     planned_visit_count = 0
     total_empty_bottles = 0
-    total_supplied_bottles = 0
     closing_stock_count = 0
     damage_bottle_count = 0
     pending_bottle_count = 0
-    total_count = 0
+    total_supplied_bottles = 0
+    emergency_supply_count = 0
+    visited_customers_count = 0
     cash_total_net_taxable = 0
     cash_total_vat = 0
     cash_total_subtotal = 0
@@ -5218,28 +5262,37 @@ def print_dsr_summary(request):
     credit_sale_recharge_vat_total = 0
     credit_sale_recharge_grand_total = 0
     credit_sale_recharge_amount_recieved = 0
+    foc_total_quantity = 0
+    
+    customer_custody_instances = CustodyCustom.objects.none
+    collected_amount_from_custody_issue = 0
+    customer_custody_items_fgallon_instances = CustodyCustomItems.objects.none
+    customer_custody_items_fgallon_count = 0
+    customer_custody_items_nonfgallon_instances = CustodyCustomItems.objects.none
+    customer_custody_items_nonfgallon_count = 0
    
+    salesman_id =  ""
     van_instances = Van.objects.none
     van_route = Van_Routes.objects.none
-    salesman_id =  ""
+    products = ProdutItemMaster.objects.none
     cash_sales = CustomerSupply.objects.none
+    expenses_instanses = Expense.objects.none
     credit_sales = CustomerSupply.objects.none
-    five_gallon_cash_sales = CustomerSupply.objects.none
-    five_gallon_credit_sales = CustomerSupply.objects.none
+    coupon_sales = CustomerSupply.objects.none
+    foc_customers = CustomerSupply.objects.none
+    routes_instances = RouteMaster.objects.all()
+    customer_coupons = CustomerCoupon.objects.none
     other_cash_sales = CustomerSupply.objects.none
     other_credit_sales = CustomerSupply.objects.none
-    coupon_sales = CustomerSupply.objects.none
+    van_product_stock = VanProductStock.objects.none
+    unique_amounts = CustomerCouponItems.objects.none
     recharge_cash_sales = CustomerCoupon.objects.none
     recharge_credit_sales = CustomerCoupon.objects.none
-    products = ProdutItemMaster.objects.none
-    expenses_instanses = Expense.objects.none
-    routes_instances = RouteMaster.objects.all()
-    van_product_stock = VanProductStock.objects.none
-    customer_coupons = CustomerCoupon.objects.none
-    unique_amounts = CustomerCouponItems.objects.none
+    five_gallon_cash_sales = CustomerSupply.objects.none
+    damage_bottle_instances = VanSaleDamage.objects.none
+    five_gallon_credit_sales = CustomerSupply.objects.none
     dialy_collections = InvoiceDailyCollection.objects.none
     pending_bottle_customer_instances = CustomerSupply.objects.none
-    foc_customers = CustomerSupply.objects.none
     
     date = request.GET.get('date')
     route_name = request.GET.get('route_name')
@@ -5250,7 +5303,6 @@ def print_dsr_summary(request):
     else:
         date = datetime.today().date()
         filter_data['filter_date'] = date.strftime('%Y-%m-%d')
-    
     
     if route_name:
         data_filter = True
@@ -5277,6 +5329,7 @@ def print_dsr_summary(request):
         van_instances = Van.objects.get(salesman=salesman)
         van_product_stock = VanProductStock.objects.filter(created_date=date,van=van_instances,product__product_name="5 Gallon")
         stock_report_total = van_product_stock.aggregate(total_stock=Sum('stock'))['total_stock'] or 0
+        # vanstock_curreptions(van_instances.pk,date)
         
         #### Bottle Count ####
         total_empty_bottles = van_product_stock.aggregate(totalempty_bottle=Sum('empty_can_count'))['totalempty_bottle'] or 0
@@ -5436,6 +5489,16 @@ def print_dsr_summary(request):
         total_credit_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__amount_recieved=0).exclude(customer_supply__customer__sales_type__in=["FOC","CASH COUPON"]).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         total_coupon_amount_count = five_gallon_rate_wise_instances.filter(customer_supply__customer__sales_type="CASH COUPON").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
         
+        # Custody Issue 
+        customer_custody_instances = CustodyCustom.objects.filter(created_date__date=date,customer__routes=van_route.routes)
+        collected_amount_from_custody_issue = customer_custody_instances.aggregate(total_amount=Sum('amount_collected'))['total_amount'] or 0
+        
+        customer_custody_items_fgallon_instances = CustodyCustomItems.objects.filter(custody_custom__pk__in=customer_custody_instances.values_list('pk'),product__product_name="5 Gallon")
+        customer_custody_items_fgallon_count = customer_custody_items_fgallon_instances.aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+        # custody other products
+        customer_custody_items_nonfgallon_instances = CustodyCustomItems.objects.filter(custody_custom__pk__in=customer_custody_instances.values_list('pk')).exclude(product__product_name="5 Gallon")
+        customer_custody_items_nonfgallon_count = customer_custody_items_nonfgallon_instances.aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+        
         # cash sales amount collected
         supply_amount_collected = cash_total_amount_recieved
         cash_sales_amount_collected = supply_amount_collected
@@ -5448,23 +5511,32 @@ def print_dsr_summary(request):
         no_of_collected_cheque = cheque_collection.count()
         collected_cheque_amount = cheque_collection.aggregate(total_amount=Sum('amount_received'))['total_amount'] or 0
         
-        balance_in_hand = total_sales_amount_collected - collected_cheque_amount - today_expense
-        net_payble = total_sales_amount_collected - today_expense
+        balance_in_hand = total_sales_amount_collected + collected_amount_from_custody_issue - collected_cheque_amount - today_expense
+        net_payble = total_sales_amount_collected + collected_amount_from_custody_issue - today_expense
         
-        
-        foc_customers = CustomerSupply.objects.filter(created_date__date=date, customer__sales_type='FOC', salesman=salesman) or CustomerSupply.objects.filter(created_date__date=date, salesman=salesman, allocate_bottle_to_free__gt=0)
+        foc_customers = (
+            CustomerSupply.objects.filter(created_date__date=date, customer__sales_type='FOC', salesman=salesman) |
+            CustomerSupply.objects.filter(created_date__date=date, salesman=salesman, allocate_bottle_to_free__gt=0)
+        )
+        for foc in foc_customers:
+            if foc.allocate_bottle_to_free != 0:
+                foc_total_quantity =foc_total_quantity + foc.allocate_bottle_to_free
+            else:
+                foc_total_quantity =foc_total_quantity + foc.get_total_supply_qty()
+                
+        damage_bottle_instances = VanSaleDamage.objects.filter(van=van_instances,created_date__date=date)
         
     context = {
+        'van_route': van_route,
         'data_filter': data_filter,
         'salesman_id': salesman_id,
-        'van_route': van_route,
         # visit statistics
+        'routes_instances': routes_instances,
+        'non_visited_count': non_visited_count,
+        'planned_visit_count': planned_visit_count,
         'new_customers_count': new_customers_count,
         'emergency_supply_count': emergency_supply_count,
         'visited_customers_count': visited_customers_count,
-        'non_visited_count': non_visited_count,
-        'planned_visit_count': planned_visit_count,
-        'routes_instances': routes_instances,
         # stock report
         'products': products,
         'van_instances': van_instances,
@@ -5473,80 +5545,81 @@ def print_dsr_summary(request):
         # pending customers
         'pending_bottle_customer_instances': pending_bottle_customer_instances,
         # Bottle Count
+        'total_count': total_count,
         'total_empty_bottles': total_empty_bottles,
-        'total_supplied_bottles':total_supplied_bottles,
         'closing_stock_count': closing_stock_count,
         'damage_bottle_count': damage_bottle_count,
         'pending_bottle_count': pending_bottle_count,
-        'total_count': total_count,
+        'total_supplied_bottles':total_supplied_bottles,
         #coupon book sale
         'customer_coupons':customer_coupons,
         # five gallon cash sales
         'five_gallon_cash_sales': five_gallon_cash_sales or [],
-        'five_gallon_cash_total_net_taxable': five_gallon_cash_total_net_taxable,
         'five_gallon_cash_total_vat': five_gallon_cash_total_vat,
         'five_gallon_cash_total_subtotal': five_gallon_cash_total_subtotal,
         'five_gallon_cash_total_received': five_gallon_cash_total_received,
         'five_gallon_cash_total_quantity': five_gallon_cash_total_quantity,
+        'five_gallon_cash_total_net_taxable': five_gallon_cash_total_net_taxable,
         # other cash sales
         'other_cash_sales': other_cash_sales,
-        'other_cash_total_net_taxable': other_cash_total_net_taxable,
         'other_cash_total_vat': other_cash_total_vat,
         'other_cash_total_subtotal': other_cash_total_subtotal,
         'other_cash_total_received': other_cash_total_received,
         'other_cash_total_quantity': other_cash_total_quantity,
+        'other_cash_total_net_taxable': other_cash_total_net_taxable,
         #cash sales
         'recharge_cash_sales': recharge_cash_sales,
-        'cash_sale_recharge_net_payeble': cash_sale_recharge_net_payeble,
         'cash_sale_recharge_vat_total': cash_sale_recharge_vat_total,
         'cash_sale_recharge_grand_total': cash_sale_recharge_grand_total,
+        'cash_sale_recharge_net_payeble': cash_sale_recharge_net_payeble,
         'cash_sale_recharge_amount_recieved': cash_sale_recharge_amount_recieved,
         
-        'cash_total_net_taxable':cash_total_net_taxable,
         'cash_total_vat':cash_total_vat,
-        'cash_total_subtotal': cash_total_subtotal,
-        'cash_total_amount_recieved': cash_total_amount_recieved,
         'cash_total_qty': cash_total_qty,
+        'cash_total_subtotal': cash_total_subtotal,
+        'cash_total_net_taxable':cash_total_net_taxable,
+        'cash_total_amount_recieved': cash_total_amount_recieved,
         # five gallon credit sales
         'five_gallon_credit_sales': five_gallon_credit_sales,
-        'five_gallon_credit_total_net_taxable': five_gallon_credit_total_net_taxable,
         'five_gallon_credit_total_vat': five_gallon_credit_total_vat,
         'five_gallon_credit_total_subtotal': five_gallon_credit_total_subtotal,
         'five_gallon_credit_total_received': five_gallon_credit_total_received,
         'five_gallon_credit_total_quantity': five_gallon_credit_total_quantity,
+        'five_gallon_credit_total_net_taxable': five_gallon_credit_total_net_taxable,
         # credit sales
         'credit_sales': credit_sales,
         'recharge_credit_sales': recharge_credit_sales,
-        'credit_sale_recharge_net_payeble': credit_sale_recharge_net_payeble,
         'credit_sale_recharge_vat_total': credit_sale_recharge_vat_total,
+        'credit_sale_recharge_net_payeble': credit_sale_recharge_net_payeble,
         'credit_sale_recharge_grand_total': credit_sale_recharge_grand_total,
         'credit_sale_recharge_amount_recieved': credit_sale_recharge_amount_recieved,
         
-        'credit_total_net_taxable':credit_total_net_taxable,
         'credit_total_vat':credit_total_vat,
-        'credit_total_subtotal':credit_total_subtotal,
-        'credit_total_amount_recieved': credit_total_amount_recieved,
         'credit_total_qty': credit_total_qty,
+        'credit_total_subtotal':credit_total_subtotal,
+        'credit_total_net_taxable':credit_total_net_taxable,
+        'credit_total_amount_recieved': credit_total_amount_recieved,
         # coupon sales
         'coupon_sales': coupon_sales,
+        'coupon_total_qty':coupon_total_qty,
         'manual_coupon_total':manual_coupon_total,
         'digital_coupon_total':digital_coupon_total,
         'total_coupon_sales_count': total_coupon_sales_count,
-        'coupon_total_qty':coupon_total_qty,
         'total_outstandaing_manual_coupons':total_outstandaing_manual_coupons,
         'total_outstandaing_digital_coupons':total_outstandaing_digital_coupons,
+        
         # expenses
         'expenses_instanses': expenses_instanses,
         # suspense
-        'in_hand_amount': in_hand_amount,
-        'today_expense': today_expense, 
+        'today_expense': today_expense,
         'today_payable': today_payable,
+        'in_hand_amount': in_hand_amount,
         'suspense_paid_amount': suspense_paid_amount,
         'suspense_balance_amount': suspense_balance_amount,
-        'outstanding_credit_notes_total_amount' : outstanding_credit_notes_total_amount,
-        'outstanding_credit_notes_received_amount' : outstanding_credit_notes_received_amount,
         'outstanding_credit_notes_balance': outstanding_credit_notes_balance,
         'outstanding_total_amount_collected':outstanding_total_amount_collected,
+        'outstanding_credit_notes_total_amount' : outstanding_credit_notes_total_amount,
+        'outstanding_credit_notes_received_amount' : outstanding_credit_notes_received_amount,
         # 5 gallon rate based
         'five_gallon_rates': unique_amounts,
         'total_debit_amount_count': total_debit_amount_count,
@@ -5555,17 +5628,28 @@ def print_dsr_summary(request):
         # dialy collections
         'dialy_collections': dialy_collections,
         # sales amount collected
-        'cash_sales_amount_collected': cash_sales_amount_collected,
-        'credit_sales_amount_collected': credit_sales_amount_collected,
-        'total_sales_amount_collected': total_sales_amount_collected,
-        'total_cash_sales_count': total_cash_sales_count,
-        'total_credit_sales_count': total_credit_sales_count,
         'total_sales_count': total_sales_count,
         'no_of_collected_cheque': no_of_collected_cheque,
+        'total_cash_sales_count': total_cash_sales_count,
         'collected_cheque_amount': collected_cheque_amount,
+        'total_credit_sales_count': total_credit_sales_count,
+        'cash_sales_amount_collected': cash_sales_amount_collected,
+        'total_sales_amount_collected': total_sales_amount_collected,
+        'credit_sales_amount_collected': credit_sales_amount_collected,
+        # custody details
+        'customer_custody_instances': customer_custody_instances,
+        'collected_amount_from_custody_issue': collected_amount_from_custody_issue,
+        'customer_custody_items_fgallon_instances': customer_custody_items_fgallon_instances,
+        'customer_custody_items_fgallon_count': customer_custody_items_fgallon_count,
+        'customer_custody_items_nonfgallon_instances': customer_custody_items_nonfgallon_instances,
+        'customer_custody_items_nonfgallon_count': customer_custody_items_nonfgallon_count,
         
-        'balance_in_hand': balance_in_hand,
+        'damage_bottle_instances': damage_bottle_instances,
+        
         'net_payble': net_payble,
+        'balance_in_hand': balance_in_hand,
+        
+        'foc_total_quantity':foc_total_quantity,
         
         'filter_data': filter_data,
         # FOC customer
@@ -7814,26 +7898,29 @@ def monthly_sales_report_print(request):
 from django.utils.timezone import make_aware
 
 def detailed_sales_report(request):
+    # Get current year and month
     current_year = datetime.now().year
-    year_choices = [(str(year), str(year)) for year in range(current_year - 5, current_year + 1)]  
+    current_month = datetime.now().month
+
+    # Dropdown options
+    year_choices = [(str(year), str(year)) for year in range(current_year - 5, current_year + 1)]
     month_choices = [(f"{month:02}", calendar.month_name[month]) for month in range(1, 13)]
-    
-    selected_year = request.GET.get('year', str(current_year)) 
-    selected_month = request.GET.get('month')
-    
+
+    # Get selected values or fallback to current date
+    selected_year = request.GET.get('year', str(current_year))
+    selected_month = request.GET.get('month', f"{current_month:02}")
+
     try:
-        if selected_month and selected_year:
-            start_date = datetime.strptime(f"{selected_year}-{selected_month}-01", "%Y-%m-%d")
-            
-            next_month = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1)
-            end_date = next_month - timedelta(days=1)
-           
-        else:
-            start_date = datetime.now().replace(day=1)
-            next_month = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1)
-            end_date = next_month - timedelta(days=1)
-           
-        start_date, end_date = make_aware(start_date), make_aware(end_date)
+        # Create the first day of the selected month
+        start_date = datetime.strptime(f"{selected_year}-{selected_month}-01", "%Y-%m-%d")
+
+        # Calculate last day of the selected month
+        next_month = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1)
+        end_date = next_month - timedelta(days=1)
+
+        # Make dates timezone aware
+        start_date = make_aware(start_date)
+        end_date = make_aware(end_date)
     except ValueError:
         start_date, end_date = None, None
 
@@ -7909,6 +7996,15 @@ def routewise_sales_report(request, route_id):
     van_route = Van_Routes.objects.filter(routes=route_id).first()
     
     coupon_items_instances = CouponType.objects.all()
+    
+    if start_date and end_date:
+        date_list = []
+        current = start_date
+        while current <= end_date:
+            date_list.append(current)
+            current += timedelta(days=1)
+    else:
+        date_list = []
 
     return render(request, 'sales_management/routewise_sales_report.html', {
         'route': route,
@@ -7922,7 +8018,8 @@ def routewise_sales_report(request, route_id):
         'current_year': current_year,  
         'current_month': f"{current_month:02}",
         'coupon_items_instances': coupon_items_instances,
-        'coupon_items_instances_length': coupon_items_instances.count()
+        'coupon_items_instances_length': coupon_items_instances.count(),
+        'date_list': date_list,
     })
     
 def print_routewise_sales_report(request, route_id):
@@ -8922,3 +9019,70 @@ def scrap_clearance_to_excel(request):
     # Save the workbook to the response
     workbook.save(response)
     return response
+
+def route_wise_bottle_count(request):
+    route_li = RouteMaster.objects.filter()
+    context = {'route_li': route_li}
+    
+    return render(request, "sales_management/route_wise_bottle_count.html", context)
+
+# def custody_custom_list(request):
+#     """
+#     Fetches all custody records along with their customer details.
+#     """
+#     custody_records = CustodyCustom.objects.select_related('customer').all().order_by('-created_date')
+#     return render(request, 'sales_management/custody_custom_list.html', {'custody_records': custody_records})
+
+def custody_custom_list(request):
+    custody_records = CustodyCustom.objects.select_related('customer').all()
+
+    # Get today's date
+    today = now().date()
+
+    # Get filter parameters
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    query = request.GET.get('q', '').strip()  # Get search query and remove extra spaces
+
+    # Filter by date range
+    if start_date and end_date:
+        try:
+            start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+            custody_records = custody_records.filter(created_date__date__range=[start_date, end_date])
+        except ValueError:
+            pass  # Handle invalid date format gracefully
+    else:
+        todays_records = custody_records.filter(created_date__date=today)
+        custody_records = todays_records if todays_records.exists() else custody_records
+
+    # Apply search filter
+    if query:
+        custody_records = custody_records.filter(
+            Q(customer__customer_name__icontains=query) |
+            Q(customer__custom_id__icontains=query) |
+            Q(agreement_no__icontains=query) |
+            Q(reference_no__icontains=query)
+        )
+
+    context = {
+        "custody_records": custody_records.order_by('-created_date'),
+        "filter_data": {
+            "filter_date_from": start_date.strftime("%Y-%m-%d") if start_date else "",
+            "filter_date_to": end_date.strftime("%Y-%m-%d") if end_date else "",
+            "q": query,
+        },
+    }
+
+    return render(request, 'sales_management/custody_custom_list.html', context)
+
+def custody_custom_detail(request, custody_id):
+    custody_record = get_object_or_404(CustodyCustom, custody_custom_id=custody_id)
+    custody_items = CustodyCustomItems.objects.filter(custody_custom=custody_record)
+
+    context = {
+        "custody_record": custody_record,
+        "custody_items": custody_items,
+    }
+    
+    return render(request, 'sales_management/custody_custom_detail.html', context)

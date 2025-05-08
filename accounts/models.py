@@ -83,6 +83,8 @@ class CustomUser(AbstractUser):
     joining_date = models.DateTimeField(null=True, blank=True)
     passport_expiry = models.DateTimeField(null=True, blank=True)
     passport_number = models.CharField(max_length=50, null=True, blank=True)
+    is_exported = models.BooleanField(default=False)
+    
     #class Meta:
     #    ordering = ('username',)
 
@@ -91,6 +93,18 @@ class CustomUser(AbstractUser):
     
     def get_fullname(self):
         return f'{self.first_name} {self.last_name}'
+
+
+class CustomUserExportStatus(models.Model):
+    emp = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='emp_export_status')
+    erp_emp_id = models.CharField(max_length=50, unique=True)
+    exported_date = models.DateTimeField(auto_now_add=True)  
+    
+    class Meta:
+        ordering = ('-exported_date',)
+
+    def __str__(self):
+        return f"Exported {self.emp.username} with ERP ID {self.erp_emp_id}"    
     
 # Create your models here.
 class Customers(models.Model):
@@ -135,7 +149,9 @@ class Customers(models.Model):
     eligible_foc = models.IntegerField(default=0)
     is_deleted = models.BooleanField(default=False)
     gps_module_active = models.BooleanField(default=False)
+    is_exported = models.BooleanField(default=False)
     
+     
     def __str__(self):
         return str(self.customer_name)
     
@@ -151,7 +167,18 @@ class Customers(models.Model):
     @property
     def get_rate(self):
         return self.rate
-       
+
+class CustomerExportStatus(models.Model):
+    customer = models.ForeignKey(Customers, on_delete=models.CASCADE, related_name='customer_export_status')
+    erp_customer_id = models.CharField(max_length=50, unique=True)
+    exported_date = models.DateTimeField(auto_now_add=True)  
+    
+    class Meta:
+        ordering = ('-exported_date',)
+
+    def __str__(self):
+        return f"Exported {self.customer.customer_name} with ERP ID {self.erp_customer_id}"   
+           
 class Staff_Day_of_Visit(models.Model):
     visit_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     customer = models.ForeignKey(Customers, on_delete=models.SET_NULL, null=True, blank=False)

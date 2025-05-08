@@ -2,6 +2,7 @@ from django import forms
 from django.forms import ModelForm
 
 from sales_management.models import CollectionPayment
+from van_management.models import *
 from .models import *
 from accounts.models import Customers
 from django.db.models import Q
@@ -248,6 +249,10 @@ from .models import *
 #         }
 
 class CustodyCustomForm(forms.ModelForm):
+    
+    amount_collected = forms.DecimalField(
+        max_digits=10, decimal_places=2, required=False, widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
     class Meta:
         model = CustodyCustom
         fields = ['agreement_no','total_amount','deposit_type','amount_collected']
@@ -451,3 +456,31 @@ class EligibleCustomerConditionsForm(forms.ModelForm):
             'moq': forms.NumberInput(attrs={'class': 'form-control'}),
             'days': forms.NumberInput(attrs={'class': 'form-control'}),
         }
+        
+        
+class AuditDetailsForm(forms.ModelForm):
+    class Meta:
+        model = AuditDetails
+        fields = ['outstanding_amount', 'bottle_outstanding', 'outstanding_coupon']
+        
+        widgets = {
+                'outstanding_amount': forms.NumberInput(attrs={'class': 'form-control'}),
+                'bottle_outstanding': forms.NumberInput(attrs={'class': 'form-control'}),
+                'outstanding_coupon': forms.NumberInput(attrs={'class': 'form-control'}),
+            }
+
+class CustodyItemReturnForm(forms.ModelForm):
+    class Meta:
+        model = CustomerReturnItems
+        fields = ['quantity', 'amount', 'serialnumber']
+        labels = {
+            'quantity': 'Quantity',
+            'amount': 'Total Amount',
+            'serialnumber': 'Serial Number',
+        }
+        widgets = {
+            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'serialnumber': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+

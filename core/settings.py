@@ -1,3 +1,4 @@
+from datetime import timedelta
 import os
 from pathlib import Path
 from decouple import config, Csv
@@ -75,8 +76,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# cred = credentials.Certificate(BASE_DIR / "nationalwaterfcm-4cd9e-firebase-adminsdk-ijou8-4ac8e65e75.json")
-# firebase_admin.initialize_app(cred, name='Majedwaterfcm')
+# cred = credentials.Certificate(BASE_DIR / config('FIREBASE_CRED_KEY'))
+# firebase_admin.initialize_app(cred,name="majedwater")
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -201,7 +202,7 @@ X_FRAME_OPTIONS = 'ALLOWALL'
 
 XS_SHARING_ALLOWED_METHODS = ['POST','GET','OPTIONS', 'PUT', 'DELETE']
 
-# Internationalization
+# InterSanaization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
@@ -244,3 +245,34 @@ EL_PAGINATION_DEFAULT_CALLABLE_EXTREMES = 1
 EL_PAGINATION_DEFAULT_CALLABLE_AROUNDS = 1
 
 
+# SIMPLE_JWT = {
+#     'ACCESS_TOKEN_LIFETIME': timedelta(days=210),
+#     'REFRESH_TOKEN_LIFETIME': timedelta(days=730),
+#     'ROTATE_REFRESH_TOKENS': True,
+#     'BLACKLIST_AFTER_ROTATION': True
+# }
+
+# REST_FRAMEWORK = {
+#     'DATE_INPUT_FORMATS': [
+#         'iso-8601', '%Y-%m-%d'
+#         ],
+#     'DEFAULT_AUTHENTICATION_CLASSES': [
+#         'rest_framework_simplejwt.authentication.JWTAuthentication'
+#     ],
+#     'DEFAULT_PERMISSION_CLASSES': [
+#         'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
+#     ]
+# }
+
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 100
+}
+
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",  # In-memory (dev)
+        "LOCATION": "unique-snowflake",
+    }
+}

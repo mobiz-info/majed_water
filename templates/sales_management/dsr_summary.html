@@ -108,7 +108,7 @@
                             <table  class="table table-bordered text-wrap" style="width: 100%">
                                 <thead>
                                     <tr>
-                                        <th class="text-center text-bold" colspan="10">Stock Report</th>
+                                        <th class="text-center text-bold" colspan="13">Stock Report</th>
                                     </tr>
                                     <tr>
                                         <th scope="col" style="text-align:center;">Product Name</th>
@@ -122,9 +122,9 @@
                                         <th scope="col" style="text-align:center;">Damage Bottle</th>
                                         <th scope="col" style="text-align:center;">Offload</th>
                                         <th scope="col" style="text-align:center;">Empty Bottle</th>
-                                        {% comment %} <th scope="col" style="text-align:center;">Custody Issued</th> {% endcomment %}
-                                        <th scope="col" style="text-align:center;">Fresh Stock</th>
-                                        <th scope="col" style="text-align:center;">Closing</th>
+                                        <th scope="col" style="text-align:center;">Custody Issued</th>
+                                        {% comment %} <th scope="col" style="text-align:center;">Fresh Stock</th> {% endcomment %}
+                                        <th scope="col" style="text-align:center;">Closing Stock</th>
                                         <th scope="col" style="text-align:center;">Action</th>
                                     </tr>
                                 </thead>
@@ -137,14 +137,14 @@
                                         {% comment %} <td style="text-align:center;">{{stock_details.requested_count}}</td> {% endcomment %}
                                         <td style="text-align:center;">{{stock_details.issued_count}}</td>
                                         <td style="text-align:center;">{{van_data.opening_count|add:stock_details.issued_count}}</td>
-                                        <td style="text-align:center;">{{van_data.sold_count }}</td>
+                                        <td style="text-align:center;">{{ total_credit_amount_count|add:total_debit_amount_count|add:total_coupon_amount_count }}</td>
                                         <td style="text-align:center;">{{van_data.foc }}</td>
                                         <td style="text-align:center;">{{van_data.return_count}}</td>
                                         <td style="text-align:center;">{{van_data.damage_count}}</td>
                                         <td style="text-align:center;">{{stock_details.offload_count}}</td>
                                         <td style="text-align:center;">{{van_data.empty_can_count}}</td>
-                                        {% comment %} <td style="text-align:center;"></td> {% endcomment %}
-                                        <td style="text-align:center;">{{stock_report_total}}</td>
+                                        <td style="text-align:center;">{{customer_custody_items_fgallon_count}}</td>
+                                        {% comment %} <td style="text-align:center;">{{stock_report_total}}</td> {% endcomment %}
                                         <td style="text-align:center;">{{van_data.closing_count}}</td>
                                         <td>
                                             <div class="g-2">
@@ -669,6 +669,59 @@
                         </div>
                     </div>
 
+                    <!-- <div id="table-container">
+                        <div class="card-body">
+                            <table  class="table table-bordered text-wrap" style="width: 100%">
+                                <thead>
+                                    <tr>
+                                        <th class="text-center text-bold" colspan="6">Custody Issued</th>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align:center;" scope="col">Sl.no</th>
+                                        <th style="text-align:center;" scope="col">Customer Code</th>
+                                        <th style="text-align:center;" scope="col">Customer Name</th>
+                                        <th style="text-align:center;" scope="col">Building Name/Room no</th>
+                                        <th style="text-align:center;" scope="col">Product Name</th>
+                                        <th style="text-align:right;" scope="col">Qty</th>
+                                        <th style="text-align:center;" scope="col">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for instance in customer_custody_items_fgallon_instances %}
+                                    <tr>
+                                        <td style="text-align:center;">{{ forloop.counter }}</td>
+                                        <td style="text-align:center;">{{ instance.custody_custom.customer.custom_id }}</td>
+                                        <td style="text-align:center;">{{ instance.custody_custom.customer.customer_name }}</td>
+                                        <td style="text-align:center;">{{ instance.custody_custom.customer.building_name }} {% if instance.custody_custom.customer.door_house_no %} / {{ instance.custody_custom.customer.door_house_no }} {% endif %}</td>
+                                        <td style="text-align:center;">{{ instance.custody_custom.customer.product.product_name }}</td>
+                                        <td style="text-align:center;">{{ instance.quantity }}</td>
+                                        <td style="text-align:center;">{{ instance.amount }}</td>
+                                    </tr>
+                                    {% endfor %} 
+                                    {% for instance in customer_custody_items_nonfgallon_instances %}
+                                    <tr>
+                                        <td style="text-align:center;">{{ forloop.counter }}</td>
+                                        <td style="text-align:center;">{{ instance.custody_custom.customer.custom_id }}</td>
+                                        <td style="text-align:center;">{{ instance.custody_custom.customer.customer_name }}</td>
+                                        <td style="text-align:center;">{{ instance.custody_custom.customer.building_name }} {% if instance.custody_custom.customer.door_house_no %} / {{ instance.custody_custom.customer.door_house_no }} {% endif %}</td>
+                                        <td style="text-align:center;">{{ instance.custody_custom.customer.product.product_name }}</td>
+                                        <td style="text-align:center;">{{ instance.quantity }}</td>
+                                        <td style="text-align:center;">{{ instance.amount }}</td>
+                                    </tr>
+                                    {% endfor %} 
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="6" style="text-align: right;">Total:</td>
+                                        
+                                        <td style="text-align:center;">{{ collected_amount_from_custody_issue }}</td>
+                                        <td style="text-align:center;"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div> -->
+
                     <div id="table-container">
                         <div class="card-body">
                             <table  class="table table-bordered text-wrap" style="width: 100%">
@@ -824,8 +877,8 @@
                                         <td>{{total_credit_sales_count}}</td>
                                     </tr>
                                     <tr>
-                                        <th></th>
-                                        <td></td>
+                                        <th>Custody Issue</th>
+                                        <td>{{collected_amount_from_custody_issue}}</td>
                                         <th></th>
                                         <td></td>
                                         <th>Coupon Sales</th>
