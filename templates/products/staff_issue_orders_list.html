@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %} Products List {% endblock %}
+{% block title %} Staff Issue Orders {% endblock %}
 {% block content %}
 {% load static %}
 {% load purchase_template_tags %}
@@ -97,6 +97,15 @@
                                             <a href="{% url 'staff_issue_orders_details_list' data.pk %}" aria-label="anchor" class="btn  btn-warning-light btn-sm" data-bs-toggle="tooltip" data-bs-original-title="View">
                                                 <span class="bi bi-eye fs-14"></span>
                                             </a>
+                                            <!-- Delete Button (trigger modal via JS) -->
+                                            <button type="button"
+                                                class="btn btn-danger-light btn-sm ms-2 delete-order-btn"
+                                                    data-id="{{ data.pk }}"
+                                                    data-url="{% url 'delete_staff_order' data.pk %}"
+                                                    data-bs-toggle="tooltip"
+                                                    data-bs-original-title="Delete">
+                                                    <span class="ri-delete-bin-7-line fs-14"></span>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -124,8 +133,87 @@
     </div>
 </div>
 <!-- End::app-content -->
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteOrderModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="deleteModalMessage">Are you sure you want to delete this order?</p>
+                <div class="alert d-none" id="deleteAlert"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Yes, Delete</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
+
 {% block static %}
 {% load static %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    let deleteUrl = "";
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            let cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                let cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Show modal and store delete URL
+    $(document).on("click", ".delete-order-btn", function () {
+        deleteUrl = $(this).data("url");
+        $("#deleteAlert").addClass("d-none").removeClass("alert-success alert-danger").text("");
+        $('#deleteOrderModal').modal('show');
+    });
+
+    // Confirm delete button in modal
+    $("#confirmDeleteBtn").click(function () {
+        $.ajax({
+            url: deleteUrl,
+            type: 'POST',
+            headers: {
+                "X-CSRFToken": getCookie('csrftoken')
+            },
+            success: function (response) {
+                if (response.status === "true") {
+                    $("#deleteAlert").removeClass("d-none alert-danger")
+                                     .addClass("alert-success")
+                                     .text(response.message);
+                    setTimeout(() => {
+                        location.href = response.redirect_url;
+                    }, 1500);
+                } else {
+                    $("#deleteAlert").removeClass("d-none alert-success")
+                                     .addClass("alert-danger")
+                                     .text(response.message);
+                }
+            },
+            error: function () {
+                $("#deleteAlert").removeClass("d-none alert-success")
+                                 .addClass("alert-danger")
+                                 .text("Something went wrong. Please try again.");
+            }
+        });
+    });
+</script>
 
 {% endblock static %}
