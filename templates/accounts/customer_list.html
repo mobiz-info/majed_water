@@ -135,6 +135,24 @@
                                                 <a href="{% url 'coupon_count_list' data.customer_id %}" aria-label="anchor" class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Coupons">
                                                     <span class="bi bi-ticket-detailed fs-14"></span> <!-- Icon updated for 'Coupons' -->
                                                 </a>
+                                                    <!-- Username Change -->
+                                                <a href="{% url 'customer_username_change' data.customer_id %}" aria-label="anchor"
+                                                    class="btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Username Change">
+                                                        <span class="bi bi-person-lines-fill fs-14"></span>
+                                                </a>
+                                                {% if data.user_id %}
+                                                    <!-- Password Change -->
+                                                    <a href="{% url 'customer_password_change' data.customer_id %}" aria-label="anchor"
+                                                        class="btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Password Change">
+                                                            <span class="bi bi-key fs-14"></span>
+                                                    </a>
+                                                {% else %}
+                                                <!-- Disabled Password Change -->
+                                                    <a href="javascript:void(0);" class="btn btn-secondary-light btn-sm ms-2 disabled"
+                                                    data-bs-toggle="tooltip" data-bs-original-title="No user linked">
+                                                        <span class="bi bi-key fs-14 text-muted"></span>
+                                                    </a>
+                                                {% endif %}
                                                 <a aria-label="anchor" class="action-button remove btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete"
                                                 data-id="{{data.pk}}" data-text="{{confirm_delete_message}}" data-title="Are you sure?" href="{% url 'delete_customer' pk=data.pk %}">
                                                     <span class="bi bi-trash3 fs-14"></span> <!-- Icon updated for 'Delete' -->

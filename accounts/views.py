@@ -19,6 +19,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.views import LoginView
 from django.urls import reverse
+from django.contrib.auth.hashers import is_password_usable
 
 from competitor_analysis.forms import CompetitorAnalysisFilterForm
 from master.functions import generate_form_errors, get_custom_id, log_activity
@@ -1365,8 +1366,83 @@ class OtherProductRateChangeView(View):
             "redirect_url": reverse('customer_rate_history', kwargs={'pk': pk})
         }
         return JsonResponse(response_data)
-       
-       
+    
+def customer_username_change(request, customer_id):
+    customer = get_object_or_404(Customers, customer_id=customer_id)
+
+    # Case 1: user exists → instance will be pre-filled
+    if customer.user_id:
+        instance = customer.user_id
+    else:
+        instance = None  # empty form
+
+    if request.method == "POST":
+        form = ChangeUsernameForm(request.POST, instance=instance)
+        if form.is_valid():
+            user = form.save(commit=False)
+            if not instance:
+                user.save()
+                customer.user_id = user
+                customer.save()
+            else:
+                user.save()
+
+            return JsonResponse({
+                "status": "true",
+                "message": "Username saved successfully.",
+                "redirect_url": reverse('customers')
+            })
+        else:
+            return JsonResponse({
+                "status": "false",
+                "message": form.errors.get("username", ["Form is invalid."])[0]
+            })
+
+    form = ChangeUsernameForm(instance=instance)
+    return render(request, "accounts/customer_username_change.html", {
+        "form": form,
+        "customer": customer
+    })
+
+def customer_password_change(request, customer_id):
+    customer = get_object_or_404(Customers, customer_id=customer_id)
+
+    if not customer.user_id:
+        return JsonResponse({
+            "status": "false",
+            "message": "No user linked to this customer."
+        })
+
+    user = customer.user_id
+
+    if request.method == "POST":
+        form = CustomerPasswordChangeForm(user=user, data=request.POST)
+        if form.is_valid():
+            form.save()
+            update_session_auth_hash(request, user)
+            return JsonResponse({
+                "status": "true",
+                "message": "Password updated successfully.",
+                "redirect_url": reverse('customers')
+            })
+        else:
+            return JsonResponse({
+                "status": "false",
+                "message": (
+                    form.errors.get("new_password1", [""])[0]
+                    or form.errors.get("new_password2", [""])[0]
+                    or form.errors.get("__all__", ["Form is invalid."])[0]
+                )
+            })
+
+    form = CustomPasswordChangeForm(user=user)
+    has_password = is_password_usable(user.password)
+    return render(request, "accounts/change_customer_password.html", {
+        "form": form,
+        "customer": customer,
+        "has_password": has_password
+    })
+
 class NonVisitedCustomersView(View):
     template_name = 'accounts/non_visited_customers.html'
     paginate_by = 50  # Optional: For pagination, you can set this value
