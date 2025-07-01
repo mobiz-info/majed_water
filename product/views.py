@@ -1026,6 +1026,23 @@ def issue_coupons_orders(request):
                 
         return JsonResponse(response_data)
 
+@login_required
+def delete_staff_order(request, staff_order_id):
+    if request.method == "POST":
+        instance = get_object_or_404(Staff_Orders, pk=staff_order_id)
+        if Staff_IssueOrders.objects.filter(staff_Orders_details_id__staff_order_id=instance).exists():
+            return JsonResponse({
+                "status": "false",
+                "message": "Cannot delete. This staff order has already been issued."
+            })
+
+        instance.delete()
+        return JsonResponse({
+            "status": "true",
+            "message": "Order deleted successfully!",
+            "redirect": True,
+            "redirect_url": reverse('staff_issue_orders_list')
+        })
 
 #---------------------REPORTS-----
 def product_stock_report(request):

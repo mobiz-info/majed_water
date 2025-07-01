@@ -249,3 +249,33 @@ class CustomerPriceChangeForm(forms.ModelForm):
         widgets = {
             'new_price': forms.TextInput(attrs={'class': 'form-control product_rates', 'required': 'true', 'value':'0.00'}),
         }
+
+class ChangeUsernameForm(forms.ModelForm):
+    username = forms.CharField(
+        label="New Username",
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+
+    class Meta:
+        model = CustomUser
+        fields = ['username']
+
+class CustomerPasswordChangeForm(SetPasswordForm):
+    new_password1 = forms.CharField(
+        label="New Password",
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+    )
+    new_password2 = forms.CharField(
+        label="Confirm New Password",
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['new_password1'].widget.attrs.update({'class': 'form-control'})
+        self.fields['new_password2'].widget.attrs.update({'class': 'form-control'})
+
+    class Meta:
+        model = CustomUser
+        fields = ['new_password1', 'new_password2']
+        
