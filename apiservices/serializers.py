@@ -2604,9 +2604,22 @@ class CustomersOutstandingBottlesSerializer(serializers.ModelSerializer):
         return obj.collected_empty_bottle
     
     def get_pending(self, obj):
-        total_supplied = obj.get_total_supply_qty()
-        total_received = obj.collected_empty_bottle
-        return total_supplied - total_received
+        customer_supply_items = CustomerSupplyItems.objects.filter(customer_supply__customer=obj.customer, product__product_name="5 Gallon")
+    
+        bottle_supplied = customer_supply_items.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+        bottle_to_custody = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__allocate_bottle_to_custody'))['total_quantity'] or 0
+        bottle_to_paid = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__allocate_bottle_to_paid'))['total_quantity'] or 0
+        
+        foc_supply = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__allocate_bottle_to_free'))['total_quantity'] or 0
+        empty_bottle_collected = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__collected_empty_bottle'))['total_quantity'] or 0
+        
+        custody_quantity = CustodyCustomItems.objects.filter(custody_custom__customer=obj.customer, product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+        custody_return = CustomerReturnItems.objects.filter(customer_return__customer=obj.customer, product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+        
+        supply_qty = abs(((bottle_supplied - bottle_to_custody - bottle_to_paid) + foc_supply) - empty_bottle_collected)
+        custody_qty = abs(custody_quantity - custody_return)
+
+        return supply_qty + custody_qty
     
     def get_total_pending(self, obj):
         return OutstandingProduct.objects.filter(customer_outstanding__customer=obj.customer,customer_outstanding__created_date__date=obj.created_date.date()).aggregate(total_count=Sum('empty_bottle'))['total_count'] or 0

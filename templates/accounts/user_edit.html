@@ -32,6 +32,16 @@
                                         <!--                                <small class="form-text text-muted">Select Category.</small>-->
                                     </div>
                                 </div>
+
+                                <div class="col-md-6">
+                                    <div class="form-group required">
+                                        <span style="color: red;" class="required-star">*</span>
+                                        <label class='control-label'>User Type</label>
+                                        {{ form.user_type }}
+                                        <span style="color: red;">{{ form.user_type.errors }}</span>
+                                        <!--                                <small class="form-text text-muted">Select Category.</small>-->
+                                    </div>
+                                </div>
                                 
                                 <div class="col-md-6">
                                     <div class="form-group required">
@@ -109,7 +119,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-group required">
-                                        <label class='control-label'>Sanaity</label>
+                                        <label class='control-label'>Blue Diamond ity</label>
                                         {{ form.nationality }}
                                         <span style="color: red;">{{ form.nationality.errors }}</span>
                                         <!--                                <small class="form-text text-muted">Select Category.</small>-->
@@ -317,21 +327,3 @@
     </div>
 </div>
 {% endblock %}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

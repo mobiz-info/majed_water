@@ -14,49 +14,45 @@ register = template.Library()
 
 @register.simple_tag
 def route_wise_bottle_count(route_pk):
-    customers = Customers.objects.filter(routes__pk=route_pk)
+    customer_supply_items = CustomerSupplyItems.objects.filter(customer_supply__customer__routes__pk=route_pk, product__product_name="5 Gallon")
     
-    final_bottle_count = 0 
+    bottle_supplied = customer_supply_items.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+    bottle_to_custody = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__allocate_bottle_to_custody'))['total_quantity'] or 0
+    bottle_to_paid = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__allocate_bottle_to_paid'))['total_quantity'] or 0
     
-    for customer in customers:
-        total_bottle_count = CustomerSupply.objects.filter(customer=customer.customer_id)\
-                                                     .aggregate(total_quantity=Sum('allocate_bottle_to_custody'))['total_quantity'] or 0
-        
-        last_supplied_count = 0
-        
-        if (supply_items:=CustomerSupplyItems.objects.filter(customer_supply__customer=customer.customer_id)).exists():
-            last_supplied_count = supply_items.values_list('quantity', flat=True).latest("customer_supply__created_date") or 0
-
-        pending_count = CustomerSupply.objects.filter(customer=customer.customer_id)\
-                                                .aggregate(total_quantity=Sum('allocate_bottle_to_pending'))['total_quantity'] or 0
-
-        customer_bottle_count = total_bottle_count + last_supplied_count + pending_count
-        final_bottle_count += customer_bottle_count
+    foc_supply = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__allocate_bottle_to_free'))['total_quantity'] or 0
+    empty_bottle_collected = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__collected_empty_bottle'))['total_quantity'] or 0
     
-    return final_bottle_count
+    custody_quantity = CustodyCustomItems.objects.filter(custody_custom__customer__routes__pk=route_pk, product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+    custody_return = CustomerReturnItems.objects.filter(customer_return__customer__routes__pk=route_pk, product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+    
+    supply_qty = abs(((bottle_supplied - bottle_to_custody - bottle_to_paid) + foc_supply) - empty_bottle_collected)
+    custody_qty = abs(custody_quantity - custody_return)
+    
+    return supply_qty + custody_qty
 
 
 @register.simple_tag
 def route_wise_customer_bottle_count(customer_pk):
-    customer = Customers.objects.get(pk=customer_pk)
-    custody_count = 0
-    outstanding_bottle_count = 0
+    customer_supply_items = CustomerSupplyItems.objects.filter(customer_supply__customer__pk=customer_pk, product__product_name="5 Gallon")
     
-    if (custody_stock:=CustomerCustodyStock.objects.filter(customer=customer,product__product_name="5 Gallon")).exists() :
-        custody_count = custody_stock.first().quantity 
+    bottle_supplied = customer_supply_items.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+    bottle_to_custody = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__allocate_bottle_to_custody'))['total_quantity'] or 0
+    bottle_to_paid = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__allocate_bottle_to_paid'))['total_quantity'] or 0
     
-    if (outstanding_count:=CustomerOutstandingReport.objects.filter(customer=customer,product_type="emptycan")).exists() :
-        outstanding_bottle_count = outstanding_count.first().value
+    foc_supply = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__allocate_bottle_to_free'))['total_quantity'] or 0
+    empty_bottle_collected = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__collected_empty_bottle'))['total_quantity'] or 0
     
-    last_supplied_count = CustomerSupplyItems.objects.filter(customer_supply__customer=customer).order_by('-customer_supply__created_date').values_list('quantity', flat=True).first() or 0
-
-    total_bottle_count = custody_count + outstanding_bottle_count + last_supplied_count
+    custody_quantity = CustodyCustomItems.objects.filter(custody_custom__customer__pk=customer_pk, product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+    custody_return = CustomerReturnItems.objects.filter(customer_return__customer__pk=customer_pk, product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+    
+    supply_qty = abs(((bottle_supplied - bottle_to_custody - bottle_to_paid) + foc_supply) - empty_bottle_collected)
+    custody_qty = abs(custody_quantity - custody_return)
     
     return {
-        'custody_count': custody_count,
-        'outstanding_bottle_count': outstanding_bottle_count,
-        'last_supplied_count': last_supplied_count,
-        'total_bottle_count': total_bottle_count
+        'supply_qty': supply_qty,
+        'custody_qty': custody_qty,
+        'total_bottle_count': supply_qty + custody_qty,
     }
         
         

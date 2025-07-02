@@ -73,13 +73,14 @@ class User_Edit_Form(forms.ModelForm):
         self.fields['licence_issued_by'].queryset = EmirateMaster.objects.filter()
     class Meta:
         model = CustomUser
-        fields = ['first_name','username' ,'branch_id', 'staff_id', 'designation_id','blood_group','permanent_address',"present_address", 'phone','email','labour_card_no','labour_card_expiry','driving_licence_no','driving_licence_expiry','licence_issued_by','visa_issued_by','visa_no','visa_expiry','emirates_id_no','emirates_expiry','health_card_no','health_card_expiry','base_salary','wps_percentage','wps_ref_no','insurance_no','insurance_expiry','insurance_company','nationality','visa_type','passport_number','passport_expiry','joining_date']
+        fields = ['first_name','username' ,'branch_id', 'user_type', 'staff_id', 'designation_id','blood_group','permanent_address',"present_address", 'phone','email','labour_card_no','labour_card_expiry','driving_licence_no','driving_licence_expiry','licence_issued_by','visa_issued_by','visa_no','visa_expiry','emirates_id_no','emirates_expiry','health_card_no','health_card_expiry','base_salary','wps_percentage','wps_ref_no','insurance_no','insurance_expiry','insurance_company','nationality','visa_type','passport_number','passport_expiry','joining_date']
         widgets = {
             'first_name':forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
             'username': forms.TextInput(attrs={'class': 'form-control', 'required': 'true'}),
             'visa_issued_by': forms.Select(attrs={'class': 'form-control', 'required': False}),
             'licence_issued_by': forms.Select(attrs={'class': 'form-control', 'required': False}),
             'branch_id': forms.Select(attrs={'class': 'form-control', 'required': 'true'}),
+            'user_type': forms.Select(attrs={'class': 'form-control', 'required': 'true',}),
           
             'designation_id': forms.Select(attrs={'class': 'form-control', 'required': 'true'}),
             'staff_id': forms.TextInput(attrs={'class': 'form-control', 'required': False}),

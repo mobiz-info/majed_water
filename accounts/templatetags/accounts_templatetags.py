@@ -24,18 +24,22 @@ def get_next_visit_day(customer_pk):
 
 @register.simple_tag
 def bottle_stock(customer_pk):
-    customer = Customers.objects.get(pk=customer_pk)
-    custody_count = 0
+    customer_supply_items = CustomerSupplyItems.objects.filter(customer_supply__customer__pk=customer_pk, product__product_name="5 Gallon")
+    
+    bottle_supplied = customer_supply_items.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+    bottle_to_custody = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__allocate_bottle_to_custody'))['total_quantity'] or 0
+    bottle_to_paid = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__allocate_bottle_to_paid'))['total_quantity'] or 0
+    
+    foc_supply = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__allocate_bottle_to_free'))['total_quantity'] or 0
+    empty_bottle_collected = customer_supply_items.aggregate(total_quantity=Sum('customer_supply__collected_empty_bottle'))['total_quantity'] or 0
+    
+    custody_quantity = CustodyCustomItems.objects.filter(custody_custom__customer__pk=customer_pk, product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+    custody_return = CustomerReturnItems.objects.filter(customer_return__customer__pk=customer_pk, product__product_name="5 Gallon").aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+    
+    supply_qty = abs(((bottle_supplied - bottle_to_custody - bottle_to_paid) + foc_supply) - empty_bottle_collected)
+    custody_qty = abs(custody_quantity - custody_return)
 
-    if (custody_stock:=CustomerCustodyStock.objects.filter(customer=customer,product__product_name="5 Gallon")).exists() :
-        custody_count = custody_stock.first().quantity 
-
-    total_supplied_count = CustomerSupplyItems.objects.filter(customer_supply__customer=customer).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
-    total_empty_collected = CustomerSupply.objects.filter(customer=customer).aggregate(total_quantity=Sum('collected_empty_bottle'))['total_quantity'] or 0
-
-    total_bottle_count = custody_count + total_supplied_count - total_empty_collected
-
-    return total_bottle_count
+    return supply_qty + custody_qty
 
 
 @register.filter

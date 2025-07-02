@@ -1,10 +1,17 @@
 {% extends 'base.html' %}
-{% block title %} Trip Schedule {{route.route_name}} {% endblock %}
+{% block title %} Bottle Count Report {% endblock %}
 {% load client_templatetags %}
 {% block content %}
 
 <!-- Page Header -->
-    <div class="main-content app-content">
+<div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between ">
+    <h4 class="fw-medium mb-0">Bottle Count Report</h4>
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-30">Bottle Management </a></li>
+        <li class="breadcrumb-item active" aria-current="page">Bottle Count Report</li>
+    </ol>
+</div>
+<div class="main-content app-content">
         <div class="container-fluid">
             <div>
             <div class="row">
@@ -12,20 +19,20 @@
                     <div class="card custom-card">
                         <div class="card-header">
                             <div class="card-title">
-                                Route Details
+                               {{ route.route_name }}- Route Details
                             </div>
                         </div>
-                         <div class="card-body" style="margin-top: 3em;">
+                        <div class="card-body" style="margin-top: 3em;">
                             <table class="table table-bordered text-wrap " style="width: 100%;"  data-page-length="50">
                                 <thead>
                                     <tr>
-                                        <th scope="col">Sl No</th>
-                                        <th scope="col">custom Name</th>
-                                        <th scope="col">Building name </th>
-                                        <th scope="col">Custody</th>
-                                        <th scope="col">Outstanding</th>
-                                        <th scope="col">Last Supplied</th>
-                                        <th scope="col">Total</th>
+                                        <th class="text-center" scope="col">Sl No</th>
+                                        <th class="text-center" scope="col">customer Id</th>
+                                        <th class="text-center" scope="col">customer Name</th>
+                                        <th class="text-center" scope="col">Building name </th>
+                                        <th class="text-center" scope="col">Custody<br><small>(Issued - Return)</small></th>
+                                        <th class="text-center" scope="col">Supply<br><small>(Supply - paid - custody + FOC - Collected)</small></th>
+                                        <th class="text-center" scope="col">Total<br><small>(In Hand Bottle)</small></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -35,12 +42,12 @@
                                     {% route_wise_customer_bottle_count instance.pk as count %}
                                     <tr>
                                         <td>{{ forloop.counter }}</td>
-                                        <td>{{ instance.routes.route_name }}</td> 
+                                        <td>{{ instance.custom_id }}</td> 
+                                        <td>{{ instance.customer_name }}</td> 
                                         <td>{{ instance.building_name }}</td> 
-                                        <td>{{ count.custody_count }}</td> 
-                                        <td>{{ count.outstanding_bottle_count }}</td> 
-                                        <td>{{ count.last_supplied_count }}</td> 
-                                        <td>{{ count.total_bottle_count }}</td>
+                                        <td style="text-align: right;">{{ count.custody_qty }}</td> 
+                                        <td style="text-align: right;">{{ count.supply_qty }}</td> 
+                                        <td style="text-align: right;">{{ count.total_bottle_count }}</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
