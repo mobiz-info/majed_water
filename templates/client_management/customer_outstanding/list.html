@@ -89,6 +89,7 @@
                                     <th>Customer</th>
                                     <th>Building No</th>
                                     <th>Room No/Floor No</th>
+                                    <th>Mobile No</th>
                                     <th>Route</th>
                                     {% if filter_data.product_type == 'amount' %}
                                     <th>Amount</th>
@@ -117,6 +118,7 @@
                                     <td>{{ customer.customer_name }}</td>
                                     <td>{{ customer.building_name }}</td>
                                     <td>{{ customer.door_house_no }}</td>
+                                    <td>{{ customer.mobile_no }}</td>
                                     <td>{{ customer.routes.route_name }}</td>
                                     {% if filter_data.product_type == 'amount' %}
                                     <td>{{ outstanding_amount }}</td>
@@ -139,7 +141,7 @@
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="6" class="text-end fw-bold">Total Outstanding Amount:</td>
+                                    <td colspan="7" class="text-end fw-bold">Total Outstanding Amount:</td>
                                     {% if filter_data.product_type == 'amount' %}
                                     <td class="fw-bold">{{ net_total_outstanding }}</td>
                                     {% endif %}
