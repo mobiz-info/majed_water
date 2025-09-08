@@ -2220,7 +2220,7 @@ def export_to_excel(instances, date, total_amount, total_bottles, total_coupons)
     # Header row
     headers = [
         "Sl No", "Customer ID", "Customer Name", "Building No", 
-        "Room/Floor No", "Route", "Outstanding Amount", 
+        "Room/Floor No","Mobile No", "Route", "Outstanding Amount", 
         "Outstanding Bottles", "Outstanding Coupons"
     ]
     for col_num, header in enumerate(headers, start=1):
@@ -2256,6 +2256,7 @@ def export_to_excel(instances, date, total_amount, total_bottles, total_coupons)
             customer.customer_name,
             customer.building_name,
             customer.door_house_no,
+            customer.mobile_no,
             customer.routes.route_name,
             outstanding_amount,
             outstanding_bottles,
@@ -2266,10 +2267,10 @@ def export_to_excel(instances, date, total_amount, total_bottles, total_coupons)
 
     # Footer row for totals
     total_row_index = len(instances) + 2
-    sheet[f"F{total_row_index}"] = "Total:"
-    sheet[f"G{total_row_index}"] = total_amount
-    sheet[f"H{total_row_index}"] = total_bottles
-    sheet[f"I{total_row_index}"] = total_coupons
+    sheet[f"G{total_row_index}"] = "Total:"
+    sheet[f"H{total_row_index}"] = total_amount
+    sheet[f"I{total_row_index}"] = total_bottles
+    sheet[f"J{total_row_index}"] = total_coupons
 
     # Prepare the response
     response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

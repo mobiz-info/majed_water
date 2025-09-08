@@ -1602,6 +1602,7 @@ class Customer_API(APIView):
         try:
             serializer = CustomersCreateSerializers(data=request.data)
             if serializer.is_valid(raise_exception=True):
+                custody_value = int(request.data.get('custody_count', 0)) 
                 if request.data["mobile_no"] and Customers.objects.filter(mobile_no=request.data["mobile_no"]).exists():
                     return Response({'data': 'Customer with this mobile number already exists! Try another number'}, status=status.HTTP_400_BAD_REQUEST)
                 
@@ -1610,7 +1611,7 @@ class Customer_API(APIView):
                 
                 if request.data["mobile_no"]:
                     username = request.data["mobile_no"]
-                    password = request.data["password"]
+                    password = request.data["mobile_no"]
                     hashed_password = make_password(password)
                     
                     customer_data = CustomUser.objects.create(
@@ -1668,6 +1669,29 @@ class Customer_API(APIView):
                         customer_charge.current_rate = rate
                         customer_charge.save()
 
+                if custody_value > 0:
+                    custody_instance = CustodyCustom.objects.create(
+                        customer=data,
+                        created_by=request.user.id,
+                        created_date=datetime.today(),
+                        deposit_type="non_deposit",
+                        reference_no=f"{data.custom_id} - {data.created_date}"
+                    )
+
+                    CustodyCustomItems.objects.create(
+                        product=ProdutItemMaster.objects.get(product_name="5 Gallon"),
+                        quantity=custody_value,
+                        custody_custom=custody_instance
+                    )
+                    
+                    custody_stock, created = CustomerCustodyStock.objects.get_or_create(
+                        customer=data,
+                        product=ProdutItemMaster.objects.get(product_name="5 Gallon"),
+                    )
+                    custody_stock.reference_no = f"{data.custom_id} - {data.created_date}"   
+                    custody_stock.quantity += custody_value
+                    custody_stock.save()
+                    
                 log_activity(
                     created_by=request.user.id,
                     description=f"Added new customer {data.customer_name}"
