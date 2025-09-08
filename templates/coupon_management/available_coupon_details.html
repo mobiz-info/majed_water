@@ -70,7 +70,7 @@
                                     <ul id="free-leaflet-list" class="d-flex">
                                         {% available_free_coupons  manual_coupon.coupon.pk as availabele_manual_free %}
                                         {% for freeli in availabele_manual_free %}
-                                        <li class="generated_leaf_li {% if lis.used %}used_leaf{% endif %}" data-id="{{freeli.pk}}">{{freeli.leaflet_name}}</li>
+                                        <li class="generated_leaf_li {% if freeli.used %}used_leaf{% endif %}" data-id="{{freeli.pk}}">{{freeli.leaflet_name}}</li>
                                         {% endfor %}
                                     </ul>
                                 </div>

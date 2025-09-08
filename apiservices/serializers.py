@@ -502,7 +502,7 @@ class SupplyItemCustomersSerializer(serializers.ModelSerializer):
             coupon_leafs = CouponLeaflet.objects.filter(used=False,coupon__pk__in=list(coupon_ids_queryset)).order_by("leaflet_name")
             coupon_leafs_data = CouponLeafSerializer(coupon_leafs, many=True).data
             
-            free_leafs = FreeLeaflet.objects.filter(used=False,coupon__pk__in=list(coupon_ids_queryset)).order_by("leaflet_name")
+            free_leafs = FreeLeaflet.objects.filter(used=False, coupon__pk__in=coupon_ids_queryset).order_by("leaflet_name")
             free_leafs_data = FreeLeafletSerializer(free_leafs, many=True).data
             
             leafs = coupon_leafs_data + free_leafs_data
