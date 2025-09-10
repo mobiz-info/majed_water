@@ -86,17 +86,17 @@
                                     <td style="text-align:left;">{{ coupon_designation.name }}</td>
                                     <td>
                                         <div class="g-2">
-                                            <a href="{% url 'view_Newcoupon' coupon.coupon_id %}" aria-label="anchor"
+                                            <a href="{% if coupon.coupon_id %}{% url 'view_Newcoupon' coupon.coupon_id %}{% endif %}" aria-label="anchor"
                                                 class="btn  btn-warning-light btn-sm" data-bs-toggle="tooltip"
                                                 data-bs-original-title="View">
                                                 <span class="bi bi-eye fs-14"></span>
                                             </a>
-                                            <a href="{% url 'edit_NewCoupon' coupon.coupon_id %}" aria-label="anchor"
+                                            <a href="{% if coupon.coupon_id %}{% url 'edit_NewCoupon' coupon.coupon_id %}{% endif %}" aria-label="anchor"
                                                 class="btn btn-primary-light btn-sm ms-2" data-bs-toggle="tooltip"
                                                 data-bs-original-title="Edit">
                                                 <span class="ri-pencil-line fs-14"></span>
                                             </a>
-                                            <a href="{% url 'delete_Newcoupon' coupon.coupon_id %}"
+                                            <a href="{% if coupon.coupon_id %}{% url 'delete_Newcoupon' coupon.coupon_id %}{% endif %}"
                                                 aria-label="anchor" class="btn btn-danger-light btn-sm ms-2"
                                                 data-bs-toggle="tooltip" data-bs-original-title="Delete">
                                                 <span class="ri-delete-bin-7-line fs-14"></span>
