@@ -24,12 +24,12 @@ def get_coupon_designation(pk):
     context = {}
     customer_pk = ""
     customer_name = ""
-    print(pk)
-    print("pk")
+    # print(pk)
+    # print("pk")
     instance = NewCoupon.objects.get(pk=pk)
     coupon_status = CouponStock.objects.get(couponbook=instance).coupon_stock
     # print(CouponStock.objects.get(couponbook=instance).couponbook.pk)
-    print(coupon_status)
+    # print(coupon_status)
     
     if coupon_status == "customer":
         customer_instance = CustomerCouponItems.objects.filter(coupon=instance).first()

@@ -893,18 +893,96 @@ def edit_coupon_recharge(request, pk):
     return render(request, "coupon_management/edit_coupon_recharge.html", context)
 
 def delete_coupon_recharge(request, pk):
-    coupon_recharge = get_object_or_404(CustomerCoupon, id=pk)
-    invoice = get_object_or_404(Invoice, invoice_no=coupon_recharge.invoice_no)
-    receipt = get_object_or_404(Receipt, invoice_number=coupon_recharge.invoice_no)
-    
-    invoice.delete()
-    coupon_recharge.delete()
-    receipt.delete()
+    """
+    Rollback and delete a coupon recharge with all linked transactions.
+    """
+    try:
+        with transaction.atomic():
+            coupon_recharge = get_object_or_404(CustomerCoupon, id=pk)
 
-    log_activity(
-        created_by=request.user,
-        description=f"Deleted coupon recharge with ID {pk}, invoice no {coupon_recharge.invoice_no}, and related receipt."
-    )
-    
-    messages.success(request, "Coupon recharge and related invoice deleted successfully.")
-    return redirect("coupon_recharge")
+            # Rollback Outstanding
+            try:
+                if coupon_recharge.balance > 0:
+                    outstanding_report = CustomerOutstandingReport.objects.get(
+                        customer=coupon_recharge.customer,
+                        product_type="amount"
+                    )
+                    outstanding_report.value -= Decimal(coupon_recharge.balance)
+                    outstanding_report.save()
+
+                    # delete linked outstanding and amounts
+                    CustomerOutstanding.objects.filter(
+                        customer=coupon_recharge.customer,
+                        product_type="amount"
+                    ).delete()
+            except CustomerOutstandingReport.DoesNotExist:
+                pass
+
+            # Rollback Coupon Items & Stocks
+            coupon_items = CustomerCouponItems.objects.filter(customer_coupon=coupon_recharge)
+            for item in coupon_items:
+                coupon = item.coupon
+
+                # rollback CustomerCouponStock
+                try:
+                    stock = CustomerCouponStock.objects.get(
+                        coupon_method=coupon.coupon_method,
+                        customer_id=coupon_recharge.customer.pk,
+                        coupon_type_id=coupon.coupon_type_id
+                    )
+                    stock.count -= Decimal(coupon.no_of_leaflets)
+                    stock.save()
+                except CustomerCouponStock.DoesNotExist:
+                    pass
+
+                # rollback VanCouponStock
+                try:
+                    van_stock = VanCouponStock.objects.get(
+                        created_date=coupon_recharge.created_date.date(),
+                        coupon=coupon
+                    )
+                    van_stock.stock += 1
+                    van_stock.sold_count -= 1
+                    van_stock.save()
+                except VanCouponStock.DoesNotExist:
+                    pass
+
+                # reset coupon stock status
+                CouponStock.objects.filter(couponbook=coupon).update(coupon_stock="van")
+
+            coupon_items.delete()
+
+            # Rollback Invoice
+            try:
+                invoice = get_object_or_404(Invoice, invoice_no=coupon_recharge.invoice_no)
+                InvoiceItems.objects.filter(invoice=invoice).delete()
+                InvoiceDailyCollection.objects.filter(invoice=invoice).delete()
+                invoice.delete()
+            except Invoice.DoesNotExist:
+                pass
+
+            # Rollback Receipt
+            try:
+                receipt = get_object_or_404(Receipt, invoice_number=coupon_recharge.invoice_no)
+                receipt.delete()
+            except Receipt.DoesNotExist:
+                pass
+
+            # Rollback Cheque Payment
+            ChequeCouponPayment.objects.filter(reference_number=coupon_recharge.reference_number).delete()
+
+            # Finally delete CustomerCoupon
+            reference_no = coupon_recharge.reference_number
+            coupon_recharge.delete()
+
+            log_activity(
+                created_by=request.user,
+                description=f"Rolled back coupon recharge with ID {pk}, invoice no {reference_no}, and related transactions."
+            )
+
+            messages.success(request, "Coupon recharge and all related transactions deleted successfully.")
+            return redirect("coupon_recharge")
+
+    except Exception as e:
+        messages.error(request, f"Error during rollback: {str(e)}")
+        return redirect("coupon_recharge")
