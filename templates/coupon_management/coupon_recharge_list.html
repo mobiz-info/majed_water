@@ -64,8 +64,7 @@
                             </div>
                         </form>
                     </div>
-            <div class="w-100 overflow-auto">
-
+                <div class="w-100 overflow-auto">
                     <!-- Table Section -->
                     <div id="table-container">
                         <div class="card-body">
@@ -74,8 +73,9 @@
                                     <tr>
                                         <th rowspan="2">Sl No</th>
                                         <th rowspan="2">Date</th>
-                                        <th rowspan="2">Customer</th>
                                         <th rowspan="2">Customer ID</th>
+                                        <th rowspan="2">Customer</th>
+                                        <th rowspan="2">Book Numbers</th>
                                         <th rowspan="2">Salesman</th>
                                         <th rowspan="2">Payment Type</th>
                                         <th rowspan="2">Amount Received</th>
@@ -95,8 +95,9 @@
                                         <tr>
                                             <td>{{ forloop.counter }}</td>
                                             <td>{{ instance.created_date|date:'d-m-Y' }}</td>
-                                            <td>{{ instance.customer.customer_name }}</td>
                                             <td>{{ instance.customer.custom_id }}</td>
+                                            <td>{{ instance.customer.customer_name }}</td>
+                                            <td>{{ instance.display_coupon_books }}</td>
                                             <td>{{ instance.salesman.get_fullname }}</td>
                                             <td>{{ instance.payment_type }}</td>
                                             <td>{{ instance.amount_recieved }}</td>

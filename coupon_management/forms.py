@@ -1,7 +1,9 @@
 from django import forms
 from django.forms import ModelForm
+
+from accounts.models import CustomUser, Customers
 from .models import *
-from client_management.models import CustomerCoupon
+from client_management.models import CustomerCoupon, CustomerCouponItems
 
 class CreateCouponTypeForm(forms.ModelForm):
     class Meta:
@@ -74,3 +76,36 @@ class CustomerCouponForm(forms.ModelForm):
             'coupon_method': forms.Select(attrs={'class': 'form-control'}),
             'invoice_no': forms.TextInput(attrs={'class': 'form-control'}),
         }
+        
+
+class CouponReassignForm(forms.Form):
+    customer = forms.ModelChoiceField(
+        queryset=Customers.objects.filter(is_deleted=False),
+        label="Customer",
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    salesman = forms.ModelChoiceField(
+        queryset=CustomUser.objects.filter(is_active=True),
+        required=False,
+        label="Salesman",
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    coupon = forms.ModelChoiceField(
+        queryset=NewCoupon.objects.none(),
+        label="Un-issued Coupon",
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Only un-issued coupons
+        customer_coupon_item_coupon_ids = (
+            CustomerCouponItems.objects.all().values_list("coupon__pk", flat=True)
+        )
+        coupon_stock = CouponStock.objects.filter(coupon_stock="customer").exclude(
+            couponbook__pk__in=customer_coupon_item_coupon_ids
+        )
+        self.fields["coupon"].queryset = NewCoupon.objects.filter(
+            pk__in=coupon_stock.values_list("couponbook__pk", flat=True)
+        ).order_by("-created_date")

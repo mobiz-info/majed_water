@@ -71,7 +71,7 @@ def get_coupon_designation(pk):
             "pk": "",
             "name": f"Used",
         }
-    print(context)
+    # print(context)
     return context
 
 

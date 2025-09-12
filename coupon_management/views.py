@@ -1,9 +1,20 @@
 import re
+import json
+from decimal import Decimal
+
 from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.template.loader import render_to_string
+from django.db import transaction, IntegrityError
+from django.core.serializers import serialize
+from django.views import View
+from datetime import datetime
+from django.core.exceptions import ObjectDoesNotExist
+from django.http import JsonResponse, HttpResponse
+from django.db.models import Q
+
 from coupon_management.serializers import couponStockSerializers
 from lxml.etree import HTML
 from openpyxl import Workbook
@@ -14,19 +25,13 @@ from client_management.models import *
 from competitor_analysis.forms import CompetitorAnalysisFilterForm
 from master.functions import generate_form_errors
 from product.models import Staff_Orders_details
+from van_management.models import VanCouponStock
 from . models import *
 from .forms import  *
 from accounts.models import CustomUser, Customers
-from invoice_management.models import Invoice
+from invoice_management.models import Invoice, InvoiceDailyCollection
 from sales_management.models import *
 from master.models import EmirateMaster, BranchMaster, RouteMaster
-import json
-from django.core.serializers import serialize
-from django.views import View
-from datetime import datetime
-from django.core.exceptions import ObjectDoesNotExist
-from django.http import JsonResponse, HttpResponse
-from django.db.models import Q
 from master.functions import log_activity
 
 # Create your views here.
@@ -808,18 +813,20 @@ def print_redeemed_history(request):
     }
 
     return render(request, 'coupon_management/print_redeemed_history.html', context)
+
 def coupon_recharge_list(request):
-    # Get start and end dates from request parameters if available
+    filter_data = {}
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
     query = request.GET.get("q")
     payment_type = request.GET.get('payment_type', '')
     coupon_method = request.GET.get('coupon_method', '')
 
-    
-    coupon_customer =CustomerCoupon.objects.all().order_by('-created_date')
+    coupon_customer = CustomerCoupon.objects.all().order_by('-created_date')
     
     if start_date and end_date:
+        filter_data['start_date'] = start_date
+        filter_data['end_date'] = start_date
         # If both dates are provided, filter between them
         coupon_customer = coupon_customer.filter(created_date__range=(start_date, end_date))
     if query:
@@ -828,23 +835,18 @@ def coupon_recharge_list(request):
             Q(customer__customer_name__icontains=query) |
             Q(customer__mobile_no__icontains=query) |
             Q(customer__location__location_name__icontains=query) |
-            Q(customer__building_name__icontains=query)
+            Q(customer__building_name__icontains=query) |
+            Q(customercouponitems__coupon__book_num__icontains=query)
         )
+        filter_data['q'] = query
     # Apply payment_type and coupon_method filters
     if payment_type:
         coupon_customer = coupon_customer.filter(payment_type=payment_type)
+        filter_data['payment_type'] = payment_type
     if coupon_method:
         coupon_customer = coupon_customer.filter(coupon_method=coupon_method)
+        filter_data['coupon_method'] = coupon_method
 
-    # Pass filter_data to keep the form values intact
-    filter_data = {
-        'start_date': start_date,
-        'end_date': end_date,
-        'q': query,
-        'payment_type': payment_type,
-        'coupon_method': coupon_method,
-
-    }
     log_activity(
             created_by=request.user,
             description=f"Viewed coupon recharge list."
@@ -852,8 +854,7 @@ def coupon_recharge_list(request):
     context={
         'coupon_customer':coupon_customer,
         'filter_data': filter_data,
-
-}
+    }
 
     return render(request,'coupon_management/coupon_recharge_list.html', context)
 
@@ -986,3 +987,113 @@ def delete_coupon_recharge(request, pk):
     except Exception as e:
         messages.error(request, f"Error during rollback: {str(e)}")
         return redirect("coupon_recharge")
+    
+    
+def un_issued_coupon_book_list(request):
+    filter_data = {}
+    query = request.GET.get("q")
+    coupon_method = request.GET.get('coupon_method', '')
+
+    customer_coupon_item_coupon_ids = CustomerCouponItems.objects.all().values_list("coupon__pk")
+    coupon_stock = CouponStock.objects.filter(coupon_stock="customer").exclude(couponbook__pk__in=customer_coupon_item_coupon_ids)
+    instances = NewCoupon.objects.filter(pk__in=coupon_stock.values_list("couponbook__pk")).order_by("-created_date")
+    
+    if query:
+
+        instances = instances.filter(
+            Q(book_num__icontains=query) |
+            Q(coupon_type__coupon_type_name__icontains=query)
+        )
+        title = "Coupon List - %s" % query
+        filter_data['q'] = query
+    
+    if coupon_method:
+        coupon_stock = coupon_stock.filter(coupon_method=coupon_method)
+        filter_data['coupon_method'] = coupon_method
+
+    log_activity(
+            created_by=request.user,
+            description=f"Viewed un issued list."
+        )
+    context={
+        'instances':instances,
+        'filter_data': filter_data,
+    }
+
+    return render(request,'coupon_management/un_issued_couon_book_list.html', context)
+
+
+@login_required
+def reassign_unissued_coupon(request, pk):
+    if request.method == "POST":
+        form = CouponReassignForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    customer = form.cleaned_data["customer"]
+                    salesman = form.cleaned_data["salesman"] or request.user
+                    coupon = form.cleaned_data["coupon"]
+
+                    customer_coupon = CustomerCoupon.objects.create(
+                        customer=customer,
+                        salesman=salesman,
+                        created_date=datetime.now(),
+                        coupon_method="manual",
+                        net_amount=0,
+                        discount=0,
+                        total_payeble=0,
+                        amount_recieved=0,
+                    )
+
+                    CustomerCouponItems.objects.create(
+                        customer_coupon=customer_coupon,
+                        coupon=coupon,
+                        rate=0
+                    )
+
+                    log_activity(
+                        created_by=request.user,
+                        description=f"Re-assigned coupon {coupon.book_num} to {customer.customer_name}"
+                    )
+
+                    response_data = {
+                        "status": "true",
+                        "title": "Successfully Assigned",
+                        "message": "Coupon Assigned successfully.",
+                        "redirect": "true",
+                        "redirect_url": reverse("un_issued_coupon_book_list"),
+                    }
+                    return HttpResponse(json.dumps(response_data), content_type="application/json")
+
+            except IntegrityError as e:
+                response_data = {
+                    "status": "false",
+                    "title": "Failed",
+                    "message": f"Integrity error: {str(e)}",
+                }
+                return HttpResponse(json.dumps(response_data), content_type="application/json")
+
+            except Exception as e:
+                response_data = {
+                    "status": "false",
+                    "title": "Error",
+                    "message": str(e),
+                }
+                return HttpResponse(json.dumps(response_data), content_type="application/json")
+
+        else:
+            response_data = {
+                "status": "false",
+                "title": "Validation Failed",
+                "message": generate_form_errors(form, formset=False),
+            }
+            return HttpResponse(json.dumps(response_data), content_type="application/json")
+
+    else:
+        coupon = NewCoupon.objects.get(pk=pk)
+        form = CouponReassignForm(initial={"coupon": coupon})
+        # Ensure the coupon is in queryset
+        form.fields["coupon"].queryset = NewCoupon.objects.filter(pk=pk) | form.fields["coupon"].queryset
+
+    return render(request, "coupon_management/reassign_coupon.html", {"form": form})
+

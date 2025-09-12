@@ -288,6 +288,14 @@ class CustomerCoupon(models.Model):
     def display_coupon_rates(self):
         rates = self.get_coupon_rates()
         return ", ".join(str(rate) for rate in rates) if rates else "No coupon rates available"
+    
+    def display_coupon_books(self):
+        items = CustomerCouponItems.objects.filter(customer_coupon=self)
+        return ", ".join(str(item.coupon.book_num) for item in items) if items else "No coupon available"
+    
+    def display_coupon_books(self):
+        items = CustomerCouponItems.objects.filter(customer_coupon=self)
+        return ", ".join(str(item.coupon.book_num) for item in items) if items else "No coupon available"
 
     
 class CustomerCouponItems(models.Model):

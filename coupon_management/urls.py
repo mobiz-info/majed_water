@@ -37,6 +37,8 @@ urlpatterns = [
     path("edit_coupon_recharge/<uuid:pk>/", edit_coupon_recharge, name="edit_coupon_recharge"),
     path("delete_coupon_recharge/<uuid:pk>/", delete_coupon_recharge, name="delete_coupon_recharge"),
 
+    path('un-issued-coupon-books/', un_issued_coupon_book_list, name='un_issued_coupon_book_list'),
+    path('reassign-unissued-coupon/<uuid:pk>/', reassign_unissued_coupon, name='reassign_unissued_coupon'),
 
 
 
