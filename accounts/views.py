@@ -1779,8 +1779,10 @@ class MissedOnDeliveryPrintView(View):
         return render(request, self.template_name, context)
 
 def processing_log_list(request):
+    query = request.GET.get('q')
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
+    created_by = request.GET.get('created_by')
 
     # Use today's date as the default if no date is provided
     if not start_date:
@@ -1794,8 +1796,19 @@ def processing_log_list(request):
         end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
     logs = Processing_Log.objects.filter(created_date__date__range=(start_date, end_date)).order_by("-created_date")
     
+    if created_by:
+        logs = logs.filter(created_by=created_by)
+        
+    if query :
+        logs = logs.filter(
+            Q(description__icontains=query)
+        )
+    
+    creators = Processing_Log.objects.values_list("created_by", "created_by").distinct()
+    
     context = {
         'logs': logs,
+        'creators': creators
     }
     
     return render(request, 'accounts/processing_log_list.html', context)
