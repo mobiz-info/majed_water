@@ -3482,100 +3482,100 @@ class CustomerCouponRecharge(APIView):
             }
             return Response(response_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def delete(self, request, pk):
-        """
-        API endpoint to delete a customer coupon recharge and rollback transactions.
-        """
-        try:
-            with transaction.atomic():
-                customer_coupon = CustomerCoupon.objects.get(pk=pk)
+    # def delete(self, request, pk):
+    #     """
+    #     API endpoint to delete a customer coupon recharge and rollback transactions.
+    #     """
+    #     try:
+    #         with transaction.atomic():
+    #             customer_coupon = CustomerCoupon.objects.get(pk=pk)
 
-                # Rollback Outstanding
-                try:
-                    if customer_coupon.balance > 0:
-                        outstanding_report = CustomerOutstandingReport.objects.get(
-                            customer=customer_coupon.customer,
-                            product_type="amount"
-                        )
-                        outstanding_report.value -= Decimal(customer_coupon.balance)
-                        outstanding_report.save()
+    #             # Rollback Outstanding
+    #             try:
+    #                 if customer_coupon.balance > 0:
+    #                     outstanding_report = CustomerOutstandingReport.objects.get(
+    #                         customer=customer_coupon.customer,
+    #                         product_type="amount"
+    #                     )
+    #                     outstanding_report.value -= Decimal(customer_coupon.balance)
+    #                     outstanding_report.save()
 
-                        # delete linked outstanding and amounts
-                        CustomerOutstanding.objects.filter(
-                            customer=customer_coupon.customer,
-                            product_type="amount"
-                        ).delete()
-                except CustomerOutstandingReport.DoesNotExist:
-                    pass
+    #                     # delete linked outstanding and amounts
+    #                     CustomerOutstanding.objects.filter(
+    #                         customer=customer_coupon.customer,
+    #                         product_type="amount"
+    #                     ).delete()
+    #             except CustomerOutstandingReport.DoesNotExist:
+    #                 pass
 
-                # Rollback Coupon Items & Stocks
-                coupon_items = CustomerCouponItems.objects.filter(customer_coupon=customer_coupon)
-                for item in coupon_items:
-                    coupon = item.coupon
-                    # rollback CustomerCouponStock
-                    try:
-                        stock = CustomerCouponStock.objects.get(
-                            coupon_method=coupon.coupon_method,
-                            customer_id=customer_coupon.customer.pk,
-                            coupon_type_id=coupon.coupon_type_id
-                        )
-                        stock.count -= Decimal(coupon.no_of_leaflets)
-                        stock.save()
-                    except CustomerCouponStock.DoesNotExist:
-                        pass
+    #             # Rollback Coupon Items & Stocks
+    #             coupon_items = CustomerCouponItems.objects.filter(customer_coupon=customer_coupon)
+    #             for item in coupon_items:
+    #                 coupon = item.coupon
+    #                 # rollback CustomerCouponStock
+    #                 try:
+    #                     stock = CustomerCouponStock.objects.get(
+    #                         coupon_method=coupon.coupon_method,
+    #                         customer_id=customer_coupon.customer.pk,
+    #                         coupon_type_id=coupon.coupon_type_id
+    #                     )
+    #                     stock.count -= Decimal(coupon.no_of_leaflets)
+    #                     stock.save()
+    #                 except CustomerCouponStock.DoesNotExist:
+    #                     pass
 
-                    # rollback VanCouponStock
-                    try:
-                        van_stock = VanCouponStock.objects.get(
-                            created_date=customer_coupon.created_date.date(),
-                            coupon=coupon
-                        )
-                        van_stock.stock += 1
-                        van_stock.sold_count -= 1
-                        van_stock.save()
-                    except VanCouponStock.DoesNotExist:
-                        pass
+    #                 # rollback VanCouponStock
+    #                 try:
+    #                     van_stock = VanCouponStock.objects.get(
+    #                         created_date=customer_coupon.created_date.date(),
+    #                         coupon=coupon
+    #                     )
+    #                     van_stock.stock += 1
+    #                     van_stock.sold_count -= 1
+    #                     van_stock.save()
+    #                 except VanCouponStock.DoesNotExist:
+    #                     pass
 
-                    # reset coupon stock status
-                    CouponStock.objects.filter(couponbook=coupon).update(coupon_stock="van")
+    #                 # reset coupon stock status
+    #                 CouponStock.objects.filter(couponbook=coupon).update(coupon_stock="van")
 
-                coupon_items.delete()
+    #             coupon_items.delete()
 
-                # Rollback Invoice
-                if customer_coupon.invoice_no:
-                    try:
-                        invoice = Invoice.objects.get(invoice_no=customer_coupon.invoice_no)
-                        InvoiceItems.objects.filter(invoice=invoice).delete()
-                        InvoiceDailyCollection.objects.filter(invoice=invoice).delete()
-                        invoice.delete()
-                    except Invoice.DoesNotExist:
-                        pass
+    #             # Rollback Invoice
+    #             if customer_coupon.invoice_no:
+    #                 try:
+    #                     invoice = Invoice.objects.get(invoice_no=customer_coupon.invoice_no)
+    #                     InvoiceItems.objects.filter(invoice=invoice).delete()
+    #                     InvoiceDailyCollection.objects.filter(invoice=invoice).delete()
+    #                     invoice.delete()
+    #                 except Invoice.DoesNotExist:
+    #                     pass
 
-                # Rollback Receipt
-                Receipt.objects.filter(instance_id=str(customer_coupon.id)).delete()
+    #             # Rollback Receipt
+    #             Receipt.objects.filter(instance_id=str(customer_coupon.id)).delete()
 
-                # Rollback Cheque Payment
-                ChequeCouponPayment.objects.filter(reference_number=customer_coupon.reference_number).delete()
+    #             # Rollback Cheque Payment
+    #             ChequeCouponPayment.objects.filter(reference_number=customer_coupon.reference_number).delete()
 
-                # Finally delete CustomerCoupon
-                reference_no = customer_coupon.reference_number
-                customer_coupon.delete()
+    #             # Finally delete CustomerCoupon
+    #             reference_no = customer_coupon.reference_number
+    #             customer_coupon.delete()
 
-                log_activity(
-                    created_by=request.user,
-                    description=f"Rolled back customer coupon recharge {reference_no}"
-                )
+    #             log_activity(
+    #                 created_by=request.user,
+    #                 description=f"Rolled back customer coupon recharge {reference_no}"
+    #             )
 
-                return Response(
-                    {"message": "Customer coupon recharge deleted and rolled back successfully."},
-                    status=status.HTTP_204_NO_CONTENT
-                )
+    #             return Response(
+    #                 {"message": "Customer coupon recharge deleted and rolled back successfully."},
+    #                 status=status.HTTP_204_NO_CONTENT
+    #             )
 
-        except CustomerCoupon.DoesNotExist:
-            return Response({"message": "Customer coupon recharge not found."}, status=status.HTTP_404_NOT_FOUND)
+    #     except CustomerCoupon.DoesNotExist:
+    #         return Response({"message": "Customer coupon recharge not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        except Exception as e:
-            return Response({"message": f"Error during rollback: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    #     except Exception as e:
+    #         return Response({"message": f"Error during rollback: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 from django.shortcuts import get_object_or_404
