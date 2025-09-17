@@ -5962,7 +5962,8 @@ class AddCollectionPayment(APIView):
                 invoice_ids = request.data.get("invoice_ids", [])
                 customer_id = request.data.get("customer_id")
                 cheque_details = request.data.get("cheque_details", {})
-                card_details = request.data.get("card_details", {})
+                # card_details = request.data.get("card_details", {})
+                online_details = request.data.get("online_details", {}) 
 
                 if not invoice_ids:
                     return Response({"message": "Invoice IDs are required."}, status=status.HTTP_400_BAD_REQUEST)
@@ -5987,6 +5988,7 @@ class AddCollectionPayment(APIView):
                 )
 
                 if payment_method.lower() == "cheque":
+                    # Only record cheque, don't touch invoices or outstanding
                     collection_cheque = CollectionCheque.objects.create(
                         cheque_amount=amount_received,
                         cheque_no=cheque_details.get("cheque_no"),
@@ -5994,13 +5996,30 @@ class AddCollectionPayment(APIView):
                         cheque_date=cheque_details.get("cheque_date"),
                         collection_payment=collection_payment,
                     )
-
                     collection_cheque.invoices.set(invoices)
 
-                    return Response({"message": "Cheque payment saved successfully."}, status=status.HTTP_201_CREATED)
+                    # Generate receipt (only acknowledgement, no outstanding adjustment)
+                    receipt = Receipt.objects.create(
+                        transaction_type="collection",
+                        instance_id=str(collection_payment.id),
+                        amount_received=amount_received,
+                        customer=customer,
+                        invoice_number=",".join([inv.invoice_no for inv in invoices]),
+                        created_date=datetime.today().now()
+                    )
 
-                if payment_method.lower() == "cash" or payment_method.lower() == "card":
+                    collection_payment.receipt_number = receipt.receipt_number
+                    collection_payment.save()
+
+                    return Response(
+                        {"message": "Cheque payment saved successfully."},
+                        status=status.HTTP_201_CREATED
+                    )
+
+
+                if payment_method.lower() in ["cash", "online"]:
                     remaining_amount = Decimal(amount_received)
+                    invoice_numbers = []
 
                     for invoice in invoices:
                         if invoice.amout_total > invoice.amout_recieved:
@@ -6019,18 +6038,16 @@ class AddCollectionPayment(APIView):
                                 collection_payment=collection_payment
                             )
 
-                            if payment_method.lower() == "card":
-                                CollectionCard.objects.create(
+                            if payment_method.lower() == "online":
+                                CollectionOnline.objects.create(
                                     collection_payment=collection_payment,
-                                    customer_name=card_details.get("customer_name"),
-                                    card_number=card_details.get("card_number"),
-                                    card_date=card_details.get("card_date"),
-                                    card_type=card_details.get("card_type"),
-                                    card_category=card_details.get("card_category"),
-                                    card_amount=amount_received
+                                    transaction_no=online_details.get("transaction_no"),
+                                    transaction_date=online_details.get("transaction_date"),
+                                    online_amount=payment_amount,  
+                                    status=online_details.get("status", "PENDING")
                                 )
 
-                            # Adjust outstanding balance
+                            # Adjust outstanding
                             outstanding_instance, _ = CustomerOutstandingReport.objects.get_or_create(
                                 customer=customer, product_type="amount", defaults={"value": 0}
                             )
@@ -6045,19 +6062,20 @@ class AddCollectionPayment(APIView):
 
                             log_activity(
                                 created_by=request.user,
-                                description=f"Invoice {invoice.invoice_no} partially/fully paid: {payment_amount} received, Remaining balance: {invoice.amout_total - invoice.amout_recieved}"
+                                description=f"Invoice {invoice.invoice_no} paid {payment_amount}, Remaining {invoice.amout_total - invoice.amout_recieved}"
                             )
 
                         if remaining_amount <= 0:
                             break
 
+                    # Generate receipt
                     receipt = Receipt.objects.create(
                         transaction_type="collection",
                         instance_id=str(collection_payment.id),
                         amount_received=amount_received,
-                        receipt_number=generate_receipt_no(str(collection_payment.created_date.date())),
                         customer=customer,
-                        invoice_number=",".join(invoice_numbers)
+                        invoice_number=",".join(invoice_numbers),
+                        created_date=datetime.today().now()
                     )
 
                     collection_payment.receipt_number = receipt.receipt_number
@@ -6075,7 +6093,7 @@ class AddCollectionPayment(APIView):
                         )
 
                         refund_invoice = Invoice.objects.create(
-                            invoice_no=generate_invoice_no(datetime.today().date()),
+                            # invoice_no=generate_invoice_no(datetime.today().date()),
                             created_date=datetime.today(),
                             net_taxable=negative_remaining_amount,
                             vat=0,
