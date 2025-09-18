@@ -299,13 +299,15 @@ def new_coupon(request):
     instances = NewCoupon.objects.filter(pk__in=coupon_ids).order_by("-created_date")
          
     if query:
-
         instances = instances.filter(
             Q(book_num__icontains=query) |
             Q(coupon_type__coupon_type_name__icontains=query) |
             Q(leaflets__leaflet_number__icontains=query) |
-            Q(freeleaflet__leaflet_number__icontains=query)
+            Q(leaflets__leaflet_name__icontains=query) |
+            Q(freeleaflet__leaflet_number__icontains=query) |
+            Q(freeleaflet__leaflet_name__icontains=query)
         ).distinct()
+
         title = "Coupon List - %s" % query
         filter_data['q'] = query
     
