@@ -303,7 +303,8 @@ def new_coupon(request):
         instances = instances.filter(
             Q(book_num__icontains=query) |
             Q(coupon_type__coupon_type_name__icontains=query) |
-            Q(leaflets__leaflet_number__icontains=query)
+            Q(leaflets__leaflet_number__icontains=query) |
+            Q(freeleaflet__leaflet_number__icontains=query)
         ).distinct()
         title = "Coupon List - %s" % query
         filter_data['q'] = query
