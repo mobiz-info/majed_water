@@ -4,6 +4,8 @@ from .views import *
 
 
 urlpatterns = [
+    path("coupon-autocomplete/", CouponAutocomplete.as_view(), name="coupon_autocomplete"),
+    
     path('couponType',couponType, name='couponType'),
     path('create_couponType/',create_couponType, name='create_couponType'),
     path('view_couponType/<uuid:coupon_type_id>/', view_couponType, name="view_couponType"),

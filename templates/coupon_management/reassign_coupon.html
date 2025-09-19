@@ -66,3 +66,11 @@
     </div>
 </div>
 {% endblock %}
+{% block static %}
+{% load static %}
+{{form.media}}
+<script>
+  $(document).ready(function() {
+    $('#id_customer', '#id_staff', 'id_coupon').select2();
+  });
+{% endblock static %}

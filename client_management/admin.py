@@ -7,6 +7,7 @@ from . models import *
 
 class CustomerCouponStockAdmin(admin.ModelAdmin):
     list_display = ('coupon_type_id', 'coupon_method', 'customer','count')
+    search_fields = ('customer__customer_name','customer__custom_id')
 admin.site.register(CustomerCouponStock,CustomerCouponStockAdmin)
 
 admin.site.register(CustomerCoupon)

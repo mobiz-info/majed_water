@@ -7,6 +7,8 @@ from .views import *
 from accounts import views
 
 urlpatterns = [
+    path("salesman-autocomplete/", SalesmanAutocomplete.as_view(), name="salesman_autocomplete"),
+
     path('move-schedule-view',move_schedule_view, name='move_schedule_view'),
     
     path('login',user_login, name='login'),

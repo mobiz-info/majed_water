@@ -56,11 +56,28 @@ from master.functions import log_activity
 #         alphabetic_list.insert(0, "A")
 
 #     return "".join(alphabetic_list)
+from dal import autocomplete
 
 import re
 from django.http import JsonResponse
 from .models import CouponType, NewCoupon, CouponLeaflet, FreeLeaflet
 
+
+class CouponAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = NewCoupon.objects.all() 
+
+        if self.q:
+            qs = qs.filter(
+                Q(book_num__icontains=self.q) |
+                Q(coupon_type_coupon_type_name_icontains=self.q) |
+                Q(leaflets_leaflet_number_icontains=self.q) |
+                Q(leaflets_leaflet_name_icontains=self.q) |
+                Q(freeleaflet_leaflet_number_icontains=self.q) |
+                Q(freeleaflet_leaflet_name_icontains=self.q)
+            ).distinct()
+
+        return qs
 
 def get_next_coupon_bookno(request):
     coupon_type = request.GET.get("coupon_type")
@@ -514,7 +531,9 @@ def delete_Newcoupon(request, coupon_id):
 @login_required
 def customer_stock(request):
     # Get the user's user_type
+    filter_data = {}
     user_type = request.user.user_type
+    query = request.GET.get('q')
 
     # Get all routes for the dropdown
     route_li = RouteMaster.objects.all()
@@ -538,8 +557,18 @@ def customer_stock(request):
         coupenstock = coupenstock.filter(
             coupon_type_id__created_date=created_date
         )
+        
+    if query:
+        coupenstock = coupenstock.filter(
+            Q(customer__custom_id__icontains=query) |
+            Q(customer__customer_name__icontains=query) |
+            Q(customer__mobile_no__icontains=query) |
+            Q(customer__location__location_name__icontains=query) |
+            Q(customer__building_name__icontains=query)
+        )
+        filter_data['q'] = query
 
-    return render(request, 'coupon_management/customer_stock.html', {'coupenstock': coupenstock, 'route_li': route_li})
+    return render(request, 'coupon_management/customer_stock.html', {'coupenstock': coupenstock, 'route_li': route_li, 'filter_data': filter_data})
 
 @login_required
 def customer_stock_coupon_details(request,customer):
@@ -1095,5 +1124,5 @@ def reassign_unissued_coupon(request, pk):
         # Ensure the coupon is in queryset
         form.fields["coupon"].queryset = NewCoupon.objects.filter(pk=pk) | form.fields["coupon"].queryset
 
-    return render(request, "coupon_management/reassign_coupon.html", {"form": form})
+    return render(request, "coupon_management/reassign_coupon.html", {"form": form, "is_need_autocomplete": True})
 

@@ -8,6 +8,7 @@ from . views import *
 urlpatterns = [
         path('customer_custody_item/<str:customer_id>', customer_custody_item, name='customer_custody_item'),
         path('get_custody_items', get_custody_items, name='get_custody_items'),
+        path("customer-autocomplete/", CustomerAutocomplete.as_view(), name="customer_autocomplete"),
 
         #vacation
         path('vacation_list', vacation_list, name="vacation_list"),

@@ -15,10 +15,14 @@ SERVER = config('SERVER', cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 
 INSTALLED_APPS = [
+    "dal",
+    "dal_select2",
     'el_pagination',
+    'rest_framework',
     
     'ckeditor',
     'ckeditor_uploader',
+    'corsheaders',
     
     'django.contrib.admin',
     'django.contrib.auth',
@@ -34,8 +38,6 @@ INSTALLED_APPS = [
     'apiservices',
     'coupon_management',
     'client_management',
-    'rest_framework',
-    'corsheaders',
     'customer_care',
     'order',
     'competitor_analysis',

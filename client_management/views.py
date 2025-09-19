@@ -45,9 +45,26 @@ from django.conf import settings
 import pandas as pd
 from datetime import datetime
 from django.utils import timezone
+
+from dal import autocomplete
+
 from apiservices.notification import *
 from master.functions import log_activity
 from client_management.templatetags.client_templatetags import get_outstanding_amount, get_outstanding_bottles, get_outstanding_coupons
+
+
+class CustomerAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Customers.objects.filter(is_active=True, is_deleted=False) 
+
+        if self.q:
+            qs = qs.filter(
+                Q(custom_id__istartswith=self.q) |
+                Q(customer_name__istartswith=self.q) |
+                Q(mobile_no__icontains=self.q)
+            )
+
+        return qs
 
 
 def customer_custody_item(request,customer_id):

@@ -1,6 +1,8 @@
 from django import forms
 from django.forms import ModelForm
 
+from dal import autocomplete
+
 from accounts.models import CustomUser, Customers
 from .models import *
 from client_management.models import CustomerCoupon, CustomerCouponItems
@@ -80,22 +82,30 @@ class CustomerCouponForm(forms.ModelForm):
 
 class CouponReassignForm(forms.Form):
     customer = forms.ModelChoiceField(
-        queryset=Customers.objects.filter(is_deleted=False),
-        label="Customer",
-        widget=forms.Select(attrs={'class': 'form-control'})
+        required=True,
+        queryset=Customers.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url="customer_autocomplete",
+            attrs={"class": "required","data-placeholder": "Select Customer","data-minimum-input-length": 0,},
+        ),
     )
     salesman = forms.ModelChoiceField(
-        queryset=CustomUser.objects.filter(is_active=True),
-        required=False,
-        label="Salesman",
-        widget=forms.Select(attrs={'class': 'form-control'})
+        required=True,
+        queryset=CustomUser.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url="salesman_autocomplete",
+            attrs={"class": "required","data-placeholder": "Select Salesman","data-minimum-input-length": 0,},
+        ),
     )
     coupon = forms.ModelChoiceField(
-        queryset=NewCoupon.objects.none(),
-        label="Un-issued Coupon",
-        widget=forms.Select(attrs={'class': 'form-control'})
+        required=True,
+        queryset=NewCoupon.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url="coupon_autocomplete",
+            attrs={"class": "required","data-placeholder": "Select Coupons","data-minimum-input-length": 0,},
+        ),
     )
-
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

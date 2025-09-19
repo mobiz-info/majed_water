@@ -36,11 +36,27 @@ from django.db.models import Q, Sum, Count
 from customer_care.models import *
 from van_management.models import Van_Routes,Van,VanProductStock
 
+from dal import autocomplete
+
 from django.contrib.auth import update_session_auth_hash
 from django.shortcuts import render, redirect, get_object_or_404
 from .forms import CustomPasswordChangeForm
 
 # Create your views here.
+class SalesmanAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = CustomUser.objects.filter(user_type__in=["Salesman"]) 
+
+        if self.q:
+            qs = qs.filter(
+                Q(first_name__istartswith=self.q) |
+                Q(last_name__istartswith=self.q) |
+                Q(phone__icontains=self.q)
+            )
+
+        return qs
+    
+    
 @csrf_exempt
 def move_schedule_view(request):
     if request.method == 'POST':
