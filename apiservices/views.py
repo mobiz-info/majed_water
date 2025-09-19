@@ -5963,6 +5963,7 @@ class AddCollectionPayment(APIView):
                 customer_id = request.data.get("customer_id")
                 cheque_details = request.data.get("cheque_details", {})
                 card_details = request.data.get("card_details", {})
+                online_details = request.data.get("online_details", {}) 
 
                 if not invoice_ids:
                     return Response({"message": "Invoice IDs are required."}, status=status.HTTP_400_BAD_REQUEST)
@@ -5999,7 +6000,7 @@ class AddCollectionPayment(APIView):
 
                     return Response({"message": "Cheque payment saved successfully."}, status=status.HTTP_201_CREATED)
 
-                if payment_method.lower() == "cash" or payment_method.lower() == "card":
+                if payment_method.lower() == "cash" or payment_method.lower() == "card" or payment_method.lower() == "online":
                     remaining_amount = Decimal(amount_received)
 
                     for invoice in invoices:
@@ -6029,7 +6030,16 @@ class AddCollectionPayment(APIView):
                                     card_category=card_details.get("card_category"),
                                     card_amount=amount_received
                                 )
-
+                                
+                            if payment_method.lower() == "online":
+                                CollectionOnline.objects.create(
+                                    collection_payment=collection_payment,
+                                    transaction_no=online_details.get("transaction_no"),
+                                    transaction_date=online_details.get("transaction_date"),
+                                    online_amount=payment_amount,  
+                                    status=online_details.get("status", "PENDING")
+                                )
+                                
                             # Adjust outstanding balance
                             outstanding_instance, _ = CustomerOutstandingReport.objects.get_or_create(
                                 customer=customer, product_type="amount", defaults={"value": 0}

@@ -234,6 +234,27 @@ class CollectionCheque(models.Model):
 
     def _str_(self):
         return f"{self.bank_name} - {self.cheque_no} ({self.status})"
+    
+    
+class CollectionOnline(models.Model):
+    collection_payment = models.OneToOneField(CollectionPayment, on_delete=models.CASCADE)
+    transaction_no = models.CharField(max_length=255, null=True, blank=True)
+    transaction_date = models.DateField(null=True, blank=True)
+    online_amount = models.DecimalField(default=0, max_digits=10, decimal_places=2, null=True, blank=True)
+    
+    STATUS_CHOICES = [
+        ('PENDING', 'PENDING'),
+        ('SUCCESS', 'SUCCESS'),
+        ('FAILED', 'FAILED')
+    ]
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
+
+    class Meta:
+        ordering = ('-id',)
+
+    def __str__(self):
+        return f"{self.transaction_no} ({self.status})"
+    
 class CollectionCard(models.Model):
     collection_payment = models.OneToOneField(CollectionPayment, on_delete=models.CASCADE)
     customer_name = models.CharField(max_length=500, null=True, blank=True)

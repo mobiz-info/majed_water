@@ -3635,6 +3635,15 @@ def customer_transaction_list(request):
     total_grand_total = total_amount_recieved = 0
     customer_pk = request.GET.get("customer_pk")
     
+    customer = None
+    route_name = ""
+
+    if customer_pk:
+        try:
+            customer = Customers.objects.get(pk=customer_pk)
+            route_name = customer.routes.route_name if customer.routes else ""
+        except Customers.DoesNotExist:
+            pass
     # Get CustomerSupply items excluding certain sales types
     sales = CustomerSupplyItems.objects.filter(
         customer_supply__customer__pk=customer_pk
@@ -3665,7 +3674,7 @@ def customer_transaction_list(request):
     # Process CustomerSupply data
     for sale in sales:
         sales_report_data.append({
-            'date': sale.customer_supply.created_date.date(),
+            'date': sale.customer_supply.created_date,
             'ref_invoice_no': sale.customer_supply.reference_number,
             'invoice_number': sale.customer_supply.invoice_no,
             'product_name': sale.product.product_name,
@@ -3692,7 +3701,7 @@ def customer_transaction_list(request):
     for coupon in coupons:
         vat_rate = Tax.objects.get(name="VAT").percentage if Tax.objects.filter(name="VAT").exists() else 0
         sales_report_data.append({
-            'date': coupon.customer_coupon.created_date.date(),
+            'date': coupon.customer_coupon.created_date,
             'ref_invoice_no': coupon.customer_coupon.reference_number,
             'invoice_number': coupon.customer_coupon.invoice_no,
             'product_name': coupon.coupon.book_num,
@@ -3820,6 +3829,9 @@ def customer_transaction_list(request):
         'total_manual_coupons': total_manual_coupons,
         'total_digital_coupons': total_digital_coupons,
         'customer_pk': customer_pk,
+        'customer_id': customer.custom_id if customer else '',
+        'customer_name': customer.customer_name if customer else '',
+        'route_name': route_name,
     }
 
     return render(request, 'client_management/customer_transaction/customer_transaction_list.html', context)
@@ -3841,6 +3853,16 @@ def customer_transaction_print(request):
     total_grand_total = total_amount_recieved = 0
     customer_pk = request.GET.get("customer_pk")
     
+    customer = None
+    route_name = ""
+
+    if customer_pk:
+        try:
+            customer = Customers.objects.get(pk=customer_pk)
+            route_name = customer.routes.route_name if customer.routes else ""
+        except Customers.DoesNotExist:
+            pass
+        
     # Get CustomerSupply items excluding certain sales types
     sales = CustomerSupplyItems.objects.filter(
         customer_supply__customer__pk=customer_pk
@@ -4019,12 +4041,16 @@ def customer_transaction_print(request):
         'total_manual_coupons': total_manual_coupons,
         'total_digital_coupons': total_digital_coupons,
         'customer_pk': customer_pk,
+        'customer_id': customer.custom_id if customer else '',
+        'customer_name': customer.customer_name if customer else '',
+        'route_name': route_name,
     }
     log_activity(
         created_by=request.user if request.user.is_authenticated else None,
         description="Viewed the customer transaction Print with filters applied."
     )
     return render(request, 'client_management/customer_transaction/customer_transaction_print.html', context)
+
 
 
 @login_required
