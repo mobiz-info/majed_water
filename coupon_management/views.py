@@ -1078,11 +1078,31 @@ def reassign_unissued_coupon(request, pk):
                         amount_recieved=0,
                     )
 
-                    CustomerCouponItems.objects.create(
+                    coupon_item = CustomerCouponItems.objects.create(
                         customer_coupon=customer_coupon,
                         coupon=coupon,
                         rate=0
                     )
+                    
+                    try:
+                        customer_coupon_stock = CustomerCouponStock.objects.get(
+                            coupon_method=customer_coupon.coupon_method,
+                            customer=customer_coupon.customer,
+                            coupon_type_id=coupon_item.coupon.coupon_type
+                        )
+                    except CustomerCouponStock.DoesNotExist:
+                        customer_coupon_stock = CustomerCouponStock.objects.create(
+                            coupon_method=customer_coupon.coupon_method,
+                            customer=customer_coupon.customer,
+                            coupon_type_id=coupon_item.coupon.coupon_type,
+                            count=0
+                        )
+                        
+                    leaf_count = CouponLeaflet.objects.filter(coupon=coupon_item.coupon, used=False).count()
+                    leaf_count += FreeLeaflet.objects.filter(coupon=coupon_item.coupon, used=False).count()
+
+                    customer_coupon_stock.count += Decimal(leaf_count)
+                    customer_coupon_stock.save()
 
                     log_activity(
                         created_by=request.user,

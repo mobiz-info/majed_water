@@ -13,7 +13,7 @@ register = template.Library()
 
 @register.simple_tag
 def available_valuable_coupons(coupon_pk):
-    return CouponLeaflet.objects.filter(coupon__pk=coupon_pk)
+    return CouponLeaflet.objects.filter(coupon__pk=coupon_pk).order_by("leaflet_name")
 
 @register.simple_tag
 def available_free_coupons(coupon_pk):

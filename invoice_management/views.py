@@ -376,9 +376,9 @@ def edit_invoice(request,pk):
                 f.instance.delete()
             
             log_activity(
-                        created_by=request.user,
-                        description=f"Invoice {invoice_instance.invoice_no} updated for customer {customer_instance.customer_name}."
-                    )
+                    created_by=request.user,
+                    description=f"Invoice {invoice_instance.invoice_no} updated for customer {customer_instance.customer_name}."
+                )
                 
             response_data = {
                 "status": "true",
