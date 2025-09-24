@@ -41,6 +41,25 @@ class Invoice(models.Model):
     def __str__(self):
         return f'{self.id}'
     
+    def save(self, *args, **kwargs):
+        if not self.invoice_no:
+            date = self.created_date.date()
+            date_part = date.strftime('%Y%m%d')
+            prefix = "WTR"
+
+            # Count existing invoices with the same date
+            invoice_count = Invoice.objects.filter(
+                created_date__date=date,
+                invoice_no__startswith=f"{prefix}-{date_part}",
+                is_deleted=False,
+            ).count()
+
+            new_number = invoice_count + 1
+
+            self.invoice_no = f"{prefix}-{date_part}-{new_number:04d}"  # Always 4-digit padded
+
+        super().save(*args, **kwargs)
+    
     def invoice_items (self):
         items = InvoiceItems.objects.filter(invoice=self)
         return items
