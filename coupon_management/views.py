@@ -586,8 +586,7 @@ def customer_stock_coupon_details(request,customer):
         'customer_manual_coupons': customer_manual_coupons,
     }
 
-    return render(request, 'coupon_management/available_coupon_details.html',context
-                  )
+    return render(request, 'coupon_management/available_coupon_details.html',context)
 
 
 

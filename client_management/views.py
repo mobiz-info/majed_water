@@ -1630,7 +1630,9 @@ def handle_outstanding_coupon(customer_supply_instance, five_gallon_qty):
 def handle_outstanding_amounts(customer_supply_instance, five_gallon_qty):
     if customer_supply_instance.outstanding_amount_added :
         balance_amount = customer_supply_instance.subtotal - customer_supply_instance.amount_recieved
-            
+        
+        customer_amount_instances = CustomerOutstanding.objects.filter(customer=customer_supply_instance.customer,invoice_no=customer_supply_instance.invoice_no, product_type="amount").first()
+        
         if customer_supply_instance.amount_recieved < customer_supply_instance.subtotal:
             if CustomerOutstandingReport.objects.filter(customer=customer_supply_instance.customer, product_type="amount").exists():
                 customer_outstanding_report_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="amount")
@@ -1641,6 +1643,8 @@ def handle_outstanding_amounts(customer_supply_instance, five_gallon_qty):
             customer_outstanding_report_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="amount")
             customer_outstanding_report_instance.value += Decimal(balance_amount)
             customer_outstanding_report_instance.save()
+            
+        customer_amount_instances.delete()
 
 
 def handle_coupons(customer_supply_instance, five_gallon_qty):
@@ -1708,7 +1712,7 @@ def handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty):
         elif five_gallon_qty > Decimal(customer_supply_instance.collected_empty_bottle):
             balance_empty_bottle = five_gallon_qty - Decimal(customer_supply_instance.collected_empty_bottle)
             
-            outstanding_instance = CustomerOutstanding.objects.filter(
+            customer_outstanding_instance = CustomerOutstanding.objects.filter(
                 product_type="emptycan",
                 created_by=customer_supply_instance.salesman.pk,
                 customer=customer_supply_instance.customer,
@@ -1717,9 +1721,8 @@ def handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty):
 
             outstanding_product = OutstandingProduct.objects.filter(
                 empty_bottle=balance_empty_bottle,
-                customer_outstanding=outstanding_instance,
+                customer_outstanding=customer_outstanding_instance,
             )
-            outstanding_instance = {}
 
             try:
                 outstanding_instance = CustomerOutstandingReport.objects.get(customer=customer_supply_instance.customer, product_type="emptycan")
@@ -1728,6 +1731,7 @@ def handle_empty_bottle_outstanding(customer_supply_instance, five_gallon_qty):
             except:
                 pass
             outstanding_product.delete()
+            customer_outstanding_instance.delete()
 
 
 def update_van_product_stock(customer_supply_instance, supply_items_instances, five_gallon_qty):
