@@ -28,7 +28,7 @@ urlpatterns = [
     path('download-salesreport-excel/', download_salesreport_excel, name='download_salesreport_excel'),
 
     
-    path('collection_report', collection_report, name='collection_report'),
+    path('collection_report', new_collection_report, name='collection_report'),
     # path('dailycollectionreport', dailycollectionreport, name='dailycollectionreport'),
     path('collection_report_excel/', collection_report_excel, name='collection_report_excel'),
     path('print_collection_report/', print_collection_report, name='print_collection_report'),

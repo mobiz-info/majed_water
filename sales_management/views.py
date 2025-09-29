@@ -4,6 +4,7 @@ import random
 from decimal import Decimal
 from datetime import datetime, timedelta
 from apiservices.views import find_customers
+from sales_management.templatetags.sales_templatetags import outstanding_collection_balance
 from van_management.functions import vanstock_curreptions
 from van_management.models import *
 from django.db import IntegrityError
@@ -2312,6 +2313,50 @@ def collection_report(request):
     }
 
     return render(request, template, context)
+
+def new_collection_report(request):
+    filter_data = {}
+    selected_route_id = request.GET.get('route_name')
+    template = 'sales_management/collection_report.html'
+
+    # Fetch routes and set default date range
+    routes = RouteMaster.objects.all()
+    today = datetime.today()
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    
+    start_date = today.date()
+    end_date = today.date() + timedelta(days=1)
+    
+    # Parse date filters if provided
+    if start_date_str and end_date_str:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+
+    filter_data['start_date'] = start_date.strftime('%Y-%m-%d')
+    filter_data['end_date'] = end_date.strftime('%Y-%m-%d')
+
+    # Fetch collection payments within the date range
+    instances = CollectionPayment.objects.filter(created_date__date__range=[start_date, end_date]).order_by('-created_date')
+    
+    if selected_route_id:
+        selected_route = RouteMaster.objects.get(route_name=selected_route_id)
+        instances = instances.filter(customer__routes__route_name=selected_route.route_name)
+        filter_data['selected_route'] = selected_route_id
+        
+    outstanding_amount = (OutstandingAmount.objects.filter(customer_outstanding__customer__pk__in=instances.values_list("customer__pk"),customer_outstanding__created_date__date__gte=start_date,customer_outstanding__created_date__date__lte=end_date).aggregate(total_amount=Sum("amount"))["total_amount"]or Decimal("0.00"))
+    grand_total_collection_amount = instances.aggregate(total_amount_received=Sum("amount_received"))["total_amount_received"]
+    net_outstanding = outstanding_amount - grand_total_collection_amount
+    
+    context = {
+        'instances': instances, 
+        
+        'today': today,
+        'routes': routes, 
+        'filter_data': filter_data,
+    }
+
+    return render(request, template, context)
     # filter_data = {}
     # selected_route_id = request.GET.get('route_name')
     # template = 'sales_management/collection_report.html'
@@ -2368,122 +2413,128 @@ def collection_report(request):
 
 
 def collection_report_excel(request):
+    selected_route_id = request.GET.get('route_name')
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
-    selected_route_id = request.GET.get('route_name')
 
-    # Set default date range
-    start_date = datetime.today().date()
-    end_date = datetime.today().date() + timedelta(days=1)
+    today = datetime.today()
+    start_date = today.date()
+    end_date = today.date() + timedelta(days=1)
 
-    # Parse provided dates if available
     if start_date_str and end_date_str:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
 
-    # Query the filtered data
-    collection_payments = CollectionItems.objects.filter(
-        collection_payment__created_date__date__range=[start_date, end_date]
-    ).values(
-        'collection_payment__customer__custom_id', 
-        'collection_payment__customer__customer_name',
-        'collection_payment__customer__mobile_no',
-        'collection_payment__customer__routes__route_name',
-        'collection_payment__customer__building_name',
-        'collection_payment__customer__door_house_no',
-        'collection_payment__created_date__date',
-        'collection_payment__payment_method',
-        'collection_payment__customer__sales_type'
-    ).annotate(
-        count_amount=Sum('amount'),
-        count_balance=Sum('balance'),
-        count_amount_received=Sum('amount_received')
-    ).order_by('-collection_payment__created_date__date')
+    # Fetch collection payments
+    instances = CollectionPayment.objects.filter(
+        created_date__date__range=[start_date, end_date]
+    ).order_by('-created_date')
 
     if selected_route_id:
-        selected_route = get_object_or_404(RouteMaster, route_name=selected_route_id)
-        collection_payments = collection_payments.filter(collection_payment__customer__routes__route_name=selected_route.route_name)
+        selected_route = RouteMaster.objects.get(route_name=selected_route_id)
+        instances = instances.filter(customer__routes__route_name=selected_route.route_name)
 
-    # Create an HttpResponse object with Excel content
+    # Create HttpResponse with Excel content
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename=collection_report_filtered.xlsx'
+    response['Content-Disposition'] = 'attachment; filename=collection_report.xlsx'
 
-    # Create an Excel workbook and add a worksheet
     workbook = xlsxwriter.Workbook(response, {'in_memory': True})
     worksheet = workbook.add_worksheet()
 
-    # Define the header row
     headers = [
-        'Sl No', 'Date & Time', 'Customer/Mobile No', 'Route',
-        'Building Name/No', 'Amount', 'Amount Received', 'Balance', 'Mode of Payment','Sales Type'
+        'Sl No', 'Date', 'Customer ID', 'Customer/Mobile No', 'Sales Type', 
+        'Route', 'Building Name/No', 'Amount', 'Amount Received', 'Balance', 'Mode of Payment'
     ]
 
-    # Write the header row
+    # Write headers
     for col_num, header in enumerate(headers):
         worksheet.write(0, col_num, header)
 
-    # Write the data rows
-    for row_num, data in enumerate(collection_payments, start=1):
-        worksheet.write(row_num, 0, row_num)  # Sl No
-        worksheet.write(row_num, 1, data['collection_payment__created_date__date'].strftime('%Y-%m-%d'))
-        worksheet.write(row_num, 2, f"{data['collection_payment__customer__customer_name']} ")
-        worksheet.write(row_num, 3, data['collection_payment__customer__routes__route_name'])
-        worksheet.write(row_num, 4, f"{data['collection_payment__customer__building_name']} / {data['collection_payment__customer__door_house_no']}")
-        worksheet.write(row_num, 5, data['count_amount'])
-        worksheet.write(row_num, 6, data['count_amount_received'])
-        worksheet.write(row_num, 7, data['count_balance'])
-        worksheet.write(row_num, 8, data['collection_payment__payment_method'])
-        worksheet.write(row_num, 8, data['collection_payment__customer__sales_type'])
+    # Write data rows
+    grand_total_amount = Decimal("0.00")
+    grand_total_collected = Decimal("0.00")
+    grand_total_balance = Decimal("0.00")
 
-    # Close the workbook and write the data to the response
+    for row_num, inst in enumerate(instances, start=1):
+        outstanding = outstanding_collection_balance(inst.customer.pk, inst.created_date.date())
+        collected = inst.amount_received or Decimal("0.00")
+        balance = outstanding - collected
+
+        grand_total_amount += outstanding
+        grand_total_collected += collected
+        grand_total_balance += balance
+
+        worksheet.write(row_num, 0, row_num)
+        worksheet.write(row_num, 1, inst.created_date.strftime('%d/%m/%Y'))
+        worksheet.write(row_num, 2, inst.customer.custom_id)
+        worksheet.write(row_num, 3, f"{inst.customer.customer_name} / {inst.customer.mobile_no}")
+        worksheet.write(row_num, 4, inst.customer.get_sales_type_display())
+        worksheet.write(row_num, 5, inst.customer.routes.route_name)
+        worksheet.write(row_num, 6, f"{inst.customer.building_name} / {inst.customer.door_house_no}")
+        worksheet.write(row_num, 7, float(outstanding))
+        worksheet.write(row_num, 8, float(collected))
+        worksheet.write(row_num, 9, float(balance))
+        worksheet.write(row_num, 10, inst.payment_method)
+
+    # Write grand total row
+    total_row = len(instances) + 1
+    worksheet.write(total_row, 6, "Grand Total")
+    worksheet.write(total_row, 7, float(grand_total_amount))
+    worksheet.write(total_row, 8, float(grand_total_collected))
+    worksheet.write(total_row, 9, float(grand_total_balance))
+
     workbook.close()
     return response
 
+
 def print_collection_report(request):
+    selected_route_id = request.GET.get('route_name')
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
-    selected_route_id = request.GET.get('route_name')
+    
+    today = datetime.today()
+    start_date = today.date()
+    end_date = today.date() + timedelta(days=1)
 
-    # Set default date range
-    start_date = datetime.today().date()
-    end_date = datetime.today().date() + timedelta(days=1)
-
-    # Parse provided dates if available
     if start_date_str and end_date_str:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
 
-    # Query the filtered data
-    collection_payments = CollectionItems.objects.filter(
-        collection_payment__created_date__date__range=[start_date, end_date]
-    ).values(
-        'collection_payment__customer__custom_id', 
-        'collection_payment__customer__customer_name',
-        'collection_payment__customer__mobile_no',
-        'collection_payment__customer__routes__route_name',
-        'collection_payment__customer__building_name',
-        'collection_payment__customer__door_house_no',
-        'collection_payment__created_date__date',
-        'collection_payment__payment_method',
-        'collection_payment__customer__sales_type'
-    ).annotate(
-        count_amount=Sum('amount'),
-        count_balance=Sum('balance'),
-        count_amount_received=Sum('amount_received')
-    ).order_by('-collection_payment__created_date__date')
+    # Fetch collection payments
+    instances = CollectionPayment.objects.filter(
+        created_date__date__range=[start_date, end_date]
+    ).order_by('-created_date')
 
     if selected_route_id:
-        selected_route = get_object_or_404(RouteMaster, route_name=selected_route_id)
-        collection_payments = collection_payments.filter(collection_payment__customer__routes__route_name=selected_route.route_name)
+        selected_route = RouteMaster.objects.get(route_name=selected_route_id)
+        instances = instances.filter(customer__routes__route_name=selected_route.route_name)
+
+    # Compute grand totals
+    grand_total_amount = Decimal("0.00")
+    grand_total_collected = Decimal("0.00")
+    grand_total_balance = Decimal("0.00")
+
+    for inst in instances:
+        outstanding = outstanding_collection_balance(inst.customer.pk, inst.created_date.date())
+        collected = inst.amount_received or Decimal("0.00")
+        balance = outstanding - collected
+
+        grand_total_amount += outstanding
+        grand_total_collected += collected
+        grand_total_balance += balance
 
     context = {
-        'collection_payments': collection_payments,
+        'instances': instances,
         'start_date': start_date.strftime('%d/%m/%Y'),
         'end_date': end_date.strftime('%d/%m/%Y'),
         'selected_route': selected_route_id,
+        'grand_total_amount': grand_total_amount,
+        'grand_total_collected': grand_total_collected,
+        'grand_total_balance': grand_total_balance,
     }
 
     return render(request, 'sales_management/collection_report_print.html', context)
+
 
 #-----------------Suspense Report--------------------------
 from .forms import SuspenseCollectionForm

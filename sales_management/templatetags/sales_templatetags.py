@@ -3,8 +3,10 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from django import template
 from django.db.models import Q, Sum,F,Avg,Count
+from datetime import datetime, date as date_cls
+from decimal import Decimal
 
-from client_management.models import CustomerCoupon, CustomerCouponItems, CustomerSupply, CustomerSupplyCoupon,CustomerSupplyItems, CustodyCustomItems, CustomerReturnItems, CustomerCustodyStock
+from client_management.models import CustomerCoupon, CustomerCouponItems, CustomerSupply, CustomerSupplyCoupon,CustomerSupplyItems, CustodyCustomItems, CustomerReturnItems, CustomerCustodyStock, OutstandingAmount
 from invoice_management.models import SuspenseCollection
 from sales_management.models import CollectionPayment
 from van_management.models import Expense, Van_Routes, Van, VanProductStock
@@ -262,3 +264,46 @@ def route_bottle_stock(route_id, key, date=None, end_date=None):
         return 0
     except Exception as e:
         return 0
+
+
+@register.simple_tag
+def outstanding_collection_balance(customer, dt):
+    """
+    Returns the actual outstanding amount for a customer as of a given date.
+    """
+    if not dt:
+        return Decimal("0.00")
+
+    # Normalize dt
+    if isinstance(dt, datetime):
+        dt = dt.date()
+    elif isinstance(dt, date_cls):
+        pass
+    elif isinstance(dt, str):
+        try:
+            dt = datetime.strptime(dt, "%Y-%m-%d").date()
+        except ValueError:
+            return Decimal("0.00")
+
+    # Get total outstanding issued up to dt
+    outstanding_amount = (
+        OutstandingAmount.objects.filter(
+            customer_outstanding__customer__pk=customer,
+            customer_outstanding__created_date__date__lte=dt,
+        ).aggregate(total_amount=Sum("amount"))["total_amount"]
+        or Decimal("0.00")
+    )
+
+    # Get total collections received up to dt
+    collection_amount = (
+        CollectionPayment.objects.filter(
+            customer__pk=customer,
+            created_date__date__lt=dt,
+        ).aggregate(total_amount_received=Sum("amount_received"))["total_amount_received"]
+        or Decimal("0.00")
+    )
+
+    # Net outstanding
+    net_outstanding = outstanding_amount - collection_amount
+
+    return net_outstanding
