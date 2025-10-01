@@ -27,6 +27,7 @@ urlpatterns = [
     path('edit_customer/<str:pk>',edit_customer, name='edit_customer'),
     path('delete_customer/<str:pk>',delete_customer, name='delete_customer'),
     path('customer_list_excel', customer_list_excel, name="customer_list_excel"),
+    path('customer_qr_multiple_print', print_multiple_qrs, name="print_multiple_qrs"),
     
     path('visit_days_assign/<str:customer_id>', visit_days_assign, name="visit_days_assign"),
     path('customer_rate_history/<str:pk>/', CustomerRateHistoryListView.as_view(), name='customer_rate_history'),

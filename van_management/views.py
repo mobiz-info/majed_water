@@ -713,7 +713,7 @@ def find_customers(request, def_date, route_id):
     
     todays_customers = []
     buildings = []
-    for customer in Customers.objects.filter(routes=route,is_calling_customer=False).exclude(pk__in=vocation_customer_ids):
+    for customer in Customers.objects.filter(routes=route,is_calling_customer=False,is_deleted=False).exclude(pk__in=vocation_customer_ids):
         if customer.visit_schedule:
             for day, weeks in customer.visit_schedule.items():
                 if day in str(day_of_week) and week_number in str(weeks):
@@ -748,7 +748,7 @@ def find_customers(request, def_date, route_id):
 
         building_gps = []
         for building, bottle_count in building_count.items():
-            c = Customers.objects.filter(building_name=building, routes=route).first()
+            c = Customers.objects.filter(building_name=building, routes=route,is_deleted=False).first()
             building_gps.append((building, c.gps_longitude, c.gps_latitude, bottle_count))
 
         # Sort buildings by GPS coordinates

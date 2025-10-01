@@ -2,6 +2,7 @@ import uuid
 import json
 import base64
 import datetime
+import qrcode
 
 from django.utils import timezone
 from django.shortcuts import render
@@ -523,6 +524,29 @@ class Customer_List(View):
 
 
     #     return render(request, self.template_name, context)
+    
+def print_multiple_qrs(request):
+    if request.method == 'POST':
+        customer_ids = request.POST.getlist('customer_ids')
+        customers = Customers.objects.filter( pk__in=customer_ids)
+
+        qr_data_list = []
+        for customer in customers:
+            data = f"{customer.pk}"
+            qr = qrcode.make(data)
+            buffer = BytesIO()
+            qr.save(buffer, format='PNG')
+            qr_base64 = base64.b64encode(buffer.getvalue()).decode()
+            
+            qr_data_list.append({
+                'id': customer.custom_id,
+                'name': customer.customer_name,
+                'qr_image': f"data:image/png;base64,{qr_base64}"
+            })
+
+        return render(request, 'accounts/print_qr_multiple.html', {'qr_data_list': qr_data_list})
+
+
 class Latest_Customer_List(View):
     template_name = 'accounts/latest_customer_list.html'
 

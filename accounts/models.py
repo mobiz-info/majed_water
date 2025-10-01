@@ -34,6 +34,7 @@ USER_TYPE_CHOICES = (
         ('marketing_executive', 'Marketing Executive'),
         ('Production', 'Production'),
         ('owner', 'Owner'),
+        ('Driver cum Salesman', 'Driver cum Salesman'),
     )
 
 LEAD_CUSTOMER_CHOICES = (
