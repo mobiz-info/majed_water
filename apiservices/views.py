@@ -4162,19 +4162,35 @@ class create_customer_supply(APIView):
                                 customer_supply_coupon = CustomerSupplyCoupon.objects.create(
                                     customer_supply=customer_supply,
                                 )
-                                already_used = []
                                 for c_id in collected_coupon_ids:
                                     if CouponLeaflet.objects.filter(pk=c_id).exists():
                                         leaflet_instance = CouponLeaflet.objects.get(pk=c_id)
-                                        already_used.append(leaflet_instance.leaflet_name)
+
+                                        # 🔒 Validation: stop if this leaflet is already used
+                                        if leaflet_instance.used:
+                                            raise serializers.ValidationError({
+                                                "status": "false",
+                                                "title": "Failed",
+                                                "message": f"Coupon leaflet '{leaflet_instance.leaflet_name}' is already used.",
+                                            })
+
                                         customer_supply_coupon.leaf.add(leaflet_instance)
-                                        leaflet_instance.used=True
+                                        leaflet_instance.used = True
                                         leaflet_instance.save()
+
                                     else:
                                         leaflet_instance = FreeLeaflet.objects.get(pk=c_id)
-                                        already_used.append(leaflet_instance.leaflet_name)
+
+                                        # 🔒 Validation: stop if this free leaflet is already used
+                                        if leaflet_instance.used:
+                                            raise serializers.ValidationError({
+                                                "status": "false",
+                                                "title": "Failed",
+                                                "message": f"Free leaflet '{leaflet_instance.leaflet_name}' is already used.",
+                                            })
+
                                         customer_supply_coupon.free_leaf.add(leaflet_instance)
-                                        leaflet_instance.used=True
+                                        leaflet_instance.used = True
                                         leaflet_instance.save()
                                     
                                     if CustomerCouponStock.objects.filter(customer__pk=customer_supply_data['customer'],coupon_method="manual",coupon_type_id=leaflet_instance.coupon.coupon_type).exists() :
@@ -4182,11 +4198,7 @@ class create_customer_supply(APIView):
                                         customer_stock.count -= 1
                                         customer_stock.save()
                                 
-                                if already_used:
-                                    raise serializers.ValidationError({
-                                        "coupon_validation": f"These coupon leaflets are already used: {', '.join(already_used)}"
-                                    })
-                                        
+                                
                                 if total_fivegallon_qty < int(total_coupon_collected):
                                     balance_coupon = Decimal(total_fivegallon_qty) - Decimal(total_coupon_collected)
                                     
