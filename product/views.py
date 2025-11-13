@@ -6,6 +6,7 @@ from django.views import View
 from django.db.models import Q
 from django.utils import timezone
 from django.contrib import messages
+from django.forms import modelformset_factory
 from django.shortcuts import render,redirect,reverse
 from django.db import transaction, IntegrityError
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest
@@ -1837,3 +1838,81 @@ def create_washed_used_product(request):
     }
 
     return render(request, 'products/five_gallon_stock_report/wash_used_product_create.html', context)
+
+
+@login_required
+def product_target_create(request):
+    category_id = request.GET.get("category")
+    categories = CategoryMaster.objects.all().order_by("category_name")
+
+    ProductTargetFormSet = modelformset_factory(
+        ProductTarget,
+        fields=("product", "target_qty", "unit", "condition", "rate"),
+        extra=0,
+        can_delete=False
+    )
+
+    queryset = ProductTarget.objects.none()
+    category = None
+
+    if category_id:
+        try:
+            category = CategoryMaster.objects.get(pk=category_id)
+        except CategoryMaster.DoesNotExist:
+            category = None
+
+        if category:
+            products = ProdutItemMaster.objects.filter(category=category)
+            for p in products:
+                ProductTarget.objects.get_or_create(
+                    category=category,
+                    product=p,
+                    defaults={
+                        "target_qty": 0,
+                        "unit": p.unit or "Nos",
+                        "condition": "on_qty",
+                        "rate": p.rate or 0,
+                        "is_active": True,
+                    },
+                )
+
+            queryset = ProductTarget.objects.filter(category=category, is_active=True).order_by("product__product_name")
+
+    if request.method == "POST":
+        formset = ProductTargetFormSet(request.POST, queryset=queryset)
+        if formset.is_valid():
+            try:
+                with transaction.atomic():
+                    formset.save()  
+                    messages.success(request, "Product targets saved successfully.")
+                    return redirect("product_target_list") 
+            except Exception as e:
+                messages.error(request, f"Error saving targets: {e}")
+        else:
+            messages.error(request, "Please correct the errors below.")
+    else:
+        formset = ProductTargetFormSet(queryset=queryset)
+
+    return render(request, "products/product_target.html", {
+        "categories": categories,
+        "selected_category": category_id,
+        "formset": formset,
+    })
+
+def product_target_list(request):
+    category_id = request.GET.get('category')
+    categories = CategoryMaster.objects.all().order_by('category_name')
+    targets = []
+
+    if category_id:
+        targets = ProductTarget.objects.filter(
+            category_id=category_id, is_active=True
+        ).select_related('product', 'category').order_by('product__product_name')
+
+    return render(request, "products/product_target_list.html", {
+        "categories": categories,
+        "selected_category": category_id,
+        "targets": targets,
+    })
+    
+ 

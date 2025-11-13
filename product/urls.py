@@ -55,4 +55,7 @@ urlpatterns = [
     # re_path(r'create-washed-used-product/$', views.create_washed_used_product, name='create_washed_used_product'),
     path('create-washed-used-product/', views.create_washed_used_product, name='create_washed_used_product'),
 
+    path('product-target/create/', views.product_target_create, name='product_target_create'),
+    path("product-target-list/", views.product_target_list, name="product_target_list"),
+    
    ]

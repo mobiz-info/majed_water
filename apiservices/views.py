@@ -2412,6 +2412,12 @@ class Add_Customer_Custody_Item_API(APIView):
                     "five_gallon_water_charge": five_gallon_water_charge,
                 }
                 item_instance = CustodyCustomItems.objects.create(**custody_item_data)
+                
+                customer_instance = custody_data.customer
+                customer_instance.no_of_bottles_required = (
+                    (customer_instance.no_of_bottles_required or 0) + int(quantity or 0)
+                )
+                customer_instance.save(update_fields=["no_of_bottles_required"])
 
                 # Update bottle count if necessary
                 if product_instance.product_name == "5 Gallon":

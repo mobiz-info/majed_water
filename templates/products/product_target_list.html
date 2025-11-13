@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Product Target List{% endblock %}
+{% block content %}
+{% load static %}
+
+<!-- Page Header -->
+<div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between">
+    <h4 class="fw-medium mb-0">Product Targets</h4>
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-50">Product Management</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Product Targets</li>
+    </ol>
+</div>
+
+<!-- Start::app-content -->
+<div class="main-content app-content">
+    <div class="container-fluid">
+        <!-- Start:: row -->
+        <div class="row">
+            <div class="col-xl-12">
+                <div class="card custom-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div class="card-title mb-0">
+                            Product Targets
+                        </div>
+                        <a href="{% url 'product_target_create' %}" class="btn btn-success btn-wave d-flex align-items-center">
+                            <i class="bi bi-plus-circle me-1"></i> Create Target
+                        </a>
+                    </div>
+
+                    <div class="card-body">
+                        <!-- Category Filter -->
+                        <form method="get" class="d-flex align-items-center mb-4">
+                            <label class="me-2 mb-0 fw-semibold">Category:</label>
+                            <select name="category" class="form-select" style="width:250px;" onchange="this.form.submit()">
+                                <option value="">-- Select Category --</option>
+                                {% for cat in categories %}
+                                    <option value="{{ cat.category_id }}" {% if selected_category == cat.category_id|stringformat:"s" %}selected{% endif %}>
+                                        {{ cat.category_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </form>
+
+                        <!-- Targets Table -->
+                        {% if selected_category %}
+                            {% if targets %}
+                                <div class="table-responsive">
+                                    <table id="responsiveDataTable" class="table table-bordered text-nowrap align-middle" style="width:100%">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="text-center" style="width:5%;">Sl.No</th>
+                                                <th>Product</th>
+                                                <th class="text-end">Target Qty</th>
+                                                <th class="text-center">Unit</th>
+                                                <th class="text-center">Condition</th>
+                                                <th class="text-end">Rate</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for t in targets %}
+                                            <tr>
+                                                <td class="text-center">{{ forloop.counter }}</td>
+                                                <td>{{ t.product.product_name }}</td>
+                                                <td class="text-end">{{ t.target_qty }}</td>
+                                                <td class="text-center">{{ t.unit }}</td>
+                                                <td class="text-center">{{ t.get_condition_display }}</td>
+                                                <td class="text-end">{{ t.rate }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <p class="text-muted text-center mt-4">No targets found for this category.</p>
+                            {% endif %}
+                        {% else %}
+                            <p class="text-muted text-center mt-4">Please select a category to view targets.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- End:: row -->
+    </div>
+</div>
+<!-- End::app-content -->
+
+{% endblock %}
