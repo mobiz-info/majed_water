@@ -49,43 +49,45 @@
                         {% if month %}
                         <form method="post">
                             {% csrf_token %}
+                            <input type="hidden" name="month" value="{{ month }}">
+                            
                             
                             <h5 class="text-center mb-3">Target - {{ month }}</h5>
-                        
-                            <table class="table table-bordered text-center">
-                                <thead>
-                                    <tr>
-                                        <th>Sl No</th>
-                                        <th>Route Name</th>
-                        
-                                        {% for product in products %}
-                                            <th>{{ product.product_name }}</th>
+                            <div class="w-100 overflow-auto">   <!-- ★ SCROLL ADDED -->
+                                <table class="table table-bordered text-nowrap">
+                                    <thead>
+                                        <tr>
+                                            <th>Sl No</th>
+                                            <th>Route Name</th>
+                            
+                                            {% for product in products %}
+                                                <th style="min-width: 120px;">{{ product.product_name }}</th>
+                                            {% endfor %}
+                                        </tr>
+                                    </thead>
+                            
+                                    <tbody>
+                                        {% for route in routes %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>{{ route.route_name }}</td>
+                            
+                                            {% for product in products %}
+                                                {% with target=matrix|dict_get:route.route_id|dict_get:product.id %}
+                                                <td >
+                                                    <input type="number"
+                                                        step="0"
+                                                        class="form-control"
+                                                        name="qty_{{ route.route_id}}_{{ product.id }}"
+                                                        value="{{ target.target_qty }}">
+                                                </td>
+                                                {% endwith %}
+                                            {% endfor %}
+                                        </tr>
                                         {% endfor %}
-                                    </tr>
-                                </thead>
-                        
-                                <tbody>
-                                    {% for route in routes %}
-                                    <tr>
-                                        <td>{{ forloop.counter }}</td>
-                                        <td>{{ route.route_name }}</td>
-                        
-                                        {% for product in products %}
-                                            {% with target=matrix|dict_get:route.id|dict_get:product.id %}
-                                            <td>
-                                                <input type="number"
-                                                       step="0.01"
-                                                       class="form-control"
-                                                       name="qty_{{ route.id }}_{{ product.id }}"
-                                                       value="{{ target.target_qty }}">
-                                            </td>
-                                            {% endwith %}
-                                        {% endfor %}
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        
+                                    </tbody>
+                                </table>
+                            </div>
                             <button class="btn btn-success mt-3">Save</button>
                         </form>
                         {% endif %}

@@ -12,6 +12,7 @@ admin.site.register(WashedProductTransfer)
 admin.site.register(WashedUsedProduct)
 admin.site.register(ScrapcleanedStock)
 admin.site.register(ProductionDamageReason)
+admin.site.register(RouteProductTarget)
 
 class StaffOrdersAdmin(admin.ModelAdmin):
     list_display = ["order_number","created_by","created_date","order_date"]

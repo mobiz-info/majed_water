@@ -421,10 +421,10 @@ class OrderVerifiedproductDetails(models.Model):
 class RouteProductTarget(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    month = models.CharField(max_length=10)   # 2025-02
+    month = models.CharField(max_length=10)   
     route = models.ForeignKey('master.RouteMaster', on_delete=models.CASCADE)
     product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
-    target_qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    target_qty = models.PositiveIntegerField(default=0)
 
     class Meta:
         unique_together = ('month', 'route', 'product')

@@ -1843,49 +1843,42 @@ def create_washed_used_product(request):
 @login_required
 def product_target_create(request):
     month = request.GET.get("month")
-
     routes = RouteMaster.objects.all().order_by("route_name")
     products = ProdutItemMaster.objects.all().order_by("product_name")
 
-    if not month:
-        return render(request, "products/product_target.html", {
-            "routes": routes,
-            "products": products,
-            "month": None,
-        })
+    matrix = {}   # route -> product -> target
 
-    # 1. AUTO CREATE MISSING TARGET ROWS
-    for route in routes:
-        for product in products:
-            RouteProductTarget.objects.get_or_create(
-                month=month,
-                route=route,
-                product=product,
-                defaults={"target_qty": 0}
-            )
+    # --- ONLY LOAD (DO NOT SAVE HERE) ---
+    if month:
+        for route in routes:
+            route_target = {}
+            for product in products:
+                target = RouteProductTarget.objects.filter(
+                    route=route,
+                    product=product,
+                    month=month
+                ).first()
 
-    # 2. Load all rows in matrix format
-    target_rows = RouteProductTarget.objects.filter(month=month)
+                route_target[product.id] = target if target else {'target_qty': 0}
+            matrix[route.route_id] = route_target
 
-    # Create dictionary: matrix[route_id][product_id] = object
-    matrix = {}
-    for route in routes:
-        matrix[route.id] = {}
-        for product in products:
-            matrix[route.id][product.id] = target_rows.get(route=route, product=product)
-
-    # POST SAVE LOGIC
+    # --- SAVE ONLY ON POST ---
     if request.method == "POST":
+        month = request.POST.get("month")
         for route in routes:
             for product in products:
-                field_name = f"qty_{route.id}_{product.id}"
-                value = request.POST.get(field_name, "0")
-                obj = matrix[route.id][product.id]
-                obj.target_qty = value or 0
-                obj.save()
+                field_name = f"qty_{route.route_id}_{product.id}"
+                qty = request.POST.get(field_name)
 
-        messages.success(request, "Targets saved successfully.")
-        return redirect(f"{reverse('route_month_target_create')}?month={month}")
+                if qty is not None:
+                    target, created = RouteProductTarget.objects.update_or_create(
+                        route=route,
+                        product=product,
+                        month=month,
+                        defaults={'target_qty': qty}
+                    )
+
+        return redirect(f"{reverse('product_target_list')}?month={month}")
 
     return render(request, "products/product_target.html", {
         "routes": routes,
@@ -1894,20 +1887,33 @@ def product_target_create(request):
         "month": month,
     })
 
-# def product_target_list(request):
-#     category_id = request.GET.get('category')
-#     categories = CategoryMaster.objects.all().order_by('category_name')
-#     targets = []
+@login_required
+def product_target_list(request):
+    month = request.GET.get("month")
+    routes = RouteMaster.objects.all().order_by("route_name")
+    products = ProdutItemMaster.objects.all().order_by("product_name")
 
-#     if category_id:
-#         targets = ProductTarget.objects.filter(
-#             category_id=category_id, is_active=True
-#         ).select_related('product', 'category').order_by('product__product_name')
+    matrix = {}   # route -> product -> target_qty
 
-#     return render(request, "products/product_target_list.html", {
-#         "categories": categories,
-#         "selected_category": category_id,
-#         "targets": targets,
-#     })
+    if month:
+        for route in routes:
+            route_target = {}
+            for product in products:
+                target = RouteProductTarget.objects.filter(
+                    route=route,
+                    product=product,
+                    month=month
+                ).first()
+
+                route_target[product.id] = target.target_qty if target else 0
+
+            matrix[route.route_id] = route_target
+
+    return render(request, "products/product_target_list.html", {
+        "routes": routes,
+        "products": products,
+        "matrix": matrix,
+        "month": month,
+    }) 
     
  

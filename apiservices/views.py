@@ -2231,100 +2231,60 @@ class Create_Customer(APIView):
 class Get_Items_API(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
-    serializer_class = Items_Serializers
-    product_serializer = Products_Serializers
-    
+
     def get(self, request, id=None):
         try:
-            if id:
-                customer_exists = Customers.objects.filter(customer_id=id).exists()
-                if not customer_exists:
-                    return Response({'status': False, 'message': 'Customer Not Exists'})
+            customer = Customers.objects.get(customer_id=id)
+            product_masters = ProdutItemMaster.objects.all()
 
-                customer_data = Customers.objects.get(customer_id=id)
-
-                if not customer_data.branch_id: 
-                    return Response({'status': False, 'message': 'Customer has no assigned branch'})
-
-                branch_id = customer_data.branch_id.branch_id
-                branch = BranchMaster.objects.get(branch_id=branch_id)
-                print("branch",branch)
-                products = Product.objects.filter(branch_id=branch)
-
-                if not products.exists():
-                    return Response({'status': True, 'data': [], 'message': 'No products found for this branch'})
-
-                data = []
-                for product in products:
-                    item_price_level = Product_Default_Price_Level.objects.filter(
-                        product_id=product.product_name,
-                        customer_type=customer_data.customer_type
-                    ).first()
-
-                    if item_price_level:
-                        serializer = self.serializer_class(item_price_level)
-                    else:
-                        serializer = self.product_serializer(product)
-
-                    data.append(serializer.data)
-
-                data2 = {
-                    'customer_id': customer_data.customer_id,
-                    'customer_name': customer_data.customer_name,
-                    'default_water_rate': customer_data.rate,
-                    'items_count': len(data)
-                }
-
-                log_activity(
-                    created_by=request.user,
-                    description=f"Fetched items for customer {customer_data.customer_name} (ID: {customer_data.customer_id})"
-                )
-
-                return Response({'status': True, 'data': {'items': data, 'customer': data2}, 'message': 'Data fetched Successfully'})
-
-            else:
-                customers = Customers.objects.all()
-                all_data = []
-
-                for customer in customers:
-                    if not customer.branch_id:
-                        continue  
+            data = []
+            for product_master in product_masters:
+                rate = product_master.rate
+                if id :
+                    if customer.rate > 0 and product_master.product_name == "5 Gallon":
+                        rate = customer.rate
+                    other_product =CustomerOtherProductCharges.objects.filter(customer=customer,product_item=product_master)
+                    if other_product.exists() and product_master.product_name != "5 Gallon":
+                        rate=other_product.first().current_rate
+                        
                     
-                    branch_id = customer.branch_id.branch_id
-                    branch = BranchMaster.objects.get(branch_id=branch_id)
-                    products = Product.objects.filter(branch_id=branch)
+                data.append({
+                    "product_id": str(product_master.id),
+                    "product_name": product_master.product_name,
+                    "rate": str(rate),
+                    "unit": product_master.unit,
+                    
+                })
 
-                    if not products.exists():
-                        continue 
+            response_data = {
+                "customer": {
+                    "customer_id": str(customer.customer_id),
+                    "customer_name": customer.customer_name,
+                    "default_water_rate": str(customer.rate or 0),
+                    "items_count": len(data)
+                },
+                "items": data
+            }
 
-                    data = []
-                    for product in products:
-                        item_price_level = Product_Default_Price_Level.objects.filter(
-                            product_id=product.product_name,
-                            customer_type=customer.customer_type
-                        ).first()
+            return Response({
+                "status": True,
+                "data": response_data,
+                "message": "Data fetched successfully"
+            })
 
-                        if item_price_level:
-                            serializer = self.serializer_class(item_price_level)
-                        else:
-                            serializer = self.product_serializer(product)
-
-                        data.append(serializer.data)
-
-                    customer_info = {
-                        'customer_id': customer.customer_id,
-                        'customer_name': customer.customer_name,
-                        'default_water_rate': customer.rate,
-                        'items_count': len(data),
-                        'items': data
-                    }
-                    all_data.append(customer_info)
-
-                return Response({'status': True, 'data': all_data, 'message': 'Data fetched successfully'})
+        except Customers.DoesNotExist:
+            return Response({
+                "status": False,
+                "message": "Customer not found"
+            })
 
         except Exception as e:
-            print(e)
-            return Response({'status': False, 'message': 'Something went wrong!'})
+            print("Error:", e)
+            return Response({
+                "status": False,
+                "message": str(e)
+            })
+
 
 
     # def get(self,request,id=None):

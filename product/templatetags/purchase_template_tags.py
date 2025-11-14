@@ -51,3 +51,7 @@ def get_van_current_stock(van,product):
 @register.filter
 def dict_get(dictionary, key):
     return dictionary.get(key)
+
+@register.filter
+def get_item(dictionary, key):
+    return dictionary.get(key)
