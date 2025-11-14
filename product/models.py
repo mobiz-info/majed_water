@@ -418,33 +418,13 @@ class OrderVerifiedproductDetails(models.Model):
         return str(self.order_varified_id)
 
 
-class ProductTarget(models.Model):
+class RouteProductTarget(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    created_by = models.CharField(max_length=20, blank=True)
-    created_date = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    modified_by = models.CharField(max_length=20, null=True, blank=True)
-    modified_date = models.DateTimeField(blank=True, null=True)
 
-    category = models.ForeignKey('master.CategoryMaster', on_delete=models.CASCADE, null=True, blank=True)
-    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE, related_name='product_targets')
-
+    month = models.CharField(max_length=10)   # 2025-02
+    route = models.ForeignKey('master.RouteMaster', on_delete=models.CASCADE)
+    product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE)
     target_qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    unit = models.CharField(max_length=50, choices=ProdutItemMaster.unit_choices, null=True, blank=True)
-
-    CONDITION_CHOICES = (
-        ('on_qty', 'Based on Quantity'),
-        ('on_value', 'Based on Value'),
-        ('both', 'Both'),
-    )
-    condition = models.CharField(max_length=20, choices=CONDITION_CHOICES, default='on_qty')
-
-    rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
-    is_active = models.BooleanField(default=True)
 
     class Meta:
-        ordering = ('category', 'product')
-        db_table = "product_target"
-
-    def __str__(self):
-        return f"{self.product.product_name} - Target: {self.target_qty} {self.unit or ''}"
+        unique_together = ('month', 'route', 'product')

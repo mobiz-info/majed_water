@@ -45,3 +45,9 @@ def get_van_current_stock(van,product):
         count = 0
     
     return count
+
+
+
+@register.filter
+def dict_get(dictionary, key):
+    return dictionary.get(key)

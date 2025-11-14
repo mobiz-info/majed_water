@@ -1842,77 +1842,72 @@ def create_washed_used_product(request):
 
 @login_required
 def product_target_create(request):
-    category_id = request.GET.get("category")
-    categories = CategoryMaster.objects.all().order_by("category_name")
+    month = request.GET.get("month")
 
-    ProductTargetFormSet = modelformset_factory(
-        ProductTarget,
-        fields=("product", "target_qty", "unit", "condition", "rate"),
-        extra=0,
-        can_delete=False
-    )
+    routes = RouteMaster.objects.all().order_by("route_name")
+    products = ProdutItemMaster.objects.all().order_by("product_name")
 
-    queryset = ProductTarget.objects.none()
-    category = None
+    if not month:
+        return render(request, "products/product_target.html", {
+            "routes": routes,
+            "products": products,
+            "month": None,
+        })
 
-    if category_id:
-        try:
-            category = CategoryMaster.objects.get(pk=category_id)
-        except CategoryMaster.DoesNotExist:
-            category = None
+    # 1. AUTO CREATE MISSING TARGET ROWS
+    for route in routes:
+        for product in products:
+            RouteProductTarget.objects.get_or_create(
+                month=month,
+                route=route,
+                product=product,
+                defaults={"target_qty": 0}
+            )
 
-        if category:
-            products = ProdutItemMaster.objects.filter(category=category)
-            for p in products:
-                ProductTarget.objects.get_or_create(
-                    category=category,
-                    product=p,
-                    defaults={
-                        "target_qty": 0,
-                        "unit": p.unit or "Nos",
-                        "condition": "on_qty",
-                        "rate": p.rate or 0,
-                        "is_active": True,
-                    },
-                )
+    # 2. Load all rows in matrix format
+    target_rows = RouteProductTarget.objects.filter(month=month)
 
-            queryset = ProductTarget.objects.filter(category=category, is_active=True).order_by("product__product_name")
+    # Create dictionary: matrix[route_id][product_id] = object
+    matrix = {}
+    for route in routes:
+        matrix[route.id] = {}
+        for product in products:
+            matrix[route.id][product.id] = target_rows.get(route=route, product=product)
 
+    # POST SAVE LOGIC
     if request.method == "POST":
-        formset = ProductTargetFormSet(request.POST, queryset=queryset)
-        if formset.is_valid():
-            try:
-                with transaction.atomic():
-                    formset.save()  
-                    messages.success(request, "Product targets saved successfully.")
-                    return redirect("product_target_list") 
-            except Exception as e:
-                messages.error(request, f"Error saving targets: {e}")
-        else:
-            messages.error(request, "Please correct the errors below.")
-    else:
-        formset = ProductTargetFormSet(queryset=queryset)
+        for route in routes:
+            for product in products:
+                field_name = f"qty_{route.id}_{product.id}"
+                value = request.POST.get(field_name, "0")
+                obj = matrix[route.id][product.id]
+                obj.target_qty = value or 0
+                obj.save()
+
+        messages.success(request, "Targets saved successfully.")
+        return redirect(f"{reverse('route_month_target_create')}?month={month}")
 
     return render(request, "products/product_target.html", {
-        "categories": categories,
-        "selected_category": category_id,
-        "formset": formset,
+        "routes": routes,
+        "products": products,
+        "matrix": matrix,
+        "month": month,
     })
 
-def product_target_list(request):
-    category_id = request.GET.get('category')
-    categories = CategoryMaster.objects.all().order_by('category_name')
-    targets = []
+# def product_target_list(request):
+#     category_id = request.GET.get('category')
+#     categories = CategoryMaster.objects.all().order_by('category_name')
+#     targets = []
 
-    if category_id:
-        targets = ProductTarget.objects.filter(
-            category_id=category_id, is_active=True
-        ).select_related('product', 'category').order_by('product__product_name')
+#     if category_id:
+#         targets = ProductTarget.objects.filter(
+#             category_id=category_id, is_active=True
+#         ).select_related('product', 'category').order_by('product__product_name')
 
-    return render(request, "products/product_target_list.html", {
-        "categories": categories,
-        "selected_category": category_id,
-        "targets": targets,
-    })
+#     return render(request, "products/product_target_list.html", {
+#         "categories": categories,
+#         "selected_category": category_id,
+#         "targets": targets,
+#     })
     
  
