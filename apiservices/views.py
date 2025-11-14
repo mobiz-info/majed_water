@@ -3889,6 +3889,54 @@ class supply_product(APIView):
 
 #     return Response(response_data, status_code)
 
+@api_view(['POST'])
+def create_customer_supply_latest(request):
+    try:
+        data = request.data.copy()
+        customer_supply_data = data.get("customer_supply", {})
+        
+        supply_date_str = data.get("supply_date")
+        if supply_date_str:
+            supply_datetime = datetime.combine(
+                datetime.strptime(supply_date_str, '%Y-%m-%d').date(),
+                datetime.now().time()
+            )
+        else:
+            supply_datetime = datetime.now()
+        
+        customer_supply_data["created_date"] = supply_datetime
+        customer_supply_data["items"] = data.get("items", [])
+        customer_supply_data["collected_empty_bottle"] = data.get("collected_empty_bottle", 0)
+        customer_supply_data["allocate_bottle_to_pending"] = data.get("allocate_bottle_to_pending", 0)
+        customer_supply_data["allocate_bottle_to_custody"] = data.get("allocate_bottle_to_custody", 0)
+        customer_supply_data["allocate_bottle_to_paid"] = data.get("allocate_bottle_to_paid", 0)
+        customer_supply_data["allocate_bottle_to_free"] = data.get("allocate_bottle_to_free", 0)
+        customer_supply_data["reference_number"] = data.get("reference_number", "")
+        customer_supply_data["coupon_method"] = data.get("coupon_method", "")
+        customer_supply_data["total_coupon_collected"] = data.get("total_coupon_collected", 0)
+        customer_supply_data["collected_coupon_ids"] = data.get("collected_coupon_ids", [])
+
+        serializer = CustomerSupplyLatestSerializer(data=customer_supply_data, context={"request": request})
+        
+        if serializer.is_valid():
+            data = serializer.save()
+            invoice_no = getattr(data, "invoice_no", "")
+            
+            response_data = {
+                "status": "true",
+                "title": "Successfully Created",
+                "message": "Customer Supply created successfully and Invoice generated.",
+                "invoice_id": invoice_no
+            }
+            
+            return Response(response_data, status=status.HTTP_201_CREATED)
+        else:
+            return Response({"status": "error", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception as e:
+        return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
 class create_customer_supply(APIView):
     authentication_classes = [BasicAuthentication]
     permission_classes = [IsAuthenticated]
