@@ -3338,16 +3338,16 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
                     product = item_data['product']
                     quantity = item_data['quantity']
                     amount = item_data['amount']
-                    foc = item_data['foc']
-                    rate = item_data['rate']
+                    # foc = item_data['foc']
+                    # rate = item_data['rate']
                     
                     supply_item = CustomerSupplyItems.objects.create(
                         customer_supply=customer_supply,
                         product=product,
                         quantity=quantity,
                         amount=amount,
-                        foc=foc,
-                        rate=rate,
+                        # foc=foc,
+                        # rate=rate,
                     )
                     
                     customer_supply_stock, _ = CustomerSupplyStock.objects.get_or_create(
