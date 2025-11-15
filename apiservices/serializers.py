@@ -3345,8 +3345,7 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
                         customer_supply=customer_supply,
                         product=product,
                         quantity=quantity,
-                        amount=amount,
-                        
+                        amount=amount
                         
                     )
                     
@@ -3361,7 +3360,7 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
                         category=supply_item.product.category,
                         product_items=supply_item.product,
                         qty=supply_item.quantity,
-                        rate=supply_item.rate,
+                        rate=supply_item.amount,
                         invoice=invoice,
                         remarks='invoice genereted from supply items reference no : ' + invoice.reference_no
                     )
