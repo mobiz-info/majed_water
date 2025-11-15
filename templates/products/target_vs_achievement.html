@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load purchase_template_tags %}
+{% block title %} Target vs Achievement {% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="page-header-breadcrumb d-md-flex d-block align-items-center justify-content-between">
+    <h4 class="fw-medium mb-0">Target vs Achievement</h4>
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="javascript:void(0);" class="text-white-50">Reports</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Target vs Achievement</li>
+    </ol>
+</div>
+
+<div class="main-content app-content">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-xl-12">
+
+                <div class="card custom-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            Filter
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+
+                        <form method="get" class="row g-3">
+
+                            <div class="col-md-3">
+                                <label class="form-label">Select Month:</label>
+                                <input type="month" name="month" value="{{ month }}" class="form-control" required>
+                            </div>
+
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary btn-wave w-100">Filter</button>
+                            </div>
+
+                        </form>
+
+                    </div>
+                </div>
+
+                <!-- TABLE CARD -->
+                <div class="card custom-card mt-3">
+                    <div class="card-header">
+                        <div class="card-title">
+                            Target vs Achievement Table
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered text-nowrap">
+                                <thead>
+                                <tr>
+                                    <th style="text-align:center;">Sl No</th>
+                                    <th style="text-align:center;">Route</th>
+
+                                    {% for p in products %}
+                                        <th style="text-align:center;">{{ p.product_name }}</th>
+                                    {% endfor %}
+                                </tr>
+                                </thead>
+
+                                <tbody>
+                                {% for row in table_data %}
+                                    <tr>
+                                        <td style="text-align:center;">{{ forloop.counter }}</td>
+                                        <td>{{ row.route_name }}</td>
+
+                                        {% for p in products %}
+                                            <td style="text-align:center;">
+                                                {{ row.values|get_item:p.id|get_item:"ach" }} /
+                                                {{ row.values|get_item:p.id|get_item:"target" }}
+                                            </td>
+                                        {% endfor %}
+                                    </tr>
+                                {% endfor %}
+
+                                <!-- TOTAL ROW -->
+                                <tr style="font-weight:bold;">
+                                    <td colspan="2" style="text-align:center;">TOTAL</td>
+
+                                    {% for p in products %}
+                                        <td style="text-align:center;">
+                                            {{ totals|get_item:p.id|get_item:"ach" }} /
+                                            {{ totals|get_item:p.id|get_item:"target" }}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUMMARY PIE (OPTIONAL) -->
+                <div class="card custom-card mt-3">
+                    <div class="card-header">
+                        <div class="card-title">
+                            Overall Achievement Summary
+                        </div>
+                    </div>
+
+                    <div class="card-body text-center">
+                        <div style="width:350px; margin:auto;">
+                            <canvas id="summaryPie"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+const ctx = document.getElementById('summaryPie').getContext('2d');
+
+const totalTarget = {{ total_target_sum }};
+const totalAch = {{ total_ach_sum }};
+const balance = totalTarget - totalAch;
+
+new Chart(ctx, {
+    type: 'pie',
+    data: {
+        labels: ['Achieved', 'Remaining'],
+        datasets: [{
+            data: [totalAch, balance],
+            borderWidth: 1
+        }]
+    },
+    options: {
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+</script>
+
+{% endblock %}

@@ -57,5 +57,6 @@ urlpatterns = [
 
     path('product-target/create/', views.product_target_create, name='product_target_create'),
     path("product-target-list/", views.product_target_list, name="product_target_list"),
+    path("target-vs-achievement/", views.target_vs_achievement, name="target_vs_achievement"),
     
    ]

@@ -25,6 +25,7 @@ from accounts.models import *
 from .models import *
 from coupon_management.models import *
 from van_management.models import *
+from client_management.models import *
 
 from django.template.loader import get_template
 import pandas as pd
@@ -1916,4 +1917,148 @@ def product_target_list(request):
         "month": month,
     }) 
     
- 
+    
+# def target_vs_achievement(request):
+#     month_str = request.GET.get("month")
+#     product_id = request.GET.get("product")     # product filter
+#     route_id = request.GET.get("route")         # NEW: route filter
+
+#     # Load dropdown lists
+#     products = ProdutItemMaster.objects.all()
+#     routes = RouteMaster.objects.all()      # adjust model name if needed
+
+#     # If no input selected
+#     if not month_str or not product_id or not route_id:
+#         return render(request, "products/target_vs_achievement.html", {
+#             "products": products,
+#             "routes": routes,
+#             "month": "",
+#             "product_id": "",
+#             "route_id": "",
+#             "target_total": 0,
+#             "achievement_total": 0,
+#         })
+
+#     year = int(month_str.split("-")[0])
+#     month = int(month_str.split("-")[1])
+
+#     # ✅ TARGET (also filter by route)
+#     target_total = RouteProductTarget.objects.filter(
+#         month=month_str,
+#         product=product_id,
+#         route=route_id
+#     ).aggregate(Sum("target_qty"))["target_qty__sum"] or 0
+
+#     # ✅ CASH SALE (filtered by route)
+#     cash_qty = CustomerSupplyItems.objects.filter(
+#         product_id=product_id,
+#         customer_supply__customer__routes=route_id,
+#         customer_supply__amount_recieved__gt=0,
+#         customer_supply__created_date__year=year,
+#         customer_supply__created_date__month=month
+#     ).aggregate(Sum("quantity"))["quantity__sum"] or 0
+
+#     # ✅ CREDIT SALE (filtered by route)
+#     credit_qty = CustomerSupplyItems.objects.filter(
+#         product_id=product_id,
+#         customer_supply__customer__routes=route_id,
+#         customer_supply__amount_recieved__lte=0,
+#         customer_supply__created_date__year=year,
+#         customer_supply__created_date__month=month
+#     ).aggregate(Sum("quantity"))["quantity__sum"] or 0
+
+#     achievement_total = cash_qty + credit_qty
+#     print("month_str",month_str)
+#     print("product_id",product_id)
+#     print("target_total",target_total)
+#     print("achievement_total",achievement_total)
+#     return render(request, "products/target_vs_achievement.html", {
+#         "products": products,
+#         "routes": routes,
+#         "product_id": product_id,
+#         "route_id": route_id,
+#         "month": month_str,
+#         "target_total": target_total,
+#         "achievement_total": achievement_total,
+#     })
+def target_vs_achievement(request):
+    month_str = request.GET.get("month")
+
+    routes = RouteMaster.objects.all()
+    products = ProdutItemMaster.objects.all()
+
+    if not month_str:
+        return render(request, "products/target_vs_achievement.html", {
+            "month": "",
+            "routes": routes,
+            "products": products,
+            "table_data": [],
+            "totals": {},
+            "total_target_sum": 0,
+            "total_ach_sum": 0,
+        })
+
+    year = int(month_str.split("-")[0])
+    month = int(month_str.split("-")[1])
+
+    table_data = []
+    totals = {}
+
+    for prod in products:
+        totals[prod.id] = {"target": 0, "ach": 0}
+
+    for route in routes:
+        row = {
+            "route_name": route.route_name,
+            "values": {}
+        }
+
+        for prod in products:
+
+            target = RouteProductTarget.objects.filter(
+                month=month_str,
+                route=route.route_id,
+                product=prod.id
+            ).aggregate(Sum("target_qty"))["target_qty__sum"] or 0
+
+            cash_qty = CustomerSupplyItems.objects.filter(
+                product_id=prod.id,
+                customer_supply__customer__routes=route.route_id,
+                customer_supply__amount_recieved__gt=0,
+                customer_supply__created_date__year=year,
+                customer_supply__created_date__month=month
+            ).aggregate(Sum("quantity"))["quantity__sum"] or 0
+
+            credit_qty = CustomerSupplyItems.objects.filter(
+                product_id=prod.id,
+                customer_supply__customer__routes=route.route_id,
+                customer_supply__amount_recieved__lte=0,
+                customer_supply__created_date__year=year,
+                customer_supply__created_date__month=month
+            ).aggregate(Sum("quantity"))["quantity__sum"] or 0
+
+            ach = cash_qty + credit_qty
+
+            row["values"][prod.id] = {
+                "target": target,
+                "ach": ach,
+            }
+
+            totals[prod.id]["target"] += target
+            totals[prod.id]["ach"] += ach
+
+        table_data.append(row)
+
+    # TOTALS for pie chart
+    total_target_sum = sum([totals[k]["target"] for k in totals])
+    total_ach_sum = sum([totals[k]["ach"] for k in totals])
+
+    return render(request, "products/target_vs_achievement.html", {
+        "month": month_str,
+        "routes": routes,
+        "products": products,
+        "table_data": table_data,
+        "totals": totals,
+        "total_target_sum": total_target_sum,
+        "total_ach_sum": total_ach_sum,
+    })
