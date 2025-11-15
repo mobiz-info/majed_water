@@ -3249,7 +3249,7 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
             'reference_number', 'items',
             'collected_empty_bottle', 'allocate_bottle_to_pending', 'allocate_bottle_to_custody',
             'allocate_bottle_to_paid', 'allocate_bottle_to_free',
-            'total_coupon_collected', 'coupon_method', 'collected_coupon_ids', 'created_date','payment_mode','vat_amount','amount_before_vat'
+            'total_coupon_collected', 'coupon_method', 'collected_coupon_ids', 'created_date','payment_mode'
         ]
 
     def create(self, validated_data):
@@ -3260,8 +3260,8 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
         collected_coupon_ids = validated_data.pop('collected_coupon_ids', [])
         total_coupon_collected = validated_data.pop('total_coupon_collected', 0)
         payment_mode = validated_data.pop('payment_mode', "cash") 
-        vat_amount = validated_data.pop('vat_amount', 0)
-        amount_before_vat = validated_data.pop('amount_before_vat', 0)
+        # vat_amount = validated_data.pop('vat_amount', 0)
+        # amount_before_vat = validated_data.pop('amount_before_vat', 0)
         
         total_fivegallon_qty = 0
 
@@ -3274,8 +3274,8 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
                     created_by=request.user.id,
                     created_date=created_date,
                     payment_mode=payment_mode,
-                    vat_amount=vat_amount,
-                    amount_before_vat=amount_before_vat,
+                    # vat_amount=vat_amount,
+                    # amount_before_vat=amount_before_vat,
                 )
                 
                 DiffBottlesModel.objects.filter(
@@ -3294,8 +3294,8 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
                     amout_recieved=customer_supply.amount_recieved,
                     customer=customer_supply.customer,
                     reference_no=customer_supply.reference_number,
-                    vat_amount=customer_supply.vat_amount,
-                    amount_before_vat=customer_supply.amount_before_vat,
+                    # vat_amount=customer_supply.vat_amount,
+                    # amount_before_vat=customer_supply.amount_before_vat,
                 )
                 
                 # duplicates = (Invoice.objects.filter(invoice_no=invoice.invoice_no, created_date__date=customer_supply.created_date.date()).values("invoice_no").annotate(count=Count("id")).filter(count__gt=1))
