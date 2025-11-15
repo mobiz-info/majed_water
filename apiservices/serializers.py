@@ -3221,7 +3221,7 @@ class DispenserCoolerPurchaseSerializer(serializers.ModelSerializer):
 class CustomerSupplyItemLatestSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerSupplyItems
-        fields = ['product', 'quantity', 'amount','foc','rate']
+        fields = ['product', 'quantity', 'amount']
 
 class CustomerSupplyCouponLatestSerializer(serializers.ModelSerializer):
     leaf = serializers.PrimaryKeyRelatedField(queryset=CouponLeaflet.objects.all(), many=True)
