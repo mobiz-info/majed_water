@@ -2381,8 +2381,14 @@ class Add_Customer_Custody_Item_API(APIView):
 
                 # Update bottle count if necessary
                 if product_instance.product_name == "5 Gallon":
+                    van = Van.objects.filter(salesman=request.user).first()
+                    if not van:
+                        return Response({
+                            "status": False,
+                            "message": "This salesman is not mapped with any van."
+                        }, status=400)
                     bottle_count, created = BottleCount.objects.get_or_create(
-                        van__salesman=request.user,
+                        van=van,
                         created_date__date=custody_data.created_date.date(),
                         defaults={'custody_issue': quantity}
                     )
