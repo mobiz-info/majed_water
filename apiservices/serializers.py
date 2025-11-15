@@ -3236,11 +3236,6 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
     total_coupon_collected = serializers.IntegerField(required=False)
     coupon_method = serializers.CharField(required=False)
     collected_coupon_ids = serializers.ListField(child=serializers.CharField(), required=False)
-    # payment_mode = serializers.ChoiceField(
-    #     choices=[("cash", "Cash"), ("cheque", "Cheque"), ("card", "Card")],
-    #     default="cash",
-    #     required=False
-    # )
 
     class Meta:
         model = CustomerSupply
@@ -3259,9 +3254,6 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
         coupon_method = validated_data.pop('coupon_method', None)
         collected_coupon_ids = validated_data.pop('collected_coupon_ids', [])
         total_coupon_collected = validated_data.pop('total_coupon_collected', 0)
-        # payment_mode = validated_data.pop('payment_mode', "cash") 
-        # vat_amount = validated_data.pop('vat_amount', 0)
-        # amount_before_vat = validated_data.pop('amount_before_vat', 0)
         
         total_fivegallon_qty = 0
 
@@ -3273,16 +3265,13 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
                     **validated_data,
                     created_by=request.user.id,
                     created_date=created_date,
-                    # payment_mode=payment_mode,
-                    # vat_amount=vat_amount,
-                    # amount_before_vat=amount_before_vat,
                 )
                 
                 DiffBottlesModel.objects.filter(
-                            delivery_date__date=customer_supply.created_date.date(),
-                            assign_this_to=customer_supply.salesman_id,
-                            customer=customer_supply.customer_id
-                            ).update(status='supplied')
+                    delivery_date__date=customer_supply.created_date.date(),
+                    assign_this_to=customer_supply.salesman_id,
+                    customer=customer_supply.customer_id
+                    ).update(status='supplied')
                 
                 invoice = Invoice.objects.create(
                     # invoice_no=generate_invoice_no(customer_supply.created_date.date()),
@@ -3293,9 +3282,7 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
                     amout_total=customer_supply.subtotal,
                     amout_recieved=customer_supply.amount_recieved,
                     customer=customer_supply.customer,
-                    reference_no=customer_supply.reference_number,
-                    # vat_amount=customer_supply.vat_amount,
-                    # amount_before_vat=customer_supply.amount_before_vat,
+                    reference_no=customer_supply.reference_number
                 )
                 
                 # duplicates = (Invoice.objects.filter(invoice_no=invoice.invoice_no, created_date__date=customer_supply.created_date.date()).values("invoice_no").annotate(count=Count("id")).filter(count__gt=1))
@@ -3338,15 +3325,12 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
                     product = item_data['product']
                     quantity = item_data['quantity']
                     amount = item_data['amount']
-                    # foc = item_data['foc']
-                    # rate = item_data['rate']
                     
                     supply_item = CustomerSupplyItems.objects.create(
                         customer_supply=customer_supply,
                         product=product,
                         quantity=quantity,
                         amount=amount
-                        
                     )
                     
                     customer_supply_stock, _ = CustomerSupplyStock.objects.get_or_create(
@@ -3374,17 +3358,13 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
                             "stock": f"Not enough stock for {supply_item.product.product_name} (only {vanstock.stock} left)"
                         })
 
-                    vanstock.stock -= (supply_item.quantity + customer_supply.allocate_bottle_to_free + supply_item.foc)
+                    vanstock.stock -= (supply_item.quantity + customer_supply.allocate_bottle_to_free)
                     if customer_supply.customer.sales_type != "FOC":
                         vanstock.sold_count += supply_item.quantity
                     else:
                         vanstock.foc += supply_item.quantity
                         customer_supply.van_foc_added = True
 
-                    if supply_item.foc > 0:
-                        vanstock.foc += supply_item.foc
-                        customer_supply.van_foc_added = True
-                    
                     if supply_item.product.product_name == "5 Gallon":
                         total_fivegallon_qty += supply_item.quantity
                         
@@ -3405,7 +3385,7 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
                 if customer_supply.customer.sales_type == "CASH COUPON":
                     if coupon_method == "manual" and collected_coupon_ids:
                         coupon_entry = CustomerSupplyCoupon.objects.create(customer_supply=customer_supply)
-                        
+
                         for cid in collected_coupon_ids:
                             is_free_leaf = False
 
@@ -3448,8 +3428,6 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
                                     coupon_stock.count -= 1
                                     coupon_stock.save(update_fields=["count"])
 
-                        
-                        
                         # Balance check and outstanding logic
                         if total_fivegallon_qty > int(total_coupon_collected):
                             balance = total_fivegallon_qty - int(total_coupon_collected)
@@ -3597,7 +3575,7 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
                 
                 # outstanding amount section 
                 # Assuming `customer` and `customer_supply` are already retrieved earlier in the code:
-                if customer_supply.customer.sales_type in ["CASH", "CREDIT"]:
+                if customer_supply.amount_recieved != customer_supply.subtotal:
                     if customer_supply.amount_recieved < customer_supply.subtotal:
                         balance_amount = customer_supply.subtotal - customer_supply.amount_recieved
 
