@@ -3346,8 +3346,8 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
                         product=product,
                         quantity=quantity,
                         amount=amount,
-                        # foc=foc,
-                        # rate=rate,
+                        
+                        
                     )
                     
                     customer_supply_stock, _ = CustomerSupplyStock.objects.get_or_create(
