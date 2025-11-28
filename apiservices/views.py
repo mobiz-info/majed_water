@@ -5816,6 +5816,10 @@ class customer_outstanding(APIView):
                 customer_outstanding__created_date__date__lte=date
             ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
             total_outstanding_coupons += total_coupons
+        Outstandingtotal =OutstandingAmount.objects.filter(
+            customer_outstanding__customer_id="001d2ba4-906b-4e16-8f7d-9e435c43544d"
+        ).values("amount", "customer_outstanding__invoice_no")
+        print("Outstandingtotal",Outstandingtotal)
         
         return Response({
             'status': True,

@@ -697,8 +697,7 @@ class CustomerOutstandingSerializer(serializers.ModelSerializer):
         date_str = self.context.get('date_str')
         outstanding_amounts = OutstandingAmount.objects.filter(customer_outstanding__customer=obj,customer_outstanding__created_date__date__lte=date_str).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
         collection_amount = CollectionPayment.objects.filter(customer=obj,created_date__date__lte=date_str).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
-        
-        
+               
         return outstanding_amounts - collection_amount
         # if outstanding_amounts > collection_amount:
         # else:

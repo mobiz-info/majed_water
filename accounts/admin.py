@@ -9,6 +9,7 @@ admin.site.register(CustomUser,CustomUserAdmin)
 
 class CustomersAdmin(admin.ModelAdmin):
     list_display = ('customer_name', 'created_date', 'custom_id','visit_schedule')
+    search_fields = ('custom_id', 'customer_name') 
     ordering = ('-created_date',)
 admin.site.register(Customers,CustomersAdmin)
 

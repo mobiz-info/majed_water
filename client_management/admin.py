@@ -17,7 +17,7 @@ admin.site.register(ChequeCouponPayment)
 class CustomerOutstandingAdmin(admin.ModelAdmin):
     list_display = ('id','invoice_no','created_by','created_date','product_type','customer')
     ordering = ("-created_date",)
-    search_fields = ('invoice_no','customer__custom_id')
+    search_fields = ('invoice_no','customer__custom_id','customer__customer_name')
 
     def delete_button(self, obj):
         delete_url = reverse('admin:%s_%s_delete' % (obj._meta.app_label, obj._meta.model_name), args=[obj.id])
@@ -30,6 +30,38 @@ admin.site.register(CustomerOutstanding,CustomerOutstandingAdmin)
 
 admin.site.register(OutstandingProduct)
 
+class RouteFilter(admin.SimpleListFilter):
+    title = 'Route'
+    parameter_name = 'route'
+
+    def lookups(self, request, model_admin):
+        from master.models import RouteMaster   # update according to your project
+        return [(r.route_id, r.route_name) for r in RouteMaster.objects.all()]
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(customer_outstanding__customer__routes=value)
+        return queryset
+    
+class CustomerFilter(admin.SimpleListFilter):
+    title = 'Customer'
+    parameter_name = 'customer'
+
+    def lookups(self, request, model_admin):
+        from accounts.models import Customers
+        customers = Customers.objects.filter(
+            customer_id__in=CustomerOutstanding.objects.values('customer')
+        )
+        return [(c.customer_id, c.customer_name) for c in customers]  # adjust c.name field
+
+    def queryset(self, request, queryset):
+        cust_id = self.value()
+        if cust_id:
+            return queryset.filter(
+                customer_outstanding__customer_id=cust_id
+            )
+        return queryset
 class CustomerOutstandingAmountAdmin(admin.ModelAdmin):
     list_display = (
         'id',
@@ -40,7 +72,10 @@ class CustomerOutstandingAmountAdmin(admin.ModelAdmin):
         'amount'
     )
     ordering = ("-customer_outstanding__created_date",)
-    
+    list_filter = (RouteFilter, CustomerFilter)
+    search_fields = (
+        'customer_outstanding__customer__customer_name',
+    )
     def invoice_no(self, obj):
         return obj.customer_outstanding.invoice_no
     invoice_no.admin_order_field = 'customer_outstanding__invoice_no'
@@ -66,6 +101,7 @@ admin.site.register(OutstandingAmount, CustomerOutstandingAmountAdmin)
 admin.site.register(OutstandingCoupon)
 class CustomerOutstandingReportAdmin(admin.ModelAdmin):
     list_display = ('id','product_type','customer','value')
+    search_fields = ('customer__customer_name',)
 admin.site.register(CustomerOutstandingReport,CustomerOutstandingReportAdmin)
 
 class CustomerSupplyAdmin(admin.ModelAdmin):

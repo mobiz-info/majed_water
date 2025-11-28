@@ -77,10 +77,14 @@ class Command(BaseCommand):
             
             outstanding_coupon = OutstandingCoupon.objects.filter(customer_outstanding__customer=customer).aggregate(total_count=Sum('count'))['total_count'] or 0
             CustomerOutstandingReport.objects.filter(customer=customer,product_type="coupons").update(value=outstanding_coupon)
-        Invoice.objects.filter(
-            customer__routes__route_name="v9",
-            created_date__date__lt=date
-        ).update(
-            invoice_status="paid",
-            amout_recieved=models.F('amout_total')  # Set paid = full amount
-        )
+        # Invoice.objects.filter(
+        #     customer__routes__route_name="v9",
+        #     created_date__date__lt=date
+        # ).update(
+        #     invoice_status="paid",
+        #     amout_recieved=models.F('amout_total')  # Set paid = full amount
+        # )
+        
+        # CollectionPayment.objects.filter(
+        #     customer__routes__route_name="v9"
+        # ).delete()

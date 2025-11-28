@@ -11,7 +11,7 @@ class InvoiceAdmin(admin.ModelAdmin):
         'discount', 'amout_total', 'amout_recieved', 'delete_button'
     )
     ordering = ("-created_date",)
-    search_fields = ('invoice_no',)
+    search_fields = ('invoice_no', 'customer__customer_name')
 
     def delete_button(self, obj):
         delete_url = reverse('admin:%s_%s_delete' % (obj._meta.app_label, obj._meta.model_name), args=[obj.id])
