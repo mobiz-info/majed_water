@@ -1,15 +1,18 @@
+from datetime import datetime
 import random
 import uuid
 from django.db import models
 
 from accounts.models import CustomUser, Customers
+from django.db import transaction
 from master.models import CategoryMaster, RouteMaster
 from product.models import Product, ProdutItemMaster
+from datetime import datetime
 
 # Create your models here.
 INVOICE_TYPES = (
     ('cash_invoice', 'Cash Invoice'),
-    ('credit_invoive', 'Credit Invoice'),
+    ('credit_invoice', 'Credit Invoice'),
 )
 
 INVOICE_STATUS = (
@@ -21,6 +24,7 @@ class Invoice(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     reference_no = models.CharField(max_length=200)
     invoice_no = models.CharField(max_length=200)
+    # invoice_number = models.IntegerField(default=0)
     invoice_type = models.CharField(max_length=200, choices=INVOICE_TYPES,default='cash_invoice')
     invoice_status = models.CharField(max_length=200, choices=INVOICE_STATUS,default='non_paid')
     created_date = models.DateTimeField()
@@ -60,6 +64,38 @@ class Invoice(models.Model):
 
         super().save(*args, **kwargs)
     
+    # def save(self, *args, **kwargs):
+    #     try:
+    #         if not self.created_date:
+    #             self.created_date = datetime.now()
+
+    #         if not self.invoice_no:
+    #             year = self.created_date.strftime("%y")
+    #             prefix = f"IN-{year}/"
+
+    #             with transaction.atomic():
+    #                 last_invoice = (
+    #                     Invoice.objects
+    #                     .filter(created_date__year=datetime.now().year)
+    #                     .select_for_update()
+    #                     .order_by("-invoice_number")
+    #                     .first()
+    #                 )
+
+    #                 if last_invoice:
+    #                     new_num = last_invoice.invoice_number + 1
+    #                 else:
+    #                     new_num = 1
+
+    #                 self.invoice_number = new_num
+    #                 self.invoice_no = f"{prefix}{new_num}"
+
+    #         super().save(*args, **kwargs)
+    #     except Exception as e:
+    #         print("❌ ERROR inside invoice save")
+    #         print("Error:", e)
+
+
     def invoice_items (self):
         items = InvoiceItems.objects.filter(invoice=self)
         return items

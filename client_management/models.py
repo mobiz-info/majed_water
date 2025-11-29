@@ -261,7 +261,8 @@ class CustomerCoupon(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     customer = models.ForeignKey('accounts.Customers',on_delete = models.CASCADE,related_name="customercoupon")
     salesman = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE)
-    
+    vat_amount = models.DecimalField(default=0, max_digits=10, decimal_places=2)           # NEW
+    amount_before_vat = models.DecimalField(default=0, max_digits=10, decimal_places=2)
     payment_type = models.CharField(max_length=100,choices=PAYMENT_METHOD,null=True,blank=True)
     amount_recieved = models.DecimalField(default=0, max_digits=10, decimal_places=2)
     grand_total = models.DecimalField(default=0, max_digits=10, decimal_places=2)

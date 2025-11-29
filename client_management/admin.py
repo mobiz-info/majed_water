@@ -101,7 +101,8 @@ admin.site.register(OutstandingAmount, CustomerOutstandingAmountAdmin)
 admin.site.register(OutstandingCoupon)
 class CustomerOutstandingReportAdmin(admin.ModelAdmin):
     list_display = ('id','product_type','customer','value')
-    search_fields = ('customer__customer_name',)
+    list_filter = ('customer', 'product_type')   # <-- FILTER BY CUSTOMER HERE
+    search_fields = ('customer__customer_name', 'customer__custom_id')
 admin.site.register(CustomerOutstandingReport,CustomerOutstandingReportAdmin)
 
 class CustomerSupplyAdmin(admin.ModelAdmin):
