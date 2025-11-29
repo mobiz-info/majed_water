@@ -31,7 +31,7 @@ class Command(BaseCommand):
             )
             
             if supply.customer.sales_type == "CREDIT":
-                invoice.invoice_type = "credit_invoive"
+                invoice.invoice_type = "credit_invoice"
             if invoice.amout_total == invoice.amout_recieved:
                 invoice.invoice_status = "paid"
             invoice.save()

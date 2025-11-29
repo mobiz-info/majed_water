@@ -45,7 +45,7 @@ class Command(BaseCommand):
                 invoice.invoice_status = "non_paid"
             
             if invoice.customer.sales_type=="CREDIT":
-                invoice.invoice_type="credit_invoive"
+                invoice.invoice_type="credit_invoice"
                 
             invoice.is_deleted = False
             invoice.save()

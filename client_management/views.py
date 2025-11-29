@@ -965,7 +965,7 @@ def create_customer_supply(request,pk):
                 customer_suply_form_instance.save()
                 
                 if customer_suply_form_instance.customer.sales_type == "CREDIT":
-                    invoice.invoice_type = "credit_invoive"
+                    invoice.invoice_type = "credit_invoice"
                     invoice.save()
 
                 # Create invoice items
@@ -1433,7 +1433,7 @@ def edit_customer_supply(request, pk):
                             customer_outstanding_amount.save()
                         
                         if customer_suply_form_instance.customer.sales_type == "CREDIT":
-                            invoice.invoice_type = "credit_invoive"
+                            invoice.invoice_type = "credit_invoice"
                             invoice.save()
 
                         # Create invoice items
@@ -2779,7 +2779,7 @@ def create_customer_outstanding(request):
                         outstanding_data.save()
                         
                         if outstanding_amount.customer_outstanding.customer.sales_type == "CREDIT":
-                            invoice.invoice_type = "credit_invoive"
+                            invoice.invoice_type = "credit_invoice"
                             invoice.save()
 
                         # Create invoice items

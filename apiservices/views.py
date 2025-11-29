@@ -4516,7 +4516,7 @@ class create_customer_supply(APIView):
                         customer_outstanding_amount.save()
                     
                     if customer_supply.customer.sales_type == "CREDIT":
-                        invoice.invoice_type = "credit_invoive"
+                        invoice.invoice_type = "credit_invoice"
                         invoice.save()
 
                     # Create invoice items
@@ -5174,7 +5174,7 @@ class edit_customer_supply(APIView):
                     customer_supply.save()
                     
                     if customer_supply.customer.sales_type == "CREDIT":
-                        invoice.invoice_type = "credit_invoive"
+                        invoice.invoice_type = "credit_invoice"
                         invoice.save()
 
                     # Create invoice items
@@ -5599,7 +5599,7 @@ class CustodyItemReturnAPI(APIView):
             # )
             
             # if customer.sales_type == "CREDIT":
-            #     invoice.invoice_type = "credit_invoive"
+            #     invoice.invoice_type = "credit_invoice"
             #     invoice.save()
 
             # # Create invoice items
@@ -6589,7 +6589,7 @@ class CreditNoteAPI(APIView):
             start_datetime = datetime.today().date()
             end_datetime = datetime.today().date()
         
-        credit_invoices = Invoice.objects.filter(invoice_type='credit_invoive', created_date__date__range=[start_datetime, end_datetime], customer__sales_staff=request.user)
+        credit_invoices = Invoice.objects.filter(invoice_type='credit_invoice', created_date__date__range=[start_datetime, end_datetime], customer__sales_staff=request.user)
         # print('credit_invoices',credit_invoices)
         serialized = CreditNoteSerializer(credit_invoices, many=True)
         
@@ -7206,7 +7206,7 @@ class CreditSaleReportAPI(APIView):
             else:
                 date_str = datetime.today().date()
                 
-            creditsale = Invoice.objects.filter(invoice_type="credit_invoive", created_date__date=date_str)
+            creditsale = Invoice.objects.filter(invoice_type="credit_invoice", created_date__date=date_str)
             serialized_data = CreditSaleSerializer(creditsale, many=True).data
             
             return Response({'status': True, 'data': serialized_data, 'message': 'Credit Sales report passed!'})
@@ -11642,7 +11642,7 @@ class SalesInvoicesAPIView(APIView):
                 Q(amount_recieved__gt=0) | Q(customer__sales_type="FOC"),
                 **sales_filter
             )
-        elif sales_type == "credit_invoive":
+        elif sales_type == "credit_invoice":
             sales = CustomerSupply.objects.filter(
                 amount_recieved__lte=0,
                 **sales_filter
@@ -12963,7 +12963,7 @@ class EndAuditAPIView(APIView):
                             customer_outstanding_amount.save()
                             
                             if audit_detail.customer.sales_type == "CREDIT":
-                                invoice.invoice_type = "credit_invoive"
+                                invoice.invoice_type = "credit_invoice"
                                 invoice.save()
 
                             # Create invoice items
@@ -12991,7 +12991,7 @@ class EndAuditAPIView(APIView):
                             #     )
                                 
                             #     if audit_detail.customer.sales_type == "CREDIT":
-                            #         invoice.invoice_type = "credit_invoive"
+                            #         invoice.invoice_type = "credit_invoice"
                             #         invoice.save()
 
                             #     # Create invoice items

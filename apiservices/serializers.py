@@ -2485,7 +2485,7 @@ class SalesReportSerializer(serializers.ModelSerializer):
         if obj.amount_recieved > 0 or obj.customer.sales_type == "FOC":
             return "cash_invoice"
         elif obj.amount_recieved <= 0 and obj.customer.sales_type != "FOC":
-            return "credit_invoive"
+            return "credit_invoice"
         return "all"
     
     def get_quantity(self, obj):
