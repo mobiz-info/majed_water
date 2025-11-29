@@ -2170,17 +2170,19 @@ def customer_outstanding_list(request):
 
     # Calculate totals for each customer and filter out those with zero outstanding values
     for customer in instances:
-        outstanding_amount = OutstandingAmount.objects.filter(
-            customer_outstanding__customer__pk=customer.pk, 
-            customer_outstanding__created_date__date__lte=date
-        ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        # outstanding_amount = OutstandingAmount.objects.filter(
+        #     customer_outstanding__customer__pk=customer.pk, 
+        #     customer_outstanding__created_date__date__lte=date
+        # ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
         
-        collection_amount = CollectionPayment.objects.filter(
-            customer__pk=customer.pk, 
-            created_date__date__lte=date
-        ).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+        report = CustomerOutstandingReport.objects.filter(
+            customer=customer,
+            product_type="amount"
+        ).first()
+
+        outstanding_amount = report.value if report else Decimal("0.00")
         
-        outstanding_amount -= collection_amount
+        # outstanding_amount -= collection_amount
         total_outstanding_amount += outstanding_amount
         
         total_bottles = OutstandingProduct.objects.filter(
@@ -2202,7 +2204,7 @@ def customer_outstanding_list(request):
     # Handle Excel export
     if request.GET.get('export') == 'excel':
         return export_to_excel(filtered_instances, date, total_outstanding_amount, total_outstanding_bottles, total_outstanding_coupons)
-
+    print("total_outstanding_amount:",total_outstanding_amount)
     # Context for rendering template
     context = {
         'instances': filtered_instances,
