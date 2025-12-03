@@ -2159,7 +2159,10 @@ def customer_outstanding_list(request):
     # print(outstanding_instances)
     customer_ids = outstanding_instances.values_list('customer__pk', flat=True).distinct()
     # print(customer_ids)
-    instances = Customers.objects.filter(pk__in=customer_ids)
+    instances = Customers.objects.filter(
+        routes__route_name=route_name,
+        is_deleted=False
+    ).distinct()
     # print(instances)
 
     # Initialize totals
@@ -2175,12 +2178,21 @@ def customer_outstanding_list(request):
         #     customer_outstanding__created_date__date__lte=date
         # ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
         
-        report = CustomerOutstandingReport.objects.filter(
+        invoice_totals = Invoice.objects.filter(
             customer=customer,
-            product_type="amount"
-        ).first()
+            created_date__date__lte=date,
+            is_deleted=False
+        ).aggregate(
+            total_amount=Sum('amout_total'),
+            total_received=Sum('amout_recieved')
+        )
 
-        outstanding_amount = report.value if report else Decimal("0.00")
+        total_amount = invoice_totals["total_amount"] or Decimal("0.00")
+        total_received = invoice_totals["total_received"] or Decimal("0.00")
+
+        outstanding_amount = total_amount - total_received
+
+        
         
         # outstanding_amount -= collection_amount
         total_outstanding_amount += outstanding_amount
@@ -2196,16 +2208,17 @@ def customer_outstanding_list(request):
             customer_outstanding__created_date__date__lte=date
         ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
         total_outstanding_coupons += total_coupons
-
+        customer.outstanding_amount = outstanding_amount
+        customer.outstanding_bottles = total_bottles
+        customer.outstanding_coupons = total_coupons
         # Only add customers with non-zero outstanding values to the filtered list
-        if outstanding_amount != 0 or total_bottles != 0 or total_coupons != 0:
+        if outstanding_amount != 0 :
             filtered_instances.append(customer)
-
+    print("Calculated Total Outstanding:", total_outstanding_amount)
     # Handle Excel export
     if request.GET.get('export') == 'excel':
         return export_to_excel(filtered_instances, date, total_outstanding_amount, total_outstanding_bottles, total_outstanding_coupons)
-    print("total_outstanding_amount:",total_outstanding_amount)
-    # Context for rendering template
+    
     context = {
         'instances': filtered_instances,
         'filter_data': filter_data,
@@ -2227,79 +2240,77 @@ def customer_outstanding_list(request):
 
 def export_to_excel(instances, date, total_amount, total_bottles, total_coupons):
     """
-    Generate an Excel file for Customer Outstanding List.
-    :param instances: Queryset of Customers
-    :param date: Date filter
-    :param total_amount: Total outstanding amount
-    :param total_bottles: Total outstanding bottles
-    :param total_coupons: Total outstanding coupons
-    :return: Excel file response
+    Generate correct Excel for Customer Outstanding List
+    using Invoice model for amount outstanding.
     """
-    # Create a workbook and active worksheet
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Customer Outstanding List"
 
     # Header row
     headers = [
-        "Sl No", "Customer ID", "Customer Name", "Building No", 
-        "Room/Floor No","Mobile No", "Route", "Outstanding Amount", 
-        "Outstanding Bottles", "Outstanding Coupons"
+        "Sl No", "Customer ID", "Customer Name", "Building No",
+        "Room/Floor No", "Route", "Outstanding Amount",
     ]
     for col_num, header in enumerate(headers, start=1):
         col_letter = get_column_letter(col_num)
         sheet[f"{col_letter}1"] = header
 
-    # Add data rows
+    # Data rows
     for index, customer in enumerate(instances, start=1):
-        outstanding_amount = OutstandingAmount.objects.filter(
-            customer_outstanding__customer=customer,
-            customer_outstanding__created_date__date__lte=date
-        ).aggregate(total=Sum('amount'))['total'] or 0
 
-        collection_amount = CollectionPayment.objects.filter(
-            customer=customer, created_date__date__lte=date
-        ).aggregate(total_received=Sum('amount_received'))['total_received'] or 0
+        # ---------- 1️⃣ OUTSTANDING AMOUNT USING INVOICE MODEL ----------
+        invoice_totals = Invoice.objects.filter(
+            customer=customer,
+            created_date__date__lte=date,
+            is_deleted=False
+        ).aggregate(
+            total_amount=Sum('amout_total'),
+            total_received=Sum('amout_recieved')
+        )
 
-        outstanding_amount -= collection_amount
+        total_invoice_amount = invoice_totals["total_amount"] or Decimal("0.00")
+        total_received = invoice_totals["total_received"] or Decimal("0.00")
+        outstanding_amount = total_invoice_amount - total_received
+
+        # ---------- 2️⃣ BOTTLES ----------
         outstanding_bottles = OutstandingProduct.objects.filter(
             customer_outstanding__customer=customer,
             customer_outstanding__created_date__date__lte=date
         ).aggregate(total=Sum('empty_bottle'))['total'] or 0
 
+        # ---------- 3️⃣ COUPONS ----------
         outstanding_coupons = OutstandingCoupon.objects.filter(
             customer_outstanding__customer=customer,
             customer_outstanding__created_date__date__lte=date
         ).aggregate(total=Sum('count'))['total'] or 0
 
-        # Write data to the Excel file
+        # ---------- WRITE TO EXCEL ----------
         row = [
             index,
             customer.custom_id,
             customer.customer_name,
             customer.building_name,
             customer.door_house_no,
-            customer.mobile_no,
-            customer.routes.route_name,
+            customer.routes.route_name if customer.routes else "",
             outstanding_amount,
-            outstanding_bottles,
-            outstanding_coupons,
+            # outstanding_bottles,
+            # outstanding_coupons,
         ]
+
         for col_num, cell_value in enumerate(row, start=1):
             sheet.cell(row=index + 1, column=col_num, value=cell_value)
 
-    # Footer row for totals
+    # ---------- FOOTER TOTAL ----------
     total_row_index = len(instances) + 2
-    sheet[f"G{total_row_index}"] = "Total:"
-    sheet[f"H{total_row_index}"] = total_amount
-    sheet[f"I{total_row_index}"] = total_bottles
-    sheet[f"J{total_row_index}"] = total_coupons
+    sheet[f"F{total_row_index}"] = "Total:"
+    sheet[f"G{total_row_index}"] = total_amount
+    # sheet[f"H{total_row_index}"] = total_bottles
+    # sheet[f"I{total_row_index}"] = total_coupons
 
-    # Prepare the response
+    # ---------- GENERATE EXCEL ----------
     response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    response['Content-Disposition'] = f'attachment; filename="Customer_Outstanding_{date}.xlsx"'
-
-    # Save the workbook to the response
+    response['Content-Disposition'] = f'attachment; filename=\"Customer_Outstanding_{date}.xlsx\"'
     workbook.save(response)
     return response
 
