@@ -953,7 +953,7 @@ class CollectionCustomerSerializer(serializers.ModelSerializer):
                     'amout_recieved': invoice.amout_recieved,
                     'balance_amount': invoice.amout_total - invoice.amout_recieved ,
                     'reference_no': invoice.reference_no,
-                    'invoice_number': invoice.invoice_no
+                    'invoice_number':str(invoice.invoice_no),
                 }
                 if not invoice.amout_total == invoice.amout_recieved:
                     invoice_list.append(invoice_data)
@@ -3235,8 +3235,8 @@ class CustomerSupplyCouponLatestSerializer(serializers.ModelSerializer):
 def create_outstanding_for_new_invoice(invoice, customer, created_by):
 
     # Ensure values
-    total = invoice.amout_total or Decimal("0.00")
-    received = invoice.amout_recieved or Decimal("0.00")
+    total = Decimal(str(invoice.amout_total)) if invoice.amout_total is not None else Decimal("0.00")
+    received = Decimal(str(invoice.amout_recieved)) if invoice.amout_recieved is not None else Decimal("0.00")
 
     print("amout_total:", total)
     print("amout_recieved:", received)
