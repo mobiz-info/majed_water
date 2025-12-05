@@ -5845,8 +5845,7 @@ class customer_outstanding(APIView):
         # Loop through each customer to calculate totals
         for customer in customers:
             invoice_totals = Invoice.objects.filter(
-                customer=customer,
-                
+                customer=customer,     
                 is_deleted=False
             ).aggregate(
                 total_amount=Sum('amout_total'),
@@ -5857,7 +5856,7 @@ class customer_outstanding(APIView):
             cust_total_received = invoice_totals.get("total_received") or Decimal("0.00")
             cust_outstanding_amount = (cust_total_amount or Decimal("0.00")) - (cust_total_received or Decimal("0.00"))
 
-            
+            total_outstanding_amount+=cust_outstanding_amount
             total_bottles = OutstandingProduct.objects.filter(
                 customer_outstanding__customer__pk=customer.pk, 
                 customer_outstanding__created_date__date__lte=date
