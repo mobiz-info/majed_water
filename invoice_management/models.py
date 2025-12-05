@@ -33,6 +33,8 @@ class Invoice(models.Model):
     discount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
     amout_total = models.DecimalField(default=0, max_digits=10, decimal_places=2)
     amout_recieved = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    vat_amount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    amount_before_vat = models.DecimalField(default=0, max_digits=10, decimal_places=2)
     
     customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
     is_deleted = models.BooleanField(default=False)
@@ -66,14 +68,14 @@ class Invoice(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.created_date:
-            self.created_date = datetime.datetime.now()
+            self.created_date = datetime.now()
 
         if not self.invoice_no:
             year = self.created_date.strftime("%y")
             prefix = f"IN-{year}/"
 
             with transaction.atomic():
-                now = datetime.datetime.now()
+                now = datetime.now()
                 
                 last_invoice = (
                     Invoice.objects

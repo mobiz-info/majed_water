@@ -3289,12 +3289,16 @@ def create_outstanding_for_new_invoice(invoice, customer, created_by):
 
         return balance
 
-
 class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
     items = CustomerSupplyItemLatestSerializer(many=True)
     total_coupon_collected = serializers.IntegerField(required=False)
     coupon_method = serializers.CharField(required=False)
     collected_coupon_ids = serializers.ListField(child=serializers.CharField(), required=False)
+    payment_mode = serializers.ChoiceField(
+        choices=[("cash", "Cash"), ("cheque", "Cheque"), ("card", "Card")],
+        default="cash",
+        required=False
+    )
 
     class Meta:
         model = CustomerSupply
@@ -3303,7 +3307,7 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
             'reference_number', 'items',
             'collected_empty_bottle', 'allocate_bottle_to_pending', 'allocate_bottle_to_custody',
             'allocate_bottle_to_paid', 'allocate_bottle_to_free',
-            'total_coupon_collected', 'coupon_method', 'collected_coupon_ids', 'created_date'
+            'total_coupon_collected', 'coupon_method', 'collected_coupon_ids', 'created_date','payment_mode','vat_amount','amount_before_vat'
         ]
 
     def create(self, validated_data):

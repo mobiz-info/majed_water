@@ -42,7 +42,11 @@ CUSTOMER_ORDER_STATUS = (
     ('emergency','Added in emergency schedule'),
     ('reject','Reject'),
 )
-
+PAYMENT_CHOICES =(
+        ("cash", "Cash"),
+        ("cheque", "Cheque"),
+        ("card", "Card"),
+    )
 class CustodyCustom(models.Model):
     custody_custom_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     customer = models.ForeignKey('accounts.Customers', on_delete=models.CASCADE,null=True,blank=True)
@@ -273,6 +277,8 @@ class CustomerCoupon(models.Model):
     reference_number = models.CharField(max_length=100)
     coupon_method = models.CharField(max_length=10,choices=COUPON_METHOD_CHOICES,default='manual')
     invoice_no = models.CharField(max_length=100, null=True, blank=True)
+    vat_amount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    amount_before_vat = models.DecimalField(default=0, max_digits=10, decimal_places=2)
     
     created_by = models.CharField(max_length=30, blank=True)
     created_date = models.DateTimeField(auto_now_add=True)
@@ -492,6 +498,10 @@ class CustomerSupply(models.Model):
     allocate_bottle_to_free = models.PositiveIntegerField(default=0)
     reference_number = models.CharField(max_length=100, null=True, blank=True)
     invoice_no = models.CharField(max_length=100, null=True, blank=True)
+    vat_amount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    amount_before_vat = models.DecimalField(default=0, max_digits=10, decimal_places=2)
+    
+    
     
     created_by = models.CharField(max_length=30, blank=True)
     created_date = models.DateTimeField()
@@ -506,6 +516,8 @@ class CustomerSupply(models.Model):
     van_foc_added = models.BooleanField(default=False)
     van_emptycan_added = models.BooleanField(default=False)
     custody_added = models.BooleanField(default=False)
+    
+    payment_mode = models.CharField(max_length=10, choices=PAYMENT_CHOICES, default="cash")
     
     class Meta:
         ordering = ('-created_date',)
@@ -522,31 +534,43 @@ class CustomerSupply(models.Model):
             "manual_coupon": value_leaf,
             "digital_coupon": CustomerSupplyDigitalCoupon.objects.filter(customer_supply=self).aggregate(total_count=Sum('count'))['total_count'] or 0
         }
-        
-    def get_rate(self):
-        try:
-            invoice_item = InvoiceItems.objects.filter(product_items__product_name="5 Gallon",invoice__customer=self.customer,invoice__invoice_no=self.invoice_no).first()
-            return invoice_item.rate / invoice_item.qty
-        except:
+    @property
+    def rate(self):
+        first_item = self.customersupplyitems_set.first()
+        if not first_item:
             return 0
+        total_qty = self.customersupplyitems_set.aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+        total_amount = first_item.amount 
+        return round(total_amount/total_qty,2)
+
+    # def get_rate(self):
+    #     amount = getattr(self, 'amount_recieved', 0) or 0
+    #     # Get the total quantity from related CustomerSupplyItems
+    #     total_qty = self.customersupplyitems_set.aggregate(total_qty=Sum('quantity'))['total_qty'] or 0
+
+    #     if total_qty > 0:
+    #         return round(amount / total_qty, 2)
+    #     return 0
     
     def outstanding_manual_coupons(self):
-        # Assuming CouponLeaflet and FreeLeaflet have a field 'is_used' to track usage
-        used_coupons = CustomerSupplyCoupon.objects.filter(customer_supply=self).aggregate(
-            used_manual=Count('leaf', filter=Q(leaf__used=True)),
-            used_free=Count('free_leaf', filter=Q(free_leaf__used=True))
-        )
-        total_manual = self.total_coupon_recieved()["manual_coupon"]
-        outstanding = total_manual - (used_coupons['used_manual'] + used_coupons['used_free'])
-        return outstanding
+        return OutstandingCoupon.objects.filter(
+            customer_outstanding__customer=self.customer,
+            customer_outstanding__created_date__date=self.created_date.date(),
+            customer_outstanding__invoice_no=self.invoice_no,
+            customer_outstanding__customer__is_deleted = False,
+            # customer_outstanding__customer__is_cancelled = False
+            
+            ).exclude(coupon_type__coupon_type_name="Digital").aggregate(total_count=Sum('count'))['total_count'] or 0
 
     def outstanding_digital_coupons(self):
-        used_digital = CustomerSupplyDigitalCoupon.objects.filter(
-            customer_supply=self, count__gt=0
-        ).aggregate(total_used=Sum('count', filter=Q(count__gt=0)))['total_used'] or 0
-        total_digital = self.total_coupon_recieved()["digital_coupon"]
-        outstanding = total_digital - used_digital
-        return outstanding
+        return OutstandingCoupon.objects.filter(
+            customer_outstanding__customer=self.customer,
+            customer_outstanding__created_date__date=self.created_date.date(),
+            customer_outstanding__invoice_no=self.invoice_no,
+            customer_outstanding__customer__is_deleted = False,
+            # customer_outstanding__customer__is_cancelled = False,
+            coupon_type__coupon_type_name="Digital"
+            ).aggregate(total_count=Sum('count'))['total_count'] or 0
     
     def is_repeated_customer(self):
         # Fetch all supply items related to this customer supply
@@ -569,7 +593,46 @@ class CustomerSupply(models.Model):
         
         # If no match is found, return False
         return False
+    
+    def get_customer_coupon_rate(self):
+        coupon_rate = 0.0
+        if (manual_coupon_instances:=CustomerSupplyCoupon.objects.filter(customer_supply=self)).exists() :
+            non_free_coupons = manual_coupon_instances.values_list("leaf__coupon__pk", flat=True).distinct()
+            free_coupons = manual_coupon_instances.values_list("free_leaf__coupon__pk", flat=True).distinct()
+            coupon_ids = list(set(non_free_coupons) | set(free_coupons))
+            customer_coupon_items = CustomerCouponItems.objects.filter(coupon__pk__in=coupon_ids)
 
+            avg_rates = [item.get_avg_rate() for item in customer_coupon_items if item.get_avg_rate() > 0]
+            coupon_rate = float(round(sum(avg_rates) / len(avg_rates), 2)) if avg_rates else 0.0
+        elif (digital_coupon_instances:=CustomerSupplyDigitalCoupon.objects.filter(customer_supply=self)).exists() :
+            coupon_rate = 0.0
+        return coupon_rate
+    
+    def get_supply_type(self):
+        sales_type = ""
+        if self.customer.sales_type == "CASH COUPON":
+            sales_type = "CASH COUPON"
+        if self.customer.sales_type == "FOC":
+            sales_type = "FOC"
+        if self.customer.sales_type == "CASH" or self.customer.sales_type == "CREDIT":
+            if self.amount_recieved > 0 :
+                sales_type = "CASH"
+            if self.amount_recieved <= 0 :
+                sales_type = "CREDIT"
+        return sales_type
+    
+    # def get_vat_amount(self):
+    #     if self.subtotal and self.vat:
+    #         price_without_vat = self.subtotal / (1 + (self.vat / 100))
+    #         vat_amount = self.subtotal - price_without_vat
+    #         return round(vat_amount, 2)
+    #     return 0.00
+
+    # def get_amount_before_vat(self):
+    #     if self.subtotal and self.vat:
+    #         amount_before_vat = self.subtotal / (1 + (self.vat / 100))
+    #         return round(amount_before_vat, 2)
+    #     return 0.00
 
 
 class CustomerSupplyItems(models.Model):
@@ -578,7 +641,8 @@ class CustomerSupplyItems(models.Model):
         product = models.ForeignKey(ProdutItemMaster, on_delete=models.CASCADE,null=True,blank=True)
         quantity = models.PositiveIntegerField()
         amount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
-
+        foc = models.PositiveIntegerField(default=0)
+        rate = models.DecimalField(max_digits=10, decimal_places=2,default=0)
         class Meta:
             ordering = ('-id',)
             
@@ -587,6 +651,7 @@ class CustomerSupplyItems(models.Model):
         
         def leaf_count(self):
             return CustomerSupplyCoupon.objects.filter(customer_supply=self.customer_supply).aggregate(Count('leaf'))['leaf__count']
+        
         
 class CustomerSupplyCoupon(models.Model):
         id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
