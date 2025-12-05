@@ -3418,11 +3418,13 @@ class CustomerCouponRecharge(APIView):
                     
                     if invoice_instance.amout_recieved == invoice_instance.amout_total:
                         invoice_instance.invoice_status = "paid"
+                    
                     else:
                         invoice_instance.invoice_status = "non_paid"
 
                     if invoice_instance.amout_recieved == 0:
-                        invoice_instance.invoice_type = "credit_invoice"        
+                        invoice_instance.invoice_type = "credit_invoice"  
+                    
                     else:
                         invoice_instance.invoice_type = "cash_invoice"
 
@@ -5821,10 +5823,11 @@ class customer_outstanding(APIView):
 
             # Get all customers within the assigned routes
             customers = Customers.objects.filter(
-                routes__route_id__in=assigned_routes
+                routes__route_id__in=assigned_routes,
+                is_deleted=False
             )
         else:
-            customers = Customers.objects.filter(routes__pk=route_id)
+            customers = Customers.objects.filter(routes__pk=route_id,is_deleted=False)
 
         if customer_id:
             customers = customers.filter(pk=customer_id)
@@ -5841,16 +5844,19 @@ class customer_outstanding(APIView):
 
         # Loop through each customer to calculate totals
         for customer in customers:
-            report = CustomerOutstandingReport.objects.filter(
-            customer=customer,
-            product_type="amount"
-            ).first()
-            outstanding_amount = report.value if report else Decimal("0.00")
-            
-            # print("reportvalue:",report.value)
-            total_outstanding_amount += outstanding_amount
-            # print("total_outstanding_amount:",total_outstanding_amount)
-            
+            invoice_totals = Invoice.objects.filter(
+                customer=customer,     
+                is_deleted=False
+            ).aggregate(
+                total_amount=Sum('amout_total'),
+                total_received=Sum('amout_recieved')
+            )
+
+            cust_total_amount = invoice_totals.get("total_amount") or Decimal("0.00")
+            cust_total_received = invoice_totals.get("total_received") or Decimal("0.00")
+            cust_outstanding_amount = (cust_total_amount or Decimal("0.00")) - (cust_total_received or Decimal("0.00"))
+
+            total_outstanding_amount+=cust_outstanding_amount
             total_bottles = OutstandingProduct.objects.filter(
                 customer_outstanding__customer__pk=customer.pk, 
                 customer_outstanding__created_date__date__lte=date
@@ -5863,7 +5869,9 @@ class customer_outstanding(APIView):
             ).aggregate(total_coupons=Sum('count'))['total_coupons'] or 0
             total_outstanding_coupons += total_coupons
 
-        print("data:",filtered_data)
+        print("total_outstanding_amount",total_outstanding_amount)
+
+        
         
         return Response({
             'status': True,
