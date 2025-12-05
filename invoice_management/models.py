@@ -24,7 +24,7 @@ class Invoice(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     reference_no = models.CharField(max_length=200)
     invoice_no = models.CharField(max_length=200)
-    # invoice_number = models.IntegerField(default=0)
+    invoice_number = models.IntegerField(default=0)
     invoice_type = models.CharField(max_length=200, choices=INVOICE_TYPES,default='cash_invoice')
     invoice_status = models.CharField(max_length=200, choices=INVOICE_STATUS,default='non_paid')
     created_date = models.DateTimeField()
@@ -45,55 +45,59 @@ class Invoice(models.Model):
     def __str__(self):
         return f'{self.id}'
     
+    # def save(self, *args, **kwargs):
+    #     if not self.invoice_no:
+    #         date = self.created_date.date()
+    #         date_part = date.strftime('%Y%m%d')
+    #         prefix = "WTR"
+
+    #         # Count existing invoices with the same date
+    #         invoice_count = Invoice.objects.filter(
+    #             created_date__date=date,
+    #             invoice_no__startswith=f"{prefix}-{date_part}",
+    #             is_deleted=False,
+    #         ).count()
+
+    #         new_number = invoice_count + 1
+
+    #         self.invoice_no = f"{prefix}-{date_part}-{new_number:04d}"  # Always 4-digit padded
+
+    #     super().save(*args, **kwargs)
+    
     def save(self, *args, **kwargs):
+        if not self.created_date:
+            self.created_date = datetime.datetime.now()
+
         if not self.invoice_no:
-            date = self.created_date.date()
-            date_part = date.strftime('%Y%m%d')
-            prefix = "WTR"
+            year = self.created_date.strftime("%y")
+            prefix = f"IN-{year}/"
 
-            # Count existing invoices with the same date
-            invoice_count = Invoice.objects.filter(
-                created_date__date=date,
-                invoice_no__startswith=f"{prefix}-{date_part}",
-                is_deleted=False,
-            ).count()
+            with transaction.atomic():
+                now = datetime.datetime.now()
+                
+                last_invoice = (
+                    Invoice.objects
+                    .filter(created_date__year=now.year)
+                    .select_for_update()
+                    .order_by("-invoice_number")
+                    .first()
+                )
 
-            new_number = invoice_count + 1
+                if last_invoice:
+                    last_num = last_invoice.invoice_number or 0 # <-- FIX
+                    print("last_num",last_num)
+                    new_num = last_num + 1
+                else:
+                    new_num = 1
 
-            self.invoice_no = f"{prefix}-{date_part}-{new_number:04d}"  # Always 4-digit padded
+                self.invoice_number = new_num
+                self.invoice_no = f"{prefix}{new_num}"
+
+      
+        if self.amout_total != self.amout_recieved:
+            self.invoice_type = "credit_invoice"
 
         super().save(*args, **kwargs)
-    
-    # def save(self, *args, **kwargs):
-    #     try:
-    #         if not self.created_date:
-    #             self.created_date = datetime.now()
-
-    #         if not self.invoice_no:
-    #             year = self.created_date.strftime("%y")
-    #             prefix = f"IN-{year}/"
-
-    #             with transaction.atomic():
-    #                 last_invoice = (
-    #                     Invoice.objects
-    #                     .filter(created_date__year=datetime.now().year)
-    #                     .select_for_update()
-    #                     .order_by("-invoice_number")
-    #                     .first()
-    #                 )
-
-    #                 if last_invoice:
-    #                     new_num = last_invoice.invoice_number + 1
-    #                 else:
-    #                     new_num = 1
-
-    #                 self.invoice_number = new_num
-    #                 self.invoice_no = f"{prefix}{new_num}"
-
-    #         super().save(*args, **kwargs)
-    #     except Exception as e:
-    #         print("❌ ERROR inside invoice save")
-    #         print("Error:", e)
 
 
     def invoice_items (self):
