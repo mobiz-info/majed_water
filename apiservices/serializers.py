@@ -2492,7 +2492,7 @@ class SalesReportSerializer(serializers.ModelSerializer):
         return obj.get_total_supply_qty()  
 
     def get_price(self, obj):
-        return obj.get_rate()
+        return obj.rate
 
 class SalesInvoiceSerializer(serializers.ModelSerializer):
     created_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
