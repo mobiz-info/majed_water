@@ -377,5 +377,7 @@ urlpatterns = [
     path('today-collection-dashboard/', TodayCollectionAPIView.as_view(), name='today-collection-dashboard'),
     path('old-collections/', OldCollectionAPIView.as_view(), name='old-collections'),
     path('total-collections/', TotalCollectionAPIView.as_view(), name='total-collections'),
+    
+    path("target-vs-achievement/",TargetVsAchievementAPIView.as_view(),name="target-vs-achievement"),
 
 ]

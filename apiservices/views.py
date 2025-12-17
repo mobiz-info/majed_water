@@ -14270,3 +14270,108 @@ class FreelanceIssueOrdersAPIView(APIView):
         return Response(response_data, status=status_code)
 
 
+class TargetVsAchievementAPIView(APIView):
+    """
+    Target vs Achievement API (Month-wise)
+    """
+
+    def get(self, request):
+        month_str = request.GET.get("month")
+
+        routes = RouteMaster.objects.all()
+        products = ProdutItemMaster.objects.all()
+
+        if not month_str:
+            return Response({
+                "StatusCode": 6001,
+                "status": False,
+                "title": "Validation Error",
+                "message": "Month parameter is required (YYYY-MM).",
+                "data": {
+                    "month": "",
+                    "routes": [],
+                    "products": [],
+                    "table_data": [],
+                    "totals": {},
+                    "total_target_sum": 0,
+                    "total_ach_sum": 0,
+                }
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        year = int(month_str.split("-")[0])
+        month = int(month_str.split("-")[1])
+
+        table_data = []
+        totals = {}
+
+        # Initialize totals per product
+        for prod in products:
+            totals[prod.id] = {
+                "product_id": prod.id,
+                "product_name": prod.product_name,
+                "target": 0,
+                "ach": 0,
+            }
+
+        for route in routes:
+            row = {
+                "route_id": route.route_id,
+                "route_name": route.route_name,
+                "values": []
+            }
+
+            for prod in products:
+                target = RouteProductTarget.objects.filter(
+                    month=month_str,
+                    route=route.route_id,
+                    product=prod.id
+                ).aggregate(total=Sum("target_qty"))["total"] or 0
+
+                cash_qty = CustomerSupplyItems.objects.filter(
+                    product_id=prod.id,
+                    customer_supply__customer__routes=route.route_id,
+                    customer_supply__amount_recieved__gt=0,
+                    customer_supply__created_date__year=year,
+                    customer_supply__created_date__month=month
+                ).aggregate(total=Sum("quantity"))["total"] or 0
+
+                credit_qty = CustomerSupplyItems.objects.filter(
+                    product_id=prod.id,
+                    customer_supply__customer__routes=route.route_id,
+                    customer_supply__amount_recieved__lte=0,
+                    customer_supply__created_date__year=year,
+                    customer_supply__created_date__month=month
+                ).aggregate(total=Sum("quantity"))["total"] or 0
+
+                ach = cash_qty + credit_qty
+
+                row["values"].append({
+                    "product_id": prod.id,
+                    "product_name": prod.product_name,
+                    "target": target,
+                    "achievement": ach,
+                })
+
+                totals[prod.id]["target"] += target
+                totals[prod.id]["ach"] += ach
+
+            table_data.append(row)
+
+        total_target_sum = sum(v["target"] for v in totals.values())
+        total_ach_sum = sum(v["ach"] for v in totals.values())
+
+        return Response({
+            "StatusCode": 6000,
+            "status": True,
+            "title": "Success",
+            "message": "Target vs Achievement data fetched successfully.",
+            "data": {
+                "month": month_str,
+                "routes": list(routes.values("route_id", "route_name")),
+                "products": list(products.values("id", "product_name")),
+                "table_data": table_data,
+                "totals": list(totals.values()),
+                "total_target_sum": total_target_sum,
+                "total_ach_sum": total_ach_sum,
+            }
+        }, status=status.HTTP_200_OK)
