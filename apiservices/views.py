@@ -7,6 +7,7 @@ from datetime import datetime, date, time
 from datetime import timedelta
 from calendar import monthrange
 
+from django.forms import model_to_dict
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
@@ -30,6 +31,7 @@ from django.contrib.auth.hashers import make_password, check_password
 ######rest framwework section
 
 from apiservices.notification import notification
+from client_management.utils import get_customer_outstanding_amount
 from client_management.views import handle_coupons, handle_empty_bottle_outstanding, handle_invoice_deletion, handle_outstanding_amounts, handle_outstanding_coupon, update_van_product_stock
 from rest_framework import status
 from rest_framework.views import APIView
@@ -3356,9 +3358,13 @@ class CustomerCouponRecharge(APIView):
                                 customer_coupon_stock.save()
                                 
                                 van_coupon_stock = VanCouponStock.objects.get(created_date=datetime.today().date(),coupon=coupon)
+                                print("Van Stock BEFORE     :",)
+                                print(model_to_dict(van_coupon_stock))
                                 van_coupon_stock.stock -= 1
                                 van_coupon_stock.sold_count += 1
                                 van_coupon_stock.save()
+                                print("Van Stock AFTER      :", )
+                                print(model_to_dict(van_coupon_stock))
                                 
                             CouponStock.objects.filter(couponbook=coupon).update(coupon_stock="customer")
                                 
@@ -3410,7 +3416,8 @@ class CustomerCouponRecharge(APIView):
                         amout_total=customer_coupon.total_payeble,
                         amout_recieved=customer_coupon.amount_recieved,
                         customer=customer_coupon.customer,
-                        reference_no=customer_coupon.reference_number
+                        reference_no=customer_coupon.reference_number,
+                        # salesman=customer_coupon.salesman
                     )
                     
                     customer_coupon.invoice_no = invoice_instance.invoice_no
@@ -3418,13 +3425,11 @@ class CustomerCouponRecharge(APIView):
                     
                     if invoice_instance.amout_recieved == invoice_instance.amout_total:
                         invoice_instance.invoice_status = "paid"
-                    
                     else:
                         invoice_instance.invoice_status = "non_paid"
 
                     if invoice_instance.amout_recieved == 0:
-                        invoice_instance.invoice_type = "credit_invoice"  
-                    
+                        invoice_instance.invoice_type = "credit_invoice"        
                     else:
                         invoice_instance.invoice_type = "cash_invoice"
 
@@ -5831,11 +5836,11 @@ class customer_outstanding(APIView):
 
         if customer_id:
             customers = customers.filter(pk=customer_id)
-            
+        # customers = Customers.objects.filter(routes__pk=route_id,is_deleted=False)    
         serialized_data = CustomerOutstandingSerializer(customers, many=True, context={"request": request, "date_str": date})
 
         # Filter out customers with zero amount, empty can, and coupons
-        filtered_data = [customer for customer in serialized_data.data if customer['amount'] != 0 or customer['empty_can'] > 0 or customer['coupons'] > 0]
+        filtered_data = [customer for customer in serialized_data.data if customer['amount']!= 0  or customer['empty_can'] > 0 or customer['coupons'] > 0]
         
         # Initialize totals
         total_outstanding_amount = 0
@@ -5844,19 +5849,9 @@ class customer_outstanding(APIView):
 
         # Loop through each customer to calculate totals
         for customer in customers:
-            invoice_totals = Invoice.objects.filter(
-                customer=customer,     
-                is_deleted=False
-            ).aggregate(
-                total_amount=Sum('amout_total'),
-                total_received=Sum('amout_recieved')
-            )
-
-            cust_total_amount = invoice_totals.get("total_amount") or Decimal("0.00")
-            cust_total_received = invoice_totals.get("total_received") or Decimal("0.00")
-            cust_outstanding_amount = (cust_total_amount or Decimal("0.00")) - (cust_total_received or Decimal("0.00"))
-
-            total_outstanding_amount+=cust_outstanding_amount
+            cust_outstanding = get_customer_outstanding_amount(customer)
+            total_outstanding_amount+=cust_outstanding
+            
             total_bottles = OutstandingProduct.objects.filter(
                 customer_outstanding__customer__pk=customer.pk, 
                 customer_outstanding__created_date__date__lte=date
@@ -6331,7 +6326,7 @@ class AddCollectionPayment(APIView):
                         )
 
                     # Reduce outstanding (Invoice Level)
-                    self.reduce_outstanding(customer, invoice, pay_now)
+                    # self.reduce_outstanding(customer, invoice, pay_now)
 
                     remaining -= pay_now
                     if remaining <= 0:
@@ -14272,47 +14267,33 @@ class FreelanceIssueOrdersAPIView(APIView):
 
 class TargetVsAchievementAPIView(APIView):
     """
-    Target vs Achievement API (Month-wise)
+    Target vs Achievement API (Month-wise, Route-wise)
     """
 
     def get(self, request):
         month_str = request.GET.get("month")
-
-        routes = RouteMaster.objects.all()
-        products = ProdutItemMaster.objects.all()
+        route_id = request.GET.get("route_id")
 
         if not month_str:
             return Response({
                 "StatusCode": 6001,
                 "status": False,
-                "title": "Validation Error",
                 "message": "Month parameter is required (YYYY-MM).",
-                "data": {
-                    "month": "",
-                    "routes": [],
-                    "products": [],
-                    "table_data": [],
-                    "totals": {},
-                    "total_target_sum": 0,
-                    "total_ach_sum": 0,
-                }
+                "data": {}
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        year = int(month_str.split("-")[0])
-        month = int(month_str.split("-")[1])
+        year, month = map(int, month_str.split("-"))
+
+        routes = RouteMaster.objects.all()
+        if route_id:
+            routes = routes.filter(route_id=route_id)
+
+        products = ProdutItemMaster.objects.all()
 
         table_data = []
         totals = {}
 
-        # Initialize totals per product
-        for prod in products:
-            totals[prod.id] = {
-                "product_id": prod.id,
-                "product_name": prod.product_name,
-                "target": 0,
-                "ach": 0,
-            }
-
+        # ---- MAIN LOOP ----
         for route in routes:
             row = {
                 "route_id": route.route_id,
@@ -14321,11 +14302,16 @@ class TargetVsAchievementAPIView(APIView):
             }
 
             for prod in products:
+
                 target = RouteProductTarget.objects.filter(
                     month=month_str,
                     route=route.route_id,
                     product=prod.id
                 ).aggregate(total=Sum("target_qty"))["total"] or 0
+
+                # 🔥 SKIP ZERO TARGET PRODUCTS
+                if target == 0:
+                    continue
 
                 cash_qty = CustomerSupplyItems.objects.filter(
                     product_id=prod.id,
@@ -14352,10 +14338,21 @@ class TargetVsAchievementAPIView(APIView):
                     "achievement": ach,
                 })
 
+                # ---- TOTALS (ONLY NON-ZERO TARGET PRODUCTS) ----
+                if prod.id not in totals:
+                    totals[prod.id] = {
+                        "product_id": prod.id,
+                        "product_name": prod.product_name,
+                        "target": 0,
+                        "ach": 0,
+                    }
+
                 totals[prod.id]["target"] += target
                 totals[prod.id]["ach"] += ach
 
-            table_data.append(row)
+            # ✅ ADD ROUTE ONLY IF IT HAS DATA
+            if row["values"]:
+                table_data.append(row)
 
         total_target_sum = sum(v["target"] for v in totals.values())
         total_ach_sum = sum(v["ach"] for v in totals.values())
@@ -14363,12 +14360,12 @@ class TargetVsAchievementAPIView(APIView):
         return Response({
             "StatusCode": 6000,
             "status": True,
-            "title": "Success",
             "message": "Target vs Achievement data fetched successfully.",
             "data": {
                 "month": month_str,
                 "routes": list(routes.values("route_id", "route_name")),
-                "products": list(products.values("id", "product_name")),
+                # 🔥 PRODUCTS ONLY WITH TARGET > 0
+                "products": list(totals.values()),
                 "table_data": table_data,
                 "totals": list(totals.values()),
                 "total_target_sum": total_target_sum,

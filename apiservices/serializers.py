@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
 
 
+from client_management.utils import get_customer_outstanding_amount
 from invoice_management.models import Invoice,InvoiceDailyCollection
 from order.models import *
 from master.models  import *
@@ -693,16 +694,7 @@ class CustomerOutstandingSerializer(serializers.ModelSerializer):
         fields = ['customer_id','customer_name','building_name','sales_type','route_name','route_id','door_house_no','amount','empty_can','coupons']
     
     def get_amount(self, obj):
-        """
-        Use ONLY CustomerOutstandingReport for outstanding amount.
-        Do NOT recalculate again (prevents double subtraction).
-        """
-
-        report = CustomerOutstandingReport.objects.filter(
-            customer=obj, product_type="amount"
-        ).first()
-
-        return report.value if report else Decimal("0.00")
+        return  get_customer_outstanding_amount(obj)
     
     def get_empty_can(self,obj):
         date_str = self.context.get('date_str')
