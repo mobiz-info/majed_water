@@ -6377,6 +6377,43 @@ class AddCollectionPayment(APIView):
 
         except Exception as e:
             return Response({"message": str(e)}, status=500)
+    
+    def rebuild_outstanding_summary(self, customer):
+        try:
+            print("\n================ REBUILD OUTSTANDING SUMMARY ================")
+            print(f"Customer object: {customer}")
+
+            result = Invoice.objects.filter(
+                customer=customer,
+                is_deleted=False
+            ).aggregate(
+                total_due=Sum(
+                    F("amout_total") - F("amout_recieved"),
+                    output_field=DecimalField(max_digits=12, decimal_places=2)
+                )
+            )
+
+            total_outstanding = result["total_due"] or Decimal("0.00")
+
+            print(f"Calculated Outstanding From All Invoices: {total_outstanding}")
+
+            report, created = CustomerOutstandingReport.objects.update_or_create(
+                customer=customer,
+                product_type="amount",
+                defaults={"value": total_outstanding},
+            )
+
+            if created:
+                print("New Outstanding Report Created.")
+            else:
+                print("Outstanding Report Updated.")
+
+            print(f"Final Outstanding Saved: {report.value}")
+            print("==============================================================\n")
+        except Exception as e:
+            print("❌ ERROR inside rebuild_outstanding_summary")
+            print("Error:", e)
+            traceback.print_exc()
 
 
 class CouponTypesAPI(APIView):
