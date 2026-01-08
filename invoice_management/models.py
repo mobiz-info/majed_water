@@ -35,7 +35,7 @@ class Invoice(models.Model):
     amout_recieved = models.DecimalField(default=0, max_digits=10, decimal_places=2)
     vat_amount = models.DecimalField(default=0, max_digits=10, decimal_places=2)
     amount_before_vat = models.DecimalField(default=0, max_digits=10, decimal_places=2)
-    
+    salesman = models.ForeignKey(CustomUser, on_delete=models.CASCADE,null=True,blank=True)
     customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
     is_deleted = models.BooleanField(default=False)
     
