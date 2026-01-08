@@ -41,7 +41,7 @@
                                     </a>
                                 </div>
                                 <div class="me-2">
-                                    <a href="{% url 'customer_outstanding_list' %}?product_type={{ filter_data.product_type }}&q={{ filter_data.q|default_if_none:'' }}&route_name={{ filter_data.route_name|default_if_none:'' }}&date={{ filter_data.filter_date }}{% if customer_pk %}&customer_pk={{ customer_pk }}{% endif %}&export=excel" target="_blank">
+                                    <a href="{% url 'customer_outstanding_list' %}?product_type={{ filter_data.product_type }}&q={{ filter_data.q|default_if_none:'' }}&route_name={{ filter_data.route_name|default_if_none:'' }}&date={{ filter_data.filter_date }}&salesman_id={{ filter_data.salesman_id }}&export=excel" target="_blank">
                                         <button type="button" class="btn btn-warning btn-wave">
                                             <i class="fas fa-file-excel"></i>Excel
                                         </button>
@@ -60,10 +60,23 @@
                                                     <option value="emptycan" {% if filter_data.product_type == 'emptycan' %}selected{% endif %}>Empty Can</option>
                                                     <option value="coupons" {% if filter_data.product_type == 'coupons' %}selected{% endif %}>Coupon</option>
                                                 </select>
+                                               
                                                 <select name="route_name" class="form-select me-2">
                                                     <option value="">All Routes</option>
                                                     {% for route in route_li %}
                                                         <option value="{{ route.route_name }}" {% if route.route_name == filter_data.route_name %}selected{% endif %}>{{ route.route_name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                 <select name="salesman_id" class="form-select me-2">
+                                                    <option value="">All Salesmen</option>
+                                                    {% for salesman in salesman_list %}
+                                                        <option value="{{ salesman.id }}"
+                                                            {% if salesman.id|stringformat:"s" == filter_data.salesman_id %}
+                                                                selected
+                                                            {% endif %}
+                                                        >
+                                                        {{ salesman.first_name|upper }} 
+                                                        </option>
                                                     {% endfor %}
                                                 </select>
                                                 <input type="date" class="form-control" id="date" name="date" value="{{ filter_data.filter_date }}">
@@ -74,6 +87,8 @@
                                             </div>
                                         </div>
                                     </div>
+                                    
+                                    
                                 </form>
                             </div>
                         </div>
@@ -89,7 +104,6 @@
                                     <th>Customer</th>
                                     <th>Building No</th>
                                     <th>Room No/Floor No</th>
-                                    <th>Mobile No</th>
                                     <th>Route</th>
                                     {% if filter_data.product_type == 'amount' %}
                                     <th>Amount</th>
@@ -106,44 +120,43 @@
                             <tbody>
                                 {% load el_pagination_tags %}
                                 {% paginate 20 instances %}
-                                {% for customer in instances %}
-                                {% get_outstanding_amount customer.pk date as outstanding_amount %}
-                                {% get_outstanding_bottles customer.pk date as outstanding_bottles %}
-                                {% get_outstanding_coupons customer.pk date as outstanding_coupons %}
-                                
-                                
+                                {% for row in instances %}
+                                {% with customer=row.customer %}
                                 <tr>
                                     <td>{{ forloop.counter }}</td>
                                     <td>{{ customer.custom_id }}</td>
                                     <td>{{ customer.customer_name }}</td>
                                     <td>{{ customer.building_name }}</td>
                                     <td>{{ customer.door_house_no }}</td>
-                                    <td>{{ customer.mobile_no }}</td>
                                     <td>{{ customer.routes.route_name }}</td>
+                            
                                     {% if filter_data.product_type == 'amount' %}
-                                    <td>{{ outstanding_amount }}</td>
+                                        <td class="out_amount">{{ row.net_amount }}</td>
                                     {% endif %}
+                            
                                     {% if filter_data.product_type == 'emptycan' %}
-                                    <td>{{ outstanding_bottles }}</td>
+                                        <td>{{ row.bottles }}</td>
                                     {% endif %}
+                            
                                     {% if filter_data.product_type == 'coupons' %}
-                                    <td>{{ outstanding_coupons }}</td>
+                                        <td>{{ row.coupons }}</td>
                                     {% endif %}
+                            
                                     <td class="text-center">
-                                        <div class="g-2">
-                                            <a href="{% url 'customer_outstanding_details' customer.pk %}?product_type={{ filter_data.product_type }}" class="btn btn-warning-light btn-sm" data-bs-toggle="tooltip" title="View">
-                                                <span class="bi bi-eye fs-14"></span>
-                                            </a>
-                                        </div>
+                                        <a href="{% url 'customer_outstanding_details' customer.customer_id %}?product_type={{ filter_data.product_type }}"
+                                           class="btn btn-warning-light btn-sm">
+                                            <span class="bi bi-eye fs-14"></span>
+                                        </a>
                                     </td>
                                 </tr>
+                                {% endwith %}
                                 {% endfor %}
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="7" class="text-end fw-bold">Total Outstanding Amount:</td>
+                                    <td colspan="6" class="text-end fw-bold">Total Outstanding Amount:</td>
                                     {% if filter_data.product_type == 'amount' %}
-                                    <td class="fw-bold">{{ net_total_outstanding }}</td>
+                                    <td class="fw-bold total_out_amount">{{ total_outstanding_amount }}</td>
                                     {% endif %}
                                     {% if filter_data.product_type == 'emptycan' %}
                                     <td class="fw-bold">{{ total_outstanding_bottles }}</td>

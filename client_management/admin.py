@@ -71,16 +71,17 @@ class CustomerOutstandingAmountAdmin(admin.ModelAdmin):
         'customer',
         'amount'
     )
+    search_fields = ('customer_outstanding__invoice_no','customer_outstanding__customer__customer_name',)
+    list_filter = ['customer_outstanding__created_date'] 
     ordering = ("-customer_outstanding__created_date",)
-    list_filter = (RouteFilter, CustomerFilter)
-    search_fields = (
-        'customer_outstanding__customer__customer_name',
-    )
+    autocomplete_fields = ['customer_outstanding']
+
     def invoice_no(self, obj):
         return obj.customer_outstanding.invoice_no
     invoice_no.admin_order_field = 'customer_outstanding__invoice_no'
     invoice_no.short_description = 'Invoice No'
-
+    
+   
     def created_by(self, obj):
         return obj.customer_outstanding.created_by
     created_by.admin_order_field = 'customer_outstanding__created_by'

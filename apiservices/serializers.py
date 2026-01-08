@@ -694,7 +694,18 @@ class CustomerOutstandingSerializer(serializers.ModelSerializer):
         fields = ['customer_id','customer_name','building_name','sales_type','route_name','route_id','door_house_no','amount','empty_can','coupons']
     
     def get_amount(self, obj):
-        return  get_customer_outstanding_amount(obj)
+        return get_customer_outstanding_amount(obj)
+    # def get_amount(self,obj):
+    #     outstanding_amounts = 0
+    #     date_str = self.context.get('date_str')
+    #     outstanding_amounts = OutstandingAmount.objects.filter(customer_outstanding__customer=obj,customer_outstanding__created_date__date__lte=date_str).aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+    #     collection_amount = CollectionPayment.objects.filter(customer=obj,created_date__date__lte=date_str).aggregate(total_amount_received=Sum('amount_received'))['total_amount_received'] or 0
+        
+        
+    #     return outstanding_amounts - collection_amount
+    #     # if outstanding_amounts > collection_amount:
+    #     # else:
+    #     #     return collection_amount - outstanding_amounts
     
     def get_empty_can(self,obj):
         date_str = self.context.get('date_str')
@@ -3353,7 +3364,8 @@ class CustomerSupplyLatestSerializer(serializers.ModelSerializer):
                     amout_total=customer_supply.subtotal,
                     amout_recieved=customer_supply.amount_recieved,
                     customer=customer_supply.customer,
-                    reference_no=customer_supply.reference_number
+                    reference_no=customer_supply.reference_number,
+                    salesman=customer_supply.salesman
                 )
 
                 # SET INVOICE STATUS & TYPE

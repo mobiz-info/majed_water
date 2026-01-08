@@ -885,3 +885,11 @@ class CustomerOtherProductCharges(models.Model):
     
     def __str__(self):
         return f"{self.customer.customer_name}"
+    
+
+class CustomerCredit(models.Model):
+    customer = models.ForeignKey(Customers, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    source = models.CharField(max_length=50, default="excel_import")
+    remark = models.TextField(blank=True, null=True)
+    created_date = models.DateTimeField(auto_now_add=True)

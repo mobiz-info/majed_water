@@ -6,7 +6,7 @@ from .models import *
 # Register your models here.
 class InvoiceAdmin(admin.ModelAdmin):
     list_display = (
-        'customer', 'reference_no', 'invoice_no', 'invoice_type', 
+        'customer','get_salesman','reference_no', 'invoice_no', 'invoice_type', 
         'invoice_status', 'created_date', 'net_taxable', 'vat', 
         'discount', 'amout_total', 'amout_recieved', 'delete_button'
     )
@@ -21,6 +21,10 @@ class InvoiceAdmin(admin.ModelAdmin):
 
     delete_button.short_description = 'Delete'
     delete_button.allow_tags = True
+    def get_salesman(self, obj):
+        return obj.salesman.get_full_name() if obj.salesman else "-"
+
+    get_salesman.short_description = "Salesman"
 
 admin.site.register(Invoice, InvoiceAdmin)
 

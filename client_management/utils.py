@@ -1,16 +1,11 @@
 from decimal import Decimal
 from django.db.models import Sum, F, DecimalField, ExpressionWrapper
+from client_management.models import CustomerCredit
 from invoice_management.models import Invoice
 
 def get_customer_outstanding_amount(customer):
-    """
-    Single source of truth:
-    Outstanding = SUM(invoice.total - invoice.received)
-
-    Negative = customer credit
-    """
-
-    return Invoice.objects.filter(
+    
+    invoice_total = Invoice.objects.filter(
         customer=customer,
         is_deleted=False
     ).aggregate(
@@ -21,3 +16,11 @@ def get_customer_outstanding_amount(customer):
             )
         )
     )["total"] or Decimal("0.00")
+    customer_credit = (
+        CustomerCredit.objects
+        .filter(customer=customer)
+        .aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+    )
+    final_outstanding = invoice_total - customer_credit
+
+    return final_outstanding
