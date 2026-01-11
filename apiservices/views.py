@@ -6307,7 +6307,7 @@ class AddCollectionPayment(APIView):
                     # Update invoice
                     invoice.amout_recieved += total_used
                     invoice.invoice_status = (
-                        "paid" if invoice.amout_recieved >= invoice.amout_total else "partial"
+                        "paid" if invoice.amout_recieved >= invoice.amout_total else "non_paid"
                     )
                     invoice.save()
 
