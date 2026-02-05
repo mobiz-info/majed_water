@@ -154,8 +154,6 @@ class CustomerEditForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['sales_staff'].queryset = CustomUser.objects.filter(is_active = True,designation_id__designation_name__in=["Sales Executive","Salesman"])
         self.fields['routes'].queryset = RouteMaster.objects.all()
-        # self.fields['emirate'].queryset = EmirateMaster.objects.filter()
-        # self.fields['location'].queryset = LocationMaster.objects.filter(branch_id = branch)
         self.fields['rate'].widget.attrs['readonly'] = True
         
     class Meta:

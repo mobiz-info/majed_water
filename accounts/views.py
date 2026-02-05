@@ -28,6 +28,7 @@ from van_management.views import find_customers
 from .forms import *
 from .models import *
 from django.db.models import Q
+import traceback
 import pandas as pd
 from io import BytesIO
 from reportlab.pdfgen import canvas
@@ -951,6 +952,7 @@ def edit_customer(request,pk):
                 # print("previous_rate",previous_rate)
                 data = form.save(commit=False)
                 data.emirate = data.location.emirate
+                data.is_deleted = False
                 data.save()
                 
                 if not data.user_id:
@@ -1003,6 +1005,9 @@ def randomnumber(digits):
     return random.randint(range_start, range_end)
 
 def delete_customer(request,pk):
+    if request.method != 'POST':
+        return HttpResponse(json.dumps({'status': 'false', 'message': 'Invalid request method. Please use POST.'}), content_type='application/javascript')
+    print("DELETE CALLED\n", "".join(traceback.format_stack()))
     cust_Data = Customers.objects.get(customer_id=pk)
     cust_Data.is_deleted = True
     
@@ -1025,7 +1030,7 @@ def delete_customer(request,pk):
     log_activity(
             created_by=request.user if request.user.is_authenticated else None,
             description=f"Deleted customer with ID {cust_Data.customer_name}"
-        )
+    )
     
     response_data = {
         "status": "true",

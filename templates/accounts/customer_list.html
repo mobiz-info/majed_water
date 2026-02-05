@@ -157,7 +157,7 @@
                                                         </a>
                                                     {% endif %}
                                                     <a aria-label="anchor" class="action-button remove btn btn-danger-light btn-sm ms-2" data-bs-toggle="tooltip" data-bs-original-title="Delete"
-                                                    data-id="{{data.pk}}" data-text="{{confirm_delete_message}}" data-title="Are you sure?" href="{% url 'delete_customer' pk=data.pk %}">
+                                                    data-id="{{data.pk}}" data-method="POST" data-text="{{confirm_delete_message}}" data-title="Are you sure?" href="{% url 'delete_customer' pk=data.pk %}">
                                                         <span class="bi bi-trash3 fs-14"></span> <!-- Icon updated for 'Delete' -->
                                                     </a>
                                                 </div>

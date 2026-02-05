@@ -106,8 +106,13 @@
 
         <div class="row my-3 me-1">
             <div class="col-12 text-end">
-                <a href="{% url 'delete_customer' user_det.customer_id %}">
-                    <button class="btn btn-danger me-md-2" type="button"><i class="bi bi-backspace-fill pe-1"></i>Delete {{ user_det.customer_name }}</button>
+                <a class="btn btn-danger me-md-2 action-button" 
+                   href="{% url 'delete_customer' user_det.customer_id %}"
+                   data-method="POST"
+                   data-id="{{ user_det.customer_id }}"
+                   data-title="Delete Customer"
+                   data-text="Are you sure you want to delete {{ user_det.customer_name }}?">
+                   <i class="bi bi-backspace-fill pe-1"></i>Delete {{ user_det.customer_name }}
                 </a>
                 <a href="{% url 'customers' %}">
                     <button class="btn btn-success me-md-2" type="button"><i class="bi bi-backspace-fill pe-1"></i>Back</button>

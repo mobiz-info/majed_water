@@ -17,8 +17,24 @@ function show_loader() {
   </div>`);
 }
 
+
 function remove_popup() {
     $('.cssload-thecube-container').remove();
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
 }
 
 
@@ -96,6 +112,7 @@ $(document).ready(function () {
         var confirmButtonColor = "#DD6B55";
         var id = $this.attr('data-id');
         var url = $this.attr('href');
+        var method = $this.attr('data-method') || 'GET';
         var title = $this.attr('data-title');
         if (!title) {
             title = "Are you sure?";
@@ -122,9 +139,10 @@ $(document).ready(function () {
 
                 window.setTimeout(function () {
                     jQuery.ajax({
-                        type: 'GET',
+                        type: method,
                         url: url,
                         dataType: 'json',
+                        headers: {'X-CSRFToken': getCookie('csrftoken')},
                         data: {
                             pk: id
                         },
